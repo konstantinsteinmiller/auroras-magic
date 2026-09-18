@@ -57,6 +57,27 @@ let armed = false
 let splashGone = false
 let fired = false
 
+/** The builds whose portal REQUIRES the first-load ad (the same list the
+ *  splash arms on). Known at build time, so the dialogue can ask before the
+ *  splash's setup has run. */
+export const FIRST_LOAD_AD_BUILD =
+  import.meta.env.VITE_APP_GAMEPIX === 'true'
+  || import.meta.env.VITE_APP_GAME_MONETIZE === 'true'
+  || import.meta.env.VITE_APP_GAME_DISTRIBUTION === 'true'
+
+/** A no-fill must never hold the story: after the splash, give the ad this
+ *  long to become ready before the first bubble paints anyway. */
+const SETTLE_CAP_MS = 5000
+
+let settledFlag = false
+let resolveSettled: (() => void) | null = null
+const settledP = new Promise<void>((r) => { resolveSettled = r })
+const markSettled = (): void => {
+  if (settledFlag) return
+  settledFlag = true
+  resolveSettled?.()
+}
+
 const tryFire = (): void => {
   if (!armed || !splashGone || fired) return
   if (!isInterstitialReady.value) return
@@ -79,8 +100,20 @@ const tryFire = (): void => {
   // session played in silence.
   showMidgameAd()
     .catch((e) => console.warn('[first-load-ad] failed', e))
-    .finally(() => resumeMusicAfterAd())
+    .finally(() => {
+      resumeMusicAfterAd()
+      markSettled()
+    })
 }
+
+/**
+ * Resolves once the first-load ad has fired and settled, OR at once on a
+ * build that never shows one (story-spec §11.7, C30). The dialogue awaits it
+ * before chapter 1's very first bubble, so where the ad is mandatory it
+ * covers a calm frame instead of a half-read line. A no-fill is capped
+ * (`SETTLE_CAP_MS` after the splash) — the story never waits forever.
+ */
+export const firstLoadAdSettled = (): Promise<void> => (FIRST_LOAD_AD_BUILD ? settledP : Promise.resolve())
 
 /** Install the SDK-readiness watcher. Idempotent — safe to call from
  *  multiple component setups. Only call on builds that actually need
@@ -98,4 +131,5 @@ export const notifySplashGone = (): void => {
   if (splashGone) return
   splashGone = true
   tryFire()
+  if (!fired) setTimeout(() => { if (!fired) markSettled() }, SETTLE_CAP_MS)
 }

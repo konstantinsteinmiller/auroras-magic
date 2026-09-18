@@ -13,6 +13,7 @@ import { traceAssist, setTraceAssist, reducedMotion, setReducedMotion } from '@/
 import { flowHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
 import { leaveDuel } from '@/game/flow/duelFlow'
+import { leaderboardLive } from '@/use/useLeaderboard'
 
 defineProps<{
   isOpen: boolean
@@ -52,8 +53,19 @@ const tabs = computed(() => {
   const list = [
     { value: 'general', label: t('options.general') }
   ]
-  return !isMobile.value ? list.concat({ label: t('options.audio'), value: 'audio' }) : list
+  const withAudio = !isMobile.value ? list.concat({ label: t('options.audio'), value: 'audio' }) : list
+  // For the grown-up reading over a child's shoulder (§2.7).
+  return withAudio.concat({ label: t('options.parents.title'), value: 'parents' })
 })
+
+// ─── For Parents (story-spec §2.7) ──────────────────────────────────────────
+//
+// Plain sentences for the adult reader. The non-personalised-ads note only on
+// a child-directed build; the policy link only where a policy URL is set and
+// the portal allows outbound links (never on Poki or Playgama, rule 19).
+const childDirected = import.meta.env.VITE_CHILD_DIRECTED === 'true'
+const privacyUrl: string = import.meta.env.VITE_PRIVACY_URL ?? ''
+const linkAllowed = !!privacyUrl && import.meta.env.VITE_APP_POKI !== 'true' && import.meta.env.VITE_APP_PLAYGAMA !== 'true'
 
 // Native-name dropdown — every option legible regardless of the active locale.
 const languagesList = computed(() =>
@@ -158,6 +170,15 @@ const doLeave = (): void => {
               FButton(class="px-5" @click="doLeave") {{ t('options.leaveDuel.confirm') }}
               FButton(class="px-5" @click="confirmLeave = false") {{ t('options.leaveDuel.cancel') }}
 
+    div.parents(v-else-if="currentTab === 'parents'")
+      p {{ t('options.parents.aboutBody') }}
+      p {{ t('options.parents.adsBody') }}
+      p(v-if="childDirected") {{ t('options.parents.adsNonPersonalisedNote') }}
+      p {{ t('options.parents.purchasesBody') }}
+      p {{ t('options.parents.privacyBody') }}
+      p(v-if="leaderboardLive") {{ t('options.parents.leaderboardBody') }}
+      a(v-if="linkAllowed" :href="privacyUrl" target="_blank" rel="noopener noreferrer") {{ t('options.parents.privacyLinkLabel') }}
+
     div(v-else-if="currentTab === 'audio'").flex.flex-col.justify-between.items-center
       FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
       FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
@@ -170,6 +191,22 @@ const doLeave = (): void => {
 <style lang="sass" scoped>
 span
   text-shadow: 2px 2px 0 #000
+
+.parents
+  display: flex
+  flex-direction: column
+  gap: 10px
+  padding: 6px 10px 10px
+  max-width: 34rem
+  color: #fff
+  font-size: 0.95rem
+  line-height: 1.45
+  text-align: left
+  p
+    margin: 0
+  a
+    color: #ffd76a
+    text-decoration: underline
 
 .leave-confirm
   text-align: center

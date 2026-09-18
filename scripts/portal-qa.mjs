@@ -19,6 +19,14 @@
 //
 // Exits non-zero on the first failed check, so CI can gate on it.
 //
+// THE STORY BUILD (story-spec §11.15). A fresh profile boots into chapter 1's
+// dialogue, not a duel, so the battery enters a duel through the QA hook
+// `__gotoNode(0)` (dialogue skipped). After the shared mute/pause/menu checks
+// it tours every scene of §11.2's table and asserts the bracket per scene
+// (`__flow.live()`): live in the duel and the wipe only. Then happytime's
+// placement (at the boss chest's unbox, never at a win) and the Twin Gift's
+// 1.2 s hold threshold, where the portal has the SDK call to count.
+//
 // ── Why every part of this is the way it is ──
 //
 // THE BUILT BUNDLE, not the dev server. The dev server skips the obfuscator,
@@ -311,6 +319,8 @@ var runAd = function (kind) {
       // normal and the second is the graded failure, so sample the elements
       // themselves as well.
       audioAtOpen: qa.audioState(),
+      // C30 (§11.7): the very first dialogue bubble must wait for this ad.
+      bubbleAtOpen: !!document.querySelector('.dialogue .beat'),
       musicPastCap: null,
       audioPastCap: null,
       railPastCap: null
@@ -578,10 +588,11 @@ try {
 
   let booted = false
   for (let i = 0; i < 160; i++) {
-    if (await ev('!!document.querySelector("canvas.duel-canvas") && !!window.__S')) { booted = true; break }
+    if (await ev('!!document.querySelector("canvas.world, canvas.duel-canvas") && !!window.__S && !!window.__flow')) { booted = true; break }
     await sleep(250)
   }
-  check('game booted into the duel', booted)
+  check('game booted (a fresh save opens on the story)', booted,
+    booted ? `scene=${await ev('window.__campaignPhase ? window.__campaignPhase() : "?"')}` : '')
   if (!booted) {
     console.log('  body    : ' + await ev('document.body.innerText.slice(0,300)'))
     console.log('  hooks   : ' + await ev('JSON.stringify({ S: typeof window.__S, cheat: (function(){ try { return localStorage.getItem("cheat") } catch (e) { return String(e) } })(), canvas: !!document.querySelector("canvas.duel-canvas"), globals: Object.keys(window).filter(function (k) { return k.indexOf("__") === 0 }), lsIsNative: (function(){ try { return Object.prototype.toString.call(window.localStorage) } catch (e) { return String(e) } })(), keys: (function(){ try { var o=[]; for (var i=0;i<localStorage.length;i++) o.push(localStorage.key(i)); return o } catch (e) { return String(e) } })() })'))
@@ -611,6 +622,19 @@ try {
   console.log(`  sdk calls: ${await ev('JSON.stringify(window.__qa.sdkCalls)')}`)
   console.log(`  audio log: ${await ev('JSON.stringify(window.__qa.console.filter(l => /audio|sound|mute|pause/i.test(l)))')}\n`)
 
+  // Into chapter 1's first duel, the dialogue skipped — the scene the shared
+  // battery below measures. Not armed yet: that takes a real touch.
+  const phase = () => ev('window.__campaignPhase()')
+  const waitScene = async (sc, ms = 8000) => {
+    for (let i = 0; i < ms / 100; i++) {
+      if (await phase() === sc && !(await ev('window.__flow.fading()'))) return true
+      await sleep(100)
+    }
+    return false
+  }
+  await ev('window.__gotoNode(0)')
+  check('entered chapter 1\'s first duel', await waitScene('duel'))
+
   // ── GameMonetize: the ad bracket, which is its only portal signal ───────
   //
   // The first-play interstitial is moderation-mandated on this network, so it
@@ -627,6 +651,7 @@ try {
       check('the ad opened BEFORE the duel started',
         audit.progressAtOpen === null || parseFloat(audit.progressAtOpen) === 0,
         `duel clock at open = ${audit.progressAtOpen}`)
+      check('no dialogue bubble under the first-load ad (C30)', audit.bubbleAtOpen === false)
       // SILENT: not one synth voice was scheduled while the ad was open, and
       // any context that exists is held out of 'running'. The control that
       // stops this passing vacuously is the music check after the ad closes.
@@ -727,7 +752,8 @@ try {
     await sleep(500)
     c = await calls()
     check('gameplayStop while the Options modal is open', last(c, 'gameplayStop', 'gameplayStart'), c.slice(-4).join(','))
-    await ev(`(() => { const b = Array.from(document.querySelectorAll('button')).find(x => /save|close/i.test(x.textContent || '')); b && b.click(); })()`)
+    // Closed through the app, not by its button's text: the locale varies.
+    await ev('window.__flow.closeOverlay()')
     await sleep(700)
     c = await calls()
     check('gameplayStart again when it closes', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
@@ -739,16 +765,18 @@ try {
     await sleep(600)
     c = await calls()
     check('gameplayStart on return', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
-    // Win the duel through the sim and watch the result screen close the play.
+    // Win the duel through the sim: the play closes at once, and the story
+    // moves on to the map with the gift waiting — no result panel (S2).
     await ev('(() => { const S = window.__S; S.ehp = 0; })()')
-    await sleep(2500)
+    await sleep(1200)
     c = await calls()
-    check('gameplayStop + happytime when a duel is won', last(c, 'gameplayStop', 'gameplayStart') && c.includes('happytime'), c.slice(-5).join(','))
-    const panel = await ev('!!document.querySelector(".duel-result")')
-    check('result panel is up after the win', panel)
+    check('gameplayStop when a duel is won', last(c, 'gameplayStop', 'gameplayStart'), c.slice(-4).join(','))
+    check('no happytime at a standard win (§11.6: it belongs to the chest)', !c.includes('happytime'), c.slice(-5).join(','))
+    check('the win leads to the map, the gift waiting', await waitScene('map', 12000), `scene=${await phase()}`)
     // Leave the scene as the shared checks below expect it: a live duel.
-    await ev(`(() => { const b = document.querySelector('.duel-result .tap'); b && b.click(); })()`)
-    await sleep(600)
+    await ev('window.__gotoNode(1)')
+    await waitScene('duel')
+    await sleep(400)
     c = await calls()
     check('gameplayStart when the next duel begins', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
   }
@@ -818,6 +846,95 @@ try {
   const menuAudio = JSON.parse(await ev('JSON.stringify(window.__qa.audioState())'))
   check('menu open → audio suspended', menuAudio.count > 0 && menuAudio.allPaused,
     JSON.stringify(menuAudio))
+  // Close it again (through the app: its buttons' text depends on the locale).
+  await ev('window.__flow.closeOverlay()')
+  await sleep(600)
+  check('Options closed again', !(await ev('!!window.__flow.state().overlay')))
+
+  // ── The bracket, per scene (§11.2, §12.2.3) ─────────────────────────────
+  //
+  // Read off the app's own reconciler (`__flow.live()`), so every platform
+  // gets the proof, not only the one whose stub logs the bracket.
+  const live = () => ev('window.__flow.live()')
+  const scene = async (label, want) => {
+    const got = await live()
+    check(`bracket ${want ? 'LIVE' : 'off'} — ${label}`, got === want, `scene=${await phase()}`)
+  }
+  await ev('window.__gotoNode(1)')
+  await waitScene('duel')
+  await sleep(300)
+  await scene('in a duel, armed', true)
+  await ev('window.__flow.goto("map", 1)')
+  await sleep(300)
+  await scene('on the map', false)
+  await ev('window.__flow.goto("dialogue", 2)')
+  await sleep(300)
+  await scene('in a dialogue', false)
+  await ev('window.__flow.goto("wardrobe")')
+  await sleep(300)
+  await scene('in the wardrobe', false)
+  await ev('window.__flow.goto("map", 1)')
+  await sleep(300)
+  await ev('window.__toInvite(1)')
+  await scene('at the gift (unbox)', false)
+  check('reached the wipe through the gift and the pots', await ev('window.__toWipe(1)') === true)
+  await scene('in the wipe', true)
+  check('the wipe reached its reveal', await ev('window.__finishWipe()') === true)
+  await scene('admiring the restored sector', false)
+  await waitScene('map', 12000)
+
+  // ── happytime: at the boss chest's UNBOX, never at a win (§11.6) ────────
+  const happyName = PLATFORM === 'crazy-web' ? 'happytime' : PLATFORM === 'gamepix' ? 'happyMoment' : null
+  if (happyName && !CG_PRERELEASE) {
+    const happy = async () => JSON.parse(await ev('JSON.stringify(window.__qa.sdkCalls)')).filter((x) => x === happyName).length
+    const base = await happy()
+    for (const n of [2, 3]) {
+      await ev(`window.__gotoNode(${n})`)
+      await waitScene('duel')
+      await ev('(() => { window.__S.ehp = 0 })()')
+      await waitScene('map', 12000)
+      await ev(`window.__toWipe(${n}).then(() => window.__finishWipe())`)
+      await waitScene('map', 12000)
+    }
+    check(`no ${happyName} across standard wins and wipes`, await happy() === base, `calls=${await happy() - base}`)
+    await ev('window.__gotoNode(4)')
+    await waitScene('duel')
+    await ev('(() => { window.__S.ehp = 0 })()')
+    // The boss's thank-you plays in the arena; skip through it.
+    for (let i = 0; i < 60 && (await phase()) === 'duel'; i++) {
+      await ev(`(() => { const d = document.querySelector('.dialogue'); d && d.click() })()`)
+      await sleep(300)
+    }
+    await waitScene('map', 12000)
+    check(`no ${happyName} at the boss WIN`, await happy() === base, `calls=${await happy() - base}`)
+    await ev('window.__toWipe(4)')
+    check(`exactly one ${happyName} at the boss chest's unbox`, await happy() === base + 1, `calls=${await happy() - base}`)
+    await ev('window.__finishWipe()')
+    await sleep(500)
+    check(`and not again when that sector's wipe completes`, await happy() === base + 1, `calls=${await happy() - base}`)
+  }
+
+  // ── The Twin Gift's hold threshold (§11.5) ───────────────────────────────
+  const rewardName = PLATFORM === 'gamepix' ? 'rewardAd' : PLATFORM === 'crazy-web' ? 'requestAd:rewarded' : null
+  if (rewardName && !CG_PRERELEASE) {
+    await ev('window.__flow.goto("map", 3)')
+    await sleep(300)
+    await ev('window.__twin.offer(3)')
+    await sleep(300)
+    const shown = await ev('!!document.querySelector(".map-scene .twin")')
+    if (!shown) {
+      console.log('  (skipped: no rewarded ad ready on this stub, so the Twin Gift is not offered — by design)')
+    } else {
+      const rewards = async () => JSON.parse(await ev('JSON.stringify(window.__qa.sdkCalls)')).filter((x) => x === rewardName).length
+      const r0 = await rewards()
+      await ev('window.__holdTwinGift(1199)')
+      await sleep(800)
+      check('a 1199 ms hold pays nothing', await rewards() === r0, `calls=${await rewards() - r0}`)
+      await ev('window.__holdTwinGift(1200)')
+      await sleep(1200)
+      check('a 1200 ms hold plays exactly one rewarded ad', await rewards() === r0 + 1, `calls=${await rewards() - r0}`)
+    }
+  }
 } finally {
   const failed = results.filter(r => !r.pass)
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`)

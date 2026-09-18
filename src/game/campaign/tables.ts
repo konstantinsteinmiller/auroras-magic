@@ -35,8 +35,8 @@ export interface ChapterDef {
 
 export const CHAPTERS: readonly ChapterDef[] = [
   { id: 0, slug: 'c1', newRune: NATURE, signatureSpell: null, creature: 'Twig', built: true },
-  { id: 1, slug: 'c2', newRune: 5, signatureSpell: null, creature: 'Shelly', built: false },
-  { id: 2, slug: 'c3', newRune: 6, signatureSpell: null, creature: 'Puff', built: false },
+  { id: 1, slug: 'c2', newRune: 5, signatureSpell: null, creature: 'Shelly', built: true },
+  { id: 2, slug: 'c3', newRune: 6, signatureSpell: null, creature: 'Puff', built: true },
   { id: 3, slug: 'c4', newRune: null, signatureSpell: 0, creature: 'Glint', built: false },
   { id: 4, slug: 'c5', newRune: 7, signatureSpell: null, creature: 'Blink', built: false },
   { id: 5, slug: 'c6', newRune: 8, signatureSpell: null, creature: 'Rio', built: false },
@@ -114,3 +114,10 @@ export const duelSetup = (n: number): DuelSetup => {
   const foe = nodeFoe(n)
   return { node: n, foe, def: FOES[foe]!, usesMagic: nodePosInChapter(n) >= 2 }
 }
+
+/** The restoration tool a node's gift holds (§8.4 — by node type and
+ *  chapter, never random): the Sunbeam in every boss chest; the Stardust
+ *  Brush for standard nodes through chapter 3; the Magic Eraser from chapter
+ *  4 on (the chapter-3 boss chest unlocks it). */
+export type ToolId = 'brush' | 'eraser' | 'sunbeam'
+export const toolOf = (n: number): ToolId => (nodeIsBoss(n) ? 'sunbeam' : nodeChapter(n) >= 3 ? 'eraser' : 'brush')

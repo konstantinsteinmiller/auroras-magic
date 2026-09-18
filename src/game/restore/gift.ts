@@ -28,6 +28,9 @@ export interface GiftPose {
   untie: number
   /** Squash-and-stretch scale around the base. */
   squash: number
+  /** The chapter's ribbon (§8.2); chapter 1's moss green when omitted. */
+  ribbon?: string
+  ribbonShade?: string
 }
 
 const line = (g: G2D, w: number): void => {
@@ -50,6 +53,8 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
   const w = s * 0.92
   const h = s * 0.72
   const lw = Math.max(1.5, s * 0.045)
+  const RB = p.ribbon ?? RIBBON
+  const RBS = p.ribbonShade ?? RIBBON_SHADE
   g.save()
   g.translate(x, y)
   g.rotate(p.rot)
@@ -81,11 +86,11 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
   g.beginPath()
   g.rect(-rw / 2, -h, rw, h)
   g.rect(-w / 2, -h * 0.56 - rw / 2, w, rw)
-  g.fillStyle = RIBBON
+  g.fillStyle = RB
   g.fill()
   g.beginPath()
   g.rect(rw * 0.1, -h, rw * 0.4, h)
-  g.fillStyle = RIBBON_SHADE
+  g.fillStyle = RBS
   g.fill()
   g.restore()
   body()
@@ -97,22 +102,133 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
   const droop = u * s * 0.3
   for (const dir of [-1, 1]) {
     loop(g, dir, s * (1 - u * 0.25), 0.02 - u * 0.2, droop)
-    g.fillStyle = RIBBON
+    g.fillStyle = RB
     g.fill()
     line(g, lw)
     g.beginPath()
     g.moveTo(dir * s * 0.02, s * 0.02)
     g.quadraticCurveTo(dir * s * (0.12 + u * 0.2), s * (0.18 + u * 0.25), dir * s * (0.2 + u * 0.3), s * (0.22 + u * 0.3))
     g.lineWidth = s * 0.07
-    g.strokeStyle = RIBBON
+    g.strokeStyle = RB
     g.stroke()
   }
   g.beginPath()
   g.arc(0, 0, s * 0.07, 0, TAU)
-  g.fillStyle = RIBBON_SHADE
+  g.fillStyle = RBS
   g.fill()
   line(g, lw)
   g.restore()
+  g.restore()
+}
+
+/**
+ * The Magic Eraser's gift (§8.2): a SQUARE, corner-folded box — flat creases,
+ * no bow. The shape swap from the round Brush parcel IS the "you've graduated
+ * tools" beat, no words needed. Base at the origin, `s` tall; `untie` lifts
+ * the folded corner flap.
+ */
+export const drawBoxGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): void => {
+  const w = s * 0.82
+  const h = s * 0.78
+  const lw = Math.max(1.5, s * 0.045)
+  const RB = p.ribbon ?? RIBBON
+  const RBS = p.ribbonShade ?? RIBBON_SHADE
+  const u = clamp(p.untie, 0, 1)
+  g.save()
+  g.translate(x, y)
+  g.rotate(p.rot)
+  g.scale(1 / Math.sqrt(p.squash), p.squash)
+  g.beginPath()
+  g.roundRect(-w / 2, -h, w, h, s * 0.05)
+  g.fillStyle = '#fff1d6'
+  g.fill()
+  g.save()
+  g.clip()
+  g.beginPath()
+  g.rect(w * 0.14, -h, w, h)
+  g.fillStyle = '#f0d2c0'
+  g.fill()
+  // A flat band (no bow) and its crease.
+  g.beginPath()
+  g.rect(-w / 2, -h * 0.55 - s * 0.06, w, s * 0.12)
+  g.fillStyle = RB
+  g.fill()
+  g.beginPath()
+  g.rect(-w / 2, -h * 0.55 + s * 0.02, w, s * 0.04)
+  g.fillStyle = RBS
+  g.fill()
+  g.restore()
+  g.beginPath()
+  g.roundRect(-w / 2, -h, w, h, s * 0.05)
+  line(g, lw)
+  // The folded corner flap, top right — it lifts as the box opens.
+  const f = s * 0.26
+  g.save()
+  g.translate(w / 2, -h)
+  g.rotate(-u * 0.9)
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.lineTo(-f, 0)
+  g.lineTo(0, f)
+  g.closePath()
+  g.fillStyle = '#ffe3a3'
+  g.fill()
+  line(g, lw)
+  g.restore()
+  // A little star sticker.
+  g.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a2 = -PI / 2 + (i * PI) / 5
+    const rr = i & 1 ? s * 0.035 : s * 0.08
+    if (i) g.lineTo(-w * 0.22 + cos(a2) * rr, -h * 0.28 + sin(a2) * rr)
+    else g.moveTo(-w * 0.22 + cos(a2) * rr, -h * 0.28 + sin(a2) * rr)
+  }
+  g.closePath()
+  g.fillStyle = '#ffd36b'
+  g.fill()
+  line(g, lw * 0.7)
+  g.restore()
+}
+
+/**
+ * The Magic Eraser: a chunky rounded eraser block — pink rubber, a white
+ * sleeve with a star — turned along its heading. Centred at (x, y).
+ */
+export const drawEraser = (g: G2D, x: number, y: number, s: number, angle: number): void => {
+  const L = s * 0.62
+  const W = s * 0.4
+  const lw = Math.max(1.5, s * 0.035)
+  g.save()
+  g.translate(x, y)
+  g.rotate(angle)
+  g.beginPath()
+  g.roundRect(-L / 2, -W / 2, L, W, W * 0.3)
+  g.fillStyle = '#ff9ecf'
+  g.fill()
+  line(g, lw)
+  g.beginPath()
+  g.roundRect(-L * 0.12, -W / 2 - lw * 0.5, L * 0.46, W + lw, W * 0.12)
+  g.fillStyle = '#fff6fb'
+  g.fill()
+  line(g, lw)
+  g.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a2 = -PI / 2 + (i * PI) / 5
+    const rr = i & 1 ? W * 0.1 : W * 0.24
+    if (i) g.lineTo(L * 0.11 + cos(a2) * rr, sin(a2) * rr)
+    else g.moveTo(L * 0.11 + cos(a2) * rr, sin(a2) * rr)
+  }
+  g.closePath()
+  g.fillStyle = '#ffd36b'
+  g.fill()
+  line(g, lw * 0.7)
+  // A highlight along the top edge.
+  g.beginPath()
+  g.moveTo(-L * 0.42, -W * 0.28)
+  g.lineTo(-L * 0.18, -W * 0.28)
+  g.lineWidth = lw
+  g.strokeStyle = 'rgba(255,255,255,0.8)'
+  g.stroke()
   g.restore()
 }
 
@@ -417,9 +533,17 @@ export const drawSunbeam = (g: G2D, x: number, y: number, s: number, t: number, 
 }
 
 let arenaGiftOn = false
+let arenaRibbon: { ribbon: string; ribbonShade: string } | null = null
+let arenaBox = false
 /** Show (or clear) the gift in the arena. The duel's renderer asks
- *  `arenaGiftShown()` each frame; the scene sets it on a win that earned one. */
-export const setArenaGift = (on: boolean): void => { arenaGiftOn = on }
+ *  `arenaGiftShown()` each frame; the scene sets it on a win that earned one,
+ *  wrapped in that chapter's ribbon (§8.2) — and square when it holds the
+ *  Magic Eraser. */
+export const setArenaGift = (on: boolean, ribbon?: { ribbon: string; ribbonShade: string }, box = false): void => {
+  arenaGiftOn = on
+  arenaRibbon = ribbon ?? null
+  arenaBox = box
+}
 export const arenaGiftShown = (): boolean => arenaGiftOn
 
 /**
@@ -455,5 +579,5 @@ export const drawArenaGift = (g: G2D, x: number, y: number, t: number): void => 
     g.fillRect(x - 110, y - 150, 220, 220)
     g.restore()
   }
-  drawGift(g, x, yy, 96, { rot: u > FALL + 0.4 ? giftShake(u) * 0.6 : 0, untie: 0, squash })
+  ;(arenaBox ? drawBoxGift : drawGift)(g, x, yy, 96, { rot: u > FALL + 0.4 ? giftShake(u) * 0.6 : 0, untie: 0, squash, ribbon: arenaRibbon?.ribbon, ribbonShade: arenaRibbon?.ribbonShade })
 }

@@ -16,7 +16,7 @@
  */
 import { CHAPTERS, nodeChapter, nodePosInChapter, nodeIsBoss } from '@/game/campaign/tables'
 
-export type SpeakerId = 'aurora' | 'umbra' | 'briar' | 'creature'
+export type SpeakerId = 'aurora' | 'umbra' | 'briar' | 'pearl' | 'zephyr' | 'creature'
 export type Emote = 'happy' | 'sleepy' | 'worriedMild' | 'determined' | 'stern' | 'warmBlush' | 'cheering'
 export type Picto =
   | 'forest' | 'zzz' | 'crescentMoon' | 'sparkle' | 'heart' | 'leaf' | 'thorn' | 'wave' | 'musicalNote'
@@ -39,12 +39,23 @@ export interface Bubble {
 const b = (key: string, speaker: SpeakerId, emote: Emote, pictos: Picto[], beats: number, tone: Tone): Bubble =>
   ({ key, speaker, emote, pictos, beats, tone })
 
-/* ── Chapter openers and bosses, hand-written (§10.9). Chapter 1 ships at S2. ── */
+/* ── Chapter openers and bosses, hand-written (§10.9). Chapter 1 shipped at
+ *    S2; chapters 2 and 3 at S3. ── */
 const OPENERS: Readonly<Record<number, readonly Bubble[]>> = {
   0: [
     b('story.c1.n1.b1', 'aurora', 'determined', ['forest', 'zzz'], 6, 'neutral'),
     b('story.c1.n1.b2', 'umbra', 'sleepy', ['crescentMoon'], 6, 'neutral'),
     b('story.c1.n1.b3', 'aurora', 'determined', ['sparkle'], 7, 'excite')
+  ],
+  1: [
+    b('story.c2.n1.b1', 'aurora', 'worriedMild', ['wave', 'musicalNoteCrossed'], 6, 'neutral'),
+    b('story.c2.n1.b2', 'umbra', 'sleepy', ['wave'], 7, 'ask'),
+    b('story.c2.n1.b3', 'aurora', 'determined', ['sparkle'], 5, 'excite')
+  ],
+  2: [
+    b('story.c3.n1.b1', 'aurora', 'worriedMild', ['cloud', 'lightning'], 7, 'neutral'),
+    b('story.c3.n1.b2', 'umbra', 'sleepy', ['cloud'], 6, 'ask'),
+    b('story.c3.n1.b3', 'aurora', 'determined', ['sparkle', 'cloud'], 6, 'excite')
   ]
 }
 const BOSSES: Readonly<Record<number, readonly Bubble[]>> = {
@@ -52,12 +63,30 @@ const BOSSES: Readonly<Record<number, readonly Bubble[]>> = {
     b('story.c1.n5.b1', 'briar', 'stern', ['thorn'], 5, 'excite'),
     b('story.c1.n5.b2', 'aurora', 'worriedMild', ['heart'], 7, 'excite'),
     b('story.c1.n5.b3', 'briar', 'stern', ['duel'], 5, 'excite')
+  ],
+  1: [
+    b('story.c2.n5.b1', 'pearl', 'stern', ['wave'], 5, 'ask'),
+    b('story.c2.n5.b2', 'aurora', 'happy', ['musicalNote', 'heart'], 7, 'excite'),
+    b('story.c2.n5.b3', 'pearl', 'stern', ['duel'], 7, 'excite')
+  ],
+  2: [
+    b('story.c3.n5.b1', 'zephyr', 'stern', ['lightning'], 6, 'ask'),
+    b('story.c3.n5.b2', 'aurora', 'happy', ['wing', 'heart'], 7, 'excite'),
+    b('story.c3.n5.b3', 'zephyr', 'stern', ['duel'], 6, 'excite')
   ]
 }
 const THANKS: Readonly<Record<number, readonly Bubble[]>> = {
   0: [
     b('story.c1.n5.t1', 'briar', 'happy', ['sun'], 6, 'excite'),
     b('story.c1.n5.t2', 'briar', 'warmBlush', ['heart'], 5, 'excite')
+  ],
+  1: [
+    b('story.c2.n5.t1', 'pearl', 'happy', ['sun', 'wave'], 6, 'excite'),
+    b('story.c2.n5.t2', 'pearl', 'warmBlush', ['heart'], 6, 'excite')
+  ],
+  2: [
+    b('story.c3.n5.t1', 'zephyr', 'happy', ['sun', 'cloud'], 6, 'excite'),
+    b('story.c3.n5.t2', 'zephyr', 'warmBlush', ['wing', 'heart'], 7, 'excite')
   ]
 }
 

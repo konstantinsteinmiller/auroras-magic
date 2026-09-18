@@ -119,7 +119,8 @@ export default {
     'combo': 'x{n} KOMBO',
     'times': 'x{n}',
     'victory': 'G‘ALABA',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'YARQ!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'Bu dueldagi yutuqlaringiz saqlanmaydi.',
       'confirm': 'Chiqish',
       'cancel': 'Qolish'
+    },
+    'parents': {
+      'title': 'Ota-onalar uchun',
+      'aboutBody': 'Auroras Magic o‘yinida chat yo‘q, begonalar bilan aloqa yo‘q va joylashuv aniqlanmaydi. O‘ynash uchun hisob ochish shart emas.',
+      'adsBody': 'Bu o‘yin bepul bo‘lib qolishi uchun video reklamalar ko‘rsatadi. Baʼzi reklamalarni o‘tkazib yuborib bo‘lmaydi; bonus mukofotli reklamani ko‘rish har doim ixtiyoriy.',
+      'adsNonPersonalisedNote': 'Bu versiyada reklamalar shaxsiylashtirilmagan holda ko‘rsatiladi.',
+      'purchasesBody': 'Ilova ichida xaridlar yo‘q.',
+      'privacyBody': 'Biz saqlash faylini shu qurilmada yoki portalning bulutli saqlash xizmatida saqlaymiz. Hech qanday shaxsiy maʼlumot to‘planmaydi.',
+      'leaderboardBody': 'Reytingda faqat o‘ylab topilgan o‘yinchi nomi va yutilgan duellar soni ko‘rsatiladi.',
+      'privacyLinkLabel': 'To‘liq maxfiylik siyosati'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Atirgul pushtisi',
     'sunflower': 'Kungaboqar sarig‘i',
-    'bluebell': 'Qo‘ng‘iroqgul ko‘ki'
+    'bluebell': 'Qo‘ng‘iroqgul ko‘ki',
+    'coral': 'Marjon pushtisi',
+    'lagoon': 'Laguna ko‘ki',
+    'sunshell': 'Quyoshli oltin',
+    'lavender': 'Lavanda',
+    'skyblue': 'Osmon ko‘ki',
+    'sunrise': 'Tong to‘q sarig‘i'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Isbotla-chi, kichkina yakkashox. Men bilan duel qil!',
         't1': 'Voy! O‘rmon yana iliq bo‘ldi.',
         't2': 'Rahmat, Aurora. Istalgan payt yana kel!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Pufakchalar ko‘rfazi qo‘shig‘ini yo‘qotdi.',
+        'b2': 'Jimjitlik ham shinam-ku, shunday emasmi?',
+        'b3': 'Har bir ovoz eshitilishga loyiq!'
+      },
+      'n5': {
+        'b1': 'Sokin suvlarimni kim chayqatyapti?',
+        'b2': 'Men qo‘shiqlarni qaytarish uchun keldim!',
+        'b3': 'Unda kuchingni qo‘shiqda ko‘rsat. Duel qil!',
+        't1': 'To‘lqinlar yengil va yorug‘ bo‘ldi!',
+        't2': 'Rahmat, Aurora. Tez orada yana suzib kel!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Bo‘ron pegaslarni uchishga qo‘ymayapti.',
+        'b2': 'Bo‘ronli havoda uxlash maza-ku, a?',
+        'b3': 'Keling, osmonni birga tozalaymiz, Zephyr!'
+      },
+      'n5': {
+        'b1': 'MENING bo‘ronimdan kim uchib o‘tmoqchi?',
+        'b2': 'Pegaslar yana parvoz qilishini istayman!',
+        'b3': 'Uchquningni ko‘rsat. Hozir men bilan duel qil!',
+        't1': 'Osmon tinch va musaffo bo‘ldi!',
+        't2': 'Rahmat, Aurora. Tez orada biz bilan birga uch!'
       }
     },
     'tmpl': {

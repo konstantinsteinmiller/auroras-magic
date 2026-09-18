@@ -12,8 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { S, save } from '@/game/duel/state'
 import { COSMETICS, COSMETIC_SLOTS } from '@/game/campaign/tables'
 import { sfx } from '@/game/duel/audio'
-import { gotoScene } from '@/game/flow/scene'
-import { dipTo } from '@/game/flow/transition'
+import { leaveWardrobe } from '@/game/flow/restoreFlow'
 import { admire } from '@/game/cosmetics/wardrobe'
 import { itemIconUrl } from '@/game/cosmetics/icons'
 import { haptic } from '@/use/useHaptics'
@@ -55,7 +54,7 @@ const toggle = (slot: typeof COSMETIC_SLOTS[number], id: number): void => {
 
 const back = (): void => {
   sfx('ui')
-  dipTo(() => gotoScene('map'), 0.4)
+  leaveWardrobe()
 }
 </script>
 

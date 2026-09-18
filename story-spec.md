@@ -5544,7 +5544,12 @@ there are three levers, in order of cost:
 - a stiffer first pass, 45 % instead of 55 %;
 - a portrait sector composition (painted art would need it too).
 
-None is applied; this is the owner's call.
+None is applied. **Decided (2026-09-18, owner delegated):** phones keep the
+short wipe. The first two levers work against the youngest players (a brush
+under a toddler's fingertip margin) or slow every device (desktop past the
+20 s ceiling), and even together they reach only ~6–8 s on a phone. The real
+fix is the third: portrait sector compositions, done with the painted art in
+S6, where every sector is recomposed anyway.
 
 **S1 glue that S2 replaces.** `GameScene.vue` handles this for now:
 - `earnSector()` treats every win as "node 0 won" until that sector is done;
@@ -5660,6 +5665,112 @@ resumed at 0.0 %.
   runes only.
 
 `wipe_complete.rescueFound` is always `false` until the collectible exists.
+
+### §8.17 S3 as built (2026-09-18)
+
+S3 is the v1 release (D2): chapters 1–3. What it added to this chapter, and
+where it differs from the text above:
+
+**Chapters 2 and 3.** Bubble Bay (`map/sectorsC2.ts`, `kitBay.ts`) and Cloud
+Kingdom (`map/sectorsC3.ts`, `kitSky.ts`) are five sectors each, authored
+against `map/sectorDef.ts`.
+- **The contract.** A sector now carries its chapter's `accent` (the gift
+  ribbon, §8.2, and the chest's gem), a `tap` creature, and, on exactly one
+  sector per chapter, the `rescue` collectible.
+- **Pots.** Each biome has three: Bubble Bay's coral, lagoon and sunshell;
+  Cloud Kingdom's lavender, skyblue and sunrise.
+
+**Permanence, all three beats (§8.8), derived from the done bit.**
+1. **The ambient loop.**
+   - It plays on a third bus, `ambBus`, beside sfx and music. The bus follows
+     the Sound Effects volume and every mute, pause and ad gate (its voices
+     go through `V()`).
+   - Each biome has one pattern, a few short voices re-triggered a little
+     irregularly:
+     - woods: leaf rustle plus a two-note bird;
+     - bay: a lapping swell plus rising bubbles;
+     - clouds: a wind sweep plus a soft chime.
+   - It is audible while a restored sector of the page in view is on screen
+     (at half level under a dialogue), and during a restored sector's admire
+     beat.
+2. **The tap creature.** Every restored sector has one:
+   - chapter 1: a moss-sprite in a hollow log;
+   - chapter 2: a sea-unicorn foal blowing a bubble ring;
+   - chapter 3: a baby pegasus hopping up from behind a cloud.
+
+   A tap on it, on the map or in the admire view, plays a 900 ms peek-a-boo
+   (250 ms up, 400 ms hello, 250 ms down) and one chime-family `peek` note.
+   On the map it is tested before the thumbnail, so it never starts a replay.
+   Its target is at least 26 px on screen.
+3. **The rescue collectible**, one per chapter: the Wood Sprite (1-3), the
+   Singing Shell (2-3), the Baby Pegasus (3-3).
+   - **Placement.** It sleeps under the dust (drawn in the props layer, so
+     the dust covers it).
+   - **Waking by hand.** When a third of its cells is uncovered (by mean
+     clear share), it wakes with:
+     - a dense glint cluster;
+     - the `rescue` cue;
+     - a haptic;
+     - the chapter's `rescued` bit.
+   - **The auto-pop.** If the pop comes first, it wakes inline at the wave
+     (§8.6's guarantee).
+   - **Telemetry.** `wipe_complete.rescueFound` is true only when the player
+     found it by hand.
+
+**The Magic Eraser (§8.4, §7.5).**
+- **Where it is used.** `toolOf(n)`: the Sunbeam in every boss chest, the
+  Brush for standard nodes through chapter 3, and the Eraser from chapter 4.
+  v1 players therefore never hold it; it is built and tested for S4.
+- **The tool.** `restore/eraser.ts`: a rounded paddle whose long axis eases
+  toward the stroke's heading. One contact clears (`mask.stampRect`, a
+  rotated rectangle with a thin soft edge).
+- **Feel.**
+  - 2 glints per tick;
+  - puffs every 90 ms;
+  - haptic pulses of 20 ms every 95 ms.
+- **Its gift.** The square, corner-folded box (`drawBoxGift`).
+- **Measured.** 9.8–10.0 s at §7.5's reference scale over ten seeds, with
+  §8.4's paddle (long half-extent `max(46, 9 %)`). That is a little under
+  §7.5's 12 s, whose own arithmetic assumes a bigger paddle at a lower
+  efficiency. Kept, per the owner's child-first ruling: faster is fine.
+
+**Keepsakes on the rig (§9.7).**
+- **The hooks.** `drawUnicorn` gained `beforeTorso`, `afterTorso` and
+  `afterMane`, beside `afterHead`. Each receives `RigAnchors`: the neck
+  collar and its direction, the withers, the tail base, the time and how
+  excited the rig is.
+- **The Seashell Necklace (2-5)** hangs low on the neck, clear of the head:
+  three shells and two pearls.
+- **The Fluffy Pegasus Wings (3-5).**
+  - Layers: a far wing before the torso; a near wing over the mane, so it
+    reads.
+  - Position and pose: rooted a little behind the withers, rising up and
+    back.
+  - Flap: a slow breath at rest, a real flap on a hop.
+- **Where they show.** `equippedHooks()` dresses Aurora in the duel, the
+  wardrobe and her dialogue portrait.
+
+**Smaller S3 decisions.**
+- **Arena theming (§9.6)** is `duel/arenaThemes.ts`:
+  - chapter 1 is the shipped jam island;
+  - Bubble Bay has sea-blue rock, a sandy cap, shells and coral;
+  - Cloud Kingdom has lavender cloud-stone and a cloud-white cap.
+
+  The arena deliberately keeps chapter 1's value structure rather than the
+  map's candy floor, so the spells stay the most saturated thing on screen
+  (art-style.md §4.3).
+- **Unbuilt chapters** (4–10) show their silhouette pages with a dozing
+  crescent moon and a drawn Z. There are no words on the map.
+- **The first-load ad (§11.7, C30).** `firstLoadAdSettled()` holds the very
+  first dialogue bubble on the three builds that show the load-time ad
+  (GamePix, GameMonetize, GameDistribution). It resolves at once everywhere
+  else. A no-fill is capped at 5 s after the splash, so the story never waits
+  forever.
+- **The For Parents tab (§2.7).** It shows the 7 specified keys plus
+  `options.parents.leaderboardBody`, the one fact the spec predates: on live
+  builds a made-up name and a duel count go to the leaderboard. The policy
+  link renders only where `VITE_PRIVACY_URL` is set, and never on Poki or
+  Playgama.
 
 
 ---
@@ -8656,6 +8767,25 @@ written primarily against this gate, then repeated at S4 and S6 as noted.
   go/no-go thresholds (§12.6) are met, or the moderator records an explicit
   dated waiver naming which threshold is waived and why.
 - **Scope tag:** [S3]
+- **Engineering result (2026-09-19):** the parts of this gate a build can
+  prove are green.
+  - **Portal QA:** `qa:portal`, extended per §11.15, passes on GamePix,
+    GameMonetize (dummy id), CrazyGames pre-release and full release, and
+    plain web. It covers:
+    - the bracket per scene;
+    - happytime at the unbox;
+    - the Twin Gift's 1.2 s threshold;
+    - C30.
+  - **Size:** `build:all` is within every budget (archives 300–470 kB).
+  - **Candy floor:** 15/15 sectors — dust saturation 11–12 %, candy share
+    22–52 %, median ΔL 39–58.
+  - **Playthrough:** a full 1-1 → 3-5 run, in landscape and in 320 × 658
+    portrait, with no console errors.
+  - **Still to do before submission** (human work):
+    - the kid playtest (§12.5);
+    - the fatigue probe (§12.7);
+    - the three target reviews (§12.3);
+    - the real portal ids.
 
 #### §12.2.5 S4 — chapters 4–10, in pairs
 
@@ -9070,6 +9200,8 @@ gives:
 - **Reversal cost:** one flag, listing copy, and one line in the art prompt.
 
 ### §13.2 D2 — Release at S3 (chapters 1–3) or at chapter 10? — **RESOLVED (owner, 2026-09-18)**
+
+*(Engineering for the S3 release: done 2026-09-19, §12.2.4.)*
 
 - **Ruling: ship at S3 — §1.8 Option A.** Chapters 1–3 are v1, released the
   moment S3's exit demo (§12.2.4) passes, in the procedural art. Chapters

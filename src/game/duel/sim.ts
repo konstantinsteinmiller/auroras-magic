@@ -12,7 +12,7 @@
  * argument; the sim only ever sees a foe's numbers.
  */
 import {
-  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE,
+  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING,
   PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex,
   type Rune, type ResolvedSpell
 } from '@/game/duel/config'
@@ -156,10 +156,28 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
 
 /* ------------------------------ casting ----------------------------- */
 /**
- * Barrier flavour from the combo's element — no extra matrix column needed.
- * WIND -> stops projectiles, EARTH -> stops everything, ICE -> one-shot pillar.
+ * Barrier flavour from the spell's leading element — no extra matrix column
+ * needed. WIND (0) stops projectiles, EARTH (1) stops everything, ICE (2) is
+ * a one-shot pillar, and WATER's bubble ward (3, §6.3) holds for two hits.
  */
-const guardKind = (q: readonly Rune[]): number => (q[0] === EARTH ? 1 : q[0] === ICE ? 2 : 0)
+const guardKind = (sp: ResolvedSpell): number =>
+  sp.wardHits ? 3 : sp.dominant === EARTH ? 1 : sp.dominant === ICE ? 2 : 0
+/** The rune a barrier of flavour `gk` is drawn as. */
+const guardRune = (gk: number): number => (gk === 1 ? EARTH : gk === 2 ? ICE : gk === 3 ? WATER : WIND)
+
+/** Raise a barrier on one side (and its visual). */
+const raise = (e: boolean, gk: number, secs: number, hits: number): void => {
+  if (e) {
+    S.eGuard = secs
+    S.eGuardK = gk
+    S.eGuardHits = hits
+  } else {
+    S.guard = secs
+    S.guardK = gk
+    S.guardHits = hits
+  }
+  barrier(e ? UX : AX, GY - 70, guardRune(gk), secs, 0)
+}
 
 /** The spell a queue resolves to, with this save's unlocked Signature Spells. */
 export const spellOf = (q: readonly number[]): ResolvedSpell => resolveSpell(q, S.campaign.signaturesUnlocked)
@@ -212,18 +230,15 @@ const launch = (q: Rune[], e: boolean): void => {
 
   if (kind === 2) {
     // Barriers land on the caster, instantly.
-    const k = guardKind(q)
-    const ex = sp.guard ?? 0
-    if (e) {
-      S.eGuard = ex
-      S.eGuardK = k
-    } else {
-      S.guard = ex
-      S.guardK = k
-    }
-    barrier(e ? UX : AX, GY - 70, q[0]!, ex)
+    const k = guardKind(sp)
+    raise(e, k, sp.guard ?? 0, k === 3 ? sp.wardHits ?? 2 : 0)
     sfx('guard')
   } else {
+    // A Water rider (or the Tidal Wave itself) leaves the caster a 1-hit
+    // personal ward for 2 s (§6.3) — never over a wall already standing.
+    if (sp.wardHits && (e ? S.eGuard : S.guard) <= 0) raise(e, 3, 2, sp.wardHits)
+    // Zephyr's phase 2 (§6.11): her bolts gain Lightning's pierce.
+    const pierce = !!sp.pierce || (e && S.ePhase === 2 && foe.phase2 === 'pierceBolts' && kind === 0)
     S.shots.push({
       x: hx,
       y: HORN_Y,
@@ -235,6 +250,7 @@ const launch = (q: Rune[], e: boolean): void => {
       slow: sp.slow ?? 0,
       dir,
       w: mul > 1.2 ? 1 : 0, // super-effective, for the callout on impact
+      p: pierce ? 1 : 0,
       n: q.length,
       delay: DELAY[kind] ?? 0,
       life: 0
@@ -269,8 +285,12 @@ export const cast = (): void => {
  *     ground-level fields (kind 1) still creep underneath it.
  *   ice pillar (2) eats a single incoming projectile; it is a wall, not a
  *     roof, so things falling from above go straight over it.
+ *   bubble ward (3) catches bolts, fields and pushes — two of them — but a
+ *     heavy falls from above, straight onto it (§6.3).
+ * A piercing shot never asks (§6.8 rule 1).
  */
-const stops = (gk: number, kind: number): boolean => gk === 1 || kind === 0 || kind === 4 || (!gk && kind === 3)
+export const stops = (gk: number, kind: number): boolean =>
+  gk === 1 || (gk === 3 ? kind === 0 || kind === 1 || kind === 4 : kind === 0 || kind === 4 || (!gk && kind === 3))
 
 /** Land a resolved spell on a duelist. `e` = it hits the foe. */
 const strike = (s: Shot, e: boolean): void => {
@@ -278,9 +298,14 @@ const strike = (s: Shot, e: boolean): void => {
   const g = e ? S.eGuard : S.guard
   const tx = e ? UX : AX
 
-  if (g > 0 && stops(gk, s.k)) {
+  if (g > 0 && s.p) {
+    // Lightning goes straight through (§6.8 rule 1) — and says so, so the
+    // player learns what just happened to their shield.
+    impact(tx - s.dir * 58, GY - 90, LIGHTNING, 0.3)
+    pop('pierced', '#fff176', tx, GY - 210)
+  } else if (g > 0 && stops(gk, s.k)) {
     // Blocked. Still loud — a block the player cannot see is a bug report.
-    impact(tx - s.dir * 58, GY - 90, gk === 1 ? EARTH : gk === 2 ? ICE : WIND, 0.35)
+    impact(tx - s.dir * 58, GY - 90, guardRune(gk), 0.35)
     sfx('guard')
     shakeAdd(0.12)
     pop('blocked', '#8ff0ff', tx, GY - 210)
@@ -289,6 +314,16 @@ const strike = (s: Shot, e: boolean): void => {
       if (e) S.eGuard = 0
       else S.guard = 0
       barrier(tx, GY - 70, ICE, 0)
+    } else if (gk === 3) {
+      // The bubble cracks on its first hit and pops on its last.
+      const left = (e ? S.eGuardHits : S.guardHits) - 1
+      if (e) S.eGuardHits = left
+      else S.guardHits = left
+      if (left <= 0) {
+        if (e) S.eGuard = 0
+        else S.guard = 0
+        barrier(tx, GY - 70, WATER, 0)
+      } else barrier(tx, GY - 70, WATER, e ? S.eGuard : S.guard, 1)
     }
     return
   }
@@ -401,7 +436,10 @@ const think = (dt: number): void => {
     S.eForm = max(S.eForm, 0.5)
   }
   const defend = (incoming || threat) && spellOf(q).kind === 2 && S.eGuard <= 0
-  if (full || defend || finisher || (q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
+  // Lightning's contract (§6.13): a pierce in hand goes out the moment the
+  // player's guard is up — that is exactly what it is for.
+  const zap = S.guard > 0 && !!spellOf(q).pierce
+  if (full || defend || zap || finisher || (q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
@@ -417,7 +455,12 @@ const chooseRune = (): Rune => {
   // Answer pressure with defence, otherwise build toward damage.
   if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) return pick([EARTH, ICE, WIND] as const)
   if (q.length === 1 && rnd() < 0.55) return q[0]! // doubling up is the strong play
-  // Her chapter's magic (§6.13): Nature opens more once her own HP is < 60 %.
+  // Her chapter's magic (§6.13):
+  //   Water raises a ward against a shot in flight — builds toward the pair;
+  //   Lightning is what she reaches for while the player's guard is up;
+  //   Nature opens more once her own HP is < 60 %.
+  if (magic === WATER && S.eGuard <= 0 && q.every((r) => r === WATER) && S.shots.some((s) => s.dir > 0)) return WATER
+  if (magic === LIGHTNING && S.guard > 0 && rnd() < 0.7) return LIGHTNING
   if (magic >= 0 && rnd() < (S.ehp < S.ehpMax * 0.6 ? 0.6 : 0.3)) return magic as Rune
   // A foe themed to a BASE element leans on it — that is what makes it
   // readable, and therefore what makes its weakness worth learning.
@@ -447,9 +490,19 @@ const tick = (dt: number): void => {
     S.eRegen -= dt
     S.ehp = min(S.ehpMax, S.ehp + S.eRegenRate * dt)
   }
-  if (S.eWindup > 0) S.eWindup = max(0, S.eWindup - dt)
+  if (S.eWindup > 0) {
+    S.eWindup = max(0, S.eWindup - dt)
+    // Pearl's phase 2 (§6.11): the wind-up ends in a bubble ward, raised
+    // proactively rather than only in answer to a shot.
+    if (S.eWindup === 0 && S.ePhase === 2 && FOES[S.foe]!.phase2 === 'wardOpen' && S.eGuard <= 0) {
+      raise(true, 3, 5, 2)
+      sfx('guard')
+    }
+  }
   if (S.guard > 0) S.guard -= dt
   if (S.eGuard > 0) S.eGuard -= dt
+  if (S.guard <= 0) S.guardHits = 0
+  if (S.eGuard <= 0) S.eGuardHits = 0
   if (S.slow > 0) S.slow -= dt
   if (S.eSlow > 0) S.eSlow -= dt
   S.castAnim = max(0, S.castAnim - dt)
@@ -524,6 +577,7 @@ export const resetDuel = (start?: DuelStart): void => {
   S.eWindup = 0
   S.queue.length = S.equeue.length = S.shots.length = S.pts.length = 0
   S.eForm = S.guard = S.eGuard = S.burn = S.eBurn = S.slow = S.eSlow = 0
+  S.guardHits = S.eGuardHits = 0
   S.castAnim = S.eCastAnim = S.hurt = S.eHurt = S.draw = 0
   S.dur = S.over = S.panelT = 0
   S.resultUp = false

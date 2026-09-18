@@ -37,12 +37,12 @@ describe('the node grid (C5)', () => {
     expect(duelSetup(4).def).toBe(FOES[guardianOf(0)])
   })
 
-  it('ships chapter 1 built, and only chapter 1', () => {
+  it('ships chapters 1–3 built (v1, D2), and only those', () => {
     expect(CHAPTERS.length).toBe(CHAPTER_COUNT)
-    expect(CHAPTERS[0]!.built).toBe(true)
-    expect(CHAPTERS.slice(1).every((c) => !c.built)).toBe(true)
-    expect(LAST_BUILT_NODE).toBe(4)
-    expect(CHAPTERS[0]!.newRune).toBe(NATURE)
+    expect(CHAPTERS.slice(0, 3).every((c) => c.built)).toBe(true)
+    expect(CHAPTERS.slice(3).every((c) => !c.built)).toBe(true)
+    expect(LAST_BUILT_NODE).toBe(14)
+    expect(CHAPTERS.map((c) => c.newRune).slice(0, 3)).toEqual([NATURE, 5, 6])
   })
 
   it('gives each chapter either a new rune or a Signature Spell, never both', () => {
@@ -63,5 +63,15 @@ describe('the boss chests (§8.2, §10.13.C)', () => {
   it('ends on the versus unlock, and every cosmetic sits in a real slot', () => {
     expect(GIFTS[NODES[49]!.giftId!]).toEqual({ kind: 'feature', feature: 'versus' })
     for (const c of COSMETICS) expect(COSMETIC_SLOTS).toContain(c.slot)
+  })
+})
+
+describe('the tool in each gift (§8.4)', () => {
+  it('is the Sunbeam in every boss chest, the Brush through chapter 3, the Eraser after', async () => {
+    const { toolOf } = await import('@/game/campaign/tables')
+    expect([0, 1, 2, 3].map(toolOf)).toEqual(['brush', 'brush', 'brush', 'brush'])
+    expect([4, 9, 14, 49].map(toolOf)).toEqual(['sunbeam', 'sunbeam', 'sunbeam', 'sunbeam'])
+    expect([10, 13].map(toolOf)).toEqual(['brush', 'brush'])
+    expect([15, 18, 45].map(toolOf)).toEqual(['eraser', 'eraser', 'eraser'])
   })
 })

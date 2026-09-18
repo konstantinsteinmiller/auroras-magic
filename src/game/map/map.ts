@@ -23,11 +23,11 @@
 import { S } from '@/game/duel/state'
 import { hasBit, getPaintPick } from '@/game/campaign/bitset'
 import { pendingSectorNode } from '@/game/campaign/state'
-import { CHAPTERS, CHAPTER_COUNT, NODES_PER_CHAPTER, nodeChapter, nodeIsBoss, LAST_BUILT_NODE } from '@/game/campaign/tables'
+import { CHAPTERS, CHAPTER_COUNT, NODES_PER_CHAPTER, nodeChapter, nodeIsBoss, LAST_BUILT_NODE, toolOf } from '@/game/campaign/tables'
 import { sectorOf } from '@/game/map/sectors'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { bakeDust, makeCanvas } from '@/game/restore/dust'
-import { drawGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
+import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
 import { readInsets } from '@/game/duel/layout'
 import { clamp, lerp, sin, TAU, PI } from '@/game/duel/util'
 import { mapHud } from '@/use/useMapHud'
@@ -36,6 +36,8 @@ import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
 import { reducedMotion } from '@/use/useAccessibility'
 import { drawFxUnder, drawFxOver, sparkleBurst } from '@/game/duel/fx'
+import { sfx } from '@/game/duel/audio'
+import { haptic } from '@/use/useHaptics'
 
 type G2D = CanvasRenderingContext2D
 
@@ -126,7 +128,11 @@ const thumbOf = (n: number): HTMLCanvasElement => {
   let cv = colour
   if (!done) {
     cv = makeCanvas(TW, TH)
-    bakeDust(cv, colour, TW / SEC_W, n + 1, (dg) => sec.props(dg, 0, 0))
+    bakeDust(cv, colour, TW / SEC_W, n + 1, (dg) => {
+      sec.props(dg, 0, 0)
+      sec.tap?.draw(dg, 0, 0)
+      sec.rescue?.draw(dg, 0, 0)
+    })
   }
   thumbs.set(n, { key, cv })
   return cv
@@ -185,7 +191,38 @@ let dragging = false
 let pressed = false
 
 /** What a tap on the map may hit. */
-export type MapTarget = { kind: 'node'; node: number } | { kind: 'gift'; node: number } | { kind: 'tent' }
+export type MapTarget = { kind: 'node'; node: number } | { kind: 'gift'; node: number } | { kind: 'tent' } | { kind: 'creature'; node: number }
+
+/* ── The tap creatures (§8.8 beat 2): a ~900 ms peek-a-boo on a restored
+ *    sector, re-triggerable forever, delight only. ── */
+const peeks = new Map<number, number>()
+/** 0 hidden … 1 out: up in 250 ms, a 400 ms hello, down in 250 ms. */
+const peekK = (n: number): number => {
+  const at = peeks.get(n)
+  if (at === undefined) return 0
+  const u = T - at
+  if (u >= 0.9) {
+    peeks.delete(n)
+    return 0
+  }
+  const ez = (v: number): number => 1 - (1 - v) * (1 - v)
+  return u < 0.25 ? ez(u / 0.25) : u < 0.65 ? 1 : 1 - ez((u - 0.65) / 0.25)
+}
+/** Tap: out it pops, with one chime-family note. */
+export const peekCreature = (n: number): void => {
+  if (peeks.has(n)) return
+  peeks.set(n, T)
+  sfx('peek', n % 6)
+  haptic('tick')
+}
+/** A restored sector's tap spot on screen: [x, y, radius], CSS px. */
+const tapScreen = (n: number): [number, number, number] | null => {
+  const tp = sectorOf(n).tap
+  if (!tp) return null
+  const s = slotOf(n)
+  const k = (s.w * ms) / SEC_W
+  return [sx(s.x - s.w / 2 + (tp.x / SEC_W) * s.w), sy(s.y - s.h / 2 + (tp.y / SEC_H) * s.h), Math.max(26, tp.r * k)]
+}
 let onTap: (t: MapTarget) => void = () => {}
 /** The flow tells the map what a tap means (kept out of this module). */
 export const setMapTapHandler = (fn: (t: MapTarget) => void): void => { onTap = fn }
@@ -206,6 +243,14 @@ const hitTest = (x: number, y: number): MapTarget | null => {
   for (let n = 0; n <= LAST_BUILT_NODE; n++) {
     const [mx, my] = markerScreen(n)
     if (Math.hypot(x - mx, y - my) < markerR() + 8) return { kind: 'node', node: n }
+  }
+  // A restored sector's creature, before the thumbnail it lives in.
+  for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+    if (!hasBit(S.campaign.sectorsDone, n)) continue
+    const p = tapScreen(n)
+    if (p && Math.hypot(x - p[0], y - p[1]) < p[2]) return { kind: 'creature', node: n }
+  }
+  for (let n = 0; n <= LAST_BUILT_NODE; n++) {
     // A tap on a thumbnail counts as its node, too — the bigger target.
     const s = slotOf(n)
     const x0 = sx(s.x - s.w / 2)
@@ -320,6 +365,13 @@ const drawBackdrop = (g: G2D): void => {
   g.fillRect(0, 0, vw, vh)
 }
 
+/** Each built chapter's page wash — its biome, in two soft bands. */
+const PAGE_WASH: readonly (readonly [string, string])[] = [
+  ['#c9f5b4', '#a8eb92'], // Whispering Woods: meadow greens
+  ['#ffe9b0', '#a6e6f5'], // Bubble Bay: sand over a sea band
+  ['#e6e9ff', '#cfd6fa'] // Cloud Kingdom: cloud and lavender
+]
+
 /** One chapter page: a paper card with a soft biome wash and the trail. */
 const drawPage = (g: G2D, c: number): void => {
   const [ox, oy] = pageOrigin(c)
@@ -349,7 +401,7 @@ const drawPage = (g: G2D, c: number): void => {
   g.roundRect(x, y, w, h, r)
   g.clip()
   // The biome wash: rolling hills along the page's foot (portrait: its side).
-  const wash = built ? (c === 0 ? ['#c9f5b4', '#a8eb92'] : ['#dfeaf8', '#c8d8f0']) : ['#c8bedb', '#b7abcc']
+  const wash = built ? PAGE_WASH[c] ?? PAGE_WASH[0]! : ['#c8bedb', '#b7abcc']
   for (let i = 0; i < 2; i++) {
     g.beginPath()
     if (portrait) {
@@ -378,6 +430,33 @@ const drawPage = (g: G2D, c: number): void => {
       g.fill()
     }
     g.globalAlpha = 1
+    // Asleep, not locked: a crescent moon dozing over the page, with a drawn
+    // Z — "this part of the story is still sleeping" (no words, §3.7).
+    const mx = x + w * 0.5
+    const my = y + h * (portrait ? 0.08 : 0.16)
+    const mr = Math.max(16, 44 * ms)
+    g.beginPath()
+    g.arc(mx, my, mr, 0.35 * PI, 1.65 * PI, false)
+    g.arc(mx + mr * 0.42, my - mr * 0.12, mr * 0.78, 1.5 * PI, 0.5 * PI, true)
+    g.closePath()
+    g.fillStyle = '#e8dcff'
+    g.fill()
+    g.lineWidth = Math.max(2, 4 * ms)
+    g.strokeStyle = '#3A2340'
+    g.stroke()
+    const zb = Math.sin(Td * 1.5) * 4 * ms
+    for (const [k, sz] of [[0, 1], [1, 0.7]] as const) {
+      const zx = mx + mr * (1 + k * 0.7)
+      const zy = my - mr * (0.6 + k * 0.7) + zb
+      const zs = mr * 0.32 * sz
+      g.beginPath()
+      g.moveTo(zx - zs, zy - zs)
+      g.lineTo(zx + zs, zy - zs)
+      g.lineTo(zx - zs, zy + zs)
+      g.lineTo(zx + zs, zy + zs)
+      g.lineWidth = Math.max(2, 4 * ms * sz)
+      g.stroke()
+    }
     return
   }
   // The trail between the sectors, as a dotted path.
@@ -435,7 +514,14 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
     const k = w / SEC_W
     g.translate(x, y)
     g.scale(k, h / SEC_H)
-    if (live) sectorOf(n).props(g, Td + n * 1.7, 1)
+    const sec = sectorOf(n)
+    if (live) {
+      sec.props(g, Td + n * 1.7, 1)
+      // The permanence beats a done sector always shows (§8.8): its creature
+      // (peeking when tapped) and, on the chapter's one, the rescued friend.
+      sec.tap?.draw(g, peekK(n), T)
+      sec.rescue?.draw(g, 1, Td + n)
+    }
     if (bloomed) drawBloom(g, n, live ? Td + n * 0.9 : 0)
   }
   g.restore()
@@ -512,8 +598,9 @@ const drawPendingGift = (g: G2D): void => {
   g.fillStyle = gr
   g.fillRect(x - s * 1.3, y - s * 1.7, s * 2.6, s * 2.6)
   g.restore()
-  if (nodeIsBoss(n)) drawChest(g, x, y, s, { rot: chestRattle(Td), open: 0, gleam: 0.5 + 0.5 * sin(Td * 4) })
-  else drawGift(g, x, y, s, { rot: giftShake(Td), untie: 0, squash: 1 })
+  const ac = sectorOf(n).accent
+  if (nodeIsBoss(n)) drawChest(g, x, y, s, { rot: chestRattle(Td), open: 0, gleam: 0.5 + 0.5 * sin(Td * 4) }, ac?.gem)
+  else (toolOf(n) === 'eraser' ? drawBoxGift : drawGift)(g, x, y, s, { rot: giftShake(Td), untie: 0, squash: 1, ribbon: ac?.ribbon, ribbonShade: ac?.ribbonShade })
 }
 
 /** The wardrobe tent on the hub knoll (C17): a striped pavilion with a pennant. */
@@ -630,9 +717,27 @@ export const qaMap = {
     const [x, y, s] = twinScreen(twinGift.node)
     return [x, y - s * 0.4]
   },
+  creatureAt: (n: number): [number, number] | null => {
+    const p = tapScreen(n)
+    return p ? [p[0], p[1]] : null
+  },
+  peeking: (n: number): boolean => peeks.has(n),
   tentAt: (): [number, number] => {
     const [x, y, s] = tentScreen()
     return [x, y - s * 0.4]
   },
   state: nodeState
+}
+
+/**
+ * The biome in view, for the ambience bus (§8.8 beat 1): the page nearest the
+ * middle of the view, at full level while any of its sectors is restored.
+ */
+export const mapAmbience = (): [number, number] => {
+  const c = mapHud.visible
+  if (!CHAPTERS[c]?.built) return [-1, 0]
+  for (let i = 0; i < NODES_PER_CHAPTER; i++) {
+    if (hasBit(S.campaign.sectorsDone, c * NODES_PER_CHAPTER + i)) return [c, 1]
+  }
+  return [c, 0]
 }

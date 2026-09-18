@@ -122,7 +122,8 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'VICTOIRE',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'ZAP !'
   },
 
   'result': {
@@ -160,6 +161,16 @@ export default {
       'body': 'Ta progression dans ce duel ne sera pas enregistrée.',
       'confirm': 'Quitter',
       'cancel': 'Rester'
+    },
+    'parents': {
+      'title': 'Pour les parents',
+      'aboutBody': 'Auroras Magic ne comporte ni chat, ni contact avec des inconnus, ni géolocalisation. Aucun compte n’est nécessaire pour jouer.',
+      'adsBody': 'Ce jeu affiche des publicités vidéo pour rester gratuit. Certaines publicités ne peuvent pas être passées ; regarder une publicité pour obtenir une récompense bonus est toujours facultatif.',
+      'adsNonPersonalisedNote': 'Dans cette version, les publicités sont affichées sans personnalisation.',
+      'purchasesBody': 'Il n’y a aucun achat intégré.',
+      'privacyBody': 'Nous enregistrons une sauvegarde sur cet appareil ou dans la sauvegarde cloud du portail. Aucune information personnelle n’est collectée.',
+      'leaderboardBody': 'Le classement affiche uniquement un nom de joueur inventé et le nombre de duels gagnés.',
+      'privacyLinkLabel': 'Politique de confidentialité complète'
     }
   },
 
@@ -208,7 +219,13 @@ export default {
   'paint': {
     'rose': 'Rose',
     'sunflower': 'Jaune tournesol',
-    'bluebell': 'Bleu jacinthe'
+    'bluebell': 'Bleu jacinthe',
+    'coral': 'Rose corail',
+    'lagoon': 'Bleu lagon',
+    'sunshell': 'Or soleil',
+    'lavender': 'Lavande',
+    'skyblue': 'Bleu ciel',
+    'sunrise': 'Orange soleil levant'
   },
 
   'tool': {
@@ -247,6 +264,34 @@ export default {
         'b3': 'Prouve-le, petite licorne. Affronte-moi !',
         't1': 'Oh ! Les bois sont de nouveau tout chauds.',
         't2': 'Merci, Aurora. Reviens quand tu veux !'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'La Baie des Bulles a perdu sa chanson.',
+        'b2': 'Le silence, c’est douillet aussi, non ?',
+        'b3': 'Chaque voix mérite d’être entendue !'
+      },
+      'n5': {
+        'b1': 'Qui ose agiter mes eaux calmes ?',
+        'b2': 'Je suis là pour ramener les chansons !',
+        'b3': 'Alors chante-moi ta force. En duel !',
+        't1': 'La marée est toute légère et lumineuse !',
+        't2': 'Merci, Aurora. Reviens vite nager ici !'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'L’orage empêche les petits pégases de voler.',
+        'b2': 'L’orage, c’est parfait pour la sieste, hmm ?',
+        'b3': 'Dégageons le ciel ensemble, Zephyr !'
+      },
+      'n5': {
+        'b1': 'Qui ose voler dans MON orage ?',
+        'b2': 'Je veux que les pégases volent à nouveau !',
+        'b3': 'Montre ton étincelle. Affronte-moi maintenant !',
+        't1': 'Le ciel est calme et tout dégagé !',
+        't2': 'Merci, Aurora. Reviens vite voler avec nous !'
       }
     },
     'tmpl': {

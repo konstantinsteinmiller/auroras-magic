@@ -24,7 +24,7 @@ import { FOES } from '@/game/duel/foes'
 import { resetDuel, onDuelEvent } from '@/game/duel/sim'
 import { resetFx } from '@/game/duel/fx'
 import { resetAudio, sfx } from '@/game/duel/audio'
-import { duelSetup, nodeChapter, nodeIsBoss } from '@/game/campaign/tables'
+import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene } from '@/game/flow/scene'
@@ -40,6 +40,7 @@ import { haptic } from '@/use/useHaptics'
 import { track } from '@/use/useAnalytics'
 import { reportRun } from '@/use/useLeaderboard'
 import { duelBeat } from '@/use/useDuelBeat'
+import { sectorOf } from '@/game/map/sectors'
 
 /** The flourish / sting: an ad must never cut either off mid-note. */
 export const AD_BEAT_MS = 1400
@@ -59,6 +60,8 @@ export const startDuel = (n: number): void => {
   resetFx()
   setArenaGift(false)
   resetDuel({ foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n) })
+  // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
+  S.theme = nodeChapter(n)
   resetAudio()
   resetHudMirrors()
   duelBeat.phase = 'fight'
@@ -110,7 +113,7 @@ const onFinish = async (won: boolean): Promise<void> => {
     // The controller already advanced `furthestNode`: a first win on this
     // node leaves its sector pending — that is the gift.
     const gift = !replay && pendingSectorNode(S.campaign) === n
-    if (gift) setArenaGift(true)
+    if (gift) setArenaGift(true, sectorOf(n).accent, toolOf(n) === 'eraser')
     duelBeat.phase = 'flourish'
     await wait(AD_BEAT_MS)
     if (my !== gen) return

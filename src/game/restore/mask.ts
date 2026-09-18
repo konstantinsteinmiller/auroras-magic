@@ -146,6 +146,47 @@ export const stamp = (c: Coverage, x: number, y: number, r: number, core: number
   return { cells: TOUCHED, n }
 }
 
+/**
+ * Account one Magic Eraser paddle (§8.4): a rectangle of half-extents
+ * (hw, hh) SU turned by `ang`, centred on (x, y), with a thin soft edge. No
+ * dwell and no falloff inside — one contact clears. Returns the touched cells
+ * like `stamp`.
+ */
+export const stampRect = (c: Coverage, x: number, y: number, hw: number, hh: number, ang: number, a: number, t?: number): { cells: Int32Array; n: number } => {
+  let n = 0
+  if (!(hw > 0) || !(hh > 0) || !(a > 0)) return { cells: TOUCHED, n }
+  const R = Math.hypot(hw, hh)
+  const ca = Math.cos(ang)
+  const sa = Math.sin(ang)
+  const edge = Math.max(2, hh * 0.12)
+  const i0 = Math.max(0, Math.floor((x - R) / STEP))
+  const i1 = Math.min(LW - 1, Math.floor((x + R) / STEP))
+  const j0 = Math.max(0, Math.floor((y - R) / STEP))
+  const j1 = Math.min(LH - 1, Math.floor((y + R) / STEP))
+  for (let j = j0; j <= j1; j++) {
+    const dy = (j + 0.5) * STEP - y
+    for (let i = i0; i <= i1; i++) {
+      const dx = (i + 0.5) * STEP - x
+      const lx = Math.abs(dx * ca + dy * sa)
+      const ly = Math.abs(-dx * sa + dy * ca)
+      const out = Math.max(lx - hw, ly - hh)
+      if (out >= edge) continue
+      const k = j * LW + i
+      const f = out <= 0 ? 1 : 1 - out / edge
+      c.rem[k] = c.rem[k]! * (1 - a * f)
+    }
+  }
+  const ci0 = Math.max(0, Math.floor((x - R) / CELL))
+  const ci1 = Math.min(GRID_W - 1, Math.floor((x + R) / CELL))
+  const cj0 = Math.max(0, Math.floor((y - R) / CELL))
+  const cj1 = Math.min(GRID_H - 1, Math.floor((y + R) / CELL))
+  for (let j = cj0; j <= cj1 && n < TOUCHED.length; j++) {
+    for (let i = ci0; i <= ci1 && n < TOUCHED.length; i++) TOUCHED[n++] = j * GRID_W + i
+  }
+  if (t !== undefined) for (let k = 0; k < n; k++) touchCell(c, TOUCHED[k]!, t)
+  return { cells: TOUCHED, n }
+}
+
 /** Clear fraction of one cell, 0..1. */
 export const cellCover = (c: Coverage, cell: number): number => {
   const ci = cell % GRID_W

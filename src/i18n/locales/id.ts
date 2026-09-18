@@ -119,7 +119,8 @@ export default {
     'combo': 'KOMBO x{n}',
     'times': 'x{n}',
     'victory': 'MENANG',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'CTAR!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'Progresmu di duel ini tidak akan disimpan.',
       'confirm': 'Keluar',
       'cancel': 'Tetap di sini'
+    },
+    'parents': {
+      'title': 'Untuk Orang Tua',
+      'aboutBody': 'Auroras Magic tidak memiliki fitur obrolan, tidak ada interaksi dengan orang asing, dan tidak menggunakan lokasi. Tidak perlu akun untuk bermain.',
+      'adsBody': 'Gim ini menampilkan iklan video agar tetap gratis. Beberapa iklan tidak dapat dilewati; menonton iklan hadiah bonus selalu bersifat opsional.',
+      'adsNonPersonalisedNote': 'Iklan dalam versi ini ditampilkan tanpa personalisasi.',
+      'purchasesBody': 'Tidak ada pembelian dalam aplikasi.',
+      'privacyBody': 'Kami menyimpan file simpanan di perangkat ini atau di simpanan cloud milik portal. Tidak ada informasi pribadi yang dikumpulkan.',
+      'leaderboardBody': 'Papan peringkat hanya menampilkan nama pemain samaran dan jumlah duel yang dimenangkan.',
+      'privacyLinkLabel': 'Kebijakan privasi lengkap'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Merah muda mawar',
     'sunflower': 'Kuning bunga matahari',
-    'bluebell': 'Biru bunga lonceng'
+    'bluebell': 'Biru bunga lonceng',
+    'coral': 'Merah muda koral',
+    'lagoon': 'Biru laguna',
+    'sunshell': 'Emas cerah',
+    'lavender': 'Lavender',
+    'skyblue': 'Biru langit',
+    'sunrise': 'Jingga fajar'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Buktikan, unicorn kecil. Lawan aku!',
         't1': 'Oh! Hutan terasa hangat lagi.',
         't2': 'Terima kasih, Aurora. Datanglah lagi kapan saja!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Teluk Gelembung kehilangan lagunya.',
+        'b2': 'Sunyi itu nyaman juga, kan?',
+        'b3': 'Setiap suara pantas didengar!'
+      },
+      'n5': {
+        'b1': 'Siapa berani mengusik air tenangku?',
+        'b2': 'Aku datang untuk mengembalikan lagu-lagunya!',
+        'b3': 'Kalau begitu, nyanyikan kekuatanmu. Ayo duel!',
+        't1': 'Ombaknya terasa ringan dan cerah!',
+        't2': 'Terima kasih, Aurora. Mampir berenang lagi, ya!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Badai membuat para pegasus tak bisa terbang.',
+        'b2': 'Badai itu cuaca pas untuk tidur siang, hmm?',
+        'b3': 'Ayo kita cerahkan langit bersama, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Siapa berani terbang menembus badai MILIKKU?',
+        'b2': 'Aku ingin para pegasus terbang tinggi lagi!',
+        'b3': 'Tunjukkan percikanmu. Lawan aku sekarang!',
+        't1': 'Langit terasa tenang dan cerah!',
+        't2': 'Terima kasih, Aurora. Ayo terbang bersama kami lagi!'
       }
     },
     'tmpl': {

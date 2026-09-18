@@ -188,6 +188,40 @@ export const eraseStamp = (
   g.globalCompositeOperation = 'source-over'
 }
 
+/** The Magic Eraser's paddle stamp: a white rounded rectangle, 64 × 42 px
+ *  (the 1 : 0.65 aspect), with a thin soft rim. Baked once. */
+export const bakePaddle = (): HTMLCanvasElement => {
+  const w = 128
+  const h = 84
+  const cv = makeCanvas(w, h)
+  const g = cv.getContext('2d')
+  if (g) {
+    g.filter = 'blur(2px)'
+    g.fillStyle = '#fff'
+    g.beginPath()
+    g.roundRect(3, 3, w - 6, h - 6, 14)
+    g.fill()
+  }
+  return cv
+}
+
+/** Erase one paddle from the dust: centre (x, y), half-extents (hw, hh) SU,
+ *  turned by `ang`. */
+export const erasePaddle = (
+  dust: HTMLCanvasElement, paddleCv: HTMLCanvasElement, res: number,
+  x: number, y: number, hw: number, hh: number, ang: number, a: number
+): void => {
+  const g = dust.getContext('2d')
+  if (!g || !(a > 0)) return
+  g.save()
+  g.globalCompositeOperation = 'destination-out'
+  g.globalAlpha = Math.min(1, a)
+  g.translate(x * res, y * res)
+  g.rotate(ang)
+  g.drawImage(paddleCv, -hw * res, -hh * res, 2 * hw * res, 2 * hh * res)
+  g.restore()
+}
+
 /**
  * A resumed save: erase each done cell, drawn as soft dabs tiled across it,
  * not as a hard rectangle. That way the resumed view reads as "brushed there",

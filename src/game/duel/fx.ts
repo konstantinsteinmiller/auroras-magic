@@ -199,6 +199,8 @@ const SO: [number, number] = [0, 0]
 
 /** Two barrier slots (left duelist / right duelist): tt, x, y, rune. */
 const BR = new Float32Array(8)
+/** Per side: has the bubble ward taken its first hit (a crack)? */
+const BRC = new Uint8Array(2)
 
 /* ------------------------------- spawn ------------------------------ */
 
@@ -393,8 +395,10 @@ export const fireRain = (x: number, y: number, p: number): void => {
 /** Shield around a duelist. Safe to call once with the full duration OR every
  *  frame with the remaining time — either way it expires on its own.
  *  `tt <= 0` tears it down NOW (an ice pillar spends itself on one hit). */
-export const barrier = (x: number, y: number, rune: number, tt: number): void => {
+export const barrier = (x: number, y: number, rune: number, tt: number, cracked = -1): void => {
   const i = x < SW / 2 ? 0 : 4
+  // A bubble ward remembers its crack (its first of two hits); -1 keeps it.
+  if (cracked >= 0) BRC[i >> 2] = cracked
   // A shield is an EVENT, not a state. Going up, it gathers into place; going
   // down it SHATTERS into its own element — deliberately a WEAK hit, since a
   // shield timing out happens on a clock the player did not press.
@@ -482,6 +486,7 @@ export const updateFx = (dt: number): void => {
   // Barriers run their own countdown back through `barrier`, so running out is
   // the same event as being torn down and shatters the same way.
   for (let i = 0; i < 8; i += 4) if (BR[i]! > 0) barrier(BR[i + 1]!, BR[i + 2]!, BR[i + 3]!, BR[i]! - dt)
+  for (let s = 0; s < 2; s++) if (BR[s * 4]! <= 0) BRC[s] = 0
   glow = max(0, glow - dt)
 
   S.flash = max(0, S.flash - dt * 2.6)
@@ -557,6 +562,10 @@ const drawBar = (g: G2D, i: number): void => {
   const x = BR[i + 1]!
   const y = BR[i + 2]!
   const f = x < SW / 2 ? 1 : -1 // which way "in front of me" points
+  if (r === 5) {
+    drawBubble(g, x + f * 18, y, BRC[i >> 2]! > 0)
+    return
+  }
   g.beginPath()
   if (r === 2) {
     // Body + a second, narrower spindle: the INK LINE where they overlap is the
@@ -582,6 +591,66 @@ const drawBar = (g: G2D, i: number): void => {
   g.fill()
   g.globalAlpha = 1
   g.stroke()
+}
+
+/**
+ * WATER's bubble ward (§6.3): a big soap bubble around the caster — a thin
+ * sea-blue skin with a rainbow sheen, a catch-light, and a few little bubbles
+ * rising inside. After its first hit it carries a crack, so the player can
+ * see it has one hit left.
+ */
+const drawBubble = (g: G2D, x: number, y: number, cracked: boolean): void => {
+  const R = 66 + sin(T * 3.2) * 2
+  g.save()
+  g.globalAlpha = 0.22
+  g.beginPath()
+  g.arc(x, y, R, 0, TAU)
+  g.fillStyle = PAL[5]!
+  g.fill()
+  g.globalAlpha = 0.5
+  g.lineWidth = 7
+  g.strokeStyle = PAL[C_HI + 5]!
+  g.beginPath()
+  g.arc(x, y, R - 5, PI * 0.1 + T * 0.4, PI * 0.9 + T * 0.4)
+  g.stroke()
+  g.globalAlpha = 1
+  g.lineWidth = 4
+  g.strokeStyle = OUT
+  g.beginPath()
+  g.arc(x, y, R, 0, TAU)
+  g.stroke()
+  // The catch-light.
+  g.fillStyle = '#ffffff'
+  g.globalAlpha = 0.85
+  g.beginPath()
+  g.ellipse(x - R * 0.42, y - R * 0.45, R * 0.16, R * 0.09, -0.7, 0, TAU)
+  g.fill()
+  // Little bubbles rising inside.
+  g.globalAlpha = 0.7
+  for (let k = 0; k < 3; k++) {
+    const u = (T * 0.45 + k / 3) % 1
+    const bx = x + sin(T * 2 + k * 2.1) * R * 0.35
+    const by = y + R * 0.6 - u * R * 1.2
+    g.beginPath()
+    g.arc(bx, by, 4 + k * 1.5, 0, TAU)
+    g.lineWidth = 2
+    g.strokeStyle = PAL[C_HI + 5]!
+    g.stroke()
+  }
+  g.globalAlpha = 1
+  if (cracked) {
+    g.beginPath()
+    g.moveTo(x + R * 0.15, y - R * 0.95)
+    g.lineTo(x + R * 0.02, y - R * 0.55)
+    g.lineTo(x + R * 0.28, y - R * 0.3)
+    g.lineTo(x + R * 0.1, y + R * 0.05)
+    g.moveTo(x + R * 0.28, y - R * 0.3)
+    g.lineTo(x + R * 0.55, y - R * 0.22)
+    g.lineWidth = 3.5
+    g.strokeStyle = OUT
+    g.stroke()
+  }
+  g.restore()
 }
 
 /** STAGE space, behind the duelists: fire-rain sky wash + shockwaves. */
@@ -689,6 +758,7 @@ export const shakeOffset = (): readonly [number, number] => SO
 export const resetFx = (): void => {
   P.fill(0)
   BR.fill(0)
+  BRC.fill(0)
   USED.fill(0)
   live = head = glow = SO[0] = SO[1] = 0
   S.shake = S.flash = 0

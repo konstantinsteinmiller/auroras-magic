@@ -152,7 +152,9 @@ export default {
     'times': 'x{n}',
     'victory': 'VICTORY',
     // A loss is a doze, never a defeat (story-spec §10.19, C27).
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    // Lightning went straight through a shield (§6.8).
+    'pierced': 'ZAP!'
   },
 
   // ─── The duel's end (story-spec §10.19). No coins, no shop (D3). ─────────
@@ -200,6 +202,18 @@ export default {
       'body': "Your progress in this duel won't be saved.",
       'confirm': 'Leave',
       'cancel': 'Stay'
+    },
+    // The "For Parents" tab (story-spec §2.7). Written for the adult reader:
+    // full sentences are fine here, unlike anywhere else in the game.
+    'parents': {
+      'title': 'For Parents',
+      'aboutBody': 'Auroras Magic has no chat, no strangers, and no location. No account is needed to play.',
+      'adsBody': "This game shows video ads to stay free. Some ads can't be skipped; watching a bonus-reward ad is always optional.",
+      'adsNonPersonalisedNote': 'Ads in this build are shown without personalisation.',
+      'purchasesBody': 'There are no in-app purchases.',
+      'privacyBody': "We store a save file on this device or the portal's cloud save. No personal information is collected.",
+      'leaderboardBody': 'The leaderboard shows only a made-up player name and the number of duels won.',
+      'privacyLinkLabel': 'Full privacy policy'
     }
   },
 
@@ -251,7 +265,13 @@ export default {
   'paint': {
     'rose': 'Rose pink',
     'sunflower': 'Sunflower yellow',
-    'bluebell': 'Bluebell blue'
+    'bluebell': 'Bluebell blue',
+    'coral': 'Coral pink',
+    'lagoon': 'Lagoon blue',
+    'sunshell': 'Sunny gold',
+    'lavender': 'Lavender',
+    'skyblue': 'Sky blue',
+    'sunrise': 'Sunrise orange'
   },
 
   'tool': {
@@ -295,6 +315,34 @@ export default {
         'b3': 'Prove it, little unicorn. Duel me!',
         't1': 'Oh! The woods feel warm again.',
         't2': 'Thank you, Aurora. Come back anytime!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Bubble Bay has lost its song.',
+        'b2': "Quiet is cozy too, don't you think?",
+        'b3': 'Every voice deserves to be heard!'
+      },
+      'n5': {
+        'b1': 'Who dares ripple my calm waters?',
+        'b2': "I'm here to bring the songs back!",
+        'b3': 'Then sing your strength to me. Duel!',
+        't1': 'The tide feels light and bright!',
+        't2': 'Thank you, Aurora. Swim by soon!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': "The storm won't let the pegasi fly.",
+        'b2': 'Storms make good napping weather, hmm?',
+        'b3': "Let's clear the sky together, Zephyr!"
+      },
+      'n5': {
+        'b1': 'Who dares fly through MY storm?',
+        'b2': 'I want the pegasi to soar again!',
+        'b3': 'Prove your spark. Duel me now!',
+        't1': 'The sky feels calm and clear!',
+        't2': 'Thank you, Aurora. Fly with us soon!'
       }
     },
     // The shared beats of every chapter's nodes 2–4 (§10.8).

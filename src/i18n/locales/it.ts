@@ -119,7 +119,8 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'VITTORIA',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'ZAC!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'I progressi di questo duello non verranno salvati.',
       'confirm': 'Esci',
       'cancel': 'Resta'
+    },
+    'parents': {
+      'title': 'Per i genitori',
+      'aboutBody': 'Auroras Magic non ha chat, né contatti con sconosciuti, né localizzazione. Per giocare non serve alcun account.',
+      'adsBody': 'Questo gioco mostra annunci video per restare gratuito. Alcuni annunci non si possono saltare; guardare un annuncio per ottenere una ricompensa bonus è sempre facoltativo.',
+      'adsNonPersonalisedNote': 'In questa versione gli annunci vengono mostrati senza personalizzazione.',
+      'purchasesBody': 'Non ci sono acquisti in-app.',
+      'privacyBody': 'Memorizziamo un file di salvataggio su questo dispositivo o nel salvataggio cloud del portale. Non vengono raccolte informazioni personali.',
+      'leaderboardBody': 'La classifica mostra solo un nome di giocatore inventato e il numero di duelli vinti.',
+      'privacyLinkLabel': 'Informativa sulla privacy completa'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Rosa',
     'sunflower': 'Giallo girasole',
-    'bluebell': 'Blu campanula'
+    'bluebell': 'Blu campanula',
+    'coral': 'Rosa corallo',
+    'lagoon': 'Blu laguna',
+    'sunshell': 'Oro solare',
+    'lavender': 'Lavanda',
+    'skyblue': 'Azzurro cielo',
+    'sunrise': 'Arancione alba'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Dimostralo, piccolo unicorno. Sfidami!',
         't1': 'Oh! Il bosco è di nuovo caldo.',
         't2': 'Grazie, Aurora. Torna quando vuoi!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'La Baia delle Bolle ha perso la sua canzone.',
+        'b2': 'Anche il silenzio è accogliente, non trovi?',
+        'b3': 'Ogni voce merita di essere ascoltata!'
+      },
+      'n5': {
+        'b1': 'Chi osa agitare le mie acque calme?',
+        'b2': 'Sono qui per riportare le canzoni!',
+        'b3': 'Allora cantami la tua forza. Sfidami!',
+        't1': 'La marea è leggera e luminosa!',
+        't2': 'Grazie, Aurora. Torna presto a nuotare!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'La tempesta non lascia volare i piccoli pegasi.',
+        'b2': 'Le tempeste sono perfette per un pisolino, mmh?',
+        'b3': 'Liberiamo il cielo insieme, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Chi osa volare nella MIA tempesta?',
+        'b2': 'Voglio che i pegasi tornino a volare!',
+        'b3': 'Mostrami la tua scintilla. Sfidami subito!',
+        't1': 'Il cielo è calmo e sereno!',
+        't2': 'Grazie, Aurora. Torna presto a volare con noi!'
       }
     },
     'tmpl': {

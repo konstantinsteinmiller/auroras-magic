@@ -1,71 +1,99 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1789765367961,
-  "updatedAt": 1789765367896,
-  "total": 10,
+  "fetchedAt": 1789771139572,
+  "updatedAt": 1789771139611,
+  "total": 14,
   "entries": [
     {
       "rank": 1,
+      "name": "Rosy Pebble 712",
+      "score": 11,
+      "flair": 11
+    },
+    {
+      "rank": 2,
       "name": "Fluffy Star 192",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 1,
+      "rank": 2,
       "name": "Dreamy Star 569",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 1,
+      "rank": 2,
       "name": "Frosty Cloud 795",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Sparkly Firefly 220",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Gentle Otter 450",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Golden Fawn 854",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Shiny Pony 884",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Starry Rainbow 122",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 9,
+      "rank": 10,
       "name": "Breezy Maple 361",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 9,
+      "rank": 10,
       "name": "Gentle Maple 668",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 10,
+      "name": "Cozy Moon 870",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 10,
+      "name": "Fluffy Fawn 736",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 10,
+      "name": "Jolly Kitten 919",
       "score": 1,
       "flair": 1
     }
   ],
   "dist": [
+    [
+      11,
+      1
+    ],
     [
       5,
       3
@@ -76,7 +104,7 @@
     ],
     [
       1,
-      2
+      5
     ]
   ]
 }

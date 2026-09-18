@@ -48,6 +48,24 @@ type G2D = CanvasRenderingContext2D
  */
 export interface Face { brow: number; eye: number; mouth: number; blush: number }
 
+/**
+ * Where a cosmetic hangs, in the rig's own (authored, facing +x) space
+ * inside the rearing frame — §9.7's anchors, read off the same pose math.
+ */
+export interface RigAnchors {
+  /** 70 % along the neck tube from the chest toward the poll. */
+  neckCollar: [number, number]
+  /** Unit vector along the neck, chest → poll. */
+  neckDir: [number, number]
+  /** The top of the chest mass — where wings root. */
+  backWithers: [number, number]
+  /** The tail's root. */
+  tailBase: [number, number]
+  /** Seconds, and how excited the rig is (a win hop, a rear) 0..1. */
+  t: number
+  lift: number
+}
+
 /** Pose inputs for one duelist, all 0..1. */
 export interface PoseState {
   cast?: number
@@ -62,6 +80,13 @@ export interface PoseState {
   foe?: number
   /** Called inside the head group (after the forelock): head-slot cosmetics. */
   afterHead?: (g: G2D) => void
+  /** Back-slot items BEHIND the body (a wing's far layer), in the rig's own
+   *  space inside the rearing frame, before the torso (§9.7). */
+  beforeTorso?: (g: G2D, a: RigAnchors) => void
+  /** Items OVER the body (a wing's near layer), after the torso. */
+  afterTorso?: (g: G2D, a: RigAnchors) => void
+  /** Neck-slot items (necklace, scarf), after the mane, under the head. */
+  afterMane?: (g: G2D, a: RigAnchors) => void
 }
 
 /** The one hand-inked outline colour. */
@@ -389,6 +414,26 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const hx = 22 + sag * 3 - lose * 14 // the neck folds as it goes down
   const hy = by - 42 + D * 7 + sag * 9 - rear * 3 + fold
   const nk = [11, by - 6, hx - 4, hy + 14]
+  const hooked = st.beforeTorso || st.afterTorso || st.afterMane
+  let anc: RigAnchors | null = null
+  if (hooked) {
+    const ndx = nk[2]! - nk[0]!
+    const ndy = nk[3]! - nk[1]!
+    const nl = Math.hypot(ndx, ndy) || 1
+    anc = {
+      neckCollar: [nk[0]! + ndx * 0.7, nk[1]! + ndy * 0.7],
+      neckDir: [ndx / nl, ndy / nl],
+      backWithers: [8, by - 26],
+      tailBase: [-26, by - 4],
+      t,
+      lift: max(win, rear)
+    }
+    if (st.beforeTorso) {
+      g.save()
+      st.beforeTorso(g, anc)
+      g.restore()
+    }
+  }
   const NW = [16 * K, 11.5 * K] // thick off the shoulder, slim at the poll
   // resolve TQ: [cx*K, by+cy, rx*K, (ry+breath)*K]
   const TR = TQ.map((v, i) => (i & 1 ? (i & 2 ? (v + br * 0.5) * K : by + v) : v * K))
@@ -409,8 +454,19 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
     ink(CO, 2.4)
   }
 
+  if (anc && st.afterTorso) {
+    g.save()
+    st.afterTorso(g, anc)
+    g.restore()
+  }
+
   // mane down the back of the neck, rooted at the poll, behind the head
   hair(hx - 21, hy - 4, 2.6 - 0.25 * rear, 46, 27, 2.1, -0.5, 3)
+  if (anc && st.afterMane) {
+    g.save()
+    st.afterMane(g, anc)
+    g.restore()
+  }
 
   g.save()
   g.translate(hx, hy)

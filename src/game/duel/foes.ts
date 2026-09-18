@@ -28,10 +28,17 @@ export interface FoeDef {
   /** This chapter's new magic (a rune id) — castable from node 3 — or -1. */
   magic: number
   boss: boolean
-  /** The boss's phase-2 mechanic at ≤ 50 % HP (§6.11), if shipped. */
-  phase2: 'natureRider' | null
+  /** The boss's phase-2 mechanic at ≤ 50 % HP (§6.11), if shipped:
+   *  Briar's Nature rider on everything, Pearl opening a bubble ward at the
+   *  phase start, Zephyr's bolts piercing. */
+  phase2: Phase2 | null
   pal: FoePalette
 }
+
+export type Phase2 = 'natureRider' | 'wardOpen' | 'pierceBolts'
+
+/** The phase-2 mechanics that have shipped, by chapter (§6.11). */
+const PHASE2: readonly (Phase2 | null)[] = ['natureRider', 'wardOpen', 'pierceBolts']
 
 /** Umbra's own look: matte black coat, violet rim, neon cyan streaks. */
 const UMBRA: FoePalette = ['#213', '#102', '#74c', '#84d', '#7ff', '#a5f', '#539', '#7ff', '#b7f', '#639']
@@ -98,7 +105,7 @@ for (let c = 0; c < 10; c++) {
   const [slug, pal] = GUARDIAN[c]!
   roster.push({
     slug, element, hpMax: hp(c, true), aiTier: tier(c), magic, boss: true,
-    phase2: c === 0 ? 'natureRider' : null, pal
+    phase2: PHASE2[c] ?? null, pal
   })
 }
 
@@ -112,3 +119,37 @@ export const guardianOf = (chapter: number): number => 10 + chapter
 
 /** Rate of rune formation for an AI tier (§6.14). */
 export const tierRate = (aiTier: number): number => 0.42 + 0.085 * aiTier
+
+/**
+ * The NPC contract per magic (§6.13, M26), as a record a test can assert:
+ * when a foe may use each magic, and what answers it. The prose table in
+ * the spec is what a reviewer reads; `sim.ts`'s `chooseRune`/`think` are
+ * what the foe does. Ten entries: the eight rune magics and the two
+ * Signature Spells.
+ */
+export interface AiContract {
+  magic: 'dot' | 'ward' | 'pierce' | 'crystal' | 'decoy' | 'wildcard' | 'slow' | 'frostLock' | 'lifesteal' | 'finisher'
+  /** C14: 1 = no restriction, 3 = only from node 3 of the chapter. */
+  usesFromNode: 1 | 3
+  usesWhen: string
+  /** Never cast by a foe at all. */
+  aiOnly: boolean
+  counteredBy: 'dot' | 'ward' | 'pierce' | 'decoy' | 'none' | 'tank'
+  /** The chapter's boss gains a phase-2 tie to this magic (§6.11). */
+  bossPhase2?: true
+  /** Built in this stage (S2 dot, S3 ward + pierce; the rest land in S4). */
+  built: boolean
+}
+
+export const AI_CONTRACTS: readonly AiContract[] = [
+  { magic: 'dot', usesFromNode: 3, usesWhen: 'own HP < 60%', aiOnly: false, counteredBy: 'none', bossPhase2: true, built: true },
+  { magic: 'ward', usesFromNode: 3, usesWhen: 'incoming shot', aiOnly: false, counteredBy: 'pierce', bossPhase2: true, built: true },
+  { magic: 'pierce', usesFromNode: 3, usesWhen: 'player guard>0', aiOnly: false, counteredBy: 'decoy', bossPhase2: true, built: true },
+  { magic: 'crystal', usesFromNode: 3, usesWhen: 'defensive default', aiOnly: false, counteredBy: 'pierce', bossPhase2: true, built: false },
+  { magic: 'decoy', usesFromNode: 3, usesWhen: 'own HP < 30%', aiOnly: false, counteredBy: 'tank', bossPhase2: true, built: false },
+  { magic: 'wildcard', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: false },
+  { magic: 'slow', usesFromNode: 3, usesWhen: 'player guard>0', aiOnly: false, counteredBy: 'none', bossPhase2: true, built: false },
+  { magic: 'frostLock', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: false },
+  { magic: 'lifesteal', usesFromNode: 3, usesWhen: 'own HP < 50%', aiOnly: false, counteredBy: 'decoy', bossPhase2: true, built: false },
+  { magic: 'finisher', usesFromNode: 1, usesWhen: 'Umbra only, own HP <=25% (phase 3)', aiOnly: false, counteredBy: 'none', built: false }
+]

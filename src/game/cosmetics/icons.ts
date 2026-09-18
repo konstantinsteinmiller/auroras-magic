@@ -3,10 +3,32 @@
  * function, baked once onto a small badge and handed to the DOM as a data
  * URL (the chrome owns no canvas, §4.1.4).
  */
-import { drawFlowerCrown } from '@/game/cosmetics/rig-cosmetics'
+import { drawFlowerCrown, drawSeashellNecklace, drawWingsFar, drawWingsNear } from '@/game/cosmetics/rig-cosmetics'
+import type { RigAnchors } from '@/game/duel/chars'
+
+/** A stand-in pose for items that hang off the body, framed for a badge. */
+const BADGE_ANCHORS: RigAnchors = {
+  neckCollar: [0, -8],
+  neckDir: [0.55, -0.83],
+  backWithers: [14, 16],
+  tailBase: [-26, 30],
+  t: 0.6,
+  lift: 0
+}
 
 const DRAW: Readonly<Record<string, (g: CanvasRenderingContext2D) => void>> = {
-  flowerCrown: drawFlowerCrown
+  // Head-space items are framed around the crown's middle, near (1, -19).
+  flowerCrown: drawFlowerCrown,
+  seashellNecklace: (g) => {
+    g.translate(1, -24)
+    g.scale(1.6, 1.6)
+    drawSeashellNecklace(g, BADGE_ANCHORS)
+  },
+  pegasusWings: (g) => {
+    g.translate(4, -30)
+    drawWingsFar(g, BADGE_ANCHORS)
+    drawWingsNear(g, BADGE_ANCHORS)
+  }
 }
 
 const cache = new Map<string, string>()

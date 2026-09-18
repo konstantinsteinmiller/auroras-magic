@@ -10,8 +10,9 @@
  *   • its size: a boss sector is 4× a standard sector's area (§8.14), so its
  *     tools are sized in restore-view units at 2 RVU per sector unit.
  *
- * Chapter 1 (Whispering Woods) is authored here; later chapters are silhouette
- * pages on the map until their stage.
+ * Chapter 1 (Whispering Woods) is authored here; chapter 2 (Bubble Bay) in
+ * `sectorsC2.ts`, chapter 3 (Cloud Kingdom) in `sectorsC3.ts`. Later chapters
+ * are silhouette pages on the map until their stage.
  */
 
 import {
@@ -19,29 +20,144 @@ import {
   flowers, mushrooms, log, stones, fence, pond, brook, cottage, millBody, sails, bridge, well, flowerBed,
   beehive, treehouse, greatTree, brambleArch, waterfall, smoke, butterfly, bees, swing, waterwheel, fireflies
 } from '@/game/map/kit'
-import { sin, TAU } from '@/game/duel/util'
+import { sin, TAU, PI } from '@/game/duel/util'
+import type { SectorDef, TapCreature, RescueCollectible } from '@/game/map/sectorDef'
+import { C2_SECTORS } from '@/game/map/sectorsC2'
+import { C3_SECTORS } from '@/game/map/sectorsC3'
 
 export type { Pot } from '@/game/map/kit'
 
-export interface SectorDef {
-  node: number
-  /** Restore-view units per sector unit: 1, or 2 for a boss (4× area). */
-  rvu: number
-  pots: readonly Pot[]
-  /** The colour-me region's middle, SU — where a picked paint lands. */
-  landmark: { x: number; y: number }
-  /** Where the gift (or chest) sits before it opens, SU. */
-  giftSpot: { x: number; y: number }
-  /** A tint for its map page and chest ribbon. */
-  seed: number
-  /** The static painting, with the landmark in `pot`'s colours. */
-  paint: (g: G2D, pot: Pot) => void
-  /** The props. `alive` 0 = at rest (baked into the dust); 1 = restored and
-   *  animating; `t` = seconds since the sector came alive. */
-  props: (g: G2D, t: number, alive: number) => void
-}
+export type { SectorDef, SectorAccent, TapCreature, RescueCollectible } from '@/game/map/sectorDef'
 
 const REST = 0.35
+
+/** Whispering Woods' accent (§8.2): a moss-green ribbon, a leaf-green gem. */
+const WOODS_ACCENT = { ribbon: '#63e24a', ribbonShade: '#3fb84a', gem: '#5ce05a' } as const
+
+/* ── Permanence (§8.8): the woods' tap creature and its rescue ─────────── */
+
+/** A round moss-sprite: a green ball with leaf ears, a sprout, a face.
+ *  `awake` 0 = eyes shut, 1 = wide and smiling. Centred at (x, y). */
+const sprite = (g: G2D, x: number, y: number, s: number, awake: number, body = '#7ee85a'): void => {
+  for (const d of [-1, 1]) {
+    g.beginPath()
+    g.ellipse(x + d * 16 * s, y - 4 * s, 11 * s, 5 * s, d * -0.5, 0, TAU)
+    fill(g, '#4fbf4a')
+    ink(g, 2.6)
+  }
+  g.beginPath()
+  g.arc(x, y + 2 * s, 18 * s, 0, TAU)
+  fill(g, body)
+  ink(g, 3.2)
+  g.beginPath()
+  g.moveTo(x, y - 15 * s)
+  g.quadraticCurveTo(x + 2 * s, y - 24 * s, x - 1 * s, y - 28 * s)
+  ink(g, 2.6)
+  g.beginPath()
+  g.ellipse(x + 5 * s, y - 27 * s, 6 * s, 3 * s, -0.6, 0, TAU)
+  fill(g, '#5fd35a')
+  ink(g, 2)
+  for (const d of [-1, 1]) {
+    g.beginPath()
+    if (awake > 0.5) {
+      g.ellipse(x + d * 7 * s, y + 1 * s, 2.6 * s, 3.8 * s, 0, 0, TAU)
+      fill(g, INK)
+    } else {
+      g.arc(x + d * 7 * s, y + 2 * s, 3 * s, 0.2, PI - 0.2)
+      ink(g, 2)
+    }
+  }
+  g.globalAlpha = 0.55
+  for (const d of [-1, 1]) {
+    g.beginPath()
+    g.ellipse(x + d * 12 * s, y + 8 * s, 3.5 * s, 2 * s, 0, 0, TAU)
+    fill(g, '#ff9eb5')
+  }
+  g.globalAlpha = 1
+  g.beginPath()
+  g.arc(x, y + 8 * s, 3.2 * s, 0.2, PI - 0.2)
+  ink(g, 2)
+}
+
+/** The woods' tap creature: a sleepy moss-sprite in a hollow log, who pops
+ *  up to say hello (`k` 0 hidden … 1 fully out). Log centred at (x, y). */
+const logSprite = (x: number, y: number): TapCreature => ({
+  x,
+  y: y - 22,
+  r: 56,
+  draw: (g, k, t) => {
+    const w = 96
+    const h = 34
+    // The log's back rim and dark hollow.
+    g.beginPath()
+    g.ellipse(x - w / 2 + 10, y, 14, h / 2, 0, 0, TAU)
+    fill(g, '#9a6446')
+    ink(g, 3)
+    // The sprite, rising from behind the log — clipped at the log's top.
+    if (k > 0.01) {
+      g.save()
+      g.beginPath()
+      g.rect(x - w, y - 120, w * 2, 120 - 4)
+      g.clip()
+      const hop = Math.sin(Math.min(1, k) * PI * 0.5)
+      sprite(g, x + 4, y - 2 - hop * 38 + Math.sin(t * 9) * 1.5 * k, 1, k)
+      g.restore()
+    }
+    // The log's front: bark, rings on the cut face.
+    g.beginPath()
+    g.roundRect(x - w / 2 + 10, y - h / 2, w - 10, h, h / 2)
+    fill(g, C.trunk)
+    ink(g, 3.4)
+    g.beginPath()
+    g.ellipse(x + w / 2, y, 12, h / 2, 0, 0, TAU)
+    fill(g, '#f0c48a')
+    ink(g, 3)
+    g.beginPath()
+    g.ellipse(x + w / 2, y, 6, h / 4, 0, 0, TAU)
+    ink(g, 1.8)
+    g.beginPath()
+    g.ellipse(x - 6, y - 6, 20, 5, 0.1, 0, TAU)
+    fill(g, C.moss)
+  }
+})
+
+/** The Wood Sprite, chapter 1's rescue (§8.8 beat 3): curled up asleep
+ *  under the dust, then awake, bouncing, with little hearts. */
+const woodSprite = (x: number, y: number): RescueCollectible => ({
+  x,
+  y,
+  r: 44,
+  draw: (g, k, t) => {
+    const bounce = k > 0.99 ? Math.abs(Math.sin(t * 3)) * 6 : k * 10
+    // A bed of moss.
+    g.beginPath()
+    g.ellipse(x, y + 20, 42, 11, 0, 0, TAU)
+    fill(g, C.mossShade)
+    ink(g, 3)
+    sprite(g, x, y - bounce, 1.35, k, k > 0.5 ? '#9ff07a' : '#7ee85a')
+    if (k > 0.5) {
+      g.globalAlpha = Math.min(1, (k - 0.5) * 2)
+      for (const [dx, ph] of [[-30, 0], [30, 1.7]] as const) {
+        const hy = y - 44 - ((t * 0.6 + ph) % 1) * 26
+        g.beginPath()
+        g.moveTo(x + dx, hy + 4)
+        g.bezierCurveTo(x + dx - 8, hy - 3, x + dx - 3, hy - 9, x + dx, hy - 3)
+        g.bezierCurveTo(x + dx + 3, hy - 9, x + dx + 8, hy - 3, x + dx, hy + 4)
+        fill(g, '#ff8fb8')
+        ink(g, 1.8)
+      }
+      g.globalAlpha = 1
+    } else {
+      // Asleep: a little "z" drawn, not typed.
+      g.beginPath()
+      g.moveTo(x + 22, y - 40)
+      g.lineTo(x + 32, y - 40)
+      g.lineTo(x + 22, y - 30)
+      g.lineTo(x + 32, y - 30)
+      ink(g, 2.4)
+    }
+  }
+})
 
 /* ── 1-1 · Cottage Meadow (the S1 sector) ───────────────────────────────── */
 const cottageMeadow: SectorDef = {
@@ -286,13 +402,21 @@ const briarsGrove: SectorDef = {
   }
 }
 
-export const SECTORS: Readonly<Record<number, SectorDef>> = {
-  0: cottageMeadow,
-  1: brookBridge,
-  2: flowerGarden,
-  3: treehouseHollow,
-  4: briarsGrove
-}
+/** Where each woods sector's log lies (open ground, clear of its gift). */
+const LOGS: readonly (readonly [number, number])[] = [[930, 600], [230, 600], [330, 500], [860, 600], [230, 610]]
+
+const WOODS: readonly SectorDef[] = [cottageMeadow, brookBridge, flowerGarden, treehouseHollow, briarsGrove]
+  .map((s, i) => ({
+    ...s,
+    accent: s.accent ?? WOODS_ACCENT,
+    tap: s.tap ?? logSprite(LOGS[i]![0], LOGS[i]![1]),
+    // The Wood Sprite sleeps in the Flower Garden (§8.8).
+    rescue: s.rescue ?? (i === 2 ? woodSprite(735, 612) : undefined)
+  }))
+
+export const SECTORS: Readonly<Record<number, SectorDef>> = Object.fromEntries(
+  [...WOODS, ...C2_SECTORS, ...C3_SECTORS].map((s) => [s.node, s])
+)
 
 /** The sector of node `n` (a chapter-1 sector stands in for unbuilt ones). */
 export const sectorOf = (n: number): SectorDef => SECTORS[n] ?? SECTORS[n % 5] ?? cottageMeadow

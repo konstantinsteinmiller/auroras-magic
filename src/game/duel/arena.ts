@@ -27,6 +27,7 @@
 import { SW, SH } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, sin, cos, abs, sign, clamp, seeded } from '@/game/duel/util'
+import { arenaTheme, type ArenaTheme } from '@/game/duel/arenaThemes'
 
 type G2D = CanvasRenderingContext2D
 /** Anything a path can be traced into: a context or a Path2D. */
@@ -77,6 +78,8 @@ let isle: HTMLCanvasElement | null = null // baked island
 let clds: HTMLCanvasElement | null = null // baked, horizontally tileable cloud band
 let sil: Path2D | null = null // island silhouette in stage space — doubles as tint mask
 let bk = 0 // device scale the bakes were made at
+let bt = -1 // chapter theme the bakes were made for (§9.6)
+let TH: ArenaTheme = arenaTheme(0)
 let grad: CanvasGradient | null = null // sky gradient
 let gradCtx: G2D | null = null
 let gk = -1 // sky bucket `grad` was built for
@@ -154,6 +157,8 @@ const buildSil = (): void => {
 
 const bake = (): void => {
   bk = qs()
+  bt = S.theme
+  TH = arenaTheme(bt)
   buildSil()
   const s = sil!
 
@@ -162,7 +167,7 @@ const bake = (): void => {
   D.translate(-IX, -IY)
   D.lineJoin = D.lineCap = 'round'
   D.lineWidth = 6
-  D.fillStyle = '#657'
+  D.fillStyle = TH.rock
   D.strokeStyle = '#112'
   D.fill(s)
   D.stroke(s)
@@ -176,7 +181,7 @@ const bake = (): void => {
     D.moveTo(CX - 40 + j * 90, TY)
     /* 30 == V.length: 13 walked vertices plus the two rim ends. */
     for (let i = 10 + j * 4; i < 30; i += 2) D.lineTo(V[i]!, V[i + 1]!)
-    FL(j ? '#324' : '#435')
+    FL(j ? TH.plane2 : TH.plane1)
   }
 
   /* roots trailing out from under the moss */
@@ -188,7 +193,7 @@ const bake = (): void => {
     D.moveTo(x, TY + 22)
     D.quadraticCurveTo(x - 28, TY + 58, x + dr() * 30, TY + 76)
   }
-  SK('#353')
+  SK(TH.roots)
 
   /* ---- mossy cap: one wobbly disc, three cel bands and a rim-lit lip.
           The bright band is laid down 4px high and then covered by the lit
@@ -196,17 +201,17 @@ const bake = (): void => {
   D.lineWidth = 6
   BP()
   cap(D, RX, 34, TY, 15)
-  FL('#472')
+  FL(TH.cap)
   SK('#112')
   BP()
   cap(D, RX - 12, 30, TY - 3, 1)
-  FL('#593')
+  FL(TH.capMid)
   BP()
   cap(D, RX - 39, 22, TY - 8, 1)
-  FL('#ce6')
+  FL(TH.capLip)
   BP()
   cap(D, RX - 40, 22, TY - 4, 1)
-  FL('#7c3')
+  FL(TH.capTop)
 
   /* ---- things living up there: pale mossy stones and warm little blossoms,
           alternating, every one a different size and none evenly spaced. Kept
@@ -216,7 +221,7 @@ const bake = (): void => {
     const sz = 4 + dr() * 5
     BP()
     D.ellipse(408 + dr() * 466, TY - 13 + dr() * 22, sz, sz * 0.7, 0, 0, TAU)
-    FL(i & 1 ? '#aab' : '#fea')
+    FL(i & 1 ? TH.dotA : TH.dotB)
     SK()
   }
 
@@ -237,10 +242,10 @@ const bake = (): void => {
     }
   }
   pass(5, 0, '#112') // one thick dark outline around the whole union
-  D.fillStyle = '#789' // solid ceiling: the band never gaps at the top
+  D.fillStyle = TH.cloud // solid ceiling: the band never gaps at the top
   D.fillRect(0, 0, SW, 92)
-  pass(0, 0, '#789')
-  pass(-18, -16, '#9ab') // lit tops
+  pass(0, 0, TH.cloud)
+  pass(-18, -16, TH.cloudLit) // lit tops
 }
 
 /** Point the shorthands at `g`, refresh the balance, bake if we must. */
@@ -248,7 +253,7 @@ const sync = (g: G2D): void => {
   K = clamp(S.sky, 0, 1)
   W = clamp(K * 2 - 1, 0, 1)
   L = clamp(1 - K * 2, 0, 1)
-  if (!isle || qs() !== bk) bake()
+  if (!isle || qs() !== bk || bt !== S.theme) bake()
   D = g
 }
 
@@ -269,11 +274,11 @@ export const resetArena = (): void => {
  * rule) so the first frame of the duel does not pay for it.
  */
 export const primeArena = (): void => {
-  if (!isle || qs() !== bk) bake()
+  if (!isle || qs() !== bk || bt !== S.theme) bake()
 }
 
 /** True once the arena's baked surfaces exist at the current scale. */
-export const arenaReady = (): boolean => !!isle && qs() === bk
+export const arenaReady = (): boolean => !!isle && qs() === bk && bt === S.theme
 
 /** Sky, clouds, rainbow. Fills the whole stage; draw this first. */
 export const drawSky = (g: G2D, t: number): void => {
@@ -346,7 +351,7 @@ const grass = (): void => {
     D.quadraticCurveTo(x, y - h * 0.85, x + s, y - h)
     D.quadraticCurveTo(x + w + s * 0.4, y - h * 0.4, x + w, y)
   }
-  FL(L > 0.4 ? '#353' : '#5a3')
+  FL(L > 0.4 ? TH.tuftDark : TH.tuft)
 }
 
 /** The floating island: one blit, the live tufts, one mask-fill of tint. */

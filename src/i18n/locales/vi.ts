@@ -119,7 +119,8 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'CHIẾN THẮNG',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'XẸT!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'Tiến trình trong trận đấu này sẽ không được lưu.',
       'confirm': 'Rời đi',
       'cancel': 'Ở lại'
+    },
+    'parents': {
+      'title': 'Dành cho phụ huynh',
+      'aboutBody': 'Auroras Magic không có tính năng trò chuyện, không tiếp xúc với người lạ và không sử dụng vị trí. Không cần tài khoản để chơi.',
+      'adsBody': 'Trò chơi này hiển thị quảng cáo video để luôn miễn phí. Một số quảng cáo không thể bỏ qua; việc xem quảng cáo để nhận thưởng thêm luôn là tùy chọn.',
+      'adsNonPersonalisedNote': 'Quảng cáo trong phiên bản này không được cá nhân hóa.',
+      'purchasesBody': 'Trò chơi không có giao dịch mua trong ứng dụng.',
+      'privacyBody': 'Chúng tôi lưu dữ liệu trò chơi trên thiết bị này hoặc trong bộ lưu trữ đám mây của cổng trò chơi. Không có thông tin cá nhân nào được thu thập.',
+      'leaderboardBody': 'Bảng xếp hạng chỉ hiển thị một tên người chơi hư cấu và số trận đấu đã thắng.',
+      'privacyLinkLabel': 'Chính sách quyền riêng tư đầy đủ'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Hồng hoa hồng',
     'sunflower': 'Vàng hoa hướng dương',
-    'bluebell': 'Xanh hoa chuông'
+    'bluebell': 'Xanh hoa chuông',
+    'coral': 'Hồng san hô',
+    'lagoon': 'Xanh đầm phá',
+    'sunshell': 'Vàng nắng',
+    'lavender': 'Tím oải hương',
+    'skyblue': 'Xanh da trời',
+    'sunrise': 'Cam bình minh'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Chứng minh đi, kỳ lân nhỏ. Đấu với ta nào!',
         't1': 'Ôi! Khu rừng lại ấm áp rồi.',
         't2': 'Cảm ơn cậu, Aurora. Lúc nào cũng ghé chơi nhé!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Vịnh Bong Bóng đã mất tiếng hát rồi.',
+        'b2': 'Yên tĩnh cũng ấm cúng mà, phải không?',
+        'b3': 'Mỗi tiếng nói đều đáng được lắng nghe!'
+      },
+      'n5': {
+        'b1': 'Ai dám khuấy động mặt nước yên bình của ta?',
+        'b2': 'Tớ đến để mang tiếng hát trở lại!',
+        'b3': 'Vậy hãy cất tiếng hát cho ta thấy sức mạnh. Đấu nào!',
+        't1': 'Sóng nước nhẹ nhàng và lấp lánh quá!',
+        't2': 'Cảm ơn cậu, Aurora. Sớm bơi qua chơi nhé!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Cơn bão không cho các bé Pegasus cất cánh.',
+        'b2': 'Trời bão ngủ trưa là tuyệt nhất, nhỉ?',
+        'b3': 'Cùng nhau làm bầu trời quang đãng nào, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Ai dám bay qua cơn bão của TA?',
+        'b2': 'Tớ muốn các bé Pegasus lại được bay cao!',
+        'b3': 'Hãy chứng tỏ tia lửa của cậu. Đấu với ta ngay!',
+        't1': 'Bầu trời thật yên bình và trong xanh!',
+        't2': 'Cảm ơn cậu, Aurora. Sớm quay lại bay cùng chúng tớ nhé!'
       }
     },
     'tmpl': {

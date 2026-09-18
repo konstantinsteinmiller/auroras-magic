@@ -17,8 +17,11 @@
  * and sound the moment the ad closes.
  *
  * SIGNAL FLOW — exactly ONE path:
- *   cue voice   -> sfx bus  ─┐
- *   piano voice -> music bus ┴> master -> DynamicsCompressor -> destination
+ *   cue voice      -> sfx bus  ─┐
+ *   piano voice    -> music bus ┤> master -> DynamicsCompressor -> destination
+ *   ambience voice -> amb bus  ─┘
+ * The amb bus (story-spec §8.5, §8.8) carries a restored biome's loop while
+ * its sectors are in view; it follows the Sound Effects volume.
  * The bus gains are the player's sound / music volume (Options, desktop mute).
  * Only `level()` ever touches a bus gain, and only with setTargetAtTime — mixing
  * a direct `.value` write with scheduled automation on one AudioParam is the
@@ -51,6 +54,7 @@ let A: AudioContext | null = null
 let mst: GainNode | null = null
 let sfxBus: GainNode | null = null
 let musBus: GainNode | null = null
+let ambBus: GainNode | null = null
 let nz: AudioBuffer | null = null // the ONE shared noise buffer
 let vc = 0 // live voice count
 
@@ -89,12 +93,22 @@ const now = (): number => cl(A ? A.currentTime : 0, 0, 1e7)
 /** Semitones above A1 (55 Hz) -> Hz. The one tuning function in the file. */
 const hz = (s: number): number => 55 * 2 ** (s / 12)
 
+/** The ambience's own level under the sound-effects volume, 0..1 (a fade). */
+let ambLevel = 0
+/** The biome whose loop is playing: 0 woods, 1 bay, 2 clouds; -1 none. */
+let ambBiome = -1
+let ambNext = 0
+/** The ambience sits well under everything else. */
+const AMB_MIX = 0.55
+
 /** THE ONLY WRITER of the bus gains — setTargetAtTime, always. */
 const level = (): void => {
-  if (!A || !sfxBus || !musBus) return
+  if (!A || !sfxBus || !musBus || !ambBus) return
   const t = now()
   sfxBus.gain.setTargetAtTime(VOL * cl(sfxLevel, 0, 1), t, 0.03)
   musBus.gain.setTargetAtTime(VOL * cl(musLevel, 0, 1), t, 0.03)
+  // A slow time constant: the biome breathes in and out as the map pans.
+  ambBus.gain.setTargetAtTime(VOL * AMB_MIX * cl(sfxLevel, 0, 1) * cl(ambLevel, 0, 1), t, 0.4)
 }
 
 /** Build the graph on the shared context. Idempotent; safe before a gesture
@@ -111,10 +125,13 @@ const ensure = (): boolean => {
     mst = ctx.createGain()
     sfxBus = ctx.createGain()
     musBus = ctx.createGain()
+    ambBus = ctx.createGain()
     sfxBus.gain.value = 0
     musBus.gain.value = 0
+    ambBus.gain.value = 0
     sfxBus.connect(mst)
     musBus.connect(mst)
+    ambBus.connect(mst)
     mst.connect(lim).connect(ctx.destination)
     level()
     /* THE shared noise buffer: half a second, looped by every noise voice. */
@@ -139,7 +156,7 @@ const ensure = (): boolean => {
  *   d   duration (s)              g   peak gain
  *   q   filter tracking: cutoff sweeps f0*q -> f1*q ("brightness")
  *   dl  delay before it starts (s)   a  attack (s, omitted = 4 ms)
- *   bus 0 = sfx, 1 = music
+ *   bus 0 = sfx, 1 = music, 2 = ambience
  * The gain envelope is a fast exponential attack into a long exponential
  * decay, which is exactly a struck-string envelope — see `pia`.
  */
@@ -147,7 +164,7 @@ const V = (
   w: number, f0: number, f1?: number, d?: number, g?: number, q?: number, dl?: number, a?: number, bus = 0
 ): void => {
   if (!A || !nz || isAudioSuspended() || vc >= MAXV) return
-  const target = bus ? musBus : sfxBus
+  const target = bus === 2 ? ambBus : bus ? musBus : sfxBus
   if (!target) return
   d = cl(d, 0.02, 4)
   g = cl(g, 1e-4, 0.9)
@@ -228,6 +245,8 @@ export type Cue =
   | 'scrub' | 'chime' | 'untie' | 'unbox' | 'paint' | 'whoosh' | 'reveal'
   // the boss chest and its Sunbeam (story-spec §8.3–§8.5)
   | 'fanfare' | 'beam' | 'ready'
+  // permanence (§8.8): a tap creature peeks; a rescue is found
+  | 'peek' | 'rescue'
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -405,6 +424,22 @@ const CUES: Record<Cue, (v?: number) => void> = {
     V(SIN, nf(4) * 4, nf(4) * 8, 0.5, 0.03, 1, 0.05)
   },
 
+  /* A tap creature pops out: a quick "boop" up a fifth, one chime-family note. */
+  peek: (v) => {
+    const f = nf(cl((v ?? 0) | 0, 0, 5)) * 4
+    V(SIN, f, f * 1.5, 0.14, 0.07, 1)
+    V(TRI, f * 1.5, 0, 0.35, 0.05, 5, 0.1)
+  },
+
+  /* The chapter's rescue collectible is found: a bright twinkling run and a
+     warm held third — the "you found someone!" moment, distinct from a chime. */
+  rescue: () => {
+    for (let i = 0; i < 5; i++) V(TRI, nf(i) * 8, 0, 0.3, 0.05, 6, i * 0.06)
+    V(SIN, nf(2) * 4, nf(2) * 4, 1.1, 0.06, 1, 0.3, 0.08)
+    V(SIN, nf(4) * 4, nf(4) * 4, 1.1, 0.045, 1, 0.3, 0.08)
+    V(NOISE, 3000, 9000, 0.6, 0.03, 1, 0, 0.1)
+  },
+
   /* The Sunbeam has gathered its light again: one small bell. */
   ready: () => {
     V(TRI, nf(4) * 4, 0, 0.3, 0.05, 6)
@@ -514,6 +549,9 @@ const CHATTER: Readonly<Record<string, readonly [number, number, number]>> = {
   aurora: [2, 4, 0.1],
   umbra: [0, 1, 0.15],
   briar: [1, 2, 0.12],
+  // Pearl sings (a high, rounded voice); Zephyr is quick and breezy.
+  pearl: [3, 4, 0.13],
+  zephyr: [2, 2, 0.08],
   creature: [4, 8, 0.085]
 }
 /**
@@ -566,11 +604,66 @@ export const setAudioLevels = (sound: number, music: number): void => {
   level()
 }
 
+/* ------------------------------------------------------------- ambience */
+/**
+ * A restored biome's loop (story-spec §8.8 beat 1): no sustained oscillator,
+ * just short voices re-triggered a little irregularly on the amb bus, so it
+ * breathes instead of repeating. The bus gain does the fading.
+ *   woods  leaf rustle + a distant bird's two-note chirp
+ *   bay    a slow lapping swell + a few rising bubbles
+ *   clouds an airy wind sweep + now and then a soft high chime
+ */
+const AMBIENCE: readonly ((t: number) => number)[] = [
+  () => {
+    V(NOISE, 1900, 1300, 1.1, 0.035, 1, 0, 0.35, 2)
+    if (rnd() < 0.45) {
+      const f = 2300 + rnd() * 700
+      V(TRI, f, f * 1.25, 0.07, 0.022, 6, 0.3, 0.005, 2)
+      V(TRI, f * 1.1, f * 1.3, 0.07, 0.02, 6, 0.42, 0.005, 2)
+    }
+    return 1.1 + rnd() * 0.9
+  },
+  () => {
+    V(NOISE, 520, 330, 1.6, 0.055, 1, 0, 0.6, 2)
+    if (rnd() < 0.5) {
+      for (let i = (2 + rnd() * 3) | 0; i--;) {
+        const f = 500 + rnd() * 400
+        V(SIN, f, f * 2.2, 0.06, 0.018, 1, 0.4 + i * 0.09, 0.004, 2)
+      }
+    }
+    return 1.5 + rnd() * 0.8
+  },
+  () => {
+    V(NOISE, 650, 2600, 2.4, 0.032, 1, 0, 1, 2)
+    if (rnd() < 0.25) V(TRI, nf(4) * 8, 0, 1.3, 0.012, 5, 0.6, 0.01, 2)
+    return 2 + rnd() * 1.2
+  }
+]
+
+/**
+ * Which biome is in view and how much of it (0..1). Called every frame by the
+ * app root; cheap when nothing changes. `biome` -1 fades the ambience out.
+ */
+export const setAmbience = (biome: number, k: number): void => {
+  const want = biome >= 0 && biome < AMBIENCE.length ? cl(k, 0, 1) : 0
+  if (biome >= 0 && biome < AMBIENCE.length && biome !== ambBiome && want > 0) ambBiome = biome
+  if (Math.abs(want - ambLevel) > 0.05 || (want === 0 && ambLevel !== 0)) {
+    ambLevel = want
+    level()
+  }
+}
+
 /** Per frame: smooth the mood, then schedule ahead on the AudioContext clock. */
 export const tickAudio = (dt: number): void => {
   if (!A) return
   dt = cl(dt, 0, 0.1)
   mS += (mood - mS) * dt * 3 // dt is capped, so this can never overshoot
+  // The ambience keeps its own light clock, independent of the music.
+  if (ambBiome >= 0 && ambLevel > 0 && !isAudioSuspended() && A.state === 'running') {
+    const t0 = now()
+    if (!(ambNext > t0 - 1)) ambNext = t0
+    if (ambNext <= t0) ambNext = t0 + AMBIENCE[ambBiome]!(t0)
+  }
   if (!playing || isAudioSuspended() || A.state !== 'running') return
   const t = now()
   if (!(nx > t)) nx = t + 0.05 // first note, or we fell behind: resync

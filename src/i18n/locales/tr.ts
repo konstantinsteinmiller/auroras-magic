@@ -120,7 +120,8 @@ export default {
     'combo': 'x{n} KOMBO',
     'times': 'x{n}',
     'victory': 'ZAFER',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'ÇAT!'
   },
 
   'result': {
@@ -158,6 +159,16 @@ export default {
       'body': 'Bu düellodaki ilerlemen kaydedilmeyecek.',
       'confirm': 'Çık',
       'cancel': 'Kal'
+    },
+    'parents': {
+      'title': 'Ebeveynler İçin',
+      'aboutBody': 'Auroras Magic oyununda sohbet, yabancılarla iletişim ve konum takibi yoktur. Oynamak için hesap gerekmez.',
+      'adsBody': 'Bu oyun ücretsiz kalabilmek için video reklamlar gösterir. Bazı reklamlar atlanamaz; bonus ödül için reklam izlemek her zaman isteğe bağlıdır.',
+      'adsNonPersonalisedNote': 'Bu sürümde reklamlar kişiselleştirilmeden gösterilir.',
+      'purchasesBody': 'Uygulama içi satın alma yoktur.',
+      'privacyBody': 'Oyun kaydı bu cihazda veya oyun portalının bulut kaydında saklanır. Hiçbir kişisel bilgi toplanmaz.',
+      'leaderboardBody': 'Sıralamada yalnızca hayali bir oyuncu adı ve kazanılan düello sayısı görünür.',
+      'privacyLinkLabel': 'Gizlilik politikasının tamamı'
     }
   },
 
@@ -206,7 +217,13 @@ export default {
   'paint': {
     'rose': 'Gül pembesi',
     'sunflower': 'Ayçiçeği sarısı',
-    'bluebell': 'Çançiçeği mavisi'
+    'bluebell': 'Çançiçeği mavisi',
+    'coral': 'Mercan pembesi',
+    'lagoon': 'Lagün mavisi',
+    'sunshell': 'Güneş altını',
+    'lavender': 'Lavanta moru',
+    'skyblue': 'Gök mavisi',
+    'sunrise': 'Gün doğumu turuncusu'
   },
 
   'tool': {
@@ -247,6 +264,34 @@ export default {
         'b3': 'Kanıtla bakalım, minik tek boynuzlu! Düello zamanı!',
         't1': 'Ah! Orman yine sıcacık oldu.',
         't2': 'Teşekkürler, Aurora. İstediğin zaman yine gel!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Baloncuk Koyu şarkısını kaybetti.',
+        'b2': 'Sessizlik de çok huzurlu, değil mi?',
+        'b3': 'Her ses duyulmayı hak eder!'
+      },
+      'n5': {
+        'b1': 'Sakin sularımı kim dalgalandırıyor?',
+        'b2': 'Şarkıları geri getirmeye geldim!',
+        'b3': 'O zaman gücünü bana şarkıyla göster. Düello!',
+        't1': 'Dalgalar hafif ve pırıl pırıl!',
+        't2': 'Teşekkürler, Aurora. Yakında yüzerek uğra!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Fırtına yüzünden yavru pegasuslar uçamıyor.',
+        'b2': 'Fırtına tam şekerleme havası, değil mi?',
+        'b3': 'Hadi gökyüzünü birlikte açalım, Zephyr!'
+      },
+      'n5': {
+        'b1': 'BENİM fırtınamda kim uçmaya cüret ediyor?',
+        'b2': 'Pegasuslar yine göklerde süzülsün istiyorum!',
+        'b3': 'Kıvılcımını göster bakalım! Hemen düello!',
+        't1': 'Gökyüzü sakin ve berrak!',
+        't2': 'Teşekkürler, Aurora. Yakında bizimle uçmaya gel!'
       }
     },
     'tmpl': {

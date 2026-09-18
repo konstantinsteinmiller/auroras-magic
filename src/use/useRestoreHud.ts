@@ -30,6 +30,8 @@ export const restoreHud = reactive({
   potDefs: [] as { id: string; base: string; shade: string; lite: string }[],
   /** A boss sector: the chest and the Sunbeam instead of the gift and brush. */
   boss: false,
+  /** The tool in hand (§8.4): the chip's icon and name. */
+  tool: 'brush' as 'brush' | 'eraser' | 'sunbeam',
   /** The restored sector is on screen and the player may move on. */
   showContinue: false,
   portrait: false

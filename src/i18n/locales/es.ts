@@ -119,7 +119,8 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'VICTORIA',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': '¡ZAS!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'Tu progreso en este duelo no se guardará.',
       'confirm': 'Salir',
       'cancel': 'Quedarme'
+    },
+    'parents': {
+      'title': 'Para padres',
+      'aboutBody': 'Auroras Magic no tiene chat ni contacto con desconocidos, y no usa la ubicación. No hace falta ninguna cuenta para jugar.',
+      'adsBody': 'Este juego muestra anuncios en vídeo para seguir siendo gratuito. Algunos anuncios no se pueden saltar; ver un anuncio para conseguir una recompensa extra siempre es opcional.',
+      'adsNonPersonalisedNote': 'En esta versión, los anuncios se muestran sin personalización.',
+      'purchasesBody': 'No hay compras dentro de la aplicación.',
+      'privacyBody': 'Guardamos un archivo de partida en este dispositivo o en el guardado en la nube del portal. No se recopila ninguna información personal.',
+      'leaderboardBody': 'La clasificación solo muestra un nombre de jugador inventado y el número de duelos ganados.',
+      'privacyLinkLabel': 'Política de privacidad completa'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Rosa',
     'sunflower': 'Amarillo girasol',
-    'bluebell': 'Azul campanilla'
+    'bluebell': 'Azul campanilla',
+    'coral': 'Rosa coral',
+    'lagoon': 'Azul laguna',
+    'sunshell': 'Oro soleado',
+    'lavender': 'Lavanda',
+    'skyblue': 'Azul cielo',
+    'sunrise': 'Naranja amanecer'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Demuéstralo, pequeño unicornio. ¡Enfréntate a mí!',
         't1': '¡Oh! El bosque vuelve a sentirse cálido.',
         't2': 'Gracias, Aurora. ¡Vuelve cuando quieras!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'La Bahía Burbuja ha perdido su canción.',
+        'b2': 'El silencio también es acogedor, ¿no crees?',
+        'b3': '¡Todas las voces merecen ser escuchadas!'
+      },
+      'n5': {
+        'b1': '¿Quién se atreve a agitar mis aguas tranquilas?',
+        'b2': '¡Vengo a traer de vuelta las canciones!',
+        'b3': 'Pues cántame tu fuerza. ¡Enfréntate a mí!',
+        't1': '¡La marea se siente ligera y brillante!',
+        't2': 'Gracias, Aurora. ¡Vuelve pronto a nadar!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'La tormenta no deja volar a los pegasitos.',
+        'b2': 'Las tormentas son perfectas para una siesta, ¿mmm?',
+        'b3': '¡Vamos a despejar el cielo, Zephyr!'
+      },
+      'n5': {
+        'b1': '¿Quién se atreve a volar en MI tormenta?',
+        'b2': '¡Quiero que los pegasitos vuelvan a volar alto!',
+        'b3': 'Demuestra tu chispa. ¡Enfréntate a mí ya!',
+        't1': '¡El cielo se siente tranquilo y despejado!',
+        't2': 'Gracias, Aurora. ¡Vuelve pronto a volar con nosotros!'
       }
     },
     'tmpl': {

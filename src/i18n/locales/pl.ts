@@ -120,7 +120,8 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'ZWYCIĘSTWO',
-    'defeated': 'CHRRR…'
+    'defeated': 'CHRRR…',
+    'pierced': 'TRZASK!'
   },
 
   'result': {
@@ -158,6 +159,16 @@ export default {
       'body': 'Postęp w tym pojedynku nie zostanie zapisany.',
       'confirm': 'Wyjdź',
       'cancel': 'Zostań'
+    },
+    'parents': {
+      'title': 'Dla rodziców',
+      'aboutBody': 'W Auroras Magic nie ma czatu, kontaktu z nieznajomymi ani śledzenia lokalizacji. Do gry nie jest potrzebne konto.',
+      'adsBody': 'Gra wyświetla reklamy wideo, dzięki którym jest darmowa. Niektórych reklam nie można pominąć; oglądanie reklamy z dodatkową nagrodą jest zawsze dobrowolne.',
+      'adsNonPersonalisedNote': 'W tej wersji gry reklamy są wyświetlane bez personalizacji.',
+      'purchasesBody': 'W grze nie ma zakupów w aplikacji.',
+      'privacyBody': 'Postęp gry zapisujemy w pliku na tym urządzeniu lub w chmurze portalu z grami. Nie zbieramy żadnych danych osobowych.',
+      'leaderboardBody': 'Ranking pokazuje tylko wymyśloną nazwę gracza i liczbę wygranych pojedynków.',
+      'privacyLinkLabel': 'Pełna polityka prywatności'
     }
   },
 
@@ -206,7 +217,13 @@ export default {
   'paint': {
     'rose': 'Różany róż',
     'sunflower': 'Słonecznikowy żółty',
-    'bluebell': 'Dzwonkowy błękit'
+    'bluebell': 'Dzwonkowy błękit',
+    'coral': 'Koralowy róż',
+    'lagoon': 'Lagunowy błękit',
+    'sunshell': 'Słoneczne złoto',
+    'lavender': 'Lawendowy fiolet',
+    'skyblue': 'Błękit nieba',
+    'sunrise': 'Poranny pomarańcz'
   },
 
   'tool': {
@@ -246,6 +263,34 @@ export default {
         'b3': 'Udowodnij to, mały jednorożcu! Stań do pojedynku!',
         't1': 'Och! W lesie znów jest ciepło.',
         't2': 'Dziękuję, Auroro. Wracaj, kiedy chcesz!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Bąbelkowa Zatoka straciła swoją piosenkę.',
+        'b2': 'Cisza też jest przytulna, prawda?',
+        'b3': 'Każdy głos zasługuje, by go usłyszeć!'
+      },
+      'n5': {
+        'b1': 'Kto śmie marszczyć moje spokojne wody?',
+        'b2': 'Przyszłam, żeby przywrócić piosenki!',
+        'b3': 'To pokaż mi moc swojej piosenki. Do pojedynku!',
+        't1': 'Fale znów są lekkie i jasne!',
+        't2': 'Dziękuję, Auroro. Podpłyń do nas niedługo!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Przez burzę małe pegazy nie mogą latać.',
+        'b2': 'Burza to dobra pogoda na drzemkę, hm?',
+        'b3': 'Oczyśćmy razem niebo, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Kto śmie lecieć przez MOJĄ burzę?',
+        'b2': 'Chcę, żeby pegazy znów szybowały!',
+        'b3': 'Pokaż swoją iskrę. Stań do pojedynku!',
+        't1': 'Niebo jest znów spokojne i czyste!',
+        't2': 'Dziękuję, Auroro. Wpadnij wkrótce polatać z nami!'
       }
     },
     'tmpl': {

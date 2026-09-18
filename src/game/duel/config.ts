@@ -57,6 +57,8 @@ export const WIND = 1
 export const ICE = 2
 export const EARTH = 3
 export const NATURE = 4
+export const WATER = 5
+export const LIGHTNING = 6
 /** Any rune id, 0..11. */
 export type Rune = RuneId
 /** i18n ids of the runes, in rune order (`rune.<id>`). Also their save slugs. */

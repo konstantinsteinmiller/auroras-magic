@@ -13,6 +13,7 @@
  * lines, never the first (C12).
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { firstLoadAdSettled } from '@/use/useFirstLoadInterstitial'
 import { useI18n } from 'vue-i18n'
 import type { Bubble } from '@/game/story/story'
 import { portraitUrl } from '@/game/story/portrait'
@@ -33,7 +34,7 @@ const dwell = ref(0)
 const line = computed(() => props.lines[i.value])
 const left = computed(() => line.value?.speaker === 'aurora')
 const text = computed(() => (line.value ? t(line.value.key, { name: line.value.name ?? '' }) : ''))
-const portrait = computed(() => (line.value ? portraitUrl(line.value.speaker, line.value.emote) : ''))
+const portrait = computed(() => (line.value ? portraitUrl(line.value.speaker, line.value.emote, line.value.name) : ''))
 const ready = computed(() => dwell.value >= DWELL_MS)
 
 let timer = 0
@@ -84,12 +85,21 @@ const onKey = (e: KeyboardEvent): void => {
 }
 
 watch(i, show)
+/** The first bubble waits for a portal's mandatory first-load ad to settle
+ *  (§11.7, C30); on every other build this is the next microtask. */
+const open = ref(false)
+let alive = true
 onMounted(() => {
-  show()
-  timer = window.setInterval(tick, 50)
   window.addEventListener('keydown', onKey)
+  void firstLoadAdSettled().then(() => {
+    if (!alive) return
+    open.value = true
+    show()
+    timer = window.setInterval(tick, 50)
+  })
 })
 onUnmounted(() => {
+  alive = false
   window.clearInterval(timer)
   window.removeEventListener('keydown', onKey)
 })
@@ -99,7 +109,7 @@ onUnmounted(() => {
   div.dialogue(@click="advance")
     div.dim
     transition(name="bubble" mode="out-in")
-      div.beat(v-if="line" :key="i" :class="left ? 'from-left' : 'from-right'")
+      div.beat(v-if="line && open" :key="i" :class="left ? 'from-left' : 'from-right'")
         img.portrait(:src="portrait" alt="" draggable="false")
         div.bubble(role="status" aria-live="polite")
           div.pictos

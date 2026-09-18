@@ -119,7 +119,8 @@ export default {
     'combo': 'x{n} COMBO',
     'times': 'x{n}',
     'victory': 'SIEG',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'ZACK!'
   },
 
   'result': {
@@ -157,6 +158,16 @@ export default {
       'body': 'Dein Fortschritt in diesem Duell wird nicht gespeichert.',
       'confirm': 'Verlassen',
       'cancel': 'Bleiben'
+    },
+    'parents': {
+      'title': 'Für Eltern',
+      'aboutBody': 'Auroras Magic hat keinen Chat, keinen Kontakt zu Fremden und keine Standortermittlung. Zum Spielen ist kein Konto nötig.',
+      'adsBody': 'Dieses Spiel zeigt Videowerbung, damit es kostenlos bleiben kann. Manche Werbung lässt sich nicht überspringen; Werbung für eine Bonusbelohnung anzusehen ist immer freiwillig.',
+      'adsNonPersonalisedNote': 'Die Werbung in dieser Version wird ohne Personalisierung angezeigt.',
+      'purchasesBody': 'Es gibt keine In-App-Käufe.',
+      'privacyBody': 'Wir speichern einen Spielstand auf diesem Gerät oder im Cloud-Speicher des Portals. Es werden keine personenbezogenen Daten erhoben.',
+      'leaderboardBody': 'Die Bestenliste zeigt nur einen ausgedachten Spielernamen und die Anzahl gewonnener Duelle.',
+      'privacyLinkLabel': 'Vollständige Datenschutzerklärung'
     }
   },
 
@@ -205,7 +216,13 @@ export default {
   'paint': {
     'rose': 'Rosenrosa',
     'sunflower': 'Sonnenblumengelb',
-    'bluebell': 'Glockenblumenblau'
+    'bluebell': 'Glockenblumenblau',
+    'coral': 'Korallenrosa',
+    'lagoon': 'Lagunenblau',
+    'sunshell': 'Sonnengold',
+    'lavender': 'Lavendel',
+    'skyblue': 'Himmelblau',
+    'sunrise': 'Sonnenaufgangsorange'
   },
 
   'tool': {
@@ -244,6 +261,34 @@ export default {
         'b3': 'Beweis es, kleines Einhorn. Tritt gegen mich an!',
         't1': 'Oh! Der Wald fühlt sich wieder warm an.',
         't2': 'Danke, Aurora. Komm jederzeit wieder!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'Die Blubberbucht hat ihr Lied verloren.',
+        'b2': 'Stille ist doch auch gemütlich, oder?',
+        'b3': 'Jede Stimme soll gehört werden!'
+      },
+      'n5': {
+        'b1': 'Wer wagt es, mein ruhiges Wasser zu kräuseln?',
+        'b2': 'Ich bringe die Lieder zurück!',
+        'b3': 'Dann sing mir deine Stärke vor. Zum Duell!',
+        't1': 'Die Wellen sind wieder leicht und hell!',
+        't2': 'Danke, Aurora. Schwimm bald wieder vorbei!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Der Sturm lässt die Pegasusfohlen nicht fliegen.',
+        'b2': 'Sturm ist doch prima Schlummerwetter, hm?',
+        'b3': 'Wir machen den Himmel zusammen klar, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Wer wagt es, durch MEINEN Sturm zu fliegen?',
+        'b2': 'Die Pegasusfohlen sollen wieder hoch fliegen!',
+        'b3': 'Zeig deinen Funken. Tritt jetzt gegen mich an!',
+        't1': 'Der Himmel fühlt sich ruhig und klar an!',
+        't2': 'Danke, Aurora. Flieg bald mit uns!'
       }
     },
     'tmpl': {

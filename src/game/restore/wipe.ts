@@ -40,15 +40,17 @@
 import { S, save } from '@/game/duel/state'
 import { hasBit, setBit, getPaintPick, setPaintPick } from '@/game/campaign/bitset'
 import {
-  SEC_W, SEC_H, CELLS, COMPLETE_AT, createCoverage, stamp as account, coverage01, doneCount,
-  cellAt, cellCover, clearAll, packCoverage, unpackCoverage, packHalf, unpackHalf, FIRST_PASS_CLEAR
+  SEC_W, SEC_H, CELLS, COMPLETE_AT, createCoverage, stamp as account, stampRect, coverage01, doneCount,
+  cellAt, cellCover, clearAll, packCoverage, unpackCoverage, packHalf, unpackHalf, FIRST_PASS_CLEAR, cellRect, CELL
 } from '@/game/restore/mask'
 import { Brush, brushSize } from '@/game/restore/brush'
+import { Eraser, eraserSize } from '@/game/restore/eraser'
+import { toolOf, type ToolId } from '@/game/campaign/tables'
 import { Sunbeam, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
 import { computeFrame } from '@/game/restore/frame'
-import { makeCanvas, bakeStamp, bakeDust, eraseStamp, eraseCells, clearDust, sectorPx } from '@/game/restore/dust'
+import { makeCanvas, bakeStamp, bakeDust, eraseStamp, eraseCells, clearDust, sectorPx, bakePaddle, erasePaddle } from '@/game/restore/dust'
 import { sectorOf, type SectorDef } from '@/game/map/sectors'
-import { drawGift, drawBrush, giftShake, drawChest, chestRattle, drawSunbeam } from '@/game/restore/gift'
+import { drawGift, drawBoxGift, drawBrush, drawEraser, giftShake, drawChest, chestRattle, drawSunbeam } from '@/game/restore/gift'
 import { drawGlyph, glyphPoints } from '@/game/duel/glyph'
 import {
   drawFxUnder, drawFxOver, resetFx, puff, glint, brushTrail, gatherGlints, sparkleBurst
@@ -118,6 +120,12 @@ let stampCore = -1
 
 const cov = createCoverage()
 let brush: Brush | null = null
+/** Which tool this sector's gift holds (§8.4), and the Eraser when it is one. */
+let tool: ToolId = 'brush'
+let eraser: Eraser | null = null
+let paddleCv: HTMLCanvasElement | null = null
+/** The hand tool in use — the brush or the eraser (the Sunbeam aims instead). */
+const hand = (): Brush | Eraser | null => (tool === 'eraser' ? eraser : brush)
 let base: Box = { x: 0, y: 0, w: 1, h: 1 }
 let zoom = 1
 
@@ -163,6 +171,15 @@ let tWave = T_WAVE
 let revealRune = -1
 let revealT = 0
 let revealSparkT = 0
+/** The rescue collectible: its cells, and seconds since it was found (-1 =
+ *  still asleep under the dust). */
+const rescueCells: number[] = []
+let rescueT = -1
+let rescueByHand = false
+/** The tap creature's peek on the admire view, seconds (-1 = hidden). */
+let peekT = -1
+/** Uncovered share of the rescue's silhouette that wakes it (§8.8). */
+export const RESCUE_AT = 0.3
 let trailT = 0
 let puffT = 0
 let buzzT = 0
@@ -220,6 +237,14 @@ export const restoreResize = (): void => {
     brush.suPerCss = SEC_W / base.w
     brush.size = size
   } else brush = new Brush(SEC_W / base.w, size)
+  if (tool === 'eraser') {
+    const es = eraserSize(Math.min(S.w, S.h))
+    if (eraser) {
+      eraser.suPerCss = SEC_W / base.w
+      eraser.size = es
+    } else eraser = new Eraser(SEC_W / base.w, es)
+    paddleCv ??= bakePaddle()
+  }
   // The slingshot's longest pull: 30 % of the view's short side (§8.4).
   if (beam) beam.maxPull = 0.3 * Math.min(S.w, S.h) * (SEC_W / base.w)
   ensureStamp()
@@ -284,6 +309,8 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   node = n
   sec = sectorOf(n)
   boss = sec.rvu > 1
+  tool = toolOf(n)
+  if (tool !== 'eraser') eraser = null
   tUntie = boss ? T_UNTIE_BOSS : T_UNTIE
   tBurst = boss ? T_BURST_BOSS : T_BURST
   tTool = boss ? T_TOOL_BOSS : T_TOOL
@@ -306,7 +333,24 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   colourCv = makeCanvas(pw, ph)
   dustCv = makeCanvas(pw, ph)
   bakeColour()
-  bakeDust(dustCv, colourCv, res, n + 1, (g) => sec.props(g, 0, 0))
+  bakeDust(dustCv, colourCv, res, n + 1, (g) => {
+    sec.props(g, 0, 0)
+    sec.tap?.draw(g, 0, 0)
+    sec.rescue?.draw(g, 0, 0)
+  })
+  // The chapter's rescue (§8.8 beat 3): which coverage cells its silhouette
+  // covers, so the wipe can tell when a third of it is showing.
+  rescueCells.length = 0
+  rescueT = -1
+  rescueByHand = false
+  peekT = -1
+  const rs = sec.rescue
+  if (rs) {
+    for (let c = 0; c < CELLS; c++) {
+      const [cx, cy] = cellRect(c)
+      if (Math.hypot(cx + CELL / 2 - rs.x, cy + CELL / 2 - rs.y) <= rs.r) rescueCells.push(c)
+    }
+  }
   const cells = unpackCoverage(cov, S.campaign.wipeCoverage)
   const half = unpackHalf(cov, S.campaign.wipeHalf)
   if (stampCv) {
@@ -319,6 +363,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   restoreHud.picked = opened ? pot : -1
   restoreHud.potDefs = sec.pots.map((p) => ({ ...p }))
   restoreHud.boss = sec.rvu > 1
+  restoreHud.tool = tool
   restoreHud.showContinue = false
   checkT = idleT = wipeT = lifeT = 0
   reached85 = -1
@@ -340,7 +385,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
 const end = (why: RestoreEnd): void => {
   const cb = onEnd
   onEnd = null
-  brush?.release()
+  hand()?.release()
   beam?.stop()
   revealRune = -1
   setPhase('idle')
@@ -372,6 +417,10 @@ export const continueRestore = (): void => {
 
 export const restoreActive = (): boolean => phase !== 'idle'
 
+/** The biome for the ambience bus while a restored sector is admired. */
+export const restoreAmbience = (): [number, number] =>
+  phase === 'admire' || phase === 'wave' ? [Math.floor(node / 5), 1] : [-1, 0]
+
 /* --------------------------------------------------------------- input */
 
 export const restorePointerDown = (cx: number, cy: number, t: number): void => {
@@ -382,6 +431,16 @@ export const restorePointerDown = (cx: number, cy: number, t: number): void => {
     openGift()
     return
   }
+  if (phase === 'admire' && sec.tap && peekT < 0) {
+    // The restored sector's creature says hello (§8.8 beat 2).
+    const [x, y] = toSU(cx, cy)
+    if (Math.hypot(x - sec.tap.x, y - sec.tap.y) < Math.max(sec.tap.r, 40)) {
+      peekT = 0
+      sfx('peek', node % 6)
+      haptic('tick')
+    }
+    return
+  }
   if (phase !== 'wipe') return
   const [x, y] = toSU(cx, cy)
   if (beam) {
@@ -390,7 +449,7 @@ export const restorePointerDown = (cx: number, cy: number, t: number): void => {
     beam.aim(clamp(x, 0, SEC_W), clamp(y, 0, SEC_H))
     return
   }
-  brush?.press(x, y, cx, cy, t)
+  hand()?.press(x, y, cx, cy, t)
 }
 
 export const restorePointerMove = (cx: number, cy: number, t: number): void => {
@@ -403,12 +462,13 @@ export const restorePointerMove = (cx: number, cy: number, t: number): void => {
     beam.drag(x, y)
     return
   }
-  if (!brush?.down) return
+  const h = hand()
+  if (!h?.down) return
   if (Math.abs(cx - touchX) + Math.abs(cy - touchY) > 1) idleT = 0
   touchX = cx
   touchY = cy
   const [x, y] = toSU(cx, cy)
-  brush.move(x, y, cx, cy, t)
+  h.move(x, y, cx, cy, t)
 }
 
 export const restorePointerUp = (): void => {
@@ -416,7 +476,7 @@ export const restorePointerUp = (): void => {
     if (beam.release()) fireBeam()
     return
   }
-  brush?.release()
+  hand()?.release()
 }
 
 /** The slingshot let go: the light is on its way. */
@@ -501,6 +561,10 @@ const stepWipe = (dt: number, now: number): void => {
     stepBeam(dt, now)
     return
   }
+  if (eraser) {
+    stepEraser(dt, now)
+    return
+  }
   if (!brush) return
   wipeT += dt
   idleT += dt
@@ -528,6 +592,54 @@ const stepWipe = (dt: number, now: number): void => {
   checkCoverage(dt)
 }
 
+/** One Magic Eraser paddle: one contact clears (§8.4). Denser puffs than the
+ *  brush's (≈ 1 per 90 ms), kicked off the paddle's sides. */
+const onPaddle = (x: number, y: number, hw: number, hh: number, ang: number, a: number, t: number): void => {
+  if (dustCv && paddleCv) erasePaddle(dustCv, paddleCv, res, x, y, hw, hh, ang, a)
+  stampRect(cov, x, y, hw, hh, ang, a, t)
+  if (puffT <= 0) {
+    const side = rnd() < 0.5 ? -1 : 1
+    const nx = -Math.sin(ang) * side
+    const ny = Math.cos(ang) * side
+    const px = x + nx * hh * 1.1
+    const py = y + ny * hh * 1.1
+    const c = cellAt(px, py)
+    if (c >= 0 && cellCover(cov, c) < 0.9) {
+      const [sx, sy] = toCss(px, py)
+      const k = view().w / SEC_W
+      puff(sx, sy, nx * 30, ny * 20 - 18, clamp(hh * k * 0.4, 8, 24))
+      puffT = S.q > 0 ? 0.09 : 0.18
+    }
+  }
+}
+
+const stepEraser = (dt: number, now: number): void => {
+  if (!eraser) return
+  wipeT += dt
+  idleT += dt
+  trailT -= dt
+  puffT -= dt
+  buzzT -= dt
+  if (eraser.down) {
+    const t0 = performance.now()
+    const laid = eraser.flush(now, onPaddle)
+    stampMs += performance.now() - t0
+    const sp = eraser.speed
+    if (laid && sp > 20) sfx('scrub', sp)
+    // A fixed two glints per tick, no speed scaling (§8.4).
+    if (trailT <= 0) {
+      trailT = 0.055
+      brushTrail(touchX, touchY, 2)
+    }
+    // Haptics at the formulas' midpoint: 20 ms every 95 ms (§8.5).
+    if (sp > 20 && buzzT <= 0) {
+      haptic('scrub', 20)
+      buzzT = 0.095
+    }
+  }
+  checkCoverage(dt)
+}
+
 /** The coverage ladder, the save, and the two ways a wipe ends (§8.6). */
 const checkCoverage = (dt: number): void => {
   checkT += dt
@@ -544,6 +656,8 @@ const checkCoverage = (dt: number): void => {
       sfx('chime', chimeStep)
     }
     persistCoverage()
+    // A third of the rescue showing: it wakes, found by the player's own hand.
+    if (rescueT < 0 && rescueCells.length && rescueCover() >= RESCUE_AT) wakeRescue(true)
     if (doneCount(cov) >= CELLS) {
       manual100 = true
       startReveal()
@@ -615,7 +729,7 @@ const stepBeam = (dt: number, now: number): void => {
 }
 
 const startReveal = (): void => {
-  brush?.release()
+  hand()?.release()
   beam?.stop()
   const [sx, sy] = toSU(touchX, touchY)
   waveX = clamp(sx, 0, SEC_W)
@@ -629,8 +743,50 @@ const startReveal = (): void => {
   setPhase('freeze')
 }
 
+/** Mean clear share over the rescue's cells. */
+const rescueCover = (): number => {
+  let s = 0
+  for (const c of rescueCells) s += cellCover(cov, c)
+  return s / rescueCells.length
+}
+
+/** The rescue wakes up: a denser sparkle cue than any wipe glint, its own
+ *  sound, and the chapter's `rescued` bit. The auto-pop calls this too, so
+ *  no player ever misses it (§8.6). */
+const wakeRescue = (byHand: boolean): void => {
+  const rs = sec.rescue
+  if (!rs || rescueT >= 0) return
+  rescueT = 0
+  rescueByHand = byHand
+  const [x, y] = toCss(rs.x, rs.y)
+  const k = view().w / SEC_W
+  for (let i = 0; i < 26; i++) {
+    const a = rnd() * TAU
+    const d = rnd() * rs.r * k
+    glint(x + cos(a) * d, y + sin(a) * d, 8 + rnd() * 9, rnd() * 0.25, cos(a) * 60, sin(a) * 60 - 40)
+  }
+  sparkleBurst(x, y, 0.7)
+  sfx('rescue')
+  haptic('reward')
+  const ch = Math.floor(node / 5)
+  S.campaign.rescued = (S.campaign.rescued | (1 << ch)) >>> 0
+  save()
+}
+
+/** The rescue's wake-up, 0 asleep … 1 free. */
+const rescueK = (): number => (rescueT < 0 ? 0 : clamp(rescueT / 1.2, 0, 1))
+
+/** The tap creature's peek on the admire view, 0 … 1 … 0 over 900 ms. */
+const peekK = (): number => {
+  if (peekT < 0) return 0
+  const ez = (v: number): number => 1 - (1 - v) * (1 - v)
+  return peekT < 0.25 ? ez(peekT / 0.25) : peekT < 0.65 ? 1 : 1 - ez(clamp((peekT - 0.65) / 0.25, 0, 1))
+}
+
 const startWave = (): void => {
   setPhase('wave')
+  // The pop never skips the chapter's friend: it surfaces inline (§8.6).
+  if (rescueCells.length && rescueT < 0) wakeRescue(false)
   sfx('whoosh')
   sfx('reveal')
   haptic(boss ? 'restoredBoss' : 'restored')
@@ -668,13 +824,13 @@ const finishWave = (): void => {
     sectorId: node,
     chapter: Math.floor(node / 5),
     isBoss: boss,
-    tool: boss ? 'sunbeam' : 'stardustBrush',
+    tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustBrush',
     durationMs: Math.round(wipeT * 1000),
     coverage85AtMs: reached85 >= 0 ? Math.round(reached85 * 1000) : -1,
     coveragePct: Math.round((forcedReveal ? 100 : coverageAtReveal * 100)),
-    strokeOrSweepCount: beam ? beam.sweeps : brush?.strokes ?? 0,
+    strokeOrSweepCount: beam ? beam.sweeps : hand()?.strokes ?? 0,
     manualTo100: manual100,
-    rescueFound: false
+    rescueFound: rescueByHand
   })
   setPhase('admire')
 }
@@ -778,7 +934,7 @@ export const updateRestore = (dt: number, now: number): void => {
           sectorId: node,
           chapter: Math.floor(node / 5),
           isBoss: boss,
-          tool: boss ? 'sunbeam' : 'stardustBrush',
+          tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustBrush',
           // §7.5: the constant standard area, and the boss's 4×.
           sectorAreaRvu2: boss ? 1270600 : 317650
         })
@@ -807,6 +963,11 @@ export const updateRestore = (dt: number, now: number): void => {
       break
   }
   stepRuneReveal(dt)
+  if (rescueT >= 0) rescueT += dt
+  if (peekT >= 0) {
+    peekT += dt
+    if (peekT >= 0.9) peekT = -1
+  }
   // The Sunbeam jumps to where the light will start, quickly but not in one
   // frame, and stays there while the band travels and it gathers again.
   if (phase === 'wipe' && beam && beam.state !== 'ready') {
@@ -816,12 +977,15 @@ export const updateRestore = (dt: number, now: number): void => {
     toolY += (oy - toolY) * k
   }
   // The tool follows the finger with a little lag, and tilts with its travel.
-  if (phase === 'wipe' && brush?.down && !beam) {
+  if (phase === 'wipe' && hand()?.down && !beam) {
     const k = 1 - Math.exp(-dt * 28)
     const vx = touchX - toolX
     toolX += vx * k
     toolY += (touchY - toolY) * k
-    toolAng = lerp(toolAng, PI * 0.75 - clamp(vx * 0.01, -0.35, 0.35), 1 - Math.exp(-dt * 10))
+    // The brush tilts with its travel; the eraser's paddle points along it.
+    toolAng = eraser
+      ? eraser.ang
+      : lerp(toolAng, PI * 0.75 - clamp(vx * 0.01, -0.35, 0.35), 1 - Math.exp(-dt * 10))
   }
 }
 
@@ -899,6 +1063,8 @@ export const drawRestore = (g: G2D): void => {
   g.clip()
   g.setTransform(d * k, 0, 0, d * k, d * v.x, d * v.y)
   sec.props(g, lifeT, clamp(lifeT / 0.8, 0, 1))
+  sec.tap?.draw(g, peekK(), lifeT)
+  sec.rescue?.draw(g, rescueK(), rescueT < 0 ? 0 : rescueT)
   g.setTransform(d, 0, 0, d, 0, 0)
   if (phase === 'wave') {
     // The wave clears by CLIPPING the dust outside its growing disc — no
@@ -931,6 +1097,9 @@ export const drawRestore = (g: G2D): void => {
       if (aiming) drawSling(g)
       const bob = beam.state === 'ready' ? sin(S.t * 3) * 3 : 0
       drawSunbeam(g, toolX, toolY + bob, s, S.t, phase === 'wipe' ? beam.charge() : 1, aiming ? beam.pull : 0)
+    } else if (eraser) {
+      const bob = eraser.down ? 0 : sin(S.t * 3) * 3
+      drawEraser(g, toolX, toolY + bob, s, eraser.down ? toolAng : -0.3)
     } else {
       const bob = brush?.down ? 0 : sin(S.t * 3) * 3
       if (phase === 'wipe' && brush?.down) drawCursor(g)
@@ -972,11 +1141,14 @@ const drawOpeningGift = (g: G2D): void => {
       rot: phase === 'invite' ? chestRattle(S.t) : 0,
       open: ease(u),
       gleam: phase === 'invite' ? 0.35 + 0.65 * Math.max(0, sin(S.t * 5)) : 1
-    })
+    }, sec.accent?.gem)
     g.restore()
     return
   }
-  drawGift(g, x, y, s * (1 + u * 0.12), { rot: phase === 'invite' ? giftShake(S.t) : 0, untie: u, squash: 1 + u * 0.05 })
+  ;(tool === 'eraser' ? drawBoxGift : drawGift)(g, x, y, s * (1 + u * 0.12), {
+    rot: phase === 'invite' ? giftShake(S.t) : 0, untie: u, squash: 1 + u * 0.05,
+    ribbon: sec.accent?.ribbon, ribbonShade: sec.accent?.ribbonShade
+  })
 }
 
 /** The new rune writing itself over the sector, on a warm glow. */
@@ -1211,6 +1383,8 @@ export const qaWipe = {
     return fired
   },
   beamState: (): string => beam?.state ?? 'none',
+  rescue: (): { cells: number; cover: number; found: boolean; byHand: boolean } =>
+    ({ cells: rescueCells.length, cover: rescueCells.length ? rescueCover() : 0, found: rescueT >= 0, byHand: rescueByHand }),
   beam: (): Record<string, number | string> | null =>
     beam ? { state: beam.state, ox: beam.ox, oy: beam.oy, dx: beam.dx, dy: beam.dy, len: beam.len, at: beam.at, pull: beam.pull, max: beam.maxPull } : null,
   sweeps: (): number => beam?.sweeps ?? 0

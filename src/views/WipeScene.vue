@@ -45,7 +45,7 @@ const chipStyle = computed(() => {
       :style="chipStyle"
       :class="{ ready: ring >= 1 }"
       role="progressbar"
-      :aria-label="t(restoreHud.boss ? 'tool.sunbeam' : 'tool.stardustBrush')"
+      :aria-label="t(restoreHud.tool === 'sunbeam' ? 'tool.sunbeam' : restoreHud.tool === 'eraser' ? 'tool.magicEraser' : 'tool.stardustBrush')"
       aria-valuemin="0"
       aria-valuemax="100"
       :aria-valuenow="pct"
@@ -65,12 +65,17 @@ const chipStyle = computed(() => {
             fill="#ffb63b" stroke="#3A2340" stroke-width="1.5" stroke-linejoin="round"
           )
           circle(cx="36" cy="33" r="8" fill="#ffe45c" stroke="#3A2340" stroke-width="2")
+        //- The Magic Eraser, small: a pink block with a white sleeve and a star.
+        g(v-else-if="restoreHud.tool === 'eraser'" transform="rotate(-30 36 36)")
+          rect(x="16" y="26" width="40" height="22" rx="6" fill="#ff9ecf" stroke="#3A2340" stroke-width="2.5")
+          rect(x="31" y="25" width="17" height="24" rx="3" fill="#fff6fb" stroke="#3A2340" stroke-width="2.5")
+          path(d="M39.5 31 L41 35 L45 35.5 L42 38 L43 42 L39.5 40 L36 42 L37 38 L34 35.5 L38 35 Z" fill="#ffd36b" stroke="#3A2340" stroke-width="1.2")
         //- The Stardust Brush, small: handle, ferrule, tuft, star.
         g(v-else transform="rotate(-45 36 36)")
           rect(x="18" y="33" width="24" height="6" rx="3" fill="#c98a5a" stroke="#3A2340" stroke-width="2")
           rect(x="41" y="31" width="6" height="10" rx="2" fill="#ffd36b" stroke="#3A2340" stroke-width="2")
           path(d="M47 30 Q56 30 58 36 Q56 42 47 42 Z" fill="#e7d6ff" stroke="#3A2340" stroke-width="2")
-        path(v-if="!restoreHud.boss" d="M52 14 L54 19 L59 21 L54 23 L52 28 L50 23 L45 21 L50 19 Z" fill="#fff6b0" stroke="#3A2340" stroke-width="1.5")
+        path(v-if="restoreHud.tool === 'brush'" d="M52 14 L54 19 L59 21 L54 23 L52 28 L50 23 L45 21 L50 19 Z" fill="#fff6b0" stroke="#3A2340" stroke-width="1.5")
     SceneCorner
     button.duel-plate.continue-btn(
       v-if="restoreHud.showContinue"

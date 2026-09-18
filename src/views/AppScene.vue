@@ -20,12 +20,12 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { PH_DUEL, BOX } from '@/game/duel/config'
-import { S, load } from '@/game/duel/state'
+import { S, load, save } from '@/game/duel/state'
 import { applyLayout, toStage, LAYOUT } from '@/game/duel/layout'
 import { render } from '@/game/duel/render'
 import { updateFx } from '@/game/duel/fx'
 import { updateSim, strokeStart, strokeMove, strokeEnd, cast, onDuelEvent } from '@/game/duel/sim'
-import { initAudio, tickAudio, sfx } from '@/game/duel/audio'
+import { initAudio, tickAudio, sfx, setAmbience } from '@/game/duel/audio'
 import { gotoScene, arm, openOverlay, closeOverlay, type SceneId } from '@/game/flow/scene'
 import { installGameplayBracket, bracketLive } from '@/game/flow/bracket'
 import { dipTo, stepTransition, drawTransition, fading, __flushTransition } from '@/game/flow/transition'
@@ -35,11 +35,11 @@ import { installCampaignController } from '@/game/campaign/controller'
 import { pendingSectorNode } from '@/game/campaign/state'
 import {
   beginRestore, updateRestore, drawRestore, restoreResize, restorePointerDown, restorePointerMove,
-  restorePointerUp, openGiftFromUi, pickPot, leaveRestore, continueRestore, qaWipe, type RestoreEnd
+  restorePointerUp, openGiftFromUi, pickPot, leaveRestore, continueRestore, qaWipe, restoreAmbience, type RestoreEnd
 } from '@/game/restore/wipe'
 import {
   drawMap, updateMap, mapResize, mapPointerDown, mapPointerMove, mapPointerUp, focusMap,
-  setMapTapHandler, qaMap, type MapTarget
+  setMapTapHandler, qaMap, peekCreature, mapAmbience, type MapTarget
 } from '@/game/map/map'
 import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDuelHud'
 import { flowHud } from '@/use/useFlow'
@@ -68,9 +68,11 @@ import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
 import { drawWardrobe, updateWardrobe, wardrobeResize } from '@/game/cosmetics/wardrobe'
 import { openSector, onRestoreFinished } from '@/game/flow/restoreFlow'
+import { sectorOf } from '@/game/map/sectors'
 import { twinGift, offerTwinGift, withdrawTwinGift } from '@/use/useDuelRewards'
 import { refreshBook } from '@/use/useBook'
-import { twinHoldStart, twinHoldCancel, __twinState } from '@/game/map/twinGift'
+import { twinHoldStart, twinHoldCancel, stepTwin, __twinState } from '@/game/map/twinGift'
+import { setBit } from '@/game/campaign/bitset'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let g: CanvasRenderingContext2D | null = null
@@ -189,6 +191,8 @@ const onMapTap = (t: MapTarget): void => {
   if (t.kind === 'gift') {
     sfx('ui')
     openSector(t.node)
+  } else if (t.kind === 'creature') {
+    peekCreature(t.node)
   } else if (t.kind === 'tent') {
     sfx('ui')
     dipTo(() => gotoScene('wardrobe'), 0.4)
@@ -319,6 +323,9 @@ const frame = (now: number): void => {
     else if (sc === 'wardrobe') updateWardrobe(dt)
     updateFx(dt)
     agePops(dt)
+    // The restored biome's loop, while it is in view (§8.8 beat 1).
+    const [amb, ak] = sc === 'map' || sc === 'dialogue' ? mapAmbience() : sc === 'unbox' || sc === 'wipe' ? restoreAmbience() : [-1, 0]
+    setAmbience(amb, sc === 'dialogue' ? ak * 0.5 : ak)
     tickAudio(dt)
     stepTransition(dt)
   } else {
@@ -421,7 +428,9 @@ onMounted(() => {
       duel: (n: number) => startDuel(n),
       leave: leaveDuel,
       /** What the portals were last told: is gameplay live? */
-      live: bracketLive
+      live: bracketLive,
+      /** Close Options / the spellbook, whatever their buttons are called. */
+      closeOverlay
     }
     w.__campaign = {
       state: () => S.campaign,
@@ -439,6 +448,63 @@ onMounted(() => {
       }
     }
     w.__map = { ...qaMap, focus: focusMap, tap: onMapTap }
+    /** A sector's authored spots (landmark, gift, creature, rescue), SU. */
+    w.__sectorInfo = (n: number) => {
+      const s = sectorOf(n)
+      return { landmark: s.landmark, giftSpot: s.giftSpot, rvu: s.rvu, tap: s.tap && { x: s.tap.x, y: s.tap.y, r: s.tap.r }, rescue: s.rescue && { x: s.rescue.x, y: s.rescue.y, r: s.rescue.r } }
+    }
+    // §11.15.1 — the portal harness drives the story through these.
+    const until = (pred: () => boolean, ms = 12000): Promise<boolean> => new Promise((res) => {
+      const t0 = performance.now()
+      const poll = (): void => {
+        if (pred()) res(true)
+        else if (performance.now() - t0 > ms) res(false)
+        else setTimeout(poll, 50)
+      }
+      poll()
+    })
+    /** Straight to node `n`'s duel, dialogue skipped, every earlier sector restored. */
+    w.__gotoNode = (n: number) => {
+      const c = S.campaign
+      if (c.furthestNode < n - 1) c.furthestNode = n - 1
+      for (let k = 0; k < n; k++) c.sectorsDone = setBit(c.sectorsDone, k)
+      save()
+      startDuel(n)
+      return S.flow.scene
+    }
+    /** Open node `n`'s sector and stop at its waiting gift (the unbox). */
+    w.__toInvite = async (n: number) => {
+      if (S.campaign.furthestNode < n) S.campaign.furthestNode = n
+      S.campaign.sectorsDone = setBit(S.campaign.sectorsDone, n, false)
+      openSector(n)
+      return until(() => ['invite', 'zoom', 'wipe'].includes(restoreHud.phase))
+    }
+    /** …then click through the gift and the pots into the wipe. Opens the
+     *  sector first unless `__toInvite` already did. */
+    w.__toWipe = async (n: number) => {
+      if (restoreHud.phase === 'idle') await (w.__toInvite as (k: number) => Promise<boolean>)(n)
+      if (restoreHud.phase === 'invite') {
+        openGiftFromUi()
+        await until(() => restoreHud.phase === 'pots')
+        pickPot(0)
+      }
+      return until(() => restoreHud.phase === 'wipe')
+    }
+    /** Clear the sector in the wipe and wait for its admire beat. */
+    w.__finishWipe = async () => {
+      qaWipe.complete()
+      return until(() => restoreHud.phase === 'admire')
+    }
+    /** The Twin Gift's press-and-hold, `ms` long: under 1200 ms it pays nothing (§11.5). */
+    w.__holdTwinGift = (ms = 1200) => {
+      twinHoldStart()
+      if (!__twinState().holding) return false
+      stepTwin(ms / 1000, [0, 0, 60])
+      if (ms >= 1200) stepTwin(0.3, [0, 0, 60])
+      twinHoldCancel()
+      return true
+    }
+    w.__campaignPhase = () => S.flow.scene
     w.__twin = {
       offer: offerTwinGift,
       state: () => ({ node: twinGift.node, ...__twinState() }),

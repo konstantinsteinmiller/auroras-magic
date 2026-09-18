@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -344,8 +344,90 @@ first unticked line):**
 efficient adult clears faster (the Sunbeam: ~14 s against a modelled child's
 ~46 s) is fine and is not tuned away.
 
-**Open for the owner:**
-- Phone-portrait wipe length (~5–6 s, spec §8.15 levers).
+**Phone wipe length (owner delegated, 2026-09-18):** kept short (~5–6 s in
+portrait). A smaller brush hurts small fingers and a stiffer pass slows every
+device; the fix is portrait sector compositions in S6 (spec §8.15).
+
+**Open for the owner:** nothing blocking S3.
+
+**S3 build order (started 2026-09-18 — the v1 release, D2; tick as each
+lands, resume from the first unticked line):**
+
+- [x] **S3a — Water and Lightning in the duel.** (Built: `sim.ts` `raise`/`stops`/pierce, `foes.ts` `PHASE2` + `AI_CONTRACTS`, `fx.ts` bubble ward with its crack, `render.ts` bubble and bolt shots; 7 new cases in `tests/duel/rules.test.ts`. `pop.pierced` translated in all 21.) `guardK 3` bubble ward (2
+  hits, 5 s, stops bolt/field/push, not heavy/summon, a crack on the first
+  hit), `tidalWave`'s and the `ward` rider's 1-hit personal ward (2 s),
+  `pierce` skipping `stops()` (§6.3, §6.8). The AI contracts: Water answers an
+  incoming shot, Lightning is preferred against a raised guard, both from
+  node 3; `AI_CONTRACTS` as a typed record (§6.13). Boss phase 2: Pearl opens
+  a ward at the phase start; Zephyr's bolts pierce (§6.11). The fx: a bubble
+  ward and a lightning bolt. Tests.
+- [x] **S3b — chapters 2–3 content.** (Done: the ten sectors (`sectorsC2.ts`/`kitBay.ts`, `sectorsC3.ts`/`kitSky.ts`, authored by agents against `sectorDef.ts`), the chapter accent on ribbons and gems, page washes, chapters 2–3 dialogue with Pearl/Zephyr portraits and voices, Shelly/Puff creature portraits, per-chapter arena themes `arenaThemes.ts`.)
+  - Ten sectors — `sectorsC2.ts` (Bubble Bay) and `sectorsC3.ts` (Cloud
+    Kingdom); agents are authoring them against `sectorDef.ts`. Chapters 2–3
+    are switched to `built`.
+  - The chapter accent on the gift ribbon and the chest gem.
+  - The map page washes.
+  - Dialogue for chapters 2–3 (§10.9) and portraits for Pearl and Zephyr.
+  - Arena theming per chapter (§9.6).
+- [x] **S3c — tools and keepsakes.** (Built: `restore/eraser.ts` + `stampRect` + paddle stamp, `toolOf(n)`, the square box gift, the Eraser tool art and chip; the bot measures 9.8–10.0 s at §8.4's paddle size — a little under §7.5's 12 s, kept per the child-first ruling. Keepsakes: the rig's `beforeTorso`/`afterTorso`/`afterMane` hooks + `RigAnchors`, `equippedHooks()` used by the duel, the wardrobe and portraits; the necklace low on the neck, the wings rising off the back.)
+  - The Magic Eraser (§8.4) and its square gift box. It is granted at 3-5,
+    used from chapter 4, and needs a timing test at ~12 s.
+  - The Seashell Necklace (neck) and the Pegasus Wings (back) on the rig
+    (§9.7), and in the wardrobe.
+- [x] **S3d — permanence (§8.8).** (Done: the amb bus + three biome loops, `setAmbience` from the map/restore view; tap creatures on the map (`peekCreature`) and in the admire view; the rescue: 30 % wake, auto-surface at the wave, `rescued` bit, `rescueFound` telemetry; chapter 1's log sprites and Wood Sprite. Chapters 2–3's foal and pegasus creatures and the Singing Shell / Baby Pegasus rescues came with their sectors.)
+  - The ambient bus and the biome loops.
+  - A tap creature on every restored sector (chapter 1's too).
+  - The chapter's rescue collectible: its cue at ~30 % uncovered, a
+    guaranteed surface under the auto-pop, and the `rescued` bit.
+- [x] **S3e — the release.** (Done — see the S3 result below.)
+  - The parents' panel (§2.7).
+  - Chapters 4–10 shown as "coming soon".
+  - The first-load ad (C30).
+  - The `saveStatus` copy.
+  - i18n for every new key.
+  - The portal build matrix and `qa:portal` (check the playbook's release
+    phases first).
+  - The size budget.
+  - The candy-palette check on every sector.
+  - A browser run from 1-1 to 3-5.
+  - Docs.
+
+**S3 result (2026-09-19) — v1 release candidate, the §12.2.4 engineering gate:**
+- **Portal QA:** `scripts/portal-qa.mjs`, updated for the story (§11.15), is
+  green on every configured platform, on the built bundles:
+  - GamePix 29/29;
+  - GameMonetize 31/31 (built with a dummy `VITE_GAME_ID` — the real id is
+    still blank on purpose);
+  - CrazyGames pre-release 22/22 and full release 37/37;
+  - plain web 20/20.
+
+  Each run covers:
+  - boot into the story;
+  - mute and pause;
+  - the bracket per scene (live in the duel and the wipe only);
+  - happytime at the boss chest's unbox, never at a win;
+  - the Twin Gift's hold threshold: 1199 ms pays nothing, 1200 ms plays one
+    rewarded ad;
+  - C30: no dialogue bubble under the first-load ad.
+- **Size:** `build:all` packs all ten archives within budget, at 300–470 kB
+  each; Poki's initial load is 402 kB of its 5 MB.
+- **Candy palette:** 15/15 sectors clear the floor.
+  - Dust saturation is 11–12 %.
+  - Restored candy share is 22–52 %, against a regression floor of 20 %.
+  - Median ΔL is 39–58.
+- **Browser:** a full 1-1 → 3-5 playthrough in landscape and in 320×658
+  portrait:
+  - all 15 nodes won and restored;
+  - three boss chests with the Sunbeam;
+  - three keepsakes worn and three rescues found;
+  - Nature, Water and Lightning unlocked;
+  - no bracket violations and no console errors.
+- **Tests:** 74 files and 678+ tests green; `vue-tsc` clean.
+- **Still human work for the full §12.2.4 gate:**
+  - the kid playtest (§12.5);
+  - the node-12 fatigue probe (§12.7);
+  - the three target reviews (§12.3);
+  - the real portal ids and submissions.
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

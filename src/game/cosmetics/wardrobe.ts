@@ -13,7 +13,7 @@
 import { S } from '@/game/duel/state'
 import { drawUnicorn } from '@/game/duel/chars'
 import { sparkleBurst, drawFxOver, drawFxUnder } from '@/game/duel/fx'
-import { equippedHeadDraw } from '@/game/cosmetics/rig-cosmetics'
+import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { TAU, sin, clamp } from '@/game/duel/util'
 import { reducedMotion } from '@/use/useAccessibility'
 
@@ -122,7 +122,7 @@ export const drawWardrobe = (g: G2D): void => {
   g.save()
   g.translate(s.x, s.y)
   g.scale(k, k)
-  drawUnicorn(g, 0, 0, -1, { win: hop * 0.8, form: 0.15 + 0.1 * sin(Ta * 1.4), afterHead: equippedHeadDraw() }, Ta)
+  drawUnicorn(g, 0, 0, -1, { win: hop * 0.8, form: 0.15 + 0.1 * sin(Ta * 1.4), ...equippedHooks() }, Ta)
   g.restore()
   g.setTransform(d, 0, 0, d, 0, 0)
   drawFxUnder(g)

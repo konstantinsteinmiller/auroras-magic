@@ -55,8 +55,9 @@ const potStyle = (i: number) => {
           //- A drip over the lip.
           path(d="M22 26 Q22 36 25 36 Q28 36 28 26 Z" :fill="p.base" stroke="#3A2340" stroke-width="2.5")
           //- Each pot's own mark: a petal, a sun, a bell — never colour alone.
-          circle(v-if="p.id === 'rose'" cx="32" cy="42" r="6" fill="#fff" fill-opacity="0.85")
-          path(v-else-if="p.id === 'sunflower'" d="M32 34 L34 40 L40 42 L34 44 L32 50 L30 44 L24 42 L30 40 Z" fill="#fff" fill-opacity="0.85")
+          //- By slot, not by id, so every biome's three pots stay distinct.
+          circle(v-if="i === 0" cx="32" cy="42" r="6" fill="#fff" fill-opacity="0.85")
+          path(v-else-if="i === 1" d="M32 34 L34 40 L40 42 L34 44 L32 50 L30 44 L24 42 L30 40 Z" fill="#fff" fill-opacity="0.85")
           path(v-else d="M26 48 Q26 36 32 36 Q38 36 38 48 Z" fill="#fff" fill-opacity="0.85")
 </template>
 

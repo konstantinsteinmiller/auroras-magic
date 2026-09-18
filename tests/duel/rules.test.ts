@@ -279,3 +279,100 @@ describe('the difficulty chain (§6.14–§6.15)', () => {
     expect(foeRate()).toBe(0.25)
   })
 })
+
+describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
+  const WATER = 5
+  const LIGHTNING = 6
+
+  it('the bubble ward catches bolts, fields and pushes — never a heavy', async () => {
+    const { stops } = await import('@/game/duel/sim')
+    expect([0, 1, 4].every((k) => stops(3, k))).toBe(true)
+    expect(stops(3, 3)).toBe(false)
+    expect(stops(3, 5)).toBe(false)
+  })
+
+  it('a bubble ward holds for exactly two hits', () => {
+    holdFoe()
+    S.queue.push(WATER, WATER)
+    cast()
+    expect(S.guardK).toBe(3)
+    expect(S.guardHits).toBe(2)
+    expect(S.guard).toBeGreaterThan(4)
+    const bolt = (): void => {
+      S.shots.push({ x: 820, y: 330, tx: 400, r: 2, k: 0, dmg: 8, dot: 0, slow: 0, dir: -1, w: 0, p: 0, n: 1, delay: 0, life: 0 })
+      run(1)
+    }
+    bolt()
+    expect(S.hp).toBe(S.hpMax)
+    expect(S.guardHits).toBe(1)
+    bolt()
+    expect(S.hp).toBe(S.hpMax)
+    expect(S.guard).toBe(0)
+    bolt()
+    expect(S.hp).toBe(S.hpMax - 8)
+  })
+
+  it('Lightning pierces every wall, earth included', () => {
+    holdFoe()
+    S.eGuard = 3
+    S.eGuardK = 1
+    const before = S.ehp
+    S.queue.push(LIGHTNING)
+    cast()
+    expect(S.shots[0]!.p).toBe(1)
+    run(1.5)
+    expect(S.ehp).toBeLessThan(before)
+    expect(S.pops.some((p) => p.k === 'pierced')).toBe(true)
+  })
+
+  it('a Tidal Wave leaves its caster a 1-hit ward for 2 s', () => {
+    holdFoe()
+    S.queue.push(WATER, WATER, WATER)
+    cast()
+    expect(S.guardK).toBe(3)
+    expect(S.guardHits).toBe(1)
+    expect(S.guard).toBeCloseTo(2, 5)
+    run(2.2)
+    expect(S.guard).toBeLessThanOrEqual(0)
+    expect(S.guardHits).toBe(0)
+  })
+
+  it("Pearl's phase 2 opens a bubble ward when her wind-up ends", () => {
+    resetDuel({ foe: guardianOf(1), usesMagic: true, lossStreak: 0 })
+    holdFoe()
+    S.ehp = S.ehpMax * 0.49
+    run(0.05)
+    expect(S.ePhase).toBe(2)
+    expect(S.eGuard).toBeLessThanOrEqual(0)
+    run(1.9)
+    expect(S.eGuardK).toBe(3)
+    expect(S.eGuardHits).toBe(2)
+  })
+
+  it("Zephyr's phase-2 bolts pierce", () => {
+    resetDuel({ foe: guardianOf(2), usesMagic: true, lossStreak: 0 })
+    S.ePhase = 2
+    S.eWindup = 0
+    S.guard = 3
+    S.guardK = 1
+    S.hp = 5 // an ICE BOLT in her hand is now a finisher: she throws it at once
+    S.equeue.length = 0
+    S.equeue.push(ICE as never)
+    S.eThink = 0
+    S.eForm = 0
+    S.eRune = ICE
+    run(0.05)
+    const shot = S.shots.find((s) => s.dir < 0)
+    expect(shot?.p).toBe(1)
+  })
+
+  it('every shipped magic has its AI contract, and its boss phase exists', async () => {
+    const { AI_CONTRACTS } = await import('@/game/duel/foes')
+    expect(AI_CONTRACTS.length).toBe(10)
+    const built = AI_CONTRACTS.filter((c) => c.built).map((c) => c.magic)
+    expect(built).toEqual(['dot', 'ward', 'pierce'])
+    const phases = [FOES[guardianOf(0)]!.phase2, FOES[guardianOf(1)]!.phase2, FOES[guardianOf(2)]!.phase2]
+    expect(phases).toEqual(['natureRider', 'wardOpen', 'pierceBolts'])
+    for (const c of AI_CONTRACTS.filter((x) => x.built)) expect(c.bossPhase2).toBe(true)
+  })
+})

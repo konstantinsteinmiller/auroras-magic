@@ -26,6 +26,8 @@ import { beginRestore, type RestoreEnd } from '@/game/restore/wipe'
 
 let lastGrant: ChestGrant = { rune: null, signature: null, cosmetic: null }
 let lastNode = -1
+/** The wardrobe is up because a boss chest just gave a keepsake. */
+let admiringKeepsake = false
 
 /** Open node `n`'s waiting gift: zoom in to its sector (§3.2.2 steps 6–9). */
 export const openSector = (n: number): void => {
@@ -58,6 +60,7 @@ export const onRestoreFinished = (why: RestoreEnd): void => {
       eq[slot] = keepsake
       S.campaign.giftsEquipped = eq
       save()
+      admiringKeepsake = true
       gotoScene('wardrobe')
       admire()
       return
@@ -66,6 +69,21 @@ export const onRestoreFinished = (why: RestoreEnd): void => {
     focusMap(n)
     if (why === 'restored') offerTwinGift(n)
   }, DIP_ZOOM)
+}
+
+/**
+ * Back from the wardrobe to the map. Straight after a boss chest's keepsake
+ * the camera glides on to the next chapter's first node, so the way on is
+ * on screen — in portrait that page sits below the fold, and a child who
+ * cannot see a pulsing node has nowhere to go.
+ */
+export const leaveWardrobe = (): void => {
+  const onward = admiringKeepsake
+  admiringKeepsake = false
+  dipTo(() => {
+    gotoScene('map')
+    if (onward) focusMap(-1, true)
+  }, 0.4)
 }
 
 /** The node whose sector the restore loop last opened. */

@@ -7,7 +7,7 @@
  * onboarding trace. The HUD, the callouts and the result panel are Vue
  * components layered over this canvas — see `components/duel/`.
  */
-import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL } from '@/game/duel/config'
+import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
@@ -16,7 +16,7 @@ import { drawGlyph } from '@/game/duel/glyph'
 import { LAYOUT, PORTRAIT_WIN, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
-import { equippedHeadDraw } from '@/game/cosmetics/rig-cosmetics'
+import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { traceAssist } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
 
@@ -67,19 +67,91 @@ const drawShots = (g: G2D): void => {
     g.translate(s.x, s.y)
     // Delayed spells hang overhead and pulse a warning before they fall.
     if (s.delay > 0) g.globalAlpha = 0.55 + 0.45 * Math.sin(S.t * 14)
-    g.beginPath()
-    g.arc(0, 0, r, 0, TAU)
-    g.fillStyle = col
-    g.fill()
-    g.lineWidth = 5
-    g.strokeStyle = '#1a1030'
-    g.stroke()
-    g.beginPath()
-    g.arc(-r * 0.3, -r * 0.3, r * 0.34, 0, TAU)
-    g.fillStyle = lit
-    g.fill()
+    if (s.r === WATER) drawBubbleShot(g, r, col, lit)
+    else if (s.r === LIGHTNING) drawBoltShot(g, r * 1.15, col, lit, s.dir)
+    else {
+      g.beginPath()
+      g.arc(0, 0, r, 0, TAU)
+      g.fillStyle = col
+      g.fill()
+      g.lineWidth = 5
+      g.strokeStyle = '#1a1030'
+      g.stroke()
+      g.beginPath()
+      g.arc(-r * 0.3, -r * 0.3, r * 0.34, 0, TAU)
+      g.fillStyle = lit
+      g.fill()
+    }
+    // A piercing shot crackles, so "this one goes through shields" can be
+    // read before it lands (§6.8).
+    if (s.p) {
+      g.rotate(S.t * 9)
+      g.beginPath()
+      for (let k = 0; k < 4; k++) {
+        const a = (k * Math.PI) / 2
+        g.moveTo(Math.cos(a) * r * 1.2, Math.sin(a) * r * 1.2)
+        g.lineTo(Math.cos(a + 0.35) * r * 1.55, Math.sin(a + 0.35) * r * 1.55)
+      }
+      g.lineWidth = 3
+      g.strokeStyle = '#fff6a0'
+      g.stroke()
+    }
     g.restore()
   }
+}
+
+/** Water: a wobbling soap bubble with a catch-light. */
+const drawBubbleShot = (g: G2D, r: number, col: string, lit: string): void => {
+  const w = 1 + 0.08 * Math.sin(S.t * 17)
+  g.save()
+  g.scale(w, 2 - w)
+  g.beginPath()
+  g.arc(0, 0, r * 1.05, 0, TAU)
+  g.globalAlpha *= 0.55
+  g.fillStyle = lit
+  g.fill()
+  g.globalAlpha /= 0.55
+  g.lineWidth = 4
+  g.strokeStyle = '#1a1030'
+  g.stroke()
+  g.beginPath()
+  g.arc(0, 0, r * 0.8, Math.PI * 0.15, Math.PI * 0.85)
+  g.lineWidth = 3
+  g.strokeStyle = col
+  g.stroke()
+  g.beginPath()
+  g.ellipse(-r * 0.35, -r * 0.4, r * 0.22, r * 0.12, -0.7, 0, TAU)
+  g.fillStyle = '#ffffff'
+  g.fill()
+  g.restore()
+}
+
+/** Lightning: a chunky zig-zag bolt, pointing the way it flies. */
+const drawBoltShot = (g: G2D, r: number, col: string, lit: string, dir: number): void => {
+  g.save()
+  g.scale(dir, 1)
+  g.rotate(0.35)
+  g.beginPath()
+  g.moveTo(r * 1.1, -r * 0.1)
+  g.lineTo(-r * 0.1, -r * 0.9)
+  g.lineTo(0, -r * 0.2)
+  g.lineTo(-r * 1.1, 0.1 * r)
+  g.lineTo(r * 0.1, r * 0.9)
+  g.lineTo(0, r * 0.2)
+  g.closePath()
+  g.fillStyle = col
+  g.fill()
+  g.lineWidth = 4
+  g.lineJoin = 'round'
+  g.strokeStyle = '#1a1030'
+  g.stroke()
+  g.beginPath()
+  g.moveTo(r * 0.55, -r * 0.1)
+  g.lineTo(-r * 0.05, -r * 0.5)
+  g.lineWidth = 3
+  g.strokeStyle = lit
+  g.stroke()
+  g.restore()
 }
 
 /** The clean rune flashing before it is stored (GDD 2.2). */
@@ -246,7 +318,7 @@ export const render = (g: G2D): void => {
   AST.lose = S.phase === PH_LOSE ? clamp(S.over, 0, 1) : 0
   AST.form = S.queue.length / 3
   // What Aurora wears (the wardrobe, C17) she wears into every duel.
-  AST.afterHead = equippedHeadDraw()
+  Object.assign(AST, equippedHooks())
   UST.cast = clamp(S.eCastAnim / 0.55, 0, 1)
   UST.hurt = S.eHurt
   UST.hp = S.ehp / 100

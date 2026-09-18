@@ -45,6 +45,8 @@ export interface Shot {
   dir: number
   /** Super-effective — for the callout on impact. */
   w: 0 | 1
+  /** Pierces every ward (Lightning, §6.8 rule 1): 1 = yes. */
+  p: 0 | 1
   /** Runes in the cast, for the combo callout. */
   n: number
   delay: number
@@ -110,6 +112,9 @@ export interface DuelState {
   /** Barrier flavour: 0 wind · 1 earth · 2 ice pillar. */
   guardK: number
   eGuardK: number
+  /** A bubble ward's (guardK 3) remaining hit capacity (§6.3). */
+  guardHits: number
+  eGuardHits: number
   burn: number
   eBurn: number
   slow: number
@@ -147,6 +152,8 @@ export interface DuelState {
   usesMagic: boolean
   /** Runes the player has landed this duel (trace assist stops at 1, §5.13). */
   landed: number
+  /** The chapter (0-based) the arena is dressed for (§9.6). Set by the flow. */
+  theme: number
 
   /* scoring / meta */
   /** Index into `FOES` (`duel/foes.ts`) for the CURRENT duel. Not persisted. */
@@ -213,6 +220,8 @@ export const auroras_magic_state: DuelState = {
   eGuard: 0,
   guardK: 0,
   eGuardK: 0,
+  guardHits: 0,
+  eGuardHits: 0,
   burn: 0,
   eBurn: 0,
   slow: 0,
@@ -240,6 +249,7 @@ export const auroras_magic_state: DuelState = {
   onboard: 1,
   usesMagic: false,
   landed: 0,
+  theme: 0,
 
   foe: 0,
   wins: 0,

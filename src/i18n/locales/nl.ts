@@ -120,7 +120,8 @@ export default {
     'combo': 'x{n} COMBO',
     'times': 'x{n}',
     'victory': 'OVERWINNING',
-    'defeated': 'ZZZ…'
+    'defeated': 'ZZZ…',
+    'pierced': 'ZAP!'
   },
 
   'result': {
@@ -158,6 +159,16 @@ export default {
       'body': 'Je voortgang in dit duel wordt niet opgeslagen.',
       'confirm': 'Verlaten',
       'cancel': 'Blijven'
+    },
+    'parents': {
+      'title': 'Voor ouders',
+      'aboutBody': 'Auroras Magic heeft geen chat, geen contact met vreemden en geen locatiebepaling. Er is geen account nodig om te spelen.',
+      'adsBody': 'Dit spel toont videoadvertenties om gratis te blijven. Sommige advertenties kunnen niet worden overgeslagen; een advertentie bekijken voor een bonusbeloning is altijd vrijwillig.',
+      'adsNonPersonalisedNote': 'In deze versie worden advertenties zonder personalisatie getoond.',
+      'purchasesBody': 'Er zijn geen in-app-aankopen.',
+      'privacyBody': 'We bewaren de spelvoortgang in een bestand op dit apparaat of in de cloudopslag van het spelportaal. Er worden geen persoonsgegevens verzameld.',
+      'leaderboardBody': 'De ranglijst toont alleen een verzonnen spelersnaam en het aantal gewonnen duels.',
+      'privacyLinkLabel': 'Volledig privacybeleid'
     }
   },
 
@@ -206,7 +217,13 @@ export default {
   'paint': {
     'rose': 'Rozenroze',
     'sunflower': 'Zonnebloemgeel',
-    'bluebell': 'Klokjesblauw'
+    'bluebell': 'Klokjesblauw',
+    'coral': 'Koraalroze',
+    'lagoon': 'Lagunablauw',
+    'sunshell': 'Zonnegoud',
+    'lavender': 'Lavendel',
+    'skyblue': 'Hemelsblauw',
+    'sunrise': 'Zonsopgangoranje'
   },
 
   'tool': {
@@ -245,6 +262,34 @@ export default {
         'b3': 'Bewijs het maar, kleine eenhoorn. Duelleer met mij!',
         't1': 'Oh! Het bos voelt weer warm.',
         't2': 'Dank je, Aurora. Kom gerust nog eens!'
+      }
+    },
+    'c2': {
+      'n1': {
+        'b1': 'De Bellenbaai zingt niet meer.',
+        'b2': 'Stilte is toch ook gezellig?',
+        'b3': 'Elke stem verdient het om gehoord te worden!'
+      },
+      'n5': {
+        'b1': 'Wie durft mijn kalme water te verstoren?',
+        'b2': 'Ik kom de liedjes terugbrengen!',
+        'b3': 'Laat me dan je kracht horen. Duelleer!',
+        't1': 'Het tij voelt licht en helder!',
+        't2': 'Dank je, Aurora. Zwem gauw eens langs!'
+      }
+    },
+    'c3': {
+      'n1': {
+        'b1': 'Door de storm kunnen de pegasussen niet vliegen.',
+        'b2': 'Stormweer is lekker dutjesweer, hm?',
+        'b3': 'Laten we samen de lucht schoonvegen, Zephyr!'
+      },
+      'n5': {
+        'b1': 'Wie durft door MIJN storm te vliegen?',
+        'b2': 'Ik wil dat de pegasussen weer hoog vliegen!',
+        'b3': 'Laat je vonk maar zien. Duelleer met mij!',
+        't1': 'De lucht voelt kalm en helder!',
+        't2': 'Dank je, Aurora. Kom gauw met ons vliegen!'
       }
     },
     'tmpl': {

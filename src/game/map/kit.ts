@@ -28,6 +28,20 @@ export const WOODS_POTS: readonly Pot[] = [
   { id: 'bluebell', base: '#6d8bff', shade: '#5160d6', lite: '#b8c6ff' }
 ]
 
+/** Bubble Bay's three pots (chapter 2). */
+export const BAY_POTS: readonly Pot[] = [
+  { id: 'coral', base: '#ff7a8a', shade: '#e0566e', lite: '#ffc0c8' },
+  { id: 'lagoon', base: '#3ee3d4', shade: '#20b3b0', lite: '#a8f5ee' },
+  { id: 'sunshell', base: '#ffc94d', shade: '#e8a23a', lite: '#ffe8a3' }
+]
+
+/** Cloud Kingdom's three pots (chapter 3). */
+export const SKY_POTS: readonly Pot[] = [
+  { id: 'lavender', base: '#a27bff', shade: '#7f5ae0', lite: '#dccbff' },
+  { id: 'skyblue', base: '#5cb8ff', shade: '#3d8fe0', lite: '#b8e2ff' },
+  { id: 'sunrise', base: '#ff9f5a', shade: '#e57a3c', lite: '#ffd2a8' }
+]
+
 export const C = {
   skyTop: '#6cc4ff',
   skyLow: '#ffd3ea',
