@@ -6,12 +6,15 @@
 
 export default {
   team: 'hyperg8',
-  gameId: '1d51788e-5771-4d70-8290-59366fb9773f',
-  gameName: 'Survivalist',
+  // Auroras Magic's P4D game id. The previous id was survivalist's — a deploy
+  // with it would upload THIS build to THAT game. deploy.mjs refuses to run
+  // until it is set.
+  gameId: '',
+  gameName: 'Auroras Magic',
 
   build: 'pnpm build:poki',
   dist: 'dist',
-  zip: 'dist/survivalist-poki.zip',
+  zip: 'dist/auroras-magic-poki.zip',
 
   /** Pack `dist` into `zip` with the pipeline's own zip writer instead of
    *  trusting the build script's `tar -a -cf`, which silently produces a TAR
@@ -23,7 +26,7 @@ export default {
 
   /** What the version is called in P4D. Keep the version number in it — it is
    *  the only thing tying a live build back to a commit. */
-  versionName: version => `Survivalist ${version}`,
+  versionName: version => `Auroras Magic ${version}`,
 
   /** Extra hosts the gates and the runtime sweep should accept. Anything here
    *  needs a matching per-URL approval in P4D → Settings → CSP. */

@@ -2,7 +2,7 @@
 //
 // On a phone the OS volume rocker controls the device output level; the Web
 // Audio GainNode the desktop volume slider drives has no audible effect there.
-// So the on-screen FMuteButton can't usefully "turn the volume down" on mobile.
+// So the on-screen sound button (the ♪ in the duel HUD) can't usefully "turn the volume down" on mobile.
 // Players still want a way to silence the game (to play their own music in a
 // separate app), so on mobile the button is a hard SILENCE toggle instead:
 //
@@ -26,7 +26,7 @@
 import { ref, watch } from 'vue'
 import { mobileCheck } from '@/utils/function'
 import { suspendAllAudio, resumeAllAudio, killOneShotSfx } from '@/use/useAssets'
-import { getState, setState } from '@/use/useTowerState'
+import { getState, setState } from '@/use/useGameState'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { MOBILE_MUTE_KEY } from '@/keys'
 
@@ -74,7 +74,7 @@ watch(saveDataVersion, () => {
 })
 
 /** Toggle the mobile hard-mute and persist the choice. Only reachable from the
- *  mobile FMuteButton; a no-op-shaped call on desktop would suspend with no
+ *  sound button on mobile; a no-op-shaped call on desktop would suspend with no
  *  visible un-mute, so the button never renders the mobile variant off-mobile. */
 export const toggleMobileAudioMute = (): void => {
   const next = !isMobileAudioMuted.value

@@ -21,7 +21,7 @@
 //      quirks on read.
 //
 // A try/catch around an access handles all three, which is why the wrapped
-// call sites elsewhere in this codebase (`useTowerState.persistRaw`, the
+// call sites elsewhere in this codebase (`useGameState.persistRaw`, the
 // GameScene helpers) were already fine. What was NOT fine was the handful of
 // UNGUARDED module-scope reads — those run at import time, before any error
 // boundary exists. Route those through here.

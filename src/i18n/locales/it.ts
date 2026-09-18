@@ -1,5 +1,6 @@
+// Italian bundle — mirrors the key shape of en.ts (pinned by tests/i18nParity.test.ts).
 export default {
-  'gameName': 'Survivalist',
+  'gameName': 'Auroras Magic',
   'cancel': 'Annulla',
   'close': 'Chiudi',
   'ok': 'Ok',
@@ -7,11 +8,9 @@ export default {
   'tapToContinue': 'Tocca per continuare',
   'clickToContinue': 'Clicca per continuare',
   'rewards': 'RICOMPENSE',
-  'tip': 'Consiglio',
   'crazyGamesOnly': 'Questo gioco è disponibile solo su',
+  'loading': 'Caricamento…',
 
-  // Shared UI labels. NOT dead keys: they are the `aria-label` on the game's
-  // icon-only buttons, read aloud rather than shown. See `en.ts`.
   'ui': {
     'next': 'Avanti',
     'replay': 'Riprova',
@@ -23,233 +22,123 @@ export default {
     'info': 'Info'
   },
 
+  'duelist': {
+    'aurora': 'AURORA',
+    'umbra': 'UMBRA',
+    'ember': 'EMBER',
+    'zephyr': 'ZEPHYR',
+    'glace': 'GLACE',
+    'terra': 'TERRA',
+    'prism': 'PRISM'
+  },
+
+  'rune': {
+    'fire': 'Fuoco',
+    'wind': 'Vento',
+    'ice': 'Ghiaccio',
+    'earth': 'Terra'
+  },
+
+  'spell': {
+    'fireBolt': 'DARDO DI FUOCO',
+    'fireStorm': 'TEMPESTA IGNEA',
+    'fireRain': 'PIOGGIA IGNEA',
+    'bolt': 'RAFFICA',
+    'windWall': 'MURO DI VENTO',
+    'cyclone': 'CICLONE',
+    'iceBolt': 'DARDO GELIDO',
+    'pillar': 'COLONNA GELIDA',
+    'blizzard': 'BUFERA',
+    'earthWall': 'MURO DI TERRA',
+    'earthShard': 'SCHEGGIA',
+    'boulder': 'MACIGNO',
+    'fireBall': 'PALLA DI FUOCO',
+    'wetBall': 'PALLA D’ACQUA',
+    'magmaShard': 'DARDO DI MAGMA',
+    'frostGale': 'VENTO GELIDO',
+    'sandBlast': 'SABBIATA',
+    'glacier': 'GHIACCIAIO',
+    'prismNova': 'NOVA PRISMA',
+    'ashStorm': 'NUBE DI CENERE',
+    'shatter': 'FRANTUMI',
+    'tempest': 'TEMPESTA',
+    'wildSurge': 'ONDA SELVAGGIA'
+  },
+
   'hud': {
-    'stage': 'Livello {n}',
-    'best': 'Record {n}',
-    'boss': 'Boss',
-    'miniboss': 'Miniboss',
-    // Screen-reader label for the star chip that counts down to the
-    // next milestone payout. The chip itself is a glyph and a digit.
-    'toMilestone': 'Livelli al prossimo bonus',
-    'fireRate': 'Ritmo',
-    'incoming': 'Attacco in arrivo!',
-    'dodge': 'Schiva',
-    'getIn': 'Entra',
-    'holdStill': 'Fermo',
-    'milestone': '{n} in campo!',
-    'weaponActive': '{name} pronto',
-    'weaponsActive': '{a} + {b} pronti',
-    'weaponLocked': '{name} bloccato — {n} di {total} leve colpite',
-    'weaponGift': '{name} più avanti — gratis, niente leve',
-    'weaponFree': 'GRATIS'
-  },
-
-  'weapons': {
-    'rocket': 'Lanciarazzi',
-    'gatling': 'Gatling'
-  },
-
-  'offer': {
-    'confirm': 'Guarda video',
-    'available': 'Guarda un video e ottieni {weapon} gratis'
-  },
-
-  'tutorial': {
-    'touch': 'Scorri per muovere la squadra',
-    'desktop': 'Muovi il mouse per guidare la squadra'
-  },
-  'hints': {
-    'move': { 'touch': 'Tocca per muoverti', 'desktop': 'Clicca per muoverti' },
-    'divider': { 'touch': 'Non toccare mai il pilastro tra i cancelli', 'desktop': 'Non toccare mai il pilastro tra i cancelli' },
-    'crate': { 'touch': 'Casse verdi: tutti colpiscono più forte', 'desktop': 'Casse verdi: tutti colpiscono più forte' },
-    'rate': { 'touch': 'Casse blu: tutti sparano più veloce', 'desktop': 'Casse blu: tutti sparano più veloce' },
-    'lever': { 'touch': 'Colpisci ENTRAMBE le leve ai bordi: aprono la cassa delle armi', 'desktop': 'Colpisci ENTRAMBE le leve ai bordi: aprono la cassa delle armi' },
-    'cage': { 'touch': 'Spara alle gabbie: i prigionieri si uniscono alla squadra', 'desktop': 'Spara alle gabbie: i prigionieri si uniscono alla squadra' },
-    'shieldBox': { 'touch': 'Cassa scudo: aspetta, poi blocca un colpo grosso', 'desktop': 'Cassa scudo: aspetta, poi blocca un colpo grosso' }
-  },
-
-  'flow': {
-
-
-    // The handover, which used to read as LOSING the squad: five testers saw
-
-    // "Squad 101 -> 3" and one asked whether she had lost progress. The crowd
-
-    // is cashed into coins on screen now, and this names it. {n} = survivors.
-
-    'squadCashed': '{n} sopravvissuti riscossi',
-    'unlocked': 'Sbloccato!',
-
-    'guardian': "Un angelo custode ti ha salvato!",
-
-    'guardianSub': "{n} sopravvissuti sono tornati",
-
-    'next': "Prossimo: {label} · {when}"
-
-  },
-
-  'ladder': {
-    'weaponPick': "Scegli un'arma",
-    'nextStage': "prossimo livello",
-    'stagesAway': "tra {n} livelli"
-  },
-  'weaponPick': {
-    'title': "Scegli la tua arma",
-    'subtitle': "Tua per il livello {n}. Altre ti aspettano sulla strada.",
-    'take': "Prendila",
-    'rocket': {
-      'a': "Salva a ricerca",
-      'b': "Danno esplosivo"
-    },
-    'gatling': {
-      'a': "Cadenza di fuoco doppia",
-      'b': "Carica i cancelli più in fretta"
-    }
-  },
-  'bossReward': {
-    'title': "Boss sconfitto!",
-    'subtitle': "Un regalo per il livello {n}. Continua a correre!"
-  },
-  'result': {
-    'stageClear': 'Livello superato!',
-    'wipedOut': 'Squadra annientata',
-    'reachedStage': 'Livello {n}',
-    'newRecord': 'Nuovo record!',
-    // The two seconds after a boss goes down, above its body. The kill is
-    // what the whole stage was for, so this is sold as a reward.
-    'bossFelled': 'Boss abbattuto!',
-    'wasted': 'Eliminato',
-    // The every-fifth-stage lump the HUD chip counts down to.
-    'milestone': 'Traguardo!',
-    'rallied': 'Secondo fiato',
-    'peakSquad': 'Squadra massima',
-    'kills': 'Eliminazioni',
-    'tripleCoins': '3×',
-    'tripleBonus': '(+{n})',
-    'tripleClaimed': 'Monete triplicate!',
-    'nextStage': 'Livello successivo',
-    'tryAgain': 'Riprova',
-    'upgrade': 'Potenzia',
-    'upgradeHint': 'Potenzia la squadra!',
-    'rankOf': 'su {n}',
-    'upNext': 'Prossimo: Livello {n}'
-  },
-
-  // Two strings only; everything ON the card comes from keys this file
-  // already had (see en.ts). `action` is the accessible name of an
-  // icon-only button. `text` rides in the share sheet and is read by the
-  // person who receives the picture, so it is a boast, and it has to still
-  // make sense if the image never arrives.
-  'share': {
-    'action': 'Condividi la partita',
-    'text': 'Sono arrivato al livello {n} in {game}. Riesci ad andare più lontano?'
-  },
-
-  'leaderboard': {
-    'title': 'Classifica',
-    'rank': '#',
-    'player': 'Giocatore',
-    'stage': 'Livello',
-    'squad': 'Squadra',
-    'empty': 'Ancora nessun punteggio. Sii il primo!',
-    'failed': 'Classifica non raggiungibile.',
-    'loading': 'Caricamento…',
-    'you': 'Tu',
-    'yourRank': 'Sei #{n} su {total}',
-    'tabGlobal': 'Globale'
-  },
-
-  'chest': {
-    'label': 'Forziere',
-    'ready': 'Apri il forziere per {n} monete',
-    'filling': 'Forziere: si sta riempiendo',
-    'spent': 'Forziere: vuoto fino a domani'
-  },
-
-  // Daily expedition. See en.ts for what each state means, why the multiplier
-  // is split from any word, and why `hud` has to stay one short word.
-  'expedition': {
-    'title': 'Spedizione del giorno',
-    'hud': 'Spedizione',
-    'multiplier': '{n}×',
-    'available': 'Spedizione del giorno: la strada di oggi, monete triple',
-    'confirm': 'Inizia la spedizione',
-    'spent': 'Spedizione del giorno: nuova strada tra {time}',
-    'done': 'Torna domani',
-    'back': 'Torna alla campagna'
-  },
-
-  'skills': {
-
-    'grenade': 'Granata',
-
-    'shield': 'Scudo',
-
-    'locked': 'Bloccato',
-
-    'unlocksAt': 'Si sblocca al livello {n}',
-
-    'frost': 'Nova di gelo',
-
-    'decoy': 'Razzo esca',
-
-    'trialLabel': '{name} · prova gratis',
-
-    'trialTag': 'Prova gratis!',
-
-    'uses': '×{n}'
+    'castKey': '[Spazio] Lancia',
+    'cast': 'LANCIA',
+    'drawARune': 'DISEGNA UNA RUNA',
+    'castAria': 'Lancia le rune salvate',
+    'yourRunes': 'Le tue rune',
+    'foeRunes': 'Rune dell’avversario',
+    'emptySlot': 'Casella vuota',
+    'forming': 'In formazione: {rune}',
+    'weakness': '{rune} infligge {n} danni a questo avversario',
+    'sound': 'Attiva o disattiva l’audio',
+    'spellbook': 'Libro magico',
+    'hp': '{name}: {n} su {max} punti vita'
   },
 
   'intro': {
-    'took': 'Ha preso tutti.',
-    'alive': 'Sono ancora vivi.',
-    'go': 'Vai a riprenderli.',
-    'skip': 'Salta'
+    'draw': 'DISEGNA LA RUNA',
+    'stored': 'SALVATA! FINO A 3',
+    'cast': 'ORA LANCIALA'
   },
 
-  'upgrades': {
-    'title': 'Potenziamenti',
-    'spotlight': 'Spendi!',
-    'level': 'Lv {n}',
-    'maxed': 'Max',
-    'peekLabel': 'Potenziamenti: {name}',
-    'peekLabelReady': 'Potenziamenti: {name} — {n} pronti all’acquisto',
-    'names': {
-      'squad': 'Squadra',
-      'power': 'Potenza',
-      'rate': 'Cadenza',
-      'range': 'Gittata',
-      'scavenge': 'Recupero',
-      'grenade': 'Granata',
-      'shield': 'Scudo',
-      'rocket': 'Potenza razzi',
-      'gatling': 'Potenza Gatling'
-    },
-    'descriptions': {
-      'squad': 'Inizia ogni livello con più sopravvissuti.',
-      'power': 'Ogni sopravvissuto infligge più danni per colpo.',
-      'rate': 'Ogni sopravvissuto spara più velocemente.',
-      'range': 'La squadra apre il fuoco più avanti sulla strada.',
-      'scavenge': 'Guadagna più monete a ogni partita.',
-      'grenade': 'Lancia una granata per un colpo di danno pesante.',
-      'shield': 'Dimezza i danni alla squadra per qualche secondo.',
-      'rocket': 'I lanciarazzi che sblocchi in un livello fanno più danni.',
-      'gatling': 'Le Gatling che sblocchi in un livello fanno più danni.'
-    }
+  'pop': {
+    'notARune': 'NON È UNA RUNA',
+    'noSlots': 'NIENTE SPAZIO!',
+    'blocked': 'BLOCCATO',
+    'hit': '-{n}',
+    'weakHit': 'PUNTO DEBOLE! -{n}',
+    'combo': 'COMBO x{n}',
+    'times': 'x{n}',
+    'victory': 'VITTORIA',
+    'defeated': 'SCONFITTA',
+    'coins': '+{n} MONETE'
+  },
+
+  'result': {
+    'victory': 'VITTORIA!',
+    'defeated': 'SCONFITTA',
+    'tapToDuel': 'Tocca per il duello',
+    'coins': 'Monete: {n}',
+    'rankBonus': '+{n}%',
+    'price': '{n}',
+    'buyRank': '{rune} +12% di danni, costa {price} monete',
+    'double': 'x2 MONETE',
+    'bonus': '+{n} MONETE',
+    'watchAd': 'Guarda un annuncio: {reward}',
+    'claimed': 'OTTENUTO!'
+  },
+
+  'book': {
+    'title': 'LIBRO MAGICO',
+    'unknown': '? ? ?'
   },
 
   'options': {
-    'title': 'Opzioni', 'general': 'Generale', 'audio': 'Audio', 'language': 'Lingua',
-    'difficulty': 'Difficoltà', 'soundEffects': 'Effetti sonori', 'music': 'Musica', 'musicTrack': 'Traccia musicale',
-    'musicTracks': { 'cozy': 'Armonia accogliente', 'trance': 'Tunnel trance' },
-    'haptics': 'Vibrazione', 'on': 'Attivo', 'off': 'Disattivo',
-    'close': 'Salva e chiudi',
-    'difficulties': { 'easy': 'Facile', 'medium': 'Media', 'hard': 'Difficile' },
-    'difficultyHints': {
-      'easy': 'Nemici più deboli e barricate più sottili.',
-      'medium': 'La partita standard.',
-      'hard': 'Nemici più duri e barricate più resistenti.'
-    }
+    'title': 'Opzioni',
+    'general': 'Generale',
+    'audio': 'Audio',
+    'language': 'Lingua',
+    'soundEffects': 'Effetti sonori',
+    'music': 'Musica',
+    'haptics': 'Vibrazione',
+    'on': 'Attivo',
+    'off': 'Disattivo',
+    'close': 'Salva e chiudi'
+  },
+
+  'saveStatus': {
+    'restoredTitle': 'Salvataggio cloud ripristinato',
+    'restoredBody': '+{n} monete bonus per il recupero',
+    'tap': 'tocca',
+    'pausedTitle': 'Sincronizzazione in pausa',
+    'pausedBody': 'Stai giocando offline. I progressi sono salvati qui.',
+    'retry': 'Riprova',
+    'dismiss': 'ignora'
   },
 
   'adsBlocked': {
@@ -259,19 +148,8 @@ export default {
     'allowSuffix': '(o metti in pausa il blocco annunci per questo gioco) e riprova.',
     'gotIt': 'Capito'
   },
-  'saveStatus': {
-    'restoredTitle': 'Salvataggio cloud ripristinato', 'restoredBody': '+{n} monete bonus per il recupero',
-    'tap': 'tocca', 'pausedTitle': 'Sincronizzazione in pausa',
-    'pausedBody': 'Stai giocando offline. I progressi sono salvati qui.',
-    'retry': 'Riprova', 'dismiss': 'ignora'
-  },
-  'loading': { 'tooLong': 'Il caricamento è troppo lento? Disattiva il blocco annunci e ricarica.', 'boo': 'Bu!', 'laugh': 'Ahahah!' },
-  // Phones in landscape are covered by a rotate-your-phone overlay: the lane
-  // fills about a fifth of a wide frame, which is what put the HUD and the
-  // attack badge out at the edges where testers never looked.
-  'portrait': {
-    'title': 'Ruota il telefono',
-    'body': 'Survivalist si gioca in verticale.'
-  },
-  'license': { 'denied': 'Accesso negato: acquista una licenza.' }
+
+  'license': {
+    'denied': 'Accesso negato: acquista una licenza.'
+  }
 }

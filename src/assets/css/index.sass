@@ -1,5 +1,6 @@
 @use './fonts'
 @use './components'
+@use './duel'
 
 /* Prevent all touch zooming and remove the 300ms delay */
 html, body
@@ -13,9 +14,9 @@ html, body
   /* Extra insurance against the layout moving */
   width: 100%
   height: 100%
-  /* Match the scene's night sky so the iOS PWA safe-area / home-indicator gap
-     doesn't render as a stark black bar — it blends with the battlefield. */
-  background-color: #0a1224
+  /* The duel's letterbox colour, so the iOS PWA safe-area / home-indicator gap
+     blends with the bars instead of rendering as a different strip. */
+  background-color: #07060f
 
 #app
   height: 100%

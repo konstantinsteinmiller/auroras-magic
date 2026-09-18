@@ -22,6 +22,9 @@
 import { existsSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { requireArtCatalogue } from './art-guard.mjs'
+
+requireArtCatalogue('art:status')
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PUBLIC = join(ROOT, 'public')

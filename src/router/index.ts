@@ -2,20 +2,9 @@ import { createRouter, createWebHashHistory, createMemoryHistory, type RouteReco
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'main', component: () => import('@/views/GameScene.vue') },
-  // Design bench for the monster art direction. Lazy, so it costs a player who
-  // never visits it nothing.
-  { path: '/monsters', name: 'monsters', component: () => import('@/views/MonsterLab.vue') },
-  // The art pipeline's two screens. DEV ONLY — the bench exists to get the
-  // procedural cast out to be painted and writes into the repo through a
-  // serve-only endpoint; the playground exists to check what came back against
-  // the drawing it replaces. Neither belongs in a portal build, and the
-  // `import.meta.env.DEV` guard lets Rollup drop both chunks entirely.
-  ...(import.meta.env.DEV
-    ? [
-      { path: '/art-sheets', name: 'art-sheets', component: () => import('@/views/ArtSheets.vue') },
-      { path: '/playground', name: 'playground', component: () => import('@/views/Playground.vue') }
-    ]
-    : []),
+  // The art pipeline's two screens (the reference-sheet bench and the
+  // painted-vs-drawn playground) mount here, DEV ONLY, when the painted-art
+  // step re-instantiates them for this cast — see `art-style.md`.
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
@@ -39,8 +28,8 @@ const routes: RouteRecordRaw[] = [
 // `<RouterLink>`. The router exists to mount one component and to keep the
 // dev-only benches reachable.
 //
-// Which is also why hash history is KEPT elsewhere: the benches at
-// `/monsters`, `/art-sheets` and `/playground` are navigated to by typing a
+// Which is also why hash history is KEPT elsewhere: dev benches (the art
+// pipeline's `/art-sheets` and `/playground`) are navigated to by typing a
 // URL, and memory history would make them unreachable in dev. The other
 // portals are shipping and working on hash history, so they are left alone —
 // this is a fix for a measured Playables failure, not a blanket change.

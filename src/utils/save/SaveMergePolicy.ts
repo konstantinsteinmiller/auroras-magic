@@ -26,7 +26,7 @@
 //     gets bonus coins = winner.maxStage × 50 to soften the loss
 
 import { BEST_STAGE_KEY, COINS_KEY, UPGRADES_KEY, RUNS_KEY } from '@/keys'
-import { STATE_KEY } from '@/use/useTowerState'
+import { STATE_KEY } from '@/use/useGameState'
 
 /** Where the meta blob is stored in localStorage / on the remote backend.
  *  NOT prefixed with `__save_internal__` — this key needs to round-trip
@@ -115,7 +115,7 @@ const safeJson = <T>(v: string | null, fallback: T): T => {
  * Compute a fresh meta blob from the current localStorage snapshot.
  * Pure — no side effects.
  */
-/** Pull a sub-field out of the consolidated `tower_state` blob if present.
+/** Pull a sub-field out of the consolidated `auroras_magic_state` blob if present.
  *  Falls through to a top-level read for back-compat with any pre-migration
  *  snapshot that still has individual keys (e.g. the score formula was just
  *  invoked between BlobStorage construction and the first migration write). */
@@ -240,7 +240,7 @@ export const applyBonusCoins = (read: SnapshotReader, bonus: number): string => 
   return String(current + Math.max(0, bonus))
 }
 
-/** Bonus-coin path: read the sub-field from tower_state if it exists. */
+/** Bonus-coin path: read the sub-field from auroras_magic_state if it exists. */
 export const readCoinTotal = (read: SnapshotReader): number => {
   return safeInt(readField(read, COINS_KEY), 0)
 }
@@ -257,14 +257,14 @@ export const readCoinTotal = (read: SnapshotReader): number => {
  * misleading picture of what the game stores.
  *
  * Single-blob model: every persisted gameplay value lives inside the
- * `tower_state` localStorage entry (see `useTowerState.ts`). The cloud
+ * `auroras_magic_state` localStorage entry (see `useGameState.ts`). The cloud
  * therefore mirrors exactly TWO keys — the state blob and the meta blob.
  *
- * Individual `ts_*` field keys are also accepted as payload so any stray
+ * Individual `am_*` field keys are also accepted as payload so any stray
  * per-key write (defensive, or a mid-migration snapshot from an older client)
  * round-trips safely instead of being silently dropped.
  */
-const PAYLOAD_PREFIXES = ['ts_'] as const
+const PAYLOAD_PREFIXES = ['am_'] as const
 
 export const isPayloadKey = (key: string): boolean => {
   if (key === META_KEY) return true

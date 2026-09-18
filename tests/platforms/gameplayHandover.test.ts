@@ -39,7 +39,6 @@ const load = async (playgama = false): Promise<Arm> => {
     pokiGameplayStart: () => calls.push('poki:start'),
     pokiGameplayStop: () => calls.push('poki:stop')
   }))
-  vi.doMock('@/game/monsterSprites', () => ({ setMonsterBakeAllowed: () => {} }))
   const mod = await import('@/use/useGameplayLifecycle')
   mod.__resetGameplayBracket()
   await mod.__gameplayFanoutIdle()

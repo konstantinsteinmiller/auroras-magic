@@ -1,6 +1,6 @@
 // ─── Playgama save strategy (Bridge v2) ────────────────────────────────────
 //
-// Mirrors the consolidated `tower_state` blob and its `__save_meta__` through
+// Mirrors the consolidated `auroras_magic_state` blob and its `__save_meta__` through
 // `bridge.storage`. The same code runs on three backends, because the same
 // archive does:
 //
@@ -28,7 +28,7 @@
 //    still costs a full cloud round-trip per key; so the dirty map drains as a
 //    single `storage.set([keys], [values])`, one flight at a time.
 //
-// 3. ONLY THE SAVE CROSSES. `tower_state` + `__save_meta__`, nothing else —
+// 3. ONLY THE SAVE CROSSES. `auroras_magic_state` + `__save_meta__`, nothing else —
 //    dev toggles, perf flags and ad-tech scribbles stay on the device.
 //
 // 4. THE CALL IS THE CERTIFICATION SIGNAL. The QA Tool's "Game Saves" check
@@ -55,7 +55,7 @@ import type {
   SaveStrategy
 } from './types'
 import { isInternalKey } from './types'
-import { STATE_KEY } from '@/use/useTowerState'
+import { STATE_KEY } from '@/use/useGameState'
 import { META_KEY, computeMeta, decideMerge, parseMeta, serializeMeta } from './SaveMergePolicy'
 import { isDebug } from '@/use/useMatch'
 import { getPlaygamaBridge, isPlaygamaSdkActive } from '@/utils/playgamaPlugin'

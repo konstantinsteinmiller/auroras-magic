@@ -9,32 +9,30 @@
 //
 // The tab-away and portal-pause arms are here because they were MISSING: both
 // already halted the simulation via `isGamePaused`, so the game looked correct
-// while the portal was never told, and a player who switched tabs mid-run left
+// while the portal was never told, and a player who switched tabs mid-duel left
 // an open bracket behind them.
 
 import { describe, expect, it } from 'vitest'
 import { isGameplayLive, type GameplayLiveInputs } from '@/use/useGameplayLifecycle'
 
-/** A player mid-run with nothing in the way. Each test negates one thing. */
+/** A player mid-duel with nothing in the way. Each test negates one thing. */
 const playing: GameplayLiveInputs = {
-  phase: 'run',
+  phase: 'duel',
   showResult: false,
   anyModalOpen: false,
   adShowing: false,
   visibilityHidden: false,
   platformPaused: false,
-  tutorialActive: false
+  awaitingInput: false
 }
 
 describe('isGameplayLive', () => {
-  it('is live while a run or a boss fight is in progress', () => {
+  it('is live while a duel is being fought', () => {
     expect(isGameplayLive(playing)).toBe(true)
-    expect(isGameplayLive({ ...playing, phase: 'boss' })).toBe(true)
   })
 
-  it('is not live in the terminal phases — the run is over either way', () => {
-    expect(isGameplayLive({ ...playing, phase: 'clear' })).toBe(false)
-    expect(isGameplayLive({ ...playing, phase: 'wipe' })).toBe(false)
+  it('is not live once a duelist has fallen — the duel is over either way', () => {
+    expect(isGameplayLive({ ...playing, phase: 'result' })).toBe(false)
   })
 
   // ─── The two that were missing ───────────────────────────────────────────
@@ -69,11 +67,11 @@ describe('isGameplayLive', () => {
     expect(isGameplayLive({ ...playing, showResult: true })).toBe(false)
   })
 
-  it('is not live during the onboarding hold', () => {
-    // The road is frozen and no stage is running. A `gameplayStart` here opens a
-    // session the player has not begun — and on Poki inflates the very C2P
-    // number the web fit test grades.
-    expect(isGameplayLive({ ...playing, tutorialActive: true })).toBe(false)
+  it('is not live before the first trusted input', () => {
+    // The duel boots straight into the arena with the foe held. A
+    // `gameplayStart` here opens a session nobody has begun — a named Poki QA
+    // rejection, and it inflates the very C2P number the web fit test grades.
+    expect(isGameplayLive({ ...playing, awaitingInput: true })).toBe(false)
   })
 
   it('needs EVERY reason to clear before it reports live again', () => {

@@ -1,121 +1,8 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-
-// ─── Campaign-overrides on-disk persistence ────────────────────────────
-// The level editor writes back into `data/campaign-overrides.json` so the
-// stages live in the repo (committable, fine-tunable in source) rather
-// than only in the user's localStorage. Two surfaces:
-//   1. A virtual module `virtual:campaign-overrides` that ships the
-//      current JSON as the campaign's seed override map. Resolved at
-//      both dev and build time.
-//   2. Dev-only middleware:
-//        POST /__maw/save-override   { id, stage }   → writes to disk
-//        POST /__maw/clear-override  { id }          → removes from disk
-//      Production builds don't expose these — the editor button silently
-//      falls back to localStorage when the endpoint is absent.
-const OVERRIDES_FILE = resolve(
-  fileURLToPath(new URL('./data/campaign-overrides.json', import.meta.url))
-)
-const OVERRIDES_VIRTUAL_ID = 'virtual:campaign-overrides'
-const OVERRIDES_RESOLVED = '\0' + OVERRIDES_VIRTUAL_ID
-
-const ensureOverridesFile = () => {
-  if (!existsSync(OVERRIDES_FILE)) {
-    mkdirSync(dirname(OVERRIDES_FILE), { recursive: true })
-    writeFileSync(OVERRIDES_FILE, '{}\n', 'utf-8')
-  }
-}
-
-const readOverridesJson = (): Record<string, unknown> => {
-  ensureOverridesFile()
-  try {
-    const parsed = JSON.parse(readFileSync(OVERRIDES_FILE, 'utf-8'))
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : {}
-  } catch {
-    return {}
-  }
-}
-
-const writeOverridesJson = (data: Record<string, unknown>) => {
-  ensureOverridesFile()
-  writeFileSync(OVERRIDES_FILE, JSON.stringify(data, null, 2) + '\n', 'utf-8')
-}
-
-const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
-  new Promise((res, rej) => {
-    const chunks: Buffer[] = []
-    req.on('data', c => chunks.push(c))
-    req.on('end', () => res(Buffer.concat(chunks).toString('utf-8')))
-    req.on('error', rej)
-  })
-
-const mawCampaignOverridesPlugin = (): Plugin => ({
-  name: 'maw-campaign-overrides',
-  resolveId(id) {
-    if (id === OVERRIDES_VIRTUAL_ID) return OVERRIDES_RESOLVED
-    return null
-  },
-  load(id) {
-    if (id !== OVERRIDES_RESOLVED) return null
-    return `export default ${JSON.stringify(readOverridesJson())}`
-  },
-  configureServer(server) {
-    // Hot-reload the virtual module if the JSON file is edited by hand.
-    server.watcher.add(OVERRIDES_FILE)
-    server.watcher.on('change', (path) => {
-      if (resolve(path) !== OVERRIDES_FILE) return
-      const mod = server.moduleGraph.getModuleById(OVERRIDES_RESOLVED)
-      if (mod) server.moduleGraph.invalidateModule(mod)
-      server.ws.send({ type: 'full-reload', path: '*' })
-    })
-
-    server.middlewares.use('/__maw/save-override', async (req, res, next) => {
-      if (req.method !== 'POST') { next(); return }
-      try {
-        const body = JSON.parse(await readBody(req)) as { id?: number; stage?: unknown }
-        if (typeof body.id !== 'number' || !body.stage) {
-          res.statusCode = 400
-          res.end(JSON.stringify({ error: 'expected { id: number, stage }' }))
-          return
-        }
-        const data = readOverridesJson()
-        data[String(body.id)] = body.stage
-        writeOverridesJson(data)
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ ok: true, id: body.id }))
-      } catch (e) {
-        res.statusCode = 400
-        res.end(JSON.stringify({ error: String((e as Error).message) }))
-      }
-    })
-
-    server.middlewares.use('/__maw/clear-override', async (req, res, next) => {
-      if (req.method !== 'POST') { next(); return }
-      try {
-        const body = JSON.parse(await readBody(req)) as { id?: number }
-        if (typeof body.id !== 'number') {
-          res.statusCode = 400
-          res.end(JSON.stringify({ error: 'expected { id: number }' }))
-          return
-        }
-        const data = readOverridesJson()
-        delete data[String(body.id)]
-        writeOverridesJson(data)
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify({ ok: true, id: body.id }))
-      } catch (e) {
-        res.statusCode = 400
-        res.end(JSON.stringify({ error: String((e as Error).message) }))
-      }
-    })
-  }
-})
 
 // `/art-sheets` (dev only) bakes the whole procedural cast onto reference
 // sheets so it can be handed to an image model and sliced back in. The browser
@@ -131,11 +18,20 @@ const mawCampaignOverridesPlugin = (): Plugin => ({
 // file-writing endpoint, so it takes a flat basename made of safe characters
 // and nothing else. No separators, no dots leading a segment, no escaping out
 // of the directory.
+/** Read a dev-server request body as UTF-8. */
+const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
+  new Promise((res, rej) => {
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => res(Buffer.concat(chunks).toString('utf-8')))
+    req.on('error', rej)
+  })
+
 const ART_SHEET_DIR = resolve(fileURLToPath(new URL('./art-sheets', import.meta.url)))
 const SAFE_SHEET_NAME = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,79}$/
 
 const artSheetsPlugin = (): Plugin => ({
-  name: 'survivalist-art-sheets',
+  name: 'art-sheets',
   apply: 'serve',
   // The sheets land inside the project root, so without this the dev server
   // watches its own output: the first PNG written triggers a full page reload,
@@ -180,147 +76,6 @@ const artSheetsPlugin = (): Plugin => ({
         fail(400, String((e as Error).message))
       }
     })
-  }
-})
-
-// ─── The baked leaderboard ─────────────────────────────────────────────────
-//
-// Ships `data/leaderboard-snapshot.json` as `virtual:leaderboard-snapshot` for
-// the builds that are not allowed to fetch a board at runtime — Poki forbids
-// every external runtime request, Yandex's moderators reject third-party
-// storage URLs, and both therefore build with `VITE_LEADERBOARD_URL` empty.
-//
-// Only those builds carry the bytes. A build with a live endpoint loads `null`
-// here and fetches the real board as it always has, so the snapshot costs the
-// other nine targets nothing.
-//
-// The refresh runs as a CHILD PROCESS of `scripts/leaderboard-snapshot.mjs` —
-// the same code path `pnpm leaderboard:snapshot` runs, so the build cannot
-// drift from the manual command, and a fetch that hangs or throws cannot take
-// the vite process with it. It is allowed to fail: the file is committed, so a
-// build with no network bakes the last known board instead of quietly shipping
-// without the feature.
-const SNAPSHOT_VIRTUAL_ID = 'virtual:leaderboard-snapshot'
-const SNAPSHOT_RESOLVED = '\0' + SNAPSHOT_VIRTUAL_ID
-const SNAPSHOT_FILE = resolve(
-  fileURLToPath(new URL('./data/leaderboard-snapshot.json', import.meta.url))
-)
-/**
- * The SEEDED board, for builds that can never write to the real one.
- *
- * Poki forbids every external runtime request and Yandex rejects third-party
- * storage URLs, so neither can post a score — their baked copy is not a stale
- * view of a living board, it is the entire board for the life of the build.
- * Seeding those from the live snapshot ranks their players against a 2 422-row
- * sample of everyone who ever opened the game once, 56 % of whom never passed
- * stage 2. `scripts/leaderboard-seed.mjs` builds a modelled retention curve
- * instead; the file it writes is committed and deterministic.
- */
-const SEED_FILE = resolve(
-  fileURLToPath(new URL('./data/leaderboard-seed.json', import.meta.url))
-)
-const SNAPSHOT_SCRIPT = resolve(
-  fileURLToPath(new URL('./scripts/leaderboard-snapshot.mjs', import.meta.url))
-)
-
-interface LeaderboardSnapshotFile {
-  /** When this process last pulled it off the Worker — the freshness clock. */
-  fetchedAt: number
-  updatedAt: number
-  total: number
-  entries: { rank: number; name: string; score: number; squad: number }[]
-  dist: [number, number][]
-}
-
-/** How recently the file must have been fetched for the build to accept it as
- *  already current. Long enough that `build:poki`'s own refresh (and a run of
- *  several portal builds back to back) costs the Worker ONE request. */
-const SNAPSHOT_FRESH_MS = 10 * 60_000
-
-const readSnapshotFile = (file: string): LeaderboardSnapshotFile | null => {
-  if (!existsSync(file)) return null
-  try {
-    const parsed = JSON.parse(readFileSync(file, 'utf-8')) as Partial<LeaderboardSnapshotFile>
-    if (!Array.isArray(parsed.entries) || !Array.isArray(parsed.dist)) return null
-    if (!(Number(parsed.total) > 0)) return null
-    return {
-      fetchedAt: Number(parsed.fetchedAt) || 0,
-      updatedAt: Number(parsed.updatedAt) || 0,
-      total: Number(parsed.total),
-      entries: parsed.entries,
-      dist: parsed.dist
-    }
-  } catch {
-    return null
-  }
-}
-
-/**
- * @param seeded whether this build can never gain a real player (Poki, Yandex —
- *   no endpoint, so no writes). Those bake the modelled board; every other
- *   target bakes the real snapshot as the bottom rung of its offline ladder.
- */
-const leaderboardSnapshotPlugin = (seeded: boolean): Plugin => ({
-  name: 'survivalist-leaderboard-snapshot',
-  buildStart() {
-    if (seeded) {
-      // Nothing to fetch: the seed is generated from a curve, committed, and
-      // deterministic. Re-running `pnpm leaderboard:seed` reproduces it byte for
-      // byte, so a build never needs to and never should.
-      const seed = readSnapshotFile(SEED_FILE)
-      if (seed) {
-        console.log(
-          `[leaderboard] baking the SEEDED board — ${seed.total} players / `
-          + `${seed.entries.length} rows, top stage ${seed.dist[0]?.[0] ?? 0}. `
-          + 'This build cannot post scores, so the board is modelled.'
-        )
-      } else {
-        console.warn(
-          `[leaderboard] no seed at ${SEED_FILE} — run \`pnpm leaderboard:seed\`. `
-          + 'This build has no leaderboard.'
-        )
-      }
-      return
-    }
-
-    // The `build:*` scripts refresh it themselves, so the file is usually
-    // seconds old by the time this runs. Refetching would be a second round
-    // trip for the same bytes — and building five portal targets in a row would
-    // be five. This hook is the SAFETY NET for anyone invoking `vite build
-    // --mode <x>` directly, which is why it stays.
-    const onDisk = readSnapshotFile(SNAPSHOT_FILE)
-    const fresh = onDisk !== null && Date.now() - onDisk.fetchedAt < SNAPSHOT_FRESH_MS
-    if (!fresh) {
-      try {
-        execFileSync(process.execPath, [SNAPSHOT_SCRIPT], { stdio: 'inherit', timeout: 60_000 })
-      } catch {
-        // Offline, or the Worker is down. The committed file stands in.
-        console.warn(
-          '[leaderboard] could not refresh the snapshot — building with the committed copy.'
-        )
-      }
-    }
-    const snap = readSnapshotFile(SNAPSHOT_FILE)
-    if (snap) {
-      console.log(
-        `[leaderboard] baking ${snap.total} players / ${snap.entries.length} rows `
-        + `(board of ${new Date(snap.updatedAt).toISOString().slice(0, 10)})`
-      )
-    } else {
-      // Not a build failure: `leaderboardEnabled` goes false and the game ships
-      // exactly as it did before, with no board and no rank cell.
-      console.warn(
-        `[leaderboard] no usable snapshot at ${SNAPSHOT_FILE} — this build has no leaderboard.`
-      )
-    }
-  },
-  resolveId(id) {
-    if (id === SNAPSHOT_VIRTUAL_ID) return SNAPSHOT_RESOLVED
-    return null
-  },
-  load(id) {
-    if (id !== SNAPSHOT_RESOLVED) return null
-    return `export default ${JSON.stringify(readSnapshotFile(seeded ? SEED_FILE : SNAPSHOT_FILE))}`
   }
 })
 
@@ -381,27 +136,9 @@ export default defineConfig(({ mode, command }) => {
   // Initialize plugins array
   const plugins = []
 
-  // Campaign-overrides plugin — virtual module + dev write endpoints so
-  // editor saves persist to `data/campaign-overrides.json` in the repo.
-  plugins.push(mawCampaignOverridesPlugin())
   // Art-sheet export endpoint. `apply: 'serve'`, so it is not in any build.
   plugins.push(artSheetsPlugin())
 
-  // The baked board. EVERY build carries one — but not the same one, and the
-  // difference is whether the build can ever write to the real board.
-  //
-  // Poki and Yandex cannot: they forbid the request outright, which `loadEnv`
-  // surfaces here as an empty `VITE_LEADERBOARD_URL`. Their copy is the WHOLE
-  // board for the life of the build and no player of theirs will ever join it,
-  // so it is the modelled one — see `SEED_FILE`.
-  //
-  // Every other build bakes the real snapshot as the bottom rung of
-  // `useLeaderboard`'s offline ladder: what a player sees when the fetch fails
-  // and their device has no cache yet. Not hypothetical — the Worker's D1
-  // row-read allowance ran out mid-afternoon and `/top` threw for every live
-  // build, which without this shows a first-time player "Couldn't reach the
-  // leaderboard". It costs ~2 kB gzipped per build.
-  plugins.push(leaderboardSnapshotPlugin((env.VITE_LEADERBOARD_URL ?? '').trim().length === 0))
 
   // Only push the obfuscator if both conditions are met
   if (isProduction && shouldObfuscate) {
@@ -468,15 +205,8 @@ export default defineConfig(({ mode, command }) => {
           // path so both the raw `.vue` file AND the script-block
           // virtual module are excluded.
           /components[\\/]atoms[\\/]FLogoProgress\.vue/,
-          // useMawCampaign lazy-loads the heavy `useStageBuilder`
-          // chunk via `await import('@/use/useStageBuilder')` so all
-          // 20 stage builds stay off the boot critical path. The
-          // obfuscator's stringArray rewrite would inline the chunk
-          // back into the parent, undoing the split.
-          /use[\\/]useMawCampaign\.ts$/,
-          // useAssets.preloadAssets dynamic-imports the campaign module
-          // so the gameplay shared-chunk loads in parallel with the
-          // splash render instead of blocking the entry parse. Same
+          // useAssets.preloadAssets dynamic-imports the duel's layout + arena
+          // modules to bake the island behind the splash. Same
           // obfuscator-vs-dynamic-import constraint as above.
           /use[\\/]useAssets\.ts$/,
           // capabilities.ts has per-platform URL-detector helpers (with
@@ -497,20 +227,14 @@ export default defineConfig(({ mode, command }) => {
           // doesn't meaningfully reduce obfuscation coverage of App.vue (which
           // still gets obfuscated normally and just imports from this helper).
           /platforms[\\/]plattformText\.ts$/,
-          // useCheats lazy-loads `@/use/useSurvivalGame` to publish
-          // `window.__run` and to drive the stage / damage shortcuts. Without
+          // useCheats lazy-loads `@/game/duel/state` for its shortcuts. Without
           // this exclude the stringArray rewrite mangles the literal and the
-          // BUILT bundle throws `Failed to resolve module specifier
-          // '@/use/useSurvivalGame'` the moment cheats are enabled — which is
-          // exactly when someone is trying to debug a built bundle. Found while
-          // verifying the CG pre-release build. The cheats self-gate on
-          // `localStorage.cheat`, so leaving this file readable grants nothing
-          // devtools would not.
+          // BUILT bundle throws `Failed to resolve module specifier` the moment
+          // cheats are enabled — which is exactly when someone is debugging a
+          // built bundle. The cheats self-gate on `localStorage.cheat`.
           /use[\\/]useCheats\.ts$/,
-          // usePlayerIdentity lazy-loads `@/use/useCrazyGames` to read the
-          // portal's player name for the leaderboard. Same failure mode, but on
-          // a PLAYER-facing path rather than a dev-only one.
-          /use[\\/]usePlayerIdentity\.ts$/
+          // The gameplay fan-out's dynamic Playgama import follows the same rule.
+          /use[\\/]useGameplayLifecycle\.ts$/
         ],
         // ─── Obfuscation profile (tuned 2026-04-30) ─────────────────────
         // The previous profile enabled every aggressive transform the
@@ -834,7 +558,12 @@ export default defineConfig(({ mode, command }) => {
           '@/use/ads/GameDistributionProvider': fileURLToPath(new URL('./src/use/ads/GameDistributionProvider.stub.ts', import.meta.url))
         }),
         ...(env.VITE_APP_PLAYGAMA === 'true' ? {} : {
-          '@/use/ads/PlaygamaProvider': fileURLToPath(new URL('./src/use/ads/PlaygamaProvider.stub.ts', import.meta.url))
+          '@/use/ads/PlaygamaProvider': fileURLToPath(new URL('./src/use/ads/PlaygamaProvider.stub.ts', import.meta.url)),
+          // The provider stub closed only the STATIC path; `main.ts`,
+          // `FLogoProgress`, the gameplay fan-out and the save resolver reach
+          // the plugin through `await import()`, and a dynamic import is a
+          // chunk that ships whether or not it can run. See the stub's header.
+          '@/utils/playgamaPlugin': fileURLToPath(new URL('./src/utils/playgamaPlugin.stub.ts', import.meta.url))
         }),
         ...(env.VITE_APP_GAMEPIX === 'true' ? {} : {
           '@/use/ads/GamepixProvider': fileURLToPath(new URL('./src/use/ads/GamepixProvider.stub.ts', import.meta.url)),
@@ -896,7 +625,40 @@ export default defineConfig(({ mode, command }) => {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
     },
     build: {
-      minify: 'esbuild',
+      // ─── The heavy compressor, stage 1: terser, multi-pass ───────────────
+      //
+      // Carried over from the jam build's 13 kB pipeline (see BUILD.md), minus
+      // the transforms that are only safe in a 13 kB game nobody else touches:
+      // no property mangling (Vue and the portal SDKs reach props by name), no
+      // `booleans_as_integers` (`=== true` checks exist in SDK glue), no
+      // `unsafe_*` (they assume no library monkey-patches builtins), and
+      // `keep_fargs` stays on (vue-router reads guard arity). What remains is
+      // pure win: several compress passes, top-level mangling inside each ES
+      // chunk, and every comment gone. Console calls are KEPT — portal QA
+      // reads the `[playgama]` / `[save]` lines. Stage 2 is `tools/pack`.
+      minify: 'terser',
+      terserOptions: {
+        ecma: 2020,
+        module: true,
+        toplevel: true,
+        compress: {
+          ecma: 2020,
+          module: true,
+          toplevel: true,
+          passes: 3,
+          drop_debugger: true,
+          hoist_props: true,
+          inline: 3,
+          reduce_funcs: true,
+          reduce_vars: true,
+          collapse_vars: true,
+          join_vars: true,
+          negate_iife: true,
+          sequences: true
+        },
+        mangle: { toplevel: true },
+        format: { comments: false, ecma: 2020 }
+      },
       // Source maps follow the obfuscator EXCEPT on production platform builds.
       //
       // `!shouldObfuscate` alone conflates two different questions. Turning the

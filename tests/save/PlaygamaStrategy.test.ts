@@ -13,7 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-const STATE_KEY = 'tower_state'
+const STATE_KEY = 'auroras_magic_state'
 const META_KEY = '__save_meta__'
 
 const sdkActive = ref(true)
@@ -63,7 +63,7 @@ const makeCloud = (seed: Record<string, string> = {}, opts: { failGet?: number }
   return { storage, setCalls, read: () => blob }
 }
 
-const state = (bestStage: number, coins = 0) => JSON.stringify({ ts_best_stage: bestStage, ts_coins: coins })
+const state = (bestStage: number, coins = 0) => JSON.stringify({ am_ladder: bestStage, am_coins: coins })
 
 const load = async () => (await import('@/utils/save/PlaygamaStrategy')).PlaygamaStrategy
 

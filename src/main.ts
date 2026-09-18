@@ -7,7 +7,8 @@ import {
   loadLocaleMessages,
   resolveInitialLocale,
   setI18nLocale,
-  isSupportedLocale
+  isSupportedLocale,
+  applyDocumentLocale
 } from '@/i18n'
 import { LANGUAGES } from '@/utils/enums'
 import { initAds } from '@/use/useAds'
@@ -15,7 +16,7 @@ import { installGamePauseAudio } from '@/use/useGamePauseAudio'
 import { onPauseChange } from '@/use/useGamePause'
 import useUser, { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex, isPoki } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch.ts'
-import { hasState, reloadTowerState, flushPersist } from '@/use/useTowerState'
+import { hasState, reloadGameState, flushPersist } from '@/use/useGameState'
 import { LANGUAGE_KEY } from '@/keys'
 import { SaveManager } from '@/utils/save/SaveManager'
 import { resolveSaveStrategy } from '@/platforms/resolveSaveStrategy'
@@ -83,7 +84,11 @@ const bootstrap = async () => {
   // builds — Yandex's moderator rejects any non-Yandex hostname as
   // "Service storage URL detected". On every other build the IIFE runs
   // normally and the diagnostic fires if a CG portal hosts a non-CG build.
-  if (import.meta.env.VITE_APP_YANDEX !== 'true') {
+  // Not on Playgama either: that archive is also the YouTube Playables
+  // submission, where another portal's hostnames in the bundle are exactly
+  // what a certification reviewer greps for — and a Playables iframe is never
+  // hosted under a CrazyGames referrer anyway.
+  if (import.meta.env.VITE_APP_YANDEX !== 'true' && import.meta.env.VITE_APP_PLAYGAMA !== 'true') {
     const looksLikeCrazyGamesPortal = (): boolean => {
       try {
         const ref = document.referrer
@@ -178,13 +183,11 @@ const bootstrap = async () => {
     //
     // It also makes the portal language readable before i18n boots, which is
     // what Playgama's localization check and Playables' `getLanguage` rule grade.
-    const { playgamaPlugin, playgamaLoadingStart, playgamaLocale, registerPlaygamaLeaderboard } =
+    const { playgamaPlugin, playgamaLoadingStart, playgamaLocale } =
       await import('@/utils/playgamaPlugin')
     await playgamaPlugin()
     playgamaLoadingStart()
     pgLocale = playgamaLocale.value
-    // Playgama's own leaderboard, beside ours — see `usePortalLeaderboard`.
-    registerPlaygamaLeaderboard()
   } else if (isPoki) {
     // **Parallel** init — deliberately NOT awaited, unlike the GamePix / Yandex
     // arms above. Poki has NO cloud-save API (its wrapper mirrors the iframe's
@@ -221,7 +224,7 @@ const bootstrap = async () => {
 
   // CrazyGames cloud-only mode: gameplay state and our save bookkeeping
   // (`__save_*`) live in memory only; `sdk.data` is the sole persistence
-  // backend. CG QA explicitly requires that no `tower_state` / `ts_*` /
+  // backend. CG QA explicitly requires that no `auroras_magic_state` / `am_*` /
   // `__save_*` keys appear in raw localStorage — only dev toggles
   // (`fps`, `debug`, `cheat`, `campaign-test`, `full_unlocked`) are
   // exempt. Inline env-literal so Vite tree-shakes the dead branch on
@@ -238,13 +241,13 @@ const bootstrap = async () => {
     // matter the hydrate timing.
   ;(window as any).__saveManager = saveManager
 
-  // Defense-in-depth `tower_state` / `ts_*` / `__save_*` safety remove on
+  // Defense-in-depth `auroras_magic_state` / `am_*` / `__save_*` safety remove on
   // CG builds. BlobStorage's `scrubRawForCloudOnly()` already wiped these
   // at construction (it seeded into `state` first, so progress is
   // preserved); this second pass catches anything BlobStorage missed.
   // MUST run BEFORE `saveManager.init()` because init patches
   // `localStorage.setItem` / `removeItem` to forward to the strategy —
-  // calling the patched removeItem on a `ts_*` key would issue a
+  // calling the patched removeItem on an `am_*` key would issue a
   // cloud delete via `sdk.data.removeItem`, wiping the player's save.
   // Pre-init, `localStorage.removeItem` is still native and these
   // removes are local-only.
@@ -253,7 +256,7 @@ const bootstrap = async () => {
       const stragglers: string[] = []
       for (let i = 0; i < window.localStorage.length; i++) {
         const k = window.localStorage.key(i)
-        if (k && (k === 'tower_state' || k.startsWith('ts_') || k.startsWith('__save_'))) {
+        if (k && (k === 'auroras_magic_state' || k.startsWith('am_') || k.startsWith('__save_'))) {
           stragglers.push(k)
         }
       }
@@ -269,16 +272,16 @@ const bootstrap = async () => {
   installSaveStatus(saveManager)
   await saveManager.init()
 
-  // Refresh the in-memory `towerState` blob from the hydrated localStorage so
+  // Refresh the in-memory `gameState` blob from the hydrated localStorage so
   // synchronous reads further down this file (notably `resolveInitialLocale`'s
   // `getState(LANGUAGE_KEY)` probe) see the cloud-stored values
   // immediately, NOT the stale pre-hydrate blob. Without this, a returning
   // player whose saved language is 'es' would still get a brief flash of the
   // Yandex / CG portal locale on first paint before the post-hydrate language
   // watcher (further down) reloads and switches. The watcher also calls
-  // `reloadTowerState()` defensively, so this is the early-flush companion, not
+  // `reloadGameState()` defensively, so this is the early-flush companion, not
   // a replacement.
-  reloadTowerState()
+  reloadGameState()
 
   // ─── Background / close flush — critical for mobile webviews ───────────
   //
@@ -324,7 +327,7 @@ const bootstrap = async () => {
       // Order matters: `flushPersist` drains the debounced in-memory writes
       // into the storage layer, THEN `saveManager.flush()` pushes that layer
       // to the cloud. Reversed, the cloud gets the previous snapshot.
-      // (`useTowerState` cannot subscribe here itself — it is a zero-dependency
+      // (`useGameState` cannot subscribe here itself — it is a zero-dependency
       // module — which is why its own hide listeners are gated off in tandem.)
       try { flushPersist() } catch (e) { console.warn('[save] persist flush failed', e) }
       flushNow('platform-pause')
@@ -405,6 +408,7 @@ const bootstrap = async () => {
     needsFallback ? loadLocaleMessages('en').catch(() => ({})) : Promise.resolve(null)
   ])
 
+  applyDocumentLocale(initial)
   const i18n: any = createI18n({
     locale: initial,
     fallbackLocale: 'en',
@@ -419,7 +423,7 @@ const bootstrap = async () => {
   // locale (CG / Yandex) is used ONLY to seed first-time players — it
   // never overrides an explicit OptionsModal choice. After hydrate has
   // populated localStorage from cloud, a null value at
-  // `ts_user_language` means "this player has never picked a
+  // `am_user_language` means "this player has never picked a
   // language on any device" and we can safely seed the portal locale.
   // useUser.ts deliberately does NOT seed a language default, so the
   // null/non-null probe here is a reliable signal.
@@ -432,12 +436,12 @@ const bootstrap = async () => {
       (ready) => {
         if (!ready) return
         stopLangSync?.()
-        // Defensive reload — `main.ts` already calls `reloadTowerState()`
+        // Defensive reload — `main.ts` already calls `reloadGameState()`
         // right after `saveManager.init()` so first-paint reads see the
         // hydrated blob. This second call covers the case where hydrate
         // resolves a cloud value AFTER the early reload (Glitch's HTTP
         // strategy resolves out-of-band in some flows, etc.). Idempotent.
-        reloadTowerState()
+        reloadGameState()
         const hasStoredLanguage = hasState(LANGUAGE_KEY)
         const portalSeed = cgLocale ?? yaLocale ?? pkLocale
         if (!hasStoredLanguage && portalSeed && LANGUAGES.includes(portalSeed)) {
@@ -448,14 +452,14 @@ const bootstrap = async () => {
         // unconditionally, because that's what was overwriting an
         // explicit Spanish choice on every English-portal refresh.
         //
-        // PLAYGAMA: only a choice the player actually MADE. `userLanguage`
-        // defaults to 'en' when nothing is stored, and this build does not
-        // persist the portal locale (see the live watcher below), so applying
-        // the default here reverted a first-time German Playables player to
-        // English one tick after boot had chosen German — found in the
-        // YouTube-shaped browser run, where `getLanguage()` said 'de'.
-        const playgamaUnchosen = import.meta.env.VITE_APP_PLAYGAMA === 'true' && !hasStoredLanguage
-        if (!playgamaUnchosen && isSupportedLocale(storedLang.value)) {
+        // Only a language that is actually STORED — a player's choice, or the
+        // portal seed written just above. `userLanguage` defaults to 'en' when
+        // nothing is stored, so applying it unconditionally reverted the locale
+        // boot had already resolved (portal or browser) to English one tick
+        // later. Found first on Playgama (a German Playables player got English
+        // back), then in the Auroras Magic browser pass on EVERY build: an
+        // Arabic or Japanese browser on a plain web build booted in English.
+        if (hasState(LANGUAGE_KEY) && isSupportedLocale(storedLang.value)) {
           setI18nLocale(i18n, storedLang.value)
         }
       },

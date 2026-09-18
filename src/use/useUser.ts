@@ -1,13 +1,10 @@
 import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { mobileCheck } from '@/utils/function'
-import { DIFFICULTY, type Difficulties } from '@/utils/enums'
 import { isDbInitialized, isSplashScreenVisible } from '@/use/useMatch'
 import { saveDataVersion } from '@/use/useSaveStatus'
-import { getState, setState, hasState } from '@/use/useTowerState'
-import {
-  SOUND_KEY, MUSIC_KEY, LANGUAGE_KEY, DIFFICULTY_KEY, MUSIC_TRACK_KEY
-} from '@/keys'
+import { getState, setState, hasState } from '@/use/useGameState'
+import { SOUND_KEY, MUSIC_KEY, LANGUAGE_KEY } from '@/keys'
 
 export const windowWidth = ref(window.innerWidth)
 export const windowHeight = ref(window.innerHeight)
@@ -47,24 +44,15 @@ export const version: string = APP_VERSION
 
 // ─── Persisted settings ────────────────────────────────────────────────────
 //
-// Survivalist persists FIVE user settings — difficulty, sound volume, music
-// volume, locale, music track — as fields inside the single `tower_state`
-// blob (keys catalogued in `src/keys.ts`), never as their own localStorage
-// entries. On a platform build the blob goes through the patched
-// `SaveManager.setItem` and is mirrored to the SDK cloud store automatically.
-// Hydrate at boot is a synchronous read; the strategy populates localStorage
-// from the cloud BEFORE the App module graph imports (see `main.ts`).
+// Three user settings — sound volume, music volume, locale — live as fields
+// inside the single `auroras_magic_state` blob (keys catalogued in
+// `src/keys.ts`), never as their own localStorage entries. On a platform build
+// the blob goes through the patched `SaveManager.setItem` and is mirrored to
+// the SDK cloud store automatically.
 //
 // Key constants are re-exported here so long-standing importers
 // (`useCrazyMuteSync`, tests) keep working without an extra import hop.
-export { SOUND_KEY, MUSIC_KEY, LANGUAGE_KEY, DIFFICULTY_KEY, MUSIC_TRACK_KEY }
-
-// Background-music track id → audio filename (under public/audio/music/).
-export type MusicTrack = 'trance' | 'cozy'
-export const MUSIC_TRACK_FILES: Record<MusicTrack, string> = {
-  trance: 'trance.ogg',
-  cozy: 'bg-cozy.ogg'
-}
+export { SOUND_KEY, MUSIC_KEY, LANGUAGE_KEY }
 
 const readNumber = (key: string, fallback: number): number => {
   const v = getState<unknown>(key)
@@ -87,18 +75,13 @@ export const DEFAULT_MUSIC_VOLUME = 0.6
 const userSoundVolume: Ref<number> = ref(readNumber(SOUND_KEY, DEFAULT_SOUND_VOLUME))
 const userMusicVolume: Ref<number> = ref(readNumber(MUSIC_KEY, DEFAULT_MUSIC_VOLUME))
 const userLanguage: Ref<string> = ref(readString(LANGUAGE_KEY, 'en'))
-// Difficulty defaults to MEDIUM. It scales enemy HP + wave budget (Easy −20%,
-// Hard +25%) via `difficultyFactor()` below, read by the wave director.
-const userDifficulty: Ref<Difficulties> = ref(readString<Difficulties>(DIFFICULTY_KEY, DIFFICULTY.MEDIUM))
-// Background-music track — defaults to 'trance' (Trance Tunnel).
-const userMusicTrack: Ref<MusicTrack> = ref(readString<MusicTrack>(MUSIC_TRACK_KEY, 'trance'))
 
 // Re-read on hydrate-success bump. Module init reads these synchronously
 // from localStorage, but on cloud-only builds (CrazyGames) the blob is
 // in-memory only — `useUser.ts` is one of the few composables imported at
 // the top of `main.ts`, so its module evaluation runs BEFORE
 // `await saveManager.init()` populates the blob from `sdk.data`. Without
-// this watcher the user's saved difficulty / volume / language would
+// this watcher the user's saved volume / language would
 // silently revert to defaults on every refresh.
 //
 // Settings-stranding fix: after refreshing refs from localStorage, write
@@ -117,23 +100,10 @@ watch(saveDataVersion, () => {
   userSoundVolume.value = readNumber(SOUND_KEY, userSoundVolume.value)
   userMusicVolume.value = readNumber(MUSIC_KEY, userMusicVolume.value)
   userLanguage.value = readString(LANGUAGE_KEY, userLanguage.value)
-  userDifficulty.value = readString<Difficulties>(DIFFICULTY_KEY, userDifficulty.value)
-  userMusicTrack.value = readString<MusicTrack>(MUSIC_TRACK_KEY, userMusicTrack.value)
 
   if (!hasState(SOUND_KEY)) setState(SOUND_KEY, userSoundVolume.value)
   if (!hasState(MUSIC_KEY)) setState(MUSIC_KEY, userMusicVolume.value)
-  if (!hasState(DIFFICULTY_KEY)) setState(DIFFICULTY_KEY, userDifficulty.value)
-  if (!hasState(MUSIC_TRACK_KEY)) setState(MUSIC_TRACK_KEY, userMusicTrack.value)
 })
-
-/** Wave-pressure multiplier for the active difficulty: Easy −20% (smaller wave
- *  budgets and softer enemies), Medium ×1, Hard +25% (denser waves, tankier
- *  enemies). Read by the wave director when composing a wave. */
-export const difficultyFactor = (): number => {
-  if (userDifficulty.value === DIFFICULTY.EASY) return 0.8
-  if (userDifficulty.value === DIFFICULTY.HARD) return 1.25
-  return 1
-}
 
 // Boot signal that several composables (`main.ts`, `useCrazyMuteSync`,
 // the i18n loader) wait on. Previously the IDB hydrate flipped this; with
@@ -143,44 +113,6 @@ export const difficultyFactor = (): number => {
 // runs BEFORE `import('@/App.vue')`).
 isDbInitialized.value = true
 isSplashScreenVisible.value = false
-
-// One-time legacy cleanup. CG QA's standing rule is "NO locally-saved
-// data" — both localStorage AND sessionStorage count. We sweep relics
-// from prior builds at module load:
-//   • `user_db` IndexedDB store — held CardQuest userHand / userCollection
-//     / quest-* relics nothing here references.
-//   • `card*` keys (case-insensitive) — the CardQuest-era prefix that
-//     produced `cardQuestUserLanguage`, `cardQuestSoundVolume`, etc.
-//   • `chaosArena*` keys — the interim prefix from the
-//     2026-05-04 build. We no longer mirror the locale hint to
-//     sessionStorage at all (the value lives in `ts_user_language`,
-//     which flows through `sdk.data` on CG), so any existing
-//     `chaosArena*` entry is also dead data.
-// Fire-and-forget — errors are swallowed because there is nothing to
-// recover. Runs at module load (useUser.ts is imported at the top of
-// main.ts) so the data is gone before the rest of the app boots.
-try {
-  if (typeof window !== 'undefined' && window.indexedDB?.deleteDatabase) {
-    const req = window.indexedDB.deleteDatabase('user_db')
-    req.onerror = () => { /* no-op: harmless if locked / already gone */
-    }
-  }
-} catch { /* harmless */
-}
-const LEGACY_KEY_RE = /^(card|chaosArena)/i
-const sweepLegacyKeys = (storage: Storage) => {
-  try {
-    const toRemove: string[] = []
-    for (let i = 0; i < storage.length; i++) {
-      const k = storage.key(i)
-      if (k && LEGACY_KEY_RE.test(k)) toRemove.push(k)
-    }
-    for (const k of toRemove) storage.removeItem(k)
-  } catch { /* harmless */
-  }
-}
-sweepLegacyKeys(localStorage)
-sweepLegacyKeys(sessionStorage)
 
 // ─── Composable surface ───────────────────────────────────────────────────
 
@@ -199,14 +131,6 @@ const useUser = () => {
         userLanguage.value = value as string
         setState(LANGUAGE_KEY, userLanguage.value)
         break
-      case 'difficulty':
-        userDifficulty.value = value as Difficulties
-        setState(DIFFICULTY_KEY, userDifficulty.value)
-        break
-      case 'musicTrack':
-        userMusicTrack.value = value as MusicTrack
-        setState(MUSIC_TRACK_KEY, userMusicTrack.value)
-        break
     }
   }
 
@@ -214,8 +138,6 @@ const useUser = () => {
     userSoundVolume,
     userMusicVolume,
     userLanguage,
-    userDifficulty,
-    userMusicTrack,
     setSettingValue
   }
 }

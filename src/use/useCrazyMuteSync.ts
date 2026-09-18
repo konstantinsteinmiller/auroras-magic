@@ -67,7 +67,7 @@ export const toggleMute = () => {
     // request for sound, so always restore audible defaults — otherwise a
     // game that booted already-muted (e.g. CrazyGames reported muted, or the
     // cloud save was 0/0) stays stuck at 0/0 and the button never unmutes.
-    // This is the "FMuteButton can't unmute on CG" fix.
+    // This is the "the sound button can't unmute on CG" fix.
     setSettingValue('music', DEFAULT_MUSIC_VOLUME)
     setSettingValue('sound', DEFAULT_SOUND_VOLUME)
   }

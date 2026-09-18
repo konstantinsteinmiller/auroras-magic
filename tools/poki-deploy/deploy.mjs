@@ -50,6 +50,9 @@ const arg = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && i + 1
 const CONFIG_PATH = resolve(arg('config', join(here, 'poki.config.mjs')))
 if (!existsSync(CONFIG_PATH)) die(`no config at ${CONFIG_PATH}`, 'copy poki.config.mjs and fill in team + gameId from your P4D URL')
 const cfg = (await import(pathToFileURL(CONFIG_PATH).href)).default
+// An empty id is a config that was never filled in for THIS game — and an id
+// copied from another game would upload this build to that game's page.
+if (!cfg.gameId) die('poki.config.mjs has no gameId', 'set it from the P4D URL of Auroras Magic: app.poki.dev/<team>/games/<gameId>/versions')
 
 const DRY = flag('dry-run')
 const STRICT = flag('strict')

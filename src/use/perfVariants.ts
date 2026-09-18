@@ -58,17 +58,9 @@ export const perfFlag = (name: string): boolean => flags.has(name)
  */
 export const activeVariants = (): string[] => [...flags]
 
-// ─── Live experiments ───────────────────────────────────────────────────────
+// ─── Variants ───────────────────────────────────────────────────────────────
 //
-/**
- * Baseline: paint the full-screen vignette as a live radial gradient.
- *
- * The shipping path blits a small baked texture instead. This is a RE-TEST of
- * an experiment the ledger already rejected once (2026-09-05, "-0.0 %") and it
- * is only legitimate because the metric changed: that run measured `workP95`
- * under CPU throttling on a phone-sized canvas with a real GPU, and the failure
- * this is aimed at is fill-bound — a 2.7 Mpx canvas on an Adreno 618, where the
- * cost is a radial shader evaluated per pixel rather than the JS that submits
- * it. Delete the loser and record the verdict in `PERF-LEDGER.md`.
- */
-export const VIGNETTE_GRADIENT = perfFlag('vignette-gradient')
+// None yet. A perf experiment adds ONE flag here (`export const X =
+// perfFlag('x')`), branches on it at module scope, measures both arms with
+// `pnpm perf:ab`, and records the verdict in PERF-LEDGER.md — then deletes the
+// losing arm and its flag.

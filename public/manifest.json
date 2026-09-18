@@ -1,7 +1,7 @@
 {
-  "name": "Survivalist",
-  "short_name": "Survivalist",
-  "description": "Shoot the gates to grow them, run your crowd through, and turn three survivors into an army before the boss turns them into dust.",
+  "name": "Auroras Magic",
+  "short_name": "Auroras Magic",
+  "description": "Draw runes to duel a dark unicorn. Sketch fire, wind, ice and earth, stack three, and cast the combo before your rival lands hers.",
   "display": "standalone",
   "display_override": [
     "fullscreen",
@@ -10,8 +10,8 @@
   "orientation": "any",
   "start_url": "./",
   "scope": "./",
-  "theme_color": "#0a1224",
-  "background_color": "#0a1224",
+  "theme_color": "#07060f",
+  "background_color": "#07060f",
   "icons": [
     {
       "src": "images/logo/logo_192x192.png",

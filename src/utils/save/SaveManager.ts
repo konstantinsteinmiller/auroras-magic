@@ -6,7 +6,7 @@ import type {
 } from './types'
 import { isInternalKey } from './types'
 import { SAVE_KEYS } from './SaveMergePolicy'
-import { STATE_KEY } from '@/use/useTowerState'
+import { STATE_KEY } from '@/use/useGameState'
 import { BlobStorage, type BlobStorageOptions } from './BlobStorage'
 
 // ─── SaveManager ───────────────────────────────────────────────────────────
@@ -400,11 +400,11 @@ const shouldRunSanityGuard = (state: HydrateState, local: LocalStorageAccessor):
 }
 
 /**
- * Read one field out of the consolidated `tower_state` blob, falling back to a
+ * Read one field out of the consolidated `auroras_magic_state` blob, falling back to a
  * top-level key read.
  *
  * This indirection is load-bearing: Survivalist persists everything INSIDE one
- * localStorage entry, so a naive `local.get('ts_best_stage')` always returns
+ * localStorage entry, so a naive `local.get('am_ladder')` always returns
  * null and `localLooksFresh` would report "fresh" for every player — making the
  * boot-sanity guard fire (and cost 3 s of boot latency) on every single launch
  * of a returning player, while telling us nothing.

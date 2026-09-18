@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <!-- YouTube Playables SDK - kept ONLY on the Playgama build, which IS the
@@ -33,22 +33,21 @@
   <!-- CSP meta tag injected by vite.config.ts at build time -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0a1224">
+  <meta name="theme-color" content="#07060f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Survivalist">
-  <meta name="description" content="Shoot the gates to grow them, run your crowd through, and turn three survivors into an army before the boss turns them into dust.">
+  <meta name="apple-mobile-web-app-title" content="Auroras Magic">
+  <meta name="description" content="Draw runes to duel a dark unicorn. Sketch fire, wind, ice and earth, stack three, and cast the combo before your rival lands hers.">
   <link rel="manifest" href="/manifest.json">
-  <title>Survivalist</title>
+  <title>Auroras Magic</title>
   <style>
       /* The splash paints before any JS runs, so its colours are inlined here
-         rather than pulled from the app's stylesheet. They match the scene's
-         night-sky background so the handover to the canvas is seamless — no
-         flash of a differently-coloured page. */
+         rather than pulled from the app's stylesheet. They match the duel's
+         letterbox and FLogoProgress, so the handover is seamless. */
       body {
           margin: 0;
-          background-color: #0a1224;
+          background-color: #07060f;
           outline: none;
       }
 
@@ -59,10 +58,7 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          /* The tile layer below is one tile wider and taller than the screen;
-             without this it would hand the page a scrollbar. */
-          overflow: hidden;
-          background: radial-gradient(circle at 50% 38%, #1b2b52 0%, #0a1224 70%);
+          background: radial-gradient(circle at 50% 42%, #231a3f 0%, #07060f 70%);
           transition: opacity 0.4s ease-out;
       }
 
@@ -71,178 +67,29 @@
           pointer-events: none;
       }
 
-      /* The panning backdrop.
-         ------------------------------------------------------------------
-         Eight of the game's own things — the survivor, the boss, the chest,
-         the coin, a barrel, an anvil, a grenade, a rocket — as faint line
-         drawings on one seamless tile (public/images/bg/bg-tile.svg,
-         flattened out of the paintings themselves by `pnpm art:bg-tile`),
-         drifting down and to the right the way a Brawl Stars loading screen
-         does.
-
-         The layer is one tile bigger than the screen up and to the left, and
-         slides exactly one tile down-right before it loops, so the loop has
-         no seam. It moves by TRANSFORM, never background-position: a
-         transform runs on the compositor, so the drift stays smooth while the
-         main thread is busy booting the game — which is the whole time this
-         screen is up.
-
-         The URL is RELATIVE on purpose. Vite rewrites `src`/`href`
-         attributes against the build's base but leaves `url()` inside an
-         inline <style> alone, and `./` resolves against this document
-         wherever it is deployed — the site root, a `--base=./` portal zip, or
-         the `/survivalist/` GitHub path — where a leading slash would only
-         work for the first.
-
-         It is a file both splashes name, so it arrives a beat after the first
-         frame; the fade-in hides that. FLogoProgress draws the same layer and
-         adopts this one's clock at the handover. Change one, change both. */
-      .splash-tiles {
-          position: absolute;
-          top: -400px;
-          left: -400px;
-          right: 0;
-          bottom: 0;
-          background: url(./images/bg/bg-tile.svg) 0 0 / 400px 400px repeat;
-          opacity: 0.16;
-          will-change: transform;
-          animation: splash-tiles-in 0.6s ease-out both, splash-tiles-pan 40s linear infinite;
-      }
-
-      @keyframes splash-tiles-in {
-          from { opacity: 0; }
-      }
-
-      @keyframes splash-tiles-pan {
-          to { transform: translate3d(400px, 400px, 0); }
-      }
-
-      /* The greeting card, minus its punchline.
-         ------------------------------------------------------------------
-         What stood here was Tower Siege's: three stacked blocks pulsing in
-         sequence, carried over with the splash flow. It is now the same
-         picture `FLogoProgress.vue` draws — the wispling floating over the
-         title — at the SAME size in the SAME place, so when Vue mounts and
-         this element fades out, nothing moves. The speech bubble is the only
-         thing that is not here, and it pops in on top of this once the fade
-         has finished (see `LURK_MS` in that component).
-
-         Duplicated rather than shared because this has to paint before any
-         stylesheet or module has been fetched. Change one, change both.
-
-         The two `<img>` sources are absolute public paths — Vite rewrites
-         them against the build's base, the same as the favicon and manifest
-         links above, so the relative-base portal builds resolve them too. */
-      .splash-greet {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.55rem;
-          width: clamp(200px, 58vmin, 340px);
-      }
-
-      .splash-stage {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 340 / 200;
-      }
-
-      /* One panel of the painted 8-panel walk strip. The strip inside is 8x as
-         wide, so a steps(8) slide of -100% of its own width lands on each panel
-         in turn. */
-      /* Solved for the ghost's INK, not the panel box it is padded inside —
-         see the long note on `.wisp` in FLogoProgress.vue. */
-      .splash-wisp {
-          position: absolute;
-          left: -5.3%;
-          bottom: -5.8%;
-          height: 131.5%;
-          aspect-ratio: 228 / 256;
-          overflow: hidden;
-          animation: splash-float 2.6s ease-in-out infinite;
-      }
-
-      /* max-width beats the app stylesheet's image reset once it lands, and the
-         height beats the tag's own width/height attributes — those are
-         presentational hints, and they are on the tag so this does not reflow
-         when the file decodes. */
-      .splash-wisp img {
-          display: block;
-          max-width: none;
-          width: 800%;
-          height: 100%;
-          animation: splash-walk 2.6s steps(8, end) infinite;
-      }
-
-      /* The wordmark's ink runs from y=216 to y=295 of the 512 icon; the rest
-         of the file is transparent padding. Crop to a band around it. */
-      .splash-logo {
-          width: 100%;
-          aspect-ratio: 512 / 103;
-          overflow: hidden;
-      }
-
-      .splash-logo img {
-          display: block;
-          width: 100%;
-          height: auto;
-          margin-top: -39.84%;
-      }
-
-      /* The loading read-out's placeholder. It is here for the SPACE as much as
-         the number: without it the card is one line shorter than the one
-         FLogoProgress draws, so the whole composition would jump upward at the
-         handover. The colour, size and shadow match `.percentage-text` +
-         `.text-shadow` + `.text-amber-500` in the app's stylesheet, which has
-         not loaded yet at this point. */
-      .splash-progress {
-          font-size: clamp(0.9rem, 4vw, 1.35rem);
+      /* The same title FLogoProgress draws, at the same size and place, so
+         nothing moves when Vue mounts and this element fades out. */
+      .splash-title {
+          margin: 0;
+          font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
           font-weight: 900;
-          /* The app stylesheet's default, restated: the UA's own 'normal' is
-             tighter, and a line 7 px shorter here would centre the whole card
-             3 px lower than the one Vue draws. */
-          line-height: 1.5;
-          color: #fe9a00;
-          text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-      }
-
-      @keyframes splash-walk {
-          from { transform: translateX(0); }
-          to   { transform: translateX(-100%); }
-      }
-
-      @keyframes splash-float {
-          0%, 100% { transform: translateY(0) rotate(-1.5deg); }
-          50%      { transform: translateY(-6%) rotate(1.5deg); }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-          .splash-wisp, .splash-tiles { animation: none; }
+          font-size: clamp(30px, 8vw, 56px);
+          line-height: 1;
+          color: #ffd76a;
+          -webkit-text-stroke: 0.28em #0a0713;
+          paint-order: stroke fill;
+          white-space: nowrap;
       }
   </style>
 </head>
 <body>
 <div id="static-splash">
-  <div class="splash-tiles" aria-hidden="true"></div>
-  <div class="splash-greet">
-    <div class="splash-stage">
-      <div class="splash-wisp">
-        <img src="/images/monsters/wispling.webp" alt="" width="1824" height="256" fetchpriority="high">
-      </div>
-    </div>
-    <div class="splash-logo">
-      <img src="/images/logo/logo_512x512.png" alt="Survivalist" width="512" height="512" fetchpriority="high">
-    </div>
-    <span class="splash-progress">0%</span>
-  </div>
+  <h1 class="splash-title">Auroras Magic</h1>
 </div>
 <!-- Load the SDK before your game code -->
 <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
-<!-- No Playgama Bridge tag: v2 is bundled from the @playgama/bridge npm package
-     (src/utils/playgamaBridgeLoader.ts). The v1 CDN script fetched its adapter
-     chunks from bridge.playgama.com at runtime and injected them as script tags,
-     neither of which YouTube Playables allows — and Playgama QA rejects v1. -->
+<!-- Playgama Bridge v2 is bundled from npm behind a build-gated dynamic import
+     (src/utils/playgamaBridgeLoader.ts) — no script tag. -->
 <!-- Load the SDK before your game code -->
 <script src="https://integration.gamepix.com/sdk/v3/gamepix.sdk.js"></script>
 <!-- Poki SDK - stripped for non-Poki builds by vite.config.ts -->

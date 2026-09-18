@@ -214,6 +214,8 @@ export const writeModels = async ({ root = ROOT, check = false, only = null, log
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const { requireArtCatalogue } = await import('./art-guard.mjs')
+  requireArtCatalogue('art:models')
   const check = process.argv.includes('--check')
   const res = await writeModels({ check })
   if (check && res.some((r) => r.state !== 'same')) process.exit(1)

@@ -1,0 +1,84 @@
+// ─── The duel's chrome, as the jam build drew it ────────────────────────────
+//
+// The jam build painted its HUD on the canvas with two primitives: a chunky
+// plate (flat fill, thick ink outline, round corners) and ink-outlined 900-weight
+// type. These classes are those two primitives in CSS, so the Vue HUD reads as
+// the same hand-drawn chrome.
+
+:root
+  --duel-ink: #0a0713
+  --duel-gold: #ffd76a
+  --duel-purple: #c08cff
+  --duel-plate: #181130
+  --duel-plate-live: #3b2a63
+  --duel-red: #ff8092
+  --duel-disabled: #7a6f95
+  --duel-lavender: #cfc4ff
+  --duel-green: #7dffa8
+
+// Ink-outlined type. The canvas stroked the glyph outline at 0.28 × the font
+// size, centred on the outline, then filled on top — `paint-order` is exactly
+// that order. `--ink` overrides the outline colour; `.ink-none` drops it.
+.ink-text
+  // The jam build drew with the canvas' generic `sans-serif` — Arial on
+  // Windows, Helvetica on a Mac — so those lead. Real CJK / Thai / Devanagari
+  // system faces come before the generic, or a Latin-only face tofus them.
+  font-family: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', sans-serif
+  font-weight: 900
+  line-height: 1
+  color: #fff
+  white-space: nowrap
+  -webkit-text-stroke: calc(0.28em) var(--ink, var(--duel-ink))
+  paint-order: stroke fill
+  letter-spacing: 0
+
+// Arabic runs inside the LTR arena still read right-to-left.
+:lang(ar) .ink-text
+  unicode-bidi: plaintext
+
+.ink-text.ink-none
+  -webkit-text-stroke: 0
+
+// Arabic is cursive-joined: any letter-spacing breaks it, and a heavy outline
+// at 0.28em swallows the joins at small sizes. Thin the outline there.
+:lang(ar) .ink-text
+  -webkit-text-stroke-width: 0.18em
+
+// The chunky plate. `--lw` is the outline width.
+.duel-plate
+  box-sizing: border-box
+  background: var(--duel-plate)
+  border: var(--lw, 5px) solid var(--duel-ink)
+  border-radius: 16px
+
+// "Press me" glow ring — the jam build's pulsing gold outline around a live
+// CAST button. `pulse(t, 0.9)` there is a 1.11 s sine.
+@keyframes duel-glow
+  0%, 100%
+    opacity: 0.25
+  50%
+    opacity: 0.85
+
+// Soft breathing for hints: alpha a + b * pulse(t, speed).
+@keyframes duel-breathe
+  0%, 100%
+    opacity: var(--from, 0.34)
+  50%
+    opacity: var(--to, 0.5)
+
+// A HUD callout: rises 84 stage units, shrinks from 1.4x to 1x, and fades over
+// the last 28 % of its 1.3 s life.
+@keyframes duel-pop
+  0%
+    transform: translate(-50%, -50%) translateY(0) scale(1.4)
+    opacity: 1
+  72%
+    opacity: 1
+  100%
+    transform: translate(-50%, -50%) translateY(calc(-84px * var(--k, 1))) scale(1)
+    opacity: 0
+
+// Everything animated in the duel HUD freezes with the game (ad, modal, hidden
+// tab, portal pause) instead of finishing unseen.
+.duel-paused, .duel-paused *
+  animation-play-state: paused !important

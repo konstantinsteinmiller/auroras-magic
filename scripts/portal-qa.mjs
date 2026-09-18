@@ -8,12 +8,14 @@
 //   pnpm build:gamepix        # or: npx vite build --mode gamepix --base=./
 //   pnpm qa:portal
 //
-//   --platform <id>   gamepix | gamemonetize | none          (default gamepix)
+//   --platform <id>   gamepix | gamemonetize | crazy-web | none (default gamepix)
 //   --dist <dir>      built output to serve                 (default ./dist)
 //   --chrome <path>   Chrome executable
 //   --sdk-delay <ms>  how long the stubbed SDK takes to report ready
 //                                                            (default 1200)
 //   --keep            leave the browser open for inspection
+//   --headless        run Chrome headless (CI, or to keep it off the desktop)
+//   --cg-prerelease   crazy-web: expect the pre-release single gameplayStart
 //
 // Exits non-zero on the first failed check, so CI can gate on it.
 //
@@ -43,14 +45,16 @@
 //    out of that window, the whole bundle decodes as windows-1252, and the
 //    first regex with a non-ASCII literal dies. That is the harness breaking
 //    the app, and it looks exactly like a bug in the build. Inject AFTER it.
-// 2. `document.querySelectorAll('audio')`. The music element is created with
-//    `new Audio()` and never appended to the document, so that list is EMPTY
-//    and `.every(a => a.paused)` over it is vacuously true — the check passes
-//    with the audio blaring. Track the elements by wrapping the constructor.
-// 3. THE TUTORIAL FREEZES THE ROAD. A first-run player's road does not move
-//    until they steer, so "the simulation stopped when I hid the tab" passes
-//    because it never started. Always assert a CONTROL case first — the run
-//    advances while visible — and clear the tutorial with a real gesture.
+// 2. AN EMPTY SET IS SILENT. The score is a Web Audio synth with no media
+//    elements, and the AudioContext only exists after the first gesture — so
+//    "every audio element is paused" is vacuously true, and "no music played"
+//    is true for a game that never makes a sound. Capture the context by
+//    wrapping its constructor, count voices at `start()`, and always pair a
+//    silence check with a control that proves sound DOES start.
+// 3. NOTHING IS FOUGHT UNTIL A TOUCH. The duel boots with the foe held until
+//    the first trusted gesture, so "the simulation stopped when I hid the tab"
+//    passes because it never started. Always assert a CONTROL case first — the
+//    duel advances while visible — and arm it with a real gesture.
 // 4. HOSTNAME GATES. Platform builds refuse to render off their portal's
 //    domain. Satisfy the gate with `--host-resolver-rules` rather than
 //    weakening it: a build that skips its own gate is not the build QA runs.
@@ -84,6 +88,10 @@ const ROOT = resolve(arg('dist', 'dist'))
 const CHROME = arg('chrome', process.env.CHROME_PATH
   ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe')
 const KEEP = flag('keep')
+const HEADLESS = flag('headless')
+// CrazyGames PRE-release builds send exactly one gameplayStart (on the first
+// touch) and nothing else; the full release drives the whole bracket.
+const CG_PRERELEASE = flag('cg-prerelease')
 // How long the stubbed SDK waits before reporting ready. NOT a detail: see
 // note 5 above — an instantly-ready stub hides every readiness race, which is
 // the class of bug that got the GameMonetize build rejected. Keep it well past
@@ -98,7 +106,7 @@ const PROFILE = mkdtempSync(join(tmpdir(), 'portal-qa-'))
 // Platform-independent. Installs the counters and the levers every check below
 // pulls; the per-platform SDK stub is appended to it.
 const PROBE = `
-var qa = window.__qa = { playCalls: [], sdkCalls: [], console: [], media: [], muted: true, sdkDelayMs: ${SDK_DELAY_MS} };
+var qa = window.__qa = { playCalls: [], sdkCalls: [], console: [], muted: true, sdkDelayMs: ${SDK_DELAY_MS} };
 
 // A harness-only shim, and the only one here. Serving on a mapped hostname over
 // plain http means the page is NOT a secure context, so \`crypto.randomUUID\` is
@@ -115,20 +123,29 @@ if (window.crypto && typeof window.crypto.randomUUID !== 'function') {
   };
 }
 
-// Media elements, tracked by CONSTRUCTOR — see trap 2 in the header.
-var RealAudio = window.Audio;
-window.Audio = function () {
-  var el = new RealAudio(arguments[0]);
-  qa.media.push(el);
-  return el;
-};
-window.Audio.prototype = RealAudio.prototype;
+// The scene installs its QA hooks (window.__S etc.) when this flag exists
+// before boot. Set here, and nowhere a player could reach.
+window.__AM_QA__ = true;
 
-var realPlay = HTMLMediaElement.prototype.play;
-HTMLMediaElement.prototype.play = function () {
-  qa.playCalls.push({ src: String(this.currentSrc || this.src || ''), loop: !!this.loop });
-  if (qa.media.indexOf(this) < 0) qa.media.push(this);
-  return realPlay.apply(this, arguments);
+// Auroras Magic's audio is a SYNTH on one shared AudioContext - no media
+// elements at all. So the probe captures the context by wrapping its
+// constructor, and counts every voice the synth schedules by wrapping
+// start() on the scheduled-source base class (oscillators AND the noise
+// buffer). A muted or paused game schedules NONE: V() refuses to build a
+// voice while the context is held suspended.
+qa.ctxs = [];
+qa.voices = 0;
+var RealAC = window.AudioContext || window.webkitAudioContext;
+if (RealAC) {
+  var WrappedAC = function (opts) { var c = new RealAC(opts); qa.ctxs.push(c); return c; };
+  WrappedAC.prototype = RealAC.prototype;
+  window.AudioContext = WrappedAC;
+  window.webkitAudioContext = WrappedAC;
+}
+var realStart = AudioScheduledSourceNode.prototype.start;
+AudioScheduledSourceNode.prototype.start = function () {
+  qa.voices++;
+  return realStart.apply(this, arguments);
 };
 
 ['info', 'warn', 'error'].forEach(function (level) {
@@ -150,16 +167,21 @@ qa.setHidden = function (v) {
   return hidden;
 };
 
-// The run's progress rail: an inline width %, rewritten only when the
-// simulation advances. The observable for "is the loop actually running?".
+// The duel clock: seconds of duel actually FOUGHT. It only advances once a
+// player has armed the duel with a real gesture and while nothing pauses the
+// game - the observable for "is the loop actually running?".
 qa.progress = function () {
-  var el = document.querySelector('.run-hud__rail-fill');
-  return el ? el.style.width : null;
+  var S = window.__S;
+  return S ? S.dur.toFixed(3) : null;
 };
-// Only looping media is the music track; one-shot SFX are Web Audio.
-qa.musicPlays = function () { return qa.playCalls.filter(function (c) { return c.loop; }).length; };
+// Every synth voice scheduled so far - the score and the cues alike.
+qa.musicPlays = function () { return qa.voices; };
+// Silent = no context yet, or every context held out of 'running'.
 qa.audioState = function () {
-  return { count: qa.media.length, allPaused: qa.media.every(function (a) { return a.paused; }) };
+  return {
+    count: qa.ctxs.length,
+    allPaused: qa.ctxs.every(function (c) { return c.state !== 'running'; })
+  };
 };
 `
 
@@ -282,6 +304,7 @@ var runAd = function (kind) {
       // observable, and the first-play interstitial must land before it moves.
       progressAtOpen: qa.progress(),
       musicAtOpen: qa.musicPlays(),
+      voicesAtOpen: qa.voices,
       // The count above is CUMULATIVE play() calls, which cannot tell "the
       // music started at boot and the ad hard-stopped it" from "the music is
       // audible under the ad". With a post-splash placement the first is
@@ -296,6 +319,7 @@ var runAd = function (kind) {
     // Sample PAST the 6 s cap but before the ad closes.
     setTimeout(function () {
       qa.adAudit.musicPastCap = qa.musicPlays();
+      qa.adAudit.voicesPastCap = qa.voices;
       qa.adAudit.audioPastCap = qa.audioState();
       qa.adAudit.railPastCap = qa.progress();
     }, 8000);
@@ -317,6 +341,54 @@ var sdk = {
   preloadAd: function (t) { log('preloadAd:' + t); return Promise.resolve(); }
 };
 Object.defineProperty(window, 'sdk', { value: sdk, writable: false, configurable: false });
+`
+  },
+  'crazy-web': {
+    host: 'local.crazygames.com',
+    label: 'CrazyGames SDK v3',
+    // The CG SDK tag only survives in the CrazyGames build.
+    fingerprint: 'sdk.crazygames.com',
+    // The gameplay bracket is what CrazyGames grades (gameplayStart whenever
+    // play starts or resumes, gameplayStop on every pause, modal and result
+    // screen) — so this stub LOGS it and the CG block below asserts its order.
+    stub: `
+var store = {};
+var sdk = {
+  environment: 'crazygames',
+  init: function () {
+    log('init');
+    return new Promise(function (r) { setTimeout(r, qa.sdkDelayMs); });
+  },
+  game: {
+    settings: { muteAudio: false },
+    isMuted: function () { return false; },
+    loadingStart: function () { log('loadingStart'); },
+    loadingStop: function () { log('loadingStop'); },
+    gameplayStart: function () { log('gameplayStart'); },
+    gameplayStop: function () { log('gameplayStop'); },
+    happytime: function () { log('happytime'); },
+    addSettingsChangeListener: function (fn) { qa.cgSettings = fn; }
+  },
+  user: {
+    getUser: function () { return Promise.resolve(null); },
+    getSystemInfo: function () { return Promise.resolve({ locale: 'en-US' }); }
+  },
+  data: {
+    getItem: function (k) { return k in store ? store[k] : null; },
+    setItem: function (k, v) { store[k] = String(v); },
+    removeItem: function (k) { delete store[k]; }
+  },
+  ad: {
+    hasAdblock: function () { return Promise.resolve(false); },
+    // A no-fill, answered through the error callback like the real SDK.
+    requestAd: function (type, cb) {
+      log('requestAd:' + type);
+      setTimeout(function () { if (cb && cb.adError) cb.adError('no fill'); }, 50);
+    }
+  }
+};
+// Locked, so the real CDN script cannot replace it if it ever loads.
+Object.defineProperty(window, 'CrazyGames', { value: { SDK: sdk }, writable: false, configurable: false });
 `
   },
   none: {
@@ -410,6 +482,7 @@ const chrome = spawn(CHROME, [
   // Satisfy the build's hostname gate instead of switching it off.
   `--host-resolver-rules=MAP ${plat.host} 127.0.0.1`,
   '--window-size=520,900',
+  ...(HEADLESS ? ['--headless=new'] : []),
   'about:blank'
 ], { stdio: 'ignore' })
 
@@ -462,28 +535,21 @@ const ev = async expr => {
   return r.result.value
 }
 
-/** Drag across the canvas the way a player steers, with real input events —
- *  the first-run tutorial is deliberately satisfied only by a real gesture,
- *  and until it is, the road does not move. See trap 3. */
-const steer = async () => {
+/** Tap the drawing pad with a REAL (trusted) input event — the gesture that
+ *  arms the duel and lets the browser start the AudioContext. See trap 3. */
+const tap = async () => {
   const box = JSON.parse(await ev(`(() => {
     const c = document.querySelector('canvas'); if (!c) return 'null';
     const r = c.getBoundingClientRect();
-    return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height * 0.75, w: r.width });
+    return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height * 0.72 });
   })()`))
-  const at = (type, x, y) => send('Input.dispatchMouseEvent', {
-    type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1
+  const at = (type) => send('Input.dispatchMouseEvent', {
+    type, x: box.x, y: box.y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1
   })
-  for (let pass = 0; pass < 3; pass++) {
-    const dir = pass % 2 === 0 ? 1 : -1
-    await at('mousePressed', box.x, box.y)
-    for (let i = 1; i <= 10; i++) {
-      await at('mouseMoved', box.x + dir * box.w * 0.03 * i, box.y)
-      await sleep(30)
-    }
-    await at('mouseReleased', box.x + dir * box.w * 0.3, box.y)
-    await sleep(150)
-  }
+  await at('mousePressed')
+  await sleep(40)
+  await at('mouseReleased')
+  await sleep(150)
 }
 
 try {
@@ -502,12 +568,13 @@ try {
 
   let booted = false
   for (let i = 0; i < 160; i++) {
-    if (await ev('!!document.querySelector(".run-hud__rail-fill")')) { booted = true; break }
+    if (await ev('!!document.querySelector("canvas.duel-canvas") && !!window.__S')) { booted = true; break }
     await sleep(250)
   }
-  check('game booted to a live run', booted)
+  check('game booted into the duel', booted)
   if (!booted) {
     console.log('  body    : ' + await ev('document.body.innerText.slice(0,300)'))
+    console.log('  hooks   : ' + await ev('JSON.stringify({ S: typeof window.__S, cheat: (function(){ try { return localStorage.getItem("cheat") } catch (e) { return String(e) } })(), canvas: !!document.querySelector("canvas.duel-canvas"), globals: Object.keys(window).filter(function (k) { return k.indexOf("__") === 0 }), lsIsNative: (function(){ try { return Object.prototype.toString.call(window.localStorage) } catch (e) { return String(e) } })(), keys: (function(){ try { var o=[]; for (var i=0;i<localStorage.length;i++) o.push(localStorage.key(i)); return o } catch (e) { return String(e) } })() })'))
     console.log('  console : ' + await ev('JSON.stringify(window.__qa.console.slice(-15))'))
     throw new Error('never reached gameplay')
   }
@@ -547,24 +614,20 @@ try {
     check('first-play interstitial was requested', !!audit,
       `ads=${await ev('JSON.stringify(window.__qa.ads)')}`)
     if (audit) {
-      check('the ad opened BEFORE the run started moving',
-        audit.progressAtOpen === null || audit.progressAtOpen === '' || parseFloat(audit.progressAtOpen) === 0,
-        `rail at open = ${audit.progressAtOpen}`)
-      // SILENT, not never-started. GameMonetize's ad is the post-splash
-      // first-load placement (`useFirstLoadInterstitial`), so stage 1 and its
-      // music are already running behind the splash when the ad opens — the
-      // guarantee is that `showMidgameAd` hard-stops them BEFORE the request,
-      // not that the track never played. A cumulative play() count cannot tell
-      // those apart; the elements themselves can. `count > 0` guards the
-      // empty-set trap (note 2 in the header).
-      check('no music underneath the ad',
-        audit.audioAtOpen.count > 0 && audit.audioAtOpen.allPaused,
-        `audio at open = ${JSON.stringify(audit.audioAtOpen)}`)
-      // The one that regressed: with no impression reported, the wait was
-      // released at 6 s, the ad gate dropped, and the game started playing
-      // music under an ad that had four seconds left to run.
+      check('the ad opened BEFORE the duel started',
+        audit.progressAtOpen === null || parseFloat(audit.progressAtOpen) === 0,
+        `duel clock at open = ${audit.progressAtOpen}`)
+      // SILENT: not one synth voice was scheduled while the ad was open, and
+      // any context that exists is held out of 'running'. The control that
+      // stops this passing vacuously is the music check after the ad closes.
+      check('no sound underneath the ad',
+        audit.voicesAtOpen === audit.voicesPastCap && (audit.audioAtOpen.count === 0 || audit.audioAtOpen.allPaused),
+        `voices ${audit.voicesAtOpen} -> ${audit.voicesPastCap}, audio at open = ${JSON.stringify(audit.audioAtOpen)}`)
+      // The one that regressed on survivalist: with no impression reported,
+      // the wait was released at 6 s and the game played under an ad that had
+      // four seconds left to run.
       check('still silent PAST the 6 s cap (ad ran 12 s)',
-        audit.audioPastCap.count > 0 && audit.audioPastCap.allPaused,
+        audit.audioPastCap.count === 0 || audit.audioPastCap.allPaused,
         `audio at 8 s = ${JSON.stringify(audit.audioPastCap)}`)
     }
     // Polled, not sampled. The ad's resume event does not start the music —
@@ -573,12 +636,63 @@ try {
     // and reading the counter the instant the ad closes catches it maybe half
     // the time: two runs of this check failed with `music play()=0` on a build
     // whose music was demonstrably fine a second later.
+    // The score can only sound after a gesture (browser autoplay policy).
+    await tap()
     let musicAfter = 0
     for (let i = 0; i < 20 && musicAfter === 0; i++) {
       musicAfter = await ev('window.__qa.musicPlays()')
       if (musicAfter === 0) await sleep(250)
     }
-    check('music starts once the ad closes', musicAfter > 0, `music play()=${musicAfter}`)
+    check('music starts once the ad closes', musicAfter > 0, `synth voices=${musicAfter}`)
+  }
+
+  // ── CrazyGames: the gameplay bracket, in order ──────────────────────────
+  if (PLATFORM === 'crazy-web' && CG_PRERELEASE) {
+    const calls = async () => JSON.parse(await ev('JSON.stringify(window.__qa.sdkCalls)'))
+    let c = await calls()
+    check('NO gameplayStart before the player touches the game', !c.includes('gameplayStart'), c.join(','))
+    await tap()
+    await sleep(400)
+    c = await calls()
+    check('exactly ONE gameplayStart once the player is in', c.filter((x) => x === 'gameplayStart').length === 1, c.join(','))
+  } else if (PLATFORM === 'crazy-web') {
+    const calls = async () => JSON.parse(await ev('JSON.stringify(window.__qa.sdkCalls)'))
+    const last = (list, a, b) => list.lastIndexOf(a) > list.lastIndexOf(b)
+    let c = await calls()
+    check('loadingStart … loadingStop around the boot', c.indexOf('loadingStart') >= 0 && c.indexOf('loadingStop') > c.indexOf('loadingStart'), c.join(','))
+    check('NO gameplayStart before the player touches the game', !c.includes('gameplayStart'), c.join(','))
+    await tap()
+    await sleep(400)
+    c = await calls()
+    check('gameplayStart on the first touch', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
+    await ev(`(() => { const b = Array.from(document.querySelectorAll('button')).find(x => /option/i.test(x.getAttribute('aria-label') || '')); b && b.click(); })()`)
+    await sleep(500)
+    c = await calls()
+    check('gameplayStop while the Options modal is open', last(c, 'gameplayStop', 'gameplayStart'), c.slice(-4).join(','))
+    await ev(`(() => { const b = Array.from(document.querySelectorAll('button')).find(x => /save|close/i.test(x.textContent || '')); b && b.click(); })()`)
+    await sleep(700)
+    c = await calls()
+    check('gameplayStart again when it closes', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
+    await ev('window.__qa.setHidden(true)')
+    await sleep(400)
+    c = await calls()
+    check('gameplayStop on tab away', last(c, 'gameplayStop', 'gameplayStart'), c.slice(-4).join(','))
+    await ev('window.__qa.setHidden(false)')
+    await sleep(600)
+    c = await calls()
+    check('gameplayStart on return', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
+    // Win the duel through the sim and watch the result screen close the play.
+    await ev('(() => { const S = window.__S; S.ehp = 0; })()')
+    await sleep(2500)
+    c = await calls()
+    check('gameplayStop + happytime when a duel is won', last(c, 'gameplayStop', 'gameplayStart') && c.includes('happytime'), c.slice(-5).join(','))
+    const panel = await ev('!!document.querySelector(".duel-result")')
+    check('result panel is up after the win', panel)
+    // Leave the scene as the shared checks below expect it: a live duel.
+    await ev(`(() => { const b = document.querySelector('.duel-result .tap'); b && b.click(); })()`)
+    await sleep(600)
+    c = await calls()
+    check('gameplayStart when the next duel begins', last(c, 'gameplayStart', 'gameplayStop'), c.slice(-4).join(','))
   }
 
   // ── Mute, on the flow QA runs: already muted at boot, then reload ────────
@@ -589,26 +703,29 @@ try {
   const canMute = await ev("typeof window.__qa.portalMute === 'function'")
   if (!canMute) console.log(`  (skipped: ${plat.label} exposes no mute signal)\n`)
   if (canMute) {
+    // A real gesture first: without one the browser would never let the synth
+    // sound, and "silent while muted" would prove nothing.
+    await tap()
     await sleep(2500) // give the music every chance to start
     const muted = await ev('window.__qa.musicPlays()')
-    check('portal muted at boot → ZERO music starts', muted === 0,
-      `music play()=${muted}, all media play()=${await ev('window.__qa.playCalls.length')}`)
+    check('portal muted at boot → ZERO sound after a tap', muted === 0,
+      `synth voices=${muted}, audio=${await ev('JSON.stringify(window.__qa.audioState())')}`)
 
     // The second leg is not optional: without it, a game that simply never
     // plays music passes the check above.
     check('soundOn callback registered on the SDK', await ev('window.__qa.portalMute(false)') === true)
     await sleep(1500)
     const after = await ev('window.__qa.musicPlays()')
-    check('portal unmute → music DOES start', after > 0, `music play()=${after}`)
+    check('portal unmute → music DOES start', after > 0, `synth voices=${after}`)
   }
 
   // ── Pause: the control case FIRST, or the rest means nothing ─────────────
-  await steer()
+  await tap()
   await sleep(800)
   const before = await ev('window.__qa.progress()')
   await sleep(1200)
   const moving = await ev('window.__qa.progress()')
-  check('control: the run advances while visible', moving !== before, `${before} → ${moving}`)
+  check('control: the duel advances while visible', moving !== before, `${before} → ${moving}`)
 
   await ev('window.__qa.setHidden(true)')
   await sleep(300)
@@ -618,7 +735,7 @@ try {
   check('tab away → simulation FROZEN', hiddenStart === hiddenEnd, `${hiddenStart} → ${hiddenEnd}`)
 
   const hiddenAudio = JSON.parse(await ev('JSON.stringify(window.__qa.audioState())'))
-  check('tab away → music element paused', hiddenAudio.count > 0 && hiddenAudio.allPaused,
+  check('tab away → audio suspended', hiddenAudio.count > 0 && hiddenAudio.allPaused,
     JSON.stringify(hiddenAudio))
 
   await ev('window.__qa.setHidden(false)')
@@ -641,7 +758,7 @@ try {
     `${opened}; ${menuStart} → ${menuEnd}`)
 
   const menuAudio = JSON.parse(await ev('JSON.stringify(window.__qa.audioState())'))
-  check('menu open → music element paused', menuAudio.count > 0 && menuAudio.allPaused,
+  check('menu open → audio suspended', menuAudio.count > 0 && menuAudio.allPaused,
     JSON.stringify(menuAudio))
 } finally {
   const failed = results.filter(r => !r.pass)

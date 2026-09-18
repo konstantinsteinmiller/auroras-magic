@@ -1,21 +1,18 @@
 // ─── Analytics — the funnel the portal bracket cannot see ───────────────────
 //
 // `useGameplayLifecycle` tells every portal HOW LONG and HOW OFTEN somebody
-// played. It cannot tell anyone WHERE they stopped, and "where" is the only
-// question the retention roadmap is actually asking: a career that ends at
-// stage 7 on a barricade and one that ends at stage 7 on a boss slam are two
-// different bugs with two different fixes, and the bracket reports both as
-// "one play, four minutes".
+// played. It cannot tell anyone WHERE they stopped, and "where" is the question
+// a retention pass asks: a player who never stores a first rune and one who
+// quits on the third rung are two different problems.
 //
-// So this module owns a second, finer signal. Six events, named once here and
+// So this module owns a second, finer signal. Five events, named once here and
 // nowhere else:
 //
-//   stage_start   a stage opened          { stage, squad, relieved, challenge }
-//   stage_end     a stage was cleared     { stage, peakSquad, kills, durationMs, coins }
-//   wipe          a stage ended in a loss { stage, progress01, cause, durationMs }
-//   gate_pass     a gate was taken        { op, value, before, after }
-//   shop_open     the shop was opened     { coins, affordable, stage, via }
-//   upgrade_buy   a track was bought      { id, level, cost }
+//   first_rune    the first rune a session stored      { onboarding }
+//   duel_start    a duel opened                        { foe, wins, losses }
+//   duel_end      a duel ended                         { foe, won, durationMs }
+//   rank_buy      an element rank was bought           { rune, rank, cost }
+//   reward_claim  a rewarded ad paid out               { kind, coins }
 //
 // ─── What happens to an event ───────────────────────────────────────────────
 //
@@ -43,18 +40,16 @@
 // entirely rather than carrying four dead SDK names in its string table.
 //
 // ⚠️ Never call this from inside the frame loop for anything that happens per
-// entity. `gate_pass` is the highest-frequency event in the list and fires a
-// handful of times a stage; anything hotter belongs in `deathBreakdown()`.
+// frame or per particle — every event above fires a handful of times a duel.
 
 import { probeSink, type Sink } from '@/use/analyticsSink'
 
 export type AnalyticsEvent =
-  | 'stage_start'
-  | 'stage_end'
-  | 'wipe'
-  | 'gate_pass'
-  | 'shop_open'
-  | 'upgrade_buy'
+  | 'duel_start'
+  | 'duel_end'
+  | 'first_rune'
+  | 'rank_buy'
+  | 'reward_claim'
 
 export type AnalyticsValue = string | number | boolean
 export type AnalyticsProps = Record<string, AnalyticsValue | undefined>
@@ -66,7 +61,7 @@ export interface AnalyticsRecord {
   at: number
 }
 
-/** How many events are kept for `analyticsLog()`. A career of twenty stages
+/** How many events are kept for `analyticsLog()`. A long session of duels
  *  emits well under this, so a whole session is readable at the end of it. */
 export const RING = 256
 
@@ -101,29 +96,6 @@ export const normaliseProps = (props?: AnalyticsProps): Record<string, Analytics
   return out
 }
 
-/**
- * Which system took this run.
- *
- * `deathBreakdown()` counts every body by cause, and the answer that tells you
- * what to tune is the cause that took the MOST of them — not the one that took
- * the last. A crowd chewed down to four by barricades and finished by a boss
- * slam is a barricade problem, and billing it to the slam is how a tuning pass
- * ends up on the wrong system.
- *
- * Ties break toward the earlier key in the map, which is stable because
- * `emptyDeaths()` builds it in a fixed order. `undefined` when nothing died —
- * a run that ended with the squad intact did not end this way at all.
- */
-export const dominantCause = (breakdown: Record<string, number>): string | undefined => {
-  let best: string | undefined
-  let bestN = 0
-  for (const key of Object.keys(breakdown)) {
-    const n = breakdown[key] ?? 0
-    if (n > bestN) { best = key; bestN = n }
-  }
-  return best
-}
-
 // ─── The portal sink ────────────────────────────────────────────────────────
 //
 // Probed once and cached, because the answer cannot change after boot and the
@@ -141,10 +113,10 @@ let sink: Sink | null | undefined
 /**
  * Record one event.
  *
- * Total and non-throwing by contract: this sits on the stage boundary and on
- * the gate branch, and an analytics call that can throw is an analytics call
- * that can end a run. Every sink is wrapped, and a sink that throws is dropped
- * for the rest of the session rather than retried every gate.
+ * Total and non-throwing by contract: this sits on the duel boundary, and an
+ * analytics call that can throw is an analytics call that can end a duel. Every
+ * sink is wrapped, and a sink that throws is dropped for the rest of the
+ * session rather than retried on every event.
  */
 export const track = (event: AnalyticsEvent, props?: AnalyticsProps): void => {
   const clean = normaliseProps(props)
@@ -174,9 +146,8 @@ export const __resetAnalytics = (): void => {
 /**
  * Publish the log for a device session.
  *
- * Debug only — it is the difference between "the tester says it got hard around
- * seven" and a list of six wipes with a cause on each. Called once from the
- * scene's boot.
+ * Debug only — the only way to read the funnel back on a device under test.
+ * Called once from the scene's boot.
  */
 export const exposeAnalytics = (): void => {
   if (typeof window === 'undefined') return

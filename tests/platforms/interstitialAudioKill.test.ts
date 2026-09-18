@@ -94,13 +94,17 @@ describe('killOneShotSfx — stop every in-flight one-shot before an ad', () => 
 })
 
 describe('forceStopMusic', () => {
-  it('clears isPlaying so the next round restarts music instead of skipping', async () => {
+  it('stops the synth score and lets the next duel start it again', async () => {
     const { useMusic, forceStopMusic } = await import('@/use/useSound')
-    const { isPlaying } = useMusic()
-    isPlaying.value = true // pretend a battle track is playing
+    const { isMusicPlaying } = await import('@/game/duel/audio')
+    const { startBattleMusic } = useMusic()
+    startBattleMusic()
+    expect(isMusicPlaying()).toBe(true) // control: the score really was running
     forceStopMusic()
-    // startBattleMusic() bails early when `isPlaying` is still true, so clearing
-    // it is what lets the post-ad round bring the music back.
-    expect(isPlaying.value).toBe(false)
+    expect(isMusicPlaying()).toBe(false) // hard-stopped before the ad
+    // The intent was cleared, so nothing restarts it under the ad — but the
+    // next duel's start is not skipped either.
+    startBattleMusic()
+    expect(isMusicPlaying()).toBe(true)
   })
 })

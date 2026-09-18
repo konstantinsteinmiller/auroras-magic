@@ -7,7 +7,7 @@ import FModal from '@/components/molecules/FModal.vue'
 import FButton from '@/components/atoms/FButton.vue'
 import FSlider from '@/components/atoms/FSlider.vue'
 import FSelect from '@/components/atoms/FSelect.vue'
-import { LANGUAGES, LANGUAGE_AUTONYMS, DIFFICULTY } from '@/utils/enums'
+import { LANGUAGES, LANGUAGE_AUTONYMS } from '@/utils/enums'
 import { hapticsAvailable, hapticsEnabled, setHapticsEnabled } from '@/use/useHaptics'
 
 defineProps<{
@@ -26,10 +26,8 @@ const appI18n: any = (window as any).__i18n
 const {
   setSettingValue,
   userLanguage,
-  userDifficulty,
   userSoundVolume,
-  userMusicVolume,
-  userMusicTrack
+  userMusicVolume
 } = useUser()
 
 const currentTab = ref('general')
@@ -61,20 +59,6 @@ const languagesList = computed(() =>
   }))
 )
 
-const difficultyList = computed(() => [
-  { value: DIFFICULTY.EASY, label: t('options.difficulties.easy') },
-  { value: DIFFICULTY.MEDIUM, label: t('options.difficulties.medium') },
-  { value: DIFFICULTY.HARD, label: t('options.difficulties.hard') }
-])
-
-const difficultyHint = computed(() => t('options.difficultyHints.' + userDifficulty.value))
-
-// Background-music track picker — Trance Tunnel (default) vs Cozy Harmony.
-const musicTrackList = computed(() => [
-  { value: 'trance', label: t('options.musicTracks.trance') },
-  { value: 'cozy', label: t('options.musicTracks.cozy') }
-])
-
 // ─── Vibration ──────────────────────────────────────────────────────────────
 //
 // `hapticsAvailable` is resolved once at module load and is false on every
@@ -103,8 +87,8 @@ const hapticsList = computed(() => [
   )
     div(v-if="currentTab === 'general'")
       //- Landscape mobile lays the controls out in 2 columns so all of them
-      //- (language, difficulty + hint, the two sliders, music track) fit the
-      //- short viewport without the SAVE & CLOSE footer overlapping them.
+      //- (language, the two sliders, vibration) fit the short viewport
+      //- without the SAVE & CLOSE footer overlapping them.
       div(:class="isMobileLandscape ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
         div(class="z-[20] flex flex-col gap-2")
           FSelect(
@@ -113,29 +97,14 @@ const hapticsList = computed(() => [
             :model-value="userLanguage"
             @update:model-value="setSettingValue('language', $event)"
           )
-        div(class="z-[10] flex flex-col gap-1")
-          FSelect(
-            :label="t('options.difficulty')"
-            :options="difficultyList"
-            :model-value="userDifficulty"
-            @update:model-value="setSettingValue('difficulty', $event)"
-          )
-          p.text-white.game-text.opacity-70.leading-tight.px-1(class="text-[10px] md:text-xs") {{ difficultyHint }}
         hr(v-if="!isMobileLandscape" class="border-slate-600 my-1 md:my-2 pt-0")
         FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
         FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
-        div(class="z-[5] flex flex-col gap-1")
-          FSelect(
-            :label="t('options.musicTrack')"
-            :options="musicTrackList"
-            :model-value="userMusicTrack"
-            @update:model-value="setSettingValue('musicTrack', $event)"
-          )
         //- Phones only, and it lives on the GENERAL tab rather than the audio
         //- one for a structural reason: `tabs` above drops the audio tab
         //- entirely on touch devices, so a vibration setting parked there would
         //- be reachable by exactly nobody who has a motor.
-        //- Lowest z of the four dropdowns — it is the last one down the column,
+        //- Lowest z of the dropdowns — it is the last one down the column,
         //- so its open list has to sit over nothing and under everything.
         div(v-if="hapticsAvailable" class="z-[1] flex flex-col gap-1")
           FSelect(
@@ -148,13 +117,6 @@ const hapticsList = computed(() => [
     div(v-else-if="currentTab === 'audio'").flex.flex-col.justify-between.items-center
       FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
       FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
-      div(class="z-[5] flex flex-col gap-1 w-full max-w-[min(20rem,100%)]")
-        FSelect(
-          :label="t('options.musicTrack')"
-          :options="musicTrackList"
-          :model-value="userMusicTrack"
-          @update:model-value="setSettingValue('musicTrack', $event)"
-        )
       hr(class="border-slate-600 my-1 md:my-2 pt-0")
 
     template(#footer)

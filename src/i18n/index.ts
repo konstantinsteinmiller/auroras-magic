@@ -1,6 +1,6 @@
 import type { I18n } from 'vue-i18n'
 import { LANGUAGES } from '@/utils/enums'
-import { getState } from '@/use/useTowerState'
+import { getState } from '@/use/useGameState'
 import { LANGUAGE_KEY } from '@/keys'
 
 // Read straight off `import.meta.env` rather than importing `isPlaygama` from
@@ -32,6 +32,23 @@ const localeCache = new Map<string, Record<string, unknown>>()
 const localeInFlight = new Map<string, Promise<Record<string, unknown>>>()
 
 const pathFor = (code: string) => `./locales/${code}.ts`
+
+/** Locales written right-to-left. */
+const RTL_LOCALES = new Set(['ar'])
+
+/**
+ * Stamp `lang` and `dir` on `<html>` — at first paint AND on every switch.
+ * Without it Arabic renders left-to-right and screen readers announce every
+ * locale as English. The duel itself is SPATIAL (Aurora always stands on the
+ * left), so `GameScene` pins its own subtree to `dir="ltr"`; this governs the
+ * text runs and the DOM modals.
+ */
+export const applyDocumentLocale = (code: string): void => {
+  if (typeof document === 'undefined') return
+  const el = document.documentElement
+  el.lang = code
+  el.dir = RTL_LOCALES.has(code) ? 'rtl' : 'ltr'
+}
 
 export const isSupportedLocale = (code: string | null | undefined): code is string =>
   !!code && LANGUAGES.includes(code)
@@ -81,12 +98,14 @@ export const setI18nLocale = async (
   // Already-loaded locales can switch synchronously.
   if (g.availableLocales.includes(target)) {
     g.locale.value = target
+    applyDocumentLocale(target)
     return
   }
   try {
     const msgs = await loadLocaleMessages(target)
     g.setLocaleMessage(target, msgs)
     g.locale.value = target
+    applyDocumentLocale(target)
   } catch (e) {
     console.error(`[i18n] failed to load locale "${target}"`, e)
   }
@@ -101,7 +120,7 @@ export const setI18nLocale = async (
  *      portal locale or the player's stored choice from `useUser`. Caller
  *      is responsible for picking the right source; this function does
  *      not touch sessionStorage (CG QA: NO locally-saved data).
- *   2. `tower_state.ts_user_language` — the cloud-hydrated player
+ *   2. `auroras_magic_state.am_user_language` — the cloud-hydrated player
  *      choice. On CG builds this has already been populated from
  *      `sdk.data` by `SaveManager.init()` before `main.ts` calls us.
  *   3. navigator.language short code — first-ever load with no portal

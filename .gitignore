@@ -17,6 +17,8 @@ electron/dist-demo
 out
 
 dist-purity-cg
+dist-*/
+release/
 
 node_modules
 .DS_Store
@@ -55,9 +57,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
-/src/assets/inspiration/Campaign map.png
-/src/assets/inspiration/Deck building.png
-/src/assets/inspiration/Devil Card game field.vue.png
 /src/assets/inspiration/Game over.png
 /src/assets/inspiration/good duel intro.png
 /src/assets/inspiration/main menu.png

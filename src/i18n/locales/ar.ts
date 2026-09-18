@@ -1,5 +1,6 @@
+// Arabic bundle — mirrors the key shape of en.ts (pinned by tests/i18nParity.test.ts).
 export default {
-  'gameName': 'Survivalist',
+  'gameName': 'Auroras Magic',
   'cancel': 'إلغاء',
   'close': 'إغلاق',
   'ok': 'حسناً',
@@ -7,11 +8,9 @@ export default {
   'tapToContinue': 'اضغط للمتابعة',
   'clickToContinue': 'انقر للمتابعة',
   'rewards': 'المكافآت',
-  'tip': 'نصيحة',
   'crazyGamesOnly': 'هذه اللعبة متاحة فقط على',
+  'loading': 'جارٍ التحميل…',
 
-  // Shared UI labels. NOT dead keys: they are the `aria-label` on the game's
-  // icon-only buttons, read aloud rather than shown. See `en.ts`.
   'ui': {
     'next': 'التالي',
     'replay': 'إعادة',
@@ -23,233 +22,123 @@ export default {
     'info': 'معلومات'
   },
 
+  'duelist': {
+    'aurora': 'أورورا',
+    'umbra': 'أومبرا',
+    'ember': 'إمبر',
+    'zephyr': 'زيفير',
+    'glace': 'غلاس',
+    'terra': 'تيرا',
+    'prism': 'بريزم'
+  },
+
+  'rune': {
+    'fire': 'نار',
+    'wind': 'رياح',
+    'ice': 'جليد',
+    'earth': 'أرض'
+  },
+
+  'spell': {
+    'fireBolt': 'سهم ناري',
+    'fireStorm': 'عاصفة نارية',
+    'fireRain': 'مطر ناري',
+    'bolt': 'هبّة ريح',
+    'windWall': 'جدار الريح',
+    'cyclone': 'إعصار',
+    'iceBolt': 'سهم جليدي',
+    'pillar': 'عمود جليدي',
+    'blizzard': 'عاصفة ثلجية',
+    'earthWall': 'جدار ترابي',
+    'earthShard': 'شظية صخرية',
+    'boulder': 'صخرة ضخمة',
+    'fireBall': 'كرة نارية',
+    'wetBall': 'كرة مائية',
+    'magmaShard': 'شظية الحمم',
+    'frostGale': 'ريح الصقيع',
+    'sandBlast': 'رشقة رمل',
+    'glacier': 'نهر جليدي',
+    'prismNova': 'وهج المنشور',
+    'ashStorm': 'عاصفة رماد',
+    'shatter': 'تحطّم',
+    'tempest': 'زوبعة',
+    'wildSurge': 'موجة جامحة'
+  },
+
   'hud': {
-    'stage': 'المرحلة {n}',
-    'best': 'الأفضل {n}',
-    'boss': 'الزعيم',
-    'miniboss': 'زعيم صغير',
-    // Screen-reader label for the star chip that counts down to the
-    // next milestone payout. The chip itself is a glyph and a digit.
-    'toMilestone': 'المراحل حتى المكافأة التالية',
-    'fireRate': 'معدل',
-    'incoming': 'هجوم قادم!',
-    'dodge': 'تفادَ',
-    'getIn': 'ادخل',
-    'holdStill': 'اثبت',
-    'milestone': '{n} مقاتل!',
-    'weaponActive': '{name} جاهز',
-    'weaponsActive': '{a} + {b} جاهزان',
-    'weaponLocked': '{name} مقفل — تمت إصابة {n} من {total} رافعات',
-    'weaponGift': '{name} في الأمام — مجاني، بلا روافع',
-    'weaponFree': 'مجاني'
-  },
-
-  'weapons': {
-    'rocket': 'قاذف صواريخ',
-    'gatling': 'رشاش غاتلينغ'
-  },
-
-  'offer': {
-    'confirm': 'شاهد الإعلان',
-    'available': 'شاهد فيديو واحصل على {weapon} مجانًا'
-  },
-
-  'tutorial': {
-    'touch': 'اسحب لتحريك فريقك',
-    'desktop': 'حرّك الفأرة لتوجيه فريقك'
-  },
-  'hints': {
-    'move': { 'touch': 'اضغط للتحرك', 'desktop': 'انقر للتحرك' },
-    'divider': { 'touch': 'لا تلمس العمود بين البوابتين', 'desktop': 'لا تلمس العمود بين البوابتين' },
-    'crate': { 'touch': 'الصناديق الخضراء: الجميع يضرب أقوى', 'desktop': 'الصناديق الخضراء: الجميع يضرب أقوى' },
-    'rate': { 'touch': 'الصناديق الزرقاء: الجميع يطلق أسرع', 'desktop': 'الصناديق الزرقاء: الجميع يطلق أسرع' },
-    'lever': { 'touch': 'أطلق على كلتا الرافعتين على حافتي الطريق — تفتحان صندوق السلاح', 'desktop': 'أطلق على كلتا الرافعتين على حافتي الطريق — تفتحان صندوق السلاح' },
-    'cage': { 'touch': 'حطّم الأقفاص — الأسرى ينضمّون إلى فريقك', 'desktop': 'حطّم الأقفاص — الأسرى ينضمّون إلى فريقك' },
-    'shieldBox': { 'touch': 'صندوق الدرع — ينتظر ثم يصدّ ضربة كبيرة', 'desktop': 'صندوق الدرع — ينتظر ثم يصدّ ضربة كبيرة' }
-  },
-
-  'flow': {
-
-
-    // The handover, which used to read as LOSING the squad: five testers saw
-
-    // "Squad 101 -> 3" and one asked whether she had lost progress. The crowd
-
-    // is cashed into coins on screen now, and this names it. {n} = survivors.
-
-    'squadCashed': 'تم صرف {n} ناجيًا',
-    'unlocked': 'تم الفتح!',
-
-    'guardian': "أنقذك ملاك حارس!",
-
-    'guardianSub': "عاد {n} من الناجين",
-
-    'next': "التالي: {label} · {when}"
-
-  },
-
-  'ladder': {
-    'weaponPick': "اختر سلاحًا",
-    'nextStage': "المرحلة التالية",
-    'stagesAway': "بعد {n} مراحل"
-  },
-  'weaponPick': {
-    'title': "اختر سلاحك",
-    'subtitle': "لك في المرحلة {n}. المزيد بانتظارك على الطريق.",
-    'take': "خذه",
-    'rocket': {
-      'a': "وابل موجّه",
-      'b': "ضرر انفجاري"
-    },
-    'gatling': {
-      'a': "ضعف معدل الإطلاق",
-      'b': "يشحن البوابات أسرع"
-    }
-  },
-  'bossReward': {
-    'title': "هزمت الزعيم!",
-    'subtitle': "هدية للمرحلة {n}. واصل الركض!"
-  },
-  'result': {
-    'stageClear': 'اجتزت المرحلة!',
-    'wipedOut': 'أُبيد الفريق',
-    'reachedStage': 'المرحلة {n}',
-    'newRecord': 'رقم قياسي جديد!',
-    // The two seconds after a boss goes down, above its body. The kill is
-    // what the whole stage was for, so this is sold as a reward.
-    'bossFelled': 'سقط الزعيم!',
-    'wasted': 'مُهدَر',
-    // The every-fifth-stage lump the HUD chip counts down to.
-    'milestone': 'إنجاز!',
-    'rallied': 'نفَس ثانٍ',
-    'peakSquad': 'أكبر فريق',
-    'kills': 'القتلى',
-    'tripleCoins': '×3',
-    'tripleBonus': '(+{n})',
-    'tripleClaimed': 'تضاعفت العملات ثلاث مرات!',
-    'nextStage': 'المرحلة التالية',
-    'tryAgain': 'حاول مجددًا',
-    'upgrade': 'ترقية',
-    'upgradeHint': 'طوّر فريقك!',
-    'rankOf': 'من {n}',
-    'upNext': 'التالي: المرحلة {n}'
-  },
-
-  // Two strings only; everything ON the card comes from keys this file
-  // already had (see en.ts). `action` is the accessible name of an
-  // icon-only button. `text` rides in the share sheet and is read by the
-  // person who receives the picture, so it is a boast, and it has to still
-  // make sense if the image never arrives.
-  'share': {
-    'action': 'شارك جولتك',
-    'text': 'وصلت إلى المرحلة {n} في {game}. هل تقدر تتجاوزني؟'
-  },
-
-  'leaderboard': {
-    'title': 'لوحة الصدارة',
-    'rank': '#',
-    'player': 'اللاعب',
-    'stage': 'المرحلة',
-    'squad': 'الفريق',
-    'empty': 'لا توجد نتائج بعد. كن الأول!',
-    'failed': 'تعذر الوصول إلى لوحة الصدارة.',
-    'loading': 'جارٍ التحميل…',
-    'you': 'أنت',
-    'yourRank': 'ترتيبك #{n} من {total} لاعب',
-    'tabGlobal': 'عالمي'
-  },
-
-  'chest': {
-    'label': 'صندوق الكنز',
-    'ready': 'افتح صندوق الكنز مقابل {n} عملة',
-    'filling': 'صندوق الكنز قيد الامتلاء',
-    'spent': 'صندوق الكنز فارغ حتى الغد'
-  },
-
-  // Daily expedition. See en.ts for what each state means, why the multiplier
-  // is split from any word, and why `hud` has to stay one short word.
-  'expedition': {
-    'title': 'الرحلة اليومية',
-    'hud': 'رحلة',
-    'multiplier': '×{n}',
-    'available': 'الرحلة اليومية — طريق اليوم، عملات ثلاثية',
-    'confirm': 'ابدأ الرحلة',
-    'spent': 'الرحلة اليومية — طريق جديد بعد {time}',
-    'done': 'عد غدًا',
-    'back': 'العودة إلى الحملة'
-  },
-
-  'skills': {
-
-    'grenade': 'قنبلة',
-
-    'shield': 'درع',
-
-    'locked': 'مقفل',
-
-    'unlocksAt': 'يُفتح في المرحلة {n}',
-
-    'frost': 'نوفا الصقيع',
-
-    'decoy': 'شعلة الخداع',
-
-    'trialLabel': '{name} · تجربة مجانية',
-
-    'trialTag': 'تجربة مجانية!',
-
-    'uses': '×{n}'
+    'castKey': '[مسافة] إلقاء',
+    'cast': 'إلقاء',
+    'drawARune': 'ارسم رمزًا',
+    'castAria': 'إلقاء الرموز المخزّنة',
+    'yourRunes': 'رموزك',
+    'foeRunes': 'رموز الخصم',
+    'emptySlot': 'خانة فارغة',
+    'forming': 'قيد التكوين: {rune}',
+    'weakness': '{rune} يُلحق ضررًا مقداره {n} بهذا الخصم',
+    'sound': 'تشغيل الصوت أو إيقافه',
+    'spellbook': 'كتاب التعاويذ',
+    'hp': '{name}: الصحة {n} من {max}'
   },
 
   'intro': {
-    'took': 'لقد أخذ الجميع.',
-    'alive': 'ما زالوا أحياء.',
-    'go': 'اذهب وأنقذهم.',
-    'skip': 'تخطٍّ'
+    'draw': 'ارسم الرمز',
+    'stored': 'تم الحفظ! حتى 3',
+    'cast': 'والآن ألقِه'
   },
 
-  'upgrades': {
-    'title': 'الترقيات',
-    'spotlight': 'أنفق!',
-    'level': 'مستوى {n}',
-    'maxed': 'الأقصى',
-    'peekLabel': 'الترقيات: {name}',
-    'peekLabelReady': 'الترقيات: {name} — {n} جاهزة للشراء',
-    'names': {
-      'squad': 'الفريق',
-      'power': 'قوة النيران',
-      'rate': 'معدل الإطلاق',
-      'range': 'المدى',
-      'scavenge': 'التجميع',
-      'grenade': 'قنبلة',
-      'shield': 'درع',
-      'rocket': 'قوة الصواريخ',
-      'gatling': 'قوة الرشاش'
-    },
-    'descriptions': {
-      'squad': 'ابدأ كل مرحلة بعدد أكبر من الناجين.',
-      'power': 'كل ناجٍ يسبب ضررًا أكبر لكل طلقة.',
-      'rate': 'كل ناجٍ يطلق النار أسرع.',
-      'range': 'تفتح فرقتك النار من مسافة أبعد على الطريق.',
-      'scavenge': 'اكسب عملات أكثر في كل جولة.',
-      'grenade': 'ألقِ قنبلة لإحداث ضرر كبير.',
-      'shield': 'يقلّل الضرر على فريقك إلى النصف لبضع ثوانٍ.',
-      'rocket': 'قاذفات الصواريخ التي تفتحها في المرحلة تُلحق ضررًا أكبر.',
-      'gatling': 'رشاشات غاتلينغ التي تفتحها في المرحلة تُلحق ضررًا أكبر.'
-    }
+  'pop': {
+    'notARune': 'ليس رمزًا',
+    'noSlots': 'الخانات ممتلئة!',
+    'blocked': 'تم الصدّ',
+    'hit': '-{n}',
+    'weakHit': 'نقطة ضعف! -{n}',
+    'combo': 'كومبو x{n}',
+    'times': 'x{n}',
+    'victory': 'فوز',
+    'defeated': 'هزيمة',
+    'coins': '+{n} عملة'
+  },
+
+  'result': {
+    'victory': 'فوز!',
+    'defeated': 'هزيمة',
+    'tapToDuel': 'اضغط للمبارزة',
+    'coins': 'العملات: {n}',
+    'rankBonus': '+{n}%',
+    'price': '{n}',
+    'buyRank': '{rune} +12% ضرر، السعر {price} عملة',
+    'double': 'عملات x2',
+    'bonus': '+{n} عملة',
+    'watchAd': 'شاهد إعلانًا: {reward}',
+    'claimed': 'تم الاستلام!'
+  },
+
+  'book': {
+    'title': 'كتاب التعاويذ',
+    'unknown': '? ? ?'
   },
 
   'options': {
-    'title': 'الخيارات', 'general': 'عام', 'audio': 'الصوت', 'language': 'اللغة',
-    'difficulty': 'الصعوبة', 'soundEffects': 'المؤثرات الصوتية', 'music': 'الموسيقى', 'musicTrack': 'المقطوعة',
-    'musicTracks': { 'cozy': 'انسجام هادئ', 'trance': 'نفق الترانس' },
-    'haptics': 'الاهتزاز', 'on': 'تشغيل', 'off': 'إيقاف',
-    'close': 'حفظ وإغلاق',
-    'difficulties': { 'easy': 'سهل', 'medium': 'متوسط', 'hard': 'صعب' },
-    'difficultyHints': {
-      'easy': 'أعداء أضعف وحواجز أرق.',
-      'medium': 'الجولة القياسية.',
-      'hard': 'أعداء أقوى وحواجز أثقل.'
-    }
+    'title': 'الخيارات',
+    'general': 'عام',
+    'audio': 'الصوت',
+    'language': 'اللغة',
+    'soundEffects': 'المؤثرات الصوتية',
+    'music': 'الموسيقى',
+    'haptics': 'الاهتزاز',
+    'on': 'تشغيل',
+    'off': 'إيقاف',
+    'close': 'حفظ وإغلاق'
+  },
+
+  'saveStatus': {
+    'restoredTitle': 'تمت استعادة الحفظ السحابي',
+    'restoredBody': '+{n} عملة مكافأة للاستعادة',
+    'tap': 'اضغط',
+    'pausedTitle': 'تم إيقاف المزامنة السحابية مؤقتًا',
+    'pausedBody': 'تلعب دون اتصال. يتم حفظ تقدمك هنا.',
+    'retry': 'إعادة المحاولة',
+    'dismiss': 'إخفاء'
   },
 
   'adsBlocked': {
@@ -259,19 +148,8 @@ export default {
     'allowSuffix': '(أو أوقف مانع الإعلانات مؤقتاً لهذه اللعبة) ثم أعد المحاولة.',
     'gotIt': 'فهمت'
   },
-  'saveStatus': {
-    'restoredTitle': 'تمت استعادة الحفظ السحابي', 'restoredBody': '+{n} عملة مكافأة للاستعادة',
-    'tap': 'اضغط', 'pausedTitle': 'تمت إيقاف المزامنة السحابية',
-    'pausedBody': 'تلعب دون اتصال. يتم حفظ تقدمك هنا.',
-    'retry': 'إعادة المحاولة', 'dismiss': 'إخفاء'
-  },
-  'loading': { 'tooLong': 'التحميل يستغرق وقتاً طويلاً؟ عطّل مانع الإعلانات ثم أعد التحميل.', 'boo': 'بو!', 'laugh': 'هاهاها!' },
-  // Phones in landscape are covered by a rotate-your-phone overlay: the lane
-  // fills about a fifth of a wide frame, which is what put the HUD and the
-  // attack badge out at the edges where testers never looked.
-  'portrait': {
-    'title': 'أدر هاتفك',
-    'body': 'لعبة Survivalist تُلعب عموديًا.'
-  },
-  'license': { 'denied': 'تم رفض الوصول: يرجى شراء ترخيص.' }
+
+  'license': {
+    'denied': 'تم رفض الوصول: يرجى شراء ترخيص.'
+  }
 }

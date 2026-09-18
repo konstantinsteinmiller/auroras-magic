@@ -7,13 +7,11 @@ import { useMusic } from '@/use/useSound'
 import { useExtensionGuard } from '@/use/useExtensionGuard'
 import { windowWidth, windowHeight } from '@/use/useUser'
 import { isDebug } from '@/use/useMatch'
-import useAssets from '@/use/useAssets'
 import FLogoProgress from '@/components/atoms/FLogoProgress.vue'
 import FPerfMeter from '@/components/atoms/FPerfMeter.vue'
 import SaveStatusBanner from '@/components/atoms/SaveStatusBanner.vue'
 import AdsBlockedModal from '@/components/atoms/AdsBlockedModal.vue'
 import VConsoleHideButton from '@/components/atoms/VConsoleHideButton.vue'
-import PortraitLock from '@/components/organisms/PortraitLock.vue'
 import { useCrazyMuteSync } from '@/use/useCrazyMuteSync'
 import useCheats, { installDebugUnlock } from '@/use/useCheats'
 import { isCrazyWeb, isWaveDash, isItch, isGlitch, isGameDistribution, isPlaygama, isGamepix, isGameMonetize, isYandex, isPoki, isNative, orientation } from '@/use/useUser'
@@ -24,7 +22,6 @@ import { getPlattformText } from '@/platforms/plattformText'
 const { t } = useI18n()
 const { initMusic, pauseMusic, continueMusic } = useMusic()
 useExtensionGuard()
-const { resourceCache } = useAssets()
 useCrazyMuteSync()
 // Attach the "cmarc" debug-unlock key listener at app boot (App.vue is eager),
 // so typing it anywhere flips debug mode — the lazy game scene used to be the
@@ -183,25 +180,6 @@ const plattformText = computed(() => getPlattformText())
     AdsBlockedModal
     VConsoleHideButton
     RouterView
-    //- ── Portrait only, on phones ───────────────────────────────────────────
-    //-
-    //- Hosted HERE rather than in `GameScene.vue`, and that is a deliberate
-    //- choice between two files the same agent owns:
-    //-
-    //-   • WHAT IT IS ABOUT is the device and the viewport, not the run. It has
-    //-     to be up over the splash, over the loading bar, over a future route
-    //-     and over the scene alike — a phone held sideways during the logo
-    //-     animation is the same problem as one held sideways mid-boss, and a
-    //-     block that only exists while a canvas is mounted would miss the first.
-    //-   • WHAT IT NEEDS from the game is nothing scene-shaped. Pausing and
-    //-     "this is not gameplay" both come from `acquireModalOpen`, which is a
-    //-     global refcount — so the overlay can assert both from outside the
-    //-     scene, and the scene's own gates (`isGamePaused`, `isAnyModalOpen`
-    //-     inside `isGameplayLive`) pick it up with no wiring at all.
-    //-
-    //- LAST in the list so it paints over everything above it without needing to
-    //- win a z-index argument with the loading screen.
-    PortraitLock
 
   div.relative.w-full.h-full(v-else-if="isGlitchDenied")
     h1.absolute.text-red-500(class="left-1/2 -translate-x-[50%] top-1/2 -translate-y-[50%] text-3xl") {{ t('license.denied') }}
@@ -214,7 +192,7 @@ const plattformText = computed(() => getPlattformText())
 
 <style lang="sass">
 *
-  font-family: 'Angry', sans-serif
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif
   user-select: none
   outline: none
   // Standard

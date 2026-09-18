@@ -49,7 +49,7 @@ import { isAudioSuspended } from '@/use/useAssets'
 import { isMobileAudioMuted } from '@/use/useMobileAudioMute'
 import { isGamePaused } from '@/use/useGamePause'
 import { isPlatformAudioMuted } from '@/use/useGamePauseAudio'
-import { getState, setState } from '@/use/useTowerState'
+import { getState, setState } from '@/use/useGameState'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { HAPTICS_KEY } from '@/keys'
 
@@ -78,7 +78,7 @@ const PATTERNS: Record<HapticCue, number | number[]> = {
 }
 
 /**
- * Per-cue budget, mirroring `THROTTLES` in `useGameAudio.ts` — same shape, same
+ * Per-cue budget, mirroring a sound-throttle table — same shape, same
  * two-part rule (a minimum gap AND a cap per rolling window), because it is the
  * same problem: an event stream that is fine at stage 1 and a solid tone at
  * stage 45.
