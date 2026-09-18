@@ -47,24 +47,47 @@ type G2D = CanvasRenderingContext2D
  * Palette — built ONCE at module load. A particle stores an integer index
  * into it and never builds a colour string again.
  *
- *   0..3   rune primary   (FIRE, WIND, ICE, EARTH)
- *   4..7   rune highlight — the second tone of the two-tone cel look
- *   8      deep ember red — fire's third, darkest band
- *   9      white
- *   10..17 rainbow wheel  (drawing trail + victory)
+ *   0..11   rune primary — a rune's id IS its primary slot
+ *   12..23  rune highlight = C_HI + rune — the second tone of the cel look
+ *   24      deep ember red — fire's third, darkest band
+ *   25      white
+ *   26..33  rainbow wheel  (drawing trail + victory)
+ *   34..35  Umbra's dust   (restoration puffs)
+ *   36..40  pastels        (restoration glints)
+ *   41..42  silver, gold   (the Twin Gift's burst, §8.3)
  * ------------------------------------------------------------------ */
+const N_RUNE = RUNES.length
+const C_HI = N_RUNE
 const PAL: string[] = [...RUNES.map((r) => r[0]), ...RUNES.map((r) => r[1]), '#e03a10', '#fff']
 /** WIND is air: its two tones carry alpha in the colour itself, so translucent
  *  swooshes cost no globalAlpha juggling in the batched pass. */
 PAL[1] += 'e0'
-PAL[5] += 'd0'
+PAL[C_HI + 1] += 'd0'
 /** The one outline colour. Thick + near-black = the whole cel look. */
 const OUT = '#140d18'
-const C_EMBER = 8
-const C_WHITE = 9
-const C_RB = 10
+const C_EMBER = 2 * N_RUNE
+const C_WHITE = C_EMBER + 1
+const C_RB = C_WHITE + 1
+/** Umbra's dust, kicked up by a restoration brush (story-spec §8.5): a
+ *  desaturated charcoal and a muted purple, never a rune or tool colour. */
+const C_DUST = C_RB + 8
 
 for (let i = 8; i--;) PAL[C_RB + i] = rainbow(i / 8, 62)
+PAL[C_DUST] = '#6e607c'
+PAL[C_DUST + 1] = '#8c7d9a'
+/** Pastel glints for the restoration tools (§8.3's "soft pastel glints"). */
+const C_PASTEL = C_DUST + 2
+const PASTELS = ['#ffd1ea', '#fff0a8', '#c9f7e4', '#d6e6ff', '#e7d6ff']
+for (let i = 0; i < PASTELS.length; i++) PAL[C_PASTEL + i] = PASTELS[i]!
+/** The Twin Gift's silver and gold: distinct from every tool's burst, so it
+ *  never reads as "a tool is coming" (§8.3). */
+const C_SILVER = C_PASTEL + PASTELS.length
+const C_GOLD = C_SILVER + 1
+PAL[C_SILVER] = '#e4ecf7'
+PAL[C_GOLD] = '#ffd36b'
+/** A rune's highlight slot. FIRE (0) returns 0: `sp()` reads 0 as "fan out
+ *  into fire's three bands", which is the whole cel fire look. */
+const hi = (rune: number): number => (rune ? C_HI + rune : 0)
 
 /* ------------------------------------------------------------------ *
  * THE SHAPE VOCABULARY. Six unit polygons, long axis on +x, tip at +x.
@@ -75,25 +98,65 @@ for (let i = 8; i--;) PAL[C_RB + i] = rainbow(i / 8, 62)
  *   2 SWOOSH   comma/crescent: thick head, long tapering tail
  *   3 CRYSTAL  sharp faceted spindle
  *   4 ROCK     chunky irregular hexagon with flat faces
- *   5 BLOCK    tilted slab (fire rain)
+ *   5 BLOCK    tilted slab (fire rain) — NOT a rune kind
+ * The story's eight rune kinds (§9.8) are plain point lists:
+ *   6 LEAF     soft pointed blade (Nature)      7 BUBBLE  round drop (Water)
+ *   8 SPARK    tight comma (Lightning)          9 MIRROR  figure-8 (Illusion)
+ *  10 ARCH     banked crescent (Rainbow)       11 HOURGLASS bowtie (Time)
+ *  12 STAR     five-point star (Moon)          13 HEART   sharp-cusp heart (Love)
+ *  14 RING (the shockwave front) and 15 PUFF (restoration dust) have no
+ *  silhouette of their own.
  * ------------------------------------------------------------------ */
-const SIL: number[][] = 'eMQRMaIR5MIHM9QH|iLUTFW9R<L6FGEUH|cTTYBW0MCPSOaL|lMTUBT4NBFTE|eTWaAa5LB:Z<|e^8b5<b7'
-  .split('|')
-  .map((s) => [...s].map((c) => (c.charCodeAt(0) - 77) / 24))
+const ring01 = (n: number, r: (i: number) => number): number[] => {
+  const out: number[] = []
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU
+    out.push(cos(a) * r(i), sin(a) * r(i))
+  }
+  return out
+}
+/** The classic heart curve, turned so its cusp points along +x. */
+const heartPts = (): number[] => {
+  const out: number[] = []
+  for (let i = 0; i < 16; i++) {
+    const t = (i / 16) * TAU
+    const x = 16 * sin(t) ** 3
+    const y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
+    out.push(y / 16, x / 16)
+  }
+  return out
+}
+const SIL: number[][] = [
+  ...'eMQRMaIR5MIHM9QH|iLUTFW9R<L6FGEUH|cTTYBW0MCPSOaL|lMTUBT4NBFTE|eTWaAa5LB:Z<|e^8b5<b7'
+    .split('|')
+    .map((s) => [...s].map((c) => (c.charCodeAt(0) - 77) / 24)),
+  [1, 0, 0.35, 0.46, -0.45, 0.38, -0.95, 0.06, -1.15, 0, -0.95, -0.06, -0.45, -0.38, 0.35, -0.46],
+  ring01(10, () => 0.8),
+  [1, 0, 0.25, 0.5, -0.55, 0.32, -0.42, -0.08, 0.15, -0.22],
+  [1, 0, 0.5, 0.42, 0, 0, -0.5, 0.42, -1, 0, -0.5, -0.42, 0, 0, 0.5, -0.42],
+  [1, 0, 0.5, 0.62, -0.5, 0.62, -1, 0, -0.6, 0.22, 0, 0.32, 0.6, 0.22],
+  [0.8, 0.7, 0, 0, 0.8, -0.7, -0.8, -0.7, 0, 0, -0.8, 0.7],
+  ring01(10, (i) => (i & 1 ? 0.42 : 1)),
+  heartPts()
+]
 
 /* ------------------------------------------------------------------ *
  * The pool. ONE Float32Array, no objects, ever.
  *
- * stride 11:  0 x   1 y   2 vx  3 vy
+ * stride 12:  0 x   1 y   2 vx  3 vy
  *             4 life-left  5 total life  6 radius  7 angle
  *             8 rate     — spin | growth (ring) | rest height (block)
  *             9 kind    10 palette index
+ *            11 dispKind — the silhouette a RING's front shows. Its own field,
+ *               set once at emit time: the palette index is a colour, not
+ *               always a rune id (the victory ring is WHITE), so a shape is
+ *               never derived from it (§9.8, R-3).
  *
  * life-left ABOVE total life is the HOLD: the piece has been spawned but its
  * beat has not come up yet, so it sits frozen and invisible.
  * ------------------------------------------------------------------ */
 const CAP = 360
-const ST = 11
+const ST = 12
 const P = new Float32Array(CAP * ST)
 /** Which palette indices are live this frame — lets the draw pass skip fast. */
 const USED = new Uint8Array(PAL.length)
@@ -102,20 +165,34 @@ let live = 0
 let T = 0
 let glow = 0
 
-/* Kinds. A kind IS a silhouette plus the physics that silhouette implies. The
-   four THROWN kinds are listed in RUNE ORDER, so rune r throws kind r + 1. */
-const K_GLINT = 0
+/* Kinds. A kind IS a silhouette plus the physics that silhouette implies. */
+export const K_GLINT = 0
 const K_FLAME = 1 // FIRE
 const K_SWOOSH = 2 // WIND
 const K_SHARD = 3 // ICE
 const K_ROCK = 4 // EARTH
-const K_BLOCK = 5
-const K_RING = 6
+export const K_BLOCK = 5
+export const K_LEAF = 6
+const K_SPARK = 8
+export const K_HEART = 13
+export const K_RING = 14
+/** A soft dust puff, kicked up along a wipe's erase boundary (§8.5, §9.8). */
+export const K_PUFF = 15
+/**
+ * The kind a rune throws (§9.8, M25). A lookup, not the jam build's
+ * `(rune & 3) + 1`, which sent Nature (4) to the fire-rain BLOCK — whose
+ * ground-landing branch would have thudded every leaf onto the floor. 5 is
+ * deliberately skipped.
+ */
+export const KIND_OF_RUNE: readonly number[] = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13]
+const kindOf = (rune: number): number => KIND_OF_RUNE[rune] ?? K_GLINT
 /** Gravity per kind: fire climbs away, wind barely knows gravity exists, ice
- *  drops hard, rock drops harder. */
-const G = [0, -380, -40, 760, 1050, 800, 0]
-/** Drag per kind: wind hangs in the air, rock ploughs through it. */
-const DR = [3.2, 2, 2.4, 0.7, 0.7, 0, 0]
+ *  drops hard, rock drops harder; leaves drift, bubbles float, hearts rise,
+ *  and dust barely rises at all. */
+const G = [0, -380, -40, 760, 1050, 800, -60, -120, 200, -20, 400, 700, -80, -100, 0, -30]
+/** Drag per kind: wind hangs in the air, rock ploughs through it, and a
+ *  puff of dust hangs longest of all. */
+const DR = [3.2, 2, 2.4, 0.7, 0.7, 0, 1.4, 1.8, 1, 2, 0.9, 0.6, 1.6, 1.5, 0, 2.8]
 
 /** Screen-shake offset. REUSED array — shakeOffset() never allocates. */
 const SO: [number, number] = [0, 0]
@@ -129,7 +206,7 @@ const BR = new Float32Array(8)
  *  `dl` HOLDS the piece for that many seconds before it exists. */
 const sp = (
   x: number, y: number, vx: number, vy: number, l: number, r: number, k: number, c: number,
-  dl = 0, rate = (rnd() - 0.5) * 6
+  dl = 0, rate = (rnd() - 0.5) * 6, disp = k
 ): void => {
   const i = head * ST
   head = (head + 1) % CAP
@@ -142,12 +219,13 @@ const sp = (
   P[i + 6] = r
   // Shaped debris flies POINT-FIRST. Aligning the silhouette to its velocity is
   // the whole difference between confetti and a corona of flames.
-  P[i + 7] = k > 3 ? rnd() * TAU : atan2(vy, vx)
+  P[i + 7] = k === K_FLAME || k === K_SWOOSH || k === K_SHARD || k === K_LEAF || k === K_SPARK ? atan2(vy, vx) : rnd() * TAU
   P[i + 8] = rate
   P[i + 9] = k
   // FIRE is three bands, never one: its primary index fans out per particle
   // into deep ember / orange / pale yellow, which is the whole cel fire look.
-  USED[(P[i + 10] = c || (rnd() < 0.4 ? C_EMBER : rnd() < 0.5 ? 4 : 0))] = 1
+  USED[(P[i + 10] = c || (rnd() < 0.4 ? C_EMBER : rnd() < 0.5 ? C_HI : 0))] = 1
+  P[i + 11] = disp
 }
 
 /** Radial spray. `r0` spawns on a circle instead of at a point — with a
@@ -177,8 +255,60 @@ const burst = (
   }
 }
 
-const ring = (x: number, y: number, c: number, r0: number, grow: number, life: number): void =>
-  sp(x, y, 0, 0, life, r0, K_RING, c, 0, grow)
+/** A shockwave: `c` tints it; `disp` is the silhouette riding its front —
+ *  REQUIRED and chosen by the caller, never derived from the colour. */
+const ring = (x: number, y: number, c: number, r0: number, grow: number, life: number, disp: number): void =>
+  sp(x, y, 0, 0, life, r0, K_RING, c, 0, grow, disp)
+
+/* ------------------------- restoration (story-spec §8) ------------------ */
+
+/** One dust puff drifting off a wipe's erase boundary. It fades out; it
+ *  does not pop (§8.5). */
+export const puff = (x: number, y: number, vx: number, vy: number, r: number): void =>
+  sp(x, y, vx, vy, 0.6 + rnd() * 0.3, r, K_PUFF, C_DUST + (rnd() < 0.5 ? 0 : 1), 0, 0)
+
+/** A pastel glint, HELD for `dl` seconds before it appears — the reveal wave
+ *  uses the hold to stagger its sparkles along the wave front. */
+export const glint = (x: number, y: number, r: number, dl = 0, vx = 0, vy = 0): void =>
+  sp(x, y, vx, vy, 0.5 + rnd() * 0.35, r, K_GLINT, rnd() < 0.3 ? C_WHITE : C_PASTEL + ((rnd() * PASTELS.length) | 0), dl)
+
+/** The brush's sparkle trail: `n` glints at the tip, pastel and white. */
+export const brushTrail = (x: number, y: number, n: number, k = 1): void => {
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * TAU
+    const v = 74 * k * (0.35 + rnd() * 0.85)
+    glint(x, y, 8 * k * (0.6 + rnd() * 0.6), 0, cos(a) * v, sin(a) * v)
+  }
+}
+
+/** A white shock front, the size of the thing that just happened. */
+export const shock = (x: number, y: number, r0: number, grow: number, life: number): void =>
+  ring(x, y, C_WHITE, r0, grow, life, K_GLINT)
+
+/**
+ * A burst of pure sparkle — rainbow and pastel glints, no element debris and
+ * no swoosh front. The restoration's own "something wonderful happened"
+ * (§8.3's gift burst, §8.6's reveal flourish): art-style §6 asks for stars
+ * and sparkles here, and the duel's cel debris would read as a fight.
+ */
+export const sparkleBurst = (x: number, y: number, k = 1): void => {
+  for (let i = 8; i--;) burst(x, y, 3, 300 * k, 0.9, 11 * k, K_GLINT, C_RB + i, C_PASTEL + (i % PASTELS.length), 0.12)
+  burst(x, y, 10, 180 * k, 0.8, 9 * k, K_GLINT, C_WHITE, C_PASTEL + 1, 0.05)
+  flashAdd(0.25 * k)
+}
+
+/** The Twin Gift opening (§8.3): a quick 250 ms spray of silver and gold. */
+export const twinBurst = (x: number, y: number, k = 1): void => {
+  burst(x, y, 16, 260 * k, 0.5, 10 * k, K_GLINT, C_SILVER, C_GOLD, 0.05)
+  burst(x, y, 6, 140 * k, 0.45, 12 * k, K_HEART, C_GOLD, C_WHITE, 0.08)
+  flashAdd(0.15 * k)
+}
+
+/** Anticipation without an element: pastel sparks rush IN to a point. */
+export const gatherGlints = (x: number, y: number, k = 1): void => {
+  burst(x, y, 12, -260 * k, 0.32, 9 * k, K_GLINT, C_WHITE, C_PASTEL + 1, 0, TAU, 0, 90 * k)
+  burst(x, y, 6, -200 * k, 0.3, 7 * k, K_GLINT, C_PASTEL, C_PASTEL + 4, 0.1, TAU, 0, 70 * k)
+}
 
 /* ------------------------------- public ----------------------------- */
 
@@ -196,8 +326,8 @@ export const trail = (x: number, y: number, hue: number): void =>
  * closes onto the same point, so energy visibly GATHERS instead of exploding.
  */
 const gather = (x: number, y: number, rune: number, _p?: number): void => {
-  burst(x, y, 7, -240, 0.27, 12, (rune & 3) + 1, rune, rune + 4, 0, TAU, 0, 68)
-  ring(x, y, rune, 64, -460, 0.24)
+  burst(x, y, 7, -240, 0.27, 12, kindOf(rune), rune, C_HI + rune, 0, TAU, 0, 68)
+  ring(x, y, rune, 64, -460, 0.24, kindOf(rune))
   burst(x, y, 5, 180, 0.3, 6, K_GLINT, C_WHITE, rune)
   flashAdd(0.13)
 }
@@ -209,7 +339,7 @@ const gather = (x: number, y: number, rune: number, _p?: number): void => {
  */
 export const castBurst = (x: number, y: number, rune: number): void => {
   gather(x, y, rune)
-  burst(x, y, 9, 300, 0.5, 16, (rune & 3) + 1, rune, rune && rune + 4, 0.08, 1.3, x < SW / 2 ? 0 : PI)
+  burst(x, y, 9, 300, 0.5, 16, kindOf(rune), rune, hi(rune), 0.08, 1.3, x < SW / 2 ? 0 : PI)
   shakeAdd(0.16)
 }
 
@@ -220,14 +350,14 @@ export const castBurst = (x: number, y: number, rune: number): void => {
  */
 export const impact = (x: number, y: number, rune: number, p?: number): void => {
   p = clamp(+(p ?? 0) || 0, 0, 1)
-  const k = (rune & 3) + 1
+  const k = kindOf(rune)
   // IMPACT FRAME: a white silhouette of the element, the biggest thing on
   // screen, ramping in over two frames and gone by the eighth.
   sp(x, y, 0, 0, 0.14, 30 + p * 34, k, C_WHITE)
   // Fire and ice (even runes) are the crisp elements and land on one beat;
   // wind and earth (odd) keep arriving. One bit of the rune buys the weight.
-  burst(x, y, 7 + p * 11, 140 + p * 200, 1, 15 + p * 13, k, rune, rune && rune + 4, 0.03 + (rune & 1) * 0.13)
-  ring(x, y, rune, 18, 340 + p * 240, 0.32 + p * 0.16)
+  burst(x, y, 7 + p * 11, 140 + p * 200, 1, 15 + p * 13, k, rune, hi(rune), 0.03 + (rune & 1) * 0.13)
+  ring(x, y, rune, 18, 340 + p * 240, 0.32 + p * 0.16, k)
   shakeAdd(0.22 + p * 0.55)
   flashAdd(0.1 + p * 0.3)
 }
@@ -279,11 +409,11 @@ export const heal = (x: number, y: number): void => burst(x, y, 12, 70, 1, 6, K_
 
 /** Victory: the whole vocabulary at once, in the whole rainbow, unrolling over
  *  a fifth of a second so the colours arrive in waves. */
-export const rainbowBurst = (x: number, y: number): void => {
-  for (let i = 8; i--;) burst(x, y, 4, 260, 1.2, 15, 1 + (i & 3), C_RB + i, C_RB + ((i + 1) & 7), 0.2)
-  ring(x, y, C_WHITE, 12, 900, 0.55)
-  shakeAdd(0.35)
-  flashAdd(0.5)
+export const rainbowBurst = (x: number, y: number, k = 1): void => {
+  for (let i = 8; i--;) burst(x, y, 4, 260 * k, 1.2, 15 * k, 1 + (i & 3), C_RB + i, C_RB + ((i + 1) & 7), 0.2)
+  ring(x, y, C_WHITE, 12 * k, 900 * k, 0.55, K_GLINT)
+  shakeAdd(0.35 * k)
+  flashAdd(0.5 * k)
 }
 
 /* -------------------------------- step ------------------------------ */
@@ -330,7 +460,7 @@ export const updateFx = (dt: number): void => {
       // gravity bends its path. Everything else spins, and the spin DAMPS.
       P[i + 7] = k === K_FLAME ? atan2(vy, vx) : P[i + 7]! + (P[i + 8]! *= 1 - 2.2 * dt) * dt
       // Ice and earth are the heavy elements: they meet the ground and settle.
-      if (k > 2 && y > GY) {
+      if ((k === K_SHARD || k === K_ROCK) && y > GY) {
         y = GY
         vy *= -0.32
         vx *= 0.62
@@ -393,7 +523,7 @@ const pass = (g: G2D, dot: boolean): void => {
     let n = 0
     for (let i = 0; i < P.length; i += ST) {
       const k = P[i + 9]!
-      if (P[i + 4]! <= 0 || P[i + 10] !== b || k === K_RING || (dot ? k : !k)) continue
+      if (P[i + 4]! <= 0 || P[i + 10] !== b || k === K_RING || k === K_PUFF || (dot ? k : !k)) continue
       n = 1
       const t = P[i + 5]!
       const q = P[i + 4]! / t
@@ -479,7 +609,7 @@ export const drawFxUnder = (g: G2D): void => {
     g.beginPath()
     for (let j = 6; j--;) {
       const a = P[i + 7]! + j * 1.05
-      shp(g, (c & 3) + 1, P[i]! + cos(a) * r, P[i + 1]! + sin(a) * r, q * q * (18 + r * 0.26), a)
+      shp(g, P[i + 11]!, P[i]! + cos(a) * r, P[i + 1]! + sin(a) * r, q * q * (18 + r * 0.26), a)
     }
     // ...and for its first three frames the whole front is WHITE-HOT.
     g.fillStyle = q > 0.88 ? PAL[C_WHITE]! : PAL[c]!
@@ -488,8 +618,35 @@ export const drawFxUnder = (g: G2D): void => {
   }
 }
 
+/**
+ * Dust puffs: soft three-lobed clouds with no outline, and the one kind that
+ * FADES (§8.5) — "soft and cloudy" reads as dissolving, not sparking. They
+ * swell a little as they drift.
+ */
+const puffPass = (g: G2D): void => {
+  for (let i = 0; i < P.length; i += ST) {
+    if (P[i + 4]! <= 0 || P[i + 9] !== K_PUFF) continue
+    const t = P[i + 5]!
+    const l = P[i + 4]!
+    if (l > t) continue
+    const q = l / t
+    const r = P[i + 6]! * (1.25 - 0.35 * q)
+    const x = P[i]!
+    const y = P[i + 1]!
+    g.globalAlpha = 0.5 * q * min(1, (1 - q) * 12)
+    g.fillStyle = PAL[P[i + 10]!]!
+    g.beginPath()
+    g.arc(x, y, r, 0, TAU)
+    g.arc(x + r * 0.7, y + r * 0.2, r * 0.7, 0, TAU)
+    g.arc(x - r * 0.6, y + r * 0.3, r * 0.6, 0, TAU)
+    g.fill()
+  }
+  g.globalAlpha = 1
+}
+
 /** STAGE space, in front of the duelists: debris, blocks, glints, barriers. */
 export const drawFxOver = (g: G2D): void => {
+  puffPass(g)
   g.lineJoin = 'round'
   g.lineWidth = 4
   g.strokeStyle = OUT

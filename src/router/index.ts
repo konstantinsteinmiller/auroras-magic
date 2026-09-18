@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory, createMemoryHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'main', component: () => import('@/views/GameScene.vue') },
+  { path: '/', name: 'main', component: () => import('@/views/AppScene.vue') },
   // The art pipeline's two screens (the reference-sheet bench and the
   // painted-vs-drawn playground) mount here, DEV ONLY, when the painted-art
   // step re-instantiates them for this cast — see `art-style.md`.

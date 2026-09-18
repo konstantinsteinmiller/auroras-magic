@@ -53,17 +53,13 @@ const useCheats = (): Record<string, never> => {
   }
 
   const shortcuts: Record<string, () => void> = {
-    k: () => withDuel(({ S, save }) => {
-      S.coins += 100
-      save()
-      console.warn('[CHEAT] +100 coins.')
-    }),
     w: () => withDuel(({ S }) => { S.ehp = 0; console.warn('[CHEAT] duel won.') }),
     l: () => withDuel(({ S }) => { S.hp = 0; console.warn('[CHEAT] duel lost.') }),
     n: () => withDuel(({ S, save }) => {
-      S.foe = Math.min(5, S.foe + 1)
+      // Skip ahead: mark the next node won (its sector stays dusty).
+      S.campaign.furthestNode = Math.min(49, S.campaign.furthestNode + 1)
       save()
-      console.warn(`[CHEAT] ladder rung ${S.foe}.`)
+      console.warn(`[CHEAT] furthest node ${S.campaign.furthestNode}.`)
     })
   }
 

@@ -29,14 +29,27 @@ export default {
     'zephyr': 'ZEPHYR',
     'glace': 'GLACE',
     'terra': 'TERRA',
-    'prism': 'PRISM'
+    'prism': 'PRISM',
+    'briar': 'BRIAR',
+    'pearl': 'PEARL',
+    'echo': 'ECHO',
+    'nova': 'NOVA',
+    'shadow': 'SOMBRA'
   },
 
   'rune': {
     'fire': 'Fogo',
     'wind': 'Vento',
     'ice': 'Gelo',
-    'earth': 'Terra'
+    'earth': 'Terra',
+    'nature': 'Natureza',
+    'water': 'Água',
+    'lightning': 'Raio',
+    'illusion': 'Ilusão',
+    'rainbow': 'Arco-íris',
+    'time': 'Tempo',
+    'moon': 'Lua',
+    'love': 'Amor'
   },
 
   'spell': {
@@ -62,7 +75,18 @@ export default {
     'ashStorm': 'NUVEM DE CINZA',
     'shatter': 'ESTILHAÇOS',
     'tempest': 'TEMPESTADE',
-    'wildSurge': 'ONDA SELVAGEM'
+    'wildSurge': 'ONDA SELVAGEM',
+    'crystalWard': 'ESCUDO DE CRISTAL',
+    'frostLock': 'SELO DE GEADA'
+  },
+
+  'spellForm': {
+    'k0': { 'c1': 'DARDO DE {A}', 'c2': 'RASTRO DE {A}', 'c3': 'CHUVA DE {A}' },
+    'k1': { 'c1': 'CÍRCULO DE {A}', 'c2': 'CAMPO DE {A}', 'c3': 'TEMPESTADE DE {A}' },
+    'k2': { 'c1': 'ESCUDO DE {A}', 'c2': 'MURO DE {A}', 'c3': 'CASTELO DE {A}' },
+    'k3': { 'c1': 'ORBE DE {A}', 'c2': 'IMPACTO DE {A}', 'c3': 'NOVA DE {A}' },
+    'k4': { 'c1': 'SOPRO DE {A}', 'c2': 'RAJADA DE {A}', 'c3': 'REDEMOINHO DE {A}' },
+    'k5': { 'c1': 'DUENDE DE {A}', 'c2': 'GÊMEOS DE {A}', 'c3': 'DESFILE DE {A}' }
   },
 
   'hud': {
@@ -95,27 +119,23 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'VITÓRIA',
-    'defeated': 'DERROTA',
-    'coins': '+{n} MOEDAS'
+    'defeated': 'ZZZ…'
   },
 
   'result': {
     'victory': 'VITÓRIA!',
-    'defeated': 'DERROTA',
-    'tapToDuel': 'Toque para duelar',
-    'coins': 'Moedas: {n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune} +12% de dano, custa {price} moedas',
-    'double': 'x2 MOEDAS',
-    'bonus': '+{n} MOEDAS',
-    'watchAd': 'Assistir a um anúncio: {reward}',
-    'claimed': 'RESGATADO!'
+    'defeated': 'Zzz... tentar de novo?',
+    'tapToDuel': 'Toque para duelar'
   },
 
   'book': {
     'title': 'LIVRO DE FEITIÇOS',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': 'Runas',
+    'lockedRune': 'Uma runa ainda por encontrar',
+    'count1': 'Feitiços de uma runa',
+    'count2': 'Feitiços de duas runas',
+    'count3': 'Feitiços de três runas'
   },
 
   'options': {
@@ -128,7 +148,16 @@ export default {
     'haptics': 'Vibração',
     'on': 'Ligado',
     'off': 'Desligado',
-    'close': 'Salvar e fechar'
+    'close': 'Salvar e fechar',
+    'traceAssist': 'Mostrar guias das runas',
+    'reducedMotion': 'Movimento reduzido',
+    'leaveDuel': {
+      'label': 'Sair do duelo',
+      'title': 'Sair deste duelo?',
+      'body': 'Seu progresso neste duelo não será salvo.',
+      'confirm': 'Sair',
+      'cancel': 'Ficar'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +176,111 @@ export default {
     'allowPrefix': 'Permita anúncios em',
     'allowSuffix': '(ou pause seu bloqueador para este jogo) e tente novamente.',
     'gotIt': 'Entendi'
+  },
+
+  'leaderboard': {
+    'title': 'Classificação',
+    'rank': '#',
+    'player': 'Jogador',
+    'score': 'Vitórias',
+    'flair': 'Progresso',
+    'empty': 'Ainda não há duelos. Comece você!',
+    'failed': 'Não foi possível carregar a classificação.',
+    'loading': 'Carregando…',
+    'you': 'Você',
+    'yourRank': 'Você é #{n} de {total}',
+    'of': 'de {n} jogadores',
+    'tabGlobal': 'Global'
+  },
+
+  'a11y': {
+    'backToMap': 'Voltar ao mapa'
+  },
+
+  'restore': {
+    'openGift': 'Abra seu presente',
+    'pickColour': 'Escolha uma cor'
+  },
+
+  'paint': {
+    'rose': 'Rosa',
+    'sunflower': 'Amarelo girassol',
+    'bluebell': 'Azul campânula'
+  },
+
+  'tool': {
+    'stardustBrush': 'Pincel de poeira estelar',
+    'magicEraser': 'Borracha mágica',
+    'sunbeam': 'Raio de sol'
+  },
+
+  'chapter': {
+    'c1': 'Bosque Sussurrante',
+    'c2': 'Baía das Bolhas',
+    'c3': 'Reino das Nuvens',
+    'c4': 'Cavernas de Cristal',
+    'c5': 'Montanhas Espelho',
+    'c6': 'Serra Arco-íris',
+    'c7': 'Areias Submersas',
+    'c8': 'Tundra do Crepúsculo',
+    'c9': 'Pico Estelar',
+    'c10': 'Festa da Amizade'
+  },
+
+  'map': {
+    'chapters': 'Capítulos'
+  },
+
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': 'O Bosque Sussurrante ficou em silêncio.',
+        'b2': 'Shh... deixe-os dormir comigo.',
+        'b3': 'Hoje não, Umbra! Vamos acordá-los!'
+      },
+      'n5': {
+        'b1': 'Quem acorda o meu bosque? Vá embora!',
+        'b2': 'Eu só quero te ajudar, Briar!',
+        'b3': 'Prove, pequeno unicórnio. Enfrente-me!',
+        't1': 'Oh! O bosque está quentinho de novo.',
+        't2': 'Obrigada, Aurora. Volte quando quiser!'
+      }
+    },
+    'tmpl': {
+      'curious': '{name} espia com curiosidade!',
+      'dusty': 'Ah, {name} está com um pouquinho de poeira.',
+      'cheerUp': 'Vamos alegrar {name} juntos!',
+      'almost': 'Quase lá — {name} está torcendo por você!'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': 'Coroa de flores',
+    'seashellNecklace': 'Colar de conchas',
+    'pegasusWings': 'Asas de Pégaso fofinhas',
+    'hoofTrailVfx': 'Rastro de cascos brilhante',
+    'umbraSkin': 'Visual Umbra',
+    'colorPicker': 'Paleta de cores da crina',
+    'pastelTheme': 'Tema Sonho pastel',
+    'winterScarf': 'Cachecol de inverno quentinho',
+    'petStar': 'Estrela de estimação',
+    'versusMode': 'Dupla da amizade'
+  },
+
+  'place': {
+    'twinGift': 'Presente gêmeo'
+  },
+
+  'twinGift': {
+    'holdLabel': 'Segure para florescer'
+  },
+
+  'bloom': {
+    'claimedToast': 'Este lugar está todo florido!'
+  },
+
+  'duel': {
+    'almostRune': 'QUASE {rune}!'
   },
 
   'license': {

@@ -5,14 +5,20 @@
 // a retention pass asks: a player who never stores a first rune and one who
 // quits on the third rung are two different problems.
 //
-// So this module owns a second, finer signal. Five events, named once here and
+// So this module owns a second, finer signal. The events, named once here and
 // nowhere else:
 //
 //   first_rune    the first rune a session stored      { onboarding }
-//   duel_start    a duel opened                        { foe, wins, losses }
+//   duel_start    a duel opened                        { nodeId, foe, … }
 //   duel_end      a duel ended                         { foe, won, durationMs }
-//   rank_buy      an element rank was bought           { rune, rank, cost }
-//   reward_claim  a rewarded ad paid out               { kind, coins }
+//   duel_abandon  the player left a duel mid-fight     { nodeId, wasReplay }
+//   reward_claim  the Twin Gift paid a bloom (D3)      { sectorId, kind: 'bloom' }
+//   recognition_attempt  one finished rune stroke       { success, rune, ec, turn, margin, sample }
+//                 (story-spec §5.16 / §7.13; see `trackRecognition` for its sampling)
+//   wipe_start / wipe_complete / wipe_interrupted, spell_discovered,
+//   ad_interstitial_shown — the story's own (§7.13).
+//
+// (`rank_buy` went with the element ranks, D3.)
 //
 // ─── What happens to an event ───────────────────────────────────────────────
 //
@@ -48,8 +54,17 @@ export type AnalyticsEvent =
   | 'duel_start'
   | 'duel_end'
   | 'first_rune'
-  | 'rank_buy'
   | 'reward_claim'
+  | 'recognition_attempt'
+  // The restoration wipe (story-spec §7.13): one start, then exactly one of
+  // complete / interrupted per sector visit.
+  | 'wipe_start'
+  | 'wipe_complete'
+  | 'wipe_interrupted'
+  // The story flow (§7.13).
+  | 'spell_discovered'
+  | 'duel_abandon'
+  | 'ad_interstitial_shown'
 
 export type AnalyticsValue = string | number | boolean
 export type AnalyticsProps = Record<string, AnalyticsValue | undefined>
@@ -118,13 +133,14 @@ let sink: Sink | null | undefined
  * sink is wrapped, and a sink that throws is dropped for the rest of the
  * session rather than retried on every event.
  */
-export const track = (event: AnalyticsEvent, props?: AnalyticsProps): void => {
+export const track = (event: AnalyticsEvent, props?: AnalyticsProps, opts?: { portal?: boolean }): void => {
   const clean = normaliseProps(props)
   const at = typeof performance !== 'undefined' ? Math.round(performance.now()) : 0
 
   ring.push({ event, props: clean, at })
   if (ring.length > RING) ring.splice(0, ring.length - RING)
 
+  if (opts?.portal === false) return
   if (sink === undefined) sink = probeSink()
   if (!sink) return
   try { sink(event, clean) }
@@ -132,6 +148,33 @@ export const track = (event: AnalyticsEvent, props?: AnalyticsProps): void => {
     sink = null
     console.warn('[analytics] portal sink threw; disabled for this session', e)
   }
+}
+
+/** One finished rune stroke, as `sim.ts` reports it. */
+export interface RecognitionInfo {
+  success: boolean
+  /** The recognised rune, or on a miss the best-scoring one (near-miss analysis). */
+  rune: number
+  ec: number
+  turn: number
+  /** Best template score minus the acceptance threshold (0.78). */
+  margin: number
+}
+
+let strokeCount = 0
+/**
+ * Per-stroke recognition telemetry: the data that retunes the rune envelopes
+ * after launch (story-spec §5.16).
+ *
+ * A stroke is not "a handful of times a duel", so the portal sink is SAMPLED.
+ * Every rejection goes through, because the misses are the signal. One success
+ * in ten goes through, carrying `sample: 10` so rates can be reconstructed.
+ * The in-memory ring keeps every stroke, so a QA session still sees all of them.
+ */
+export const trackRecognition = (info: RecognitionInfo): void => {
+  strokeCount++
+  const portal = !info.success || strokeCount % 10 === 0
+  track('recognition_attempt', { ...info, sample: info.success ? 10 : 1 }, { portal })
 }
 
 /** Everything recorded this session, oldest first. QA + specs read this. */

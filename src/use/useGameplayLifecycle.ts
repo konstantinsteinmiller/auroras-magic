@@ -39,13 +39,22 @@ import { pokiGameplayStart, pokiGameplayStop } from '@/utils/pokiPlugin'
 // owns only the reactive wiring that feeds it. Pure and total, so the contract
 // can be asserted without mounting a canvas.
 //
-// The phase union is restated rather than imported from the duel on purpose: a
-// platform-contract module must not drag the simulation into anything that
-// imports it.
+// The scene union is restated rather than imported from the flow module on
+// purpose: a platform-contract module must not drag the simulation into
+// anything that imports it.
+export type LiveScene =
+  | 'boot' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe' | 'wardrobe' | 'versusSetup'
+
 export interface GameplayLiveInputs {
-  /** The duel's own state machine: 'duel' while a duel is being fought,
-   *  'result' from the moment one duelist falls. */
-  phase: 'duel' | 'result'
+  /** Which scene the one canvas is showing (story-spec §4.1.1). */
+  scene: LiveScene
+  /**
+   * The duel's own state machine is mid-fight (`S.phase === PH_DUEL`). False
+   * from the instant a duelist falls — the whole win flourish and loss sting
+   * are NOT live, even though the scene is still `duel` while they play
+   * (§4.9.1, §11.2). Meaningless outside `duel`; always supplied.
+   */
+  duelPhaseIsLive: boolean
   /** The result panel is up — the duel is over and a decision is pending. */
   showResult: boolean
   /** Any blocking modal (options, spellbook). */
@@ -81,7 +90,11 @@ export interface GameplayLiveInputs {
  *     is the kind of thing portal moderation rejects.
  */
 export const isGameplayLive = (i: GameplayLiveInputs): boolean =>
-  i.phase === 'duel'
+  // Two scenes are play: a duel while it is being fought, and a wipe — the
+  // player is working the brush, and the wipe's own ~1–2 s reveal tail stays
+  // inside the same span rather than flickering the bracket (§11.2). The gift,
+  // the pots and the restored sector at rest are not play.
+  ((i.scene === 'duel' && i.duelPhaseIsLive) || i.scene === 'wipe')
   && !i.showResult
   && !i.anyModalOpen
   && !i.adShowing

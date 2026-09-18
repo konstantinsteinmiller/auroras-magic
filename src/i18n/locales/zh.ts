@@ -29,14 +29,27 @@ export default {
     'zephyr': '泽菲尔',
     'glace': '格拉丝',
     'terra': '泰拉',
-    'prism': '普里斯姆'
+    'prism': '普里斯姆',
+    'briar': '布莱尔',
+    'pearl': '珀尔',
+    'echo': '艾可',
+    'nova': '诺娃',
+    'shadow': '影子'
   },
 
   'rune': {
     'fire': '火',
     'wind': '风',
     'ice': '冰',
-    'earth': '土'
+    'earth': '土',
+    'nature': '自然',
+    'water': '水',
+    'lightning': '雷',
+    'illusion': '幻影',
+    'rainbow': '彩虹',
+    'time': '时光',
+    'moon': '月亮',
+    'love': '爱心'
   },
 
   'spell': {
@@ -62,7 +75,18 @@ export default {
     'ashStorm': '灰烬风暴',
     'shatter': '粉碎',
     'tempest': '狂风暴雨',
-    'wildSurge': '狂野涌动'
+    'wildSurge': '狂野涌动',
+    'crystalWard': '水晶守护',
+    'frostLock': '冰霜封印'
+  },
+
+  'spellForm': {
+    'k0': { 'c1': '{A}飞箭', 'c2': '{A}流星', 'c3': '{A}流星雨' },
+    'k1': { 'c1': '{A}法阵', 'c2': '{A}领域', 'c3': '{A}风暴' },
+    'k2': { 'c1': '{A}护盾', 'c2': '{A}墙', 'c3': '{A}堡垒' },
+    'k3': { 'c1': '{A}球', 'c2': '{A}冲击', 'c3': '{A}新星' },
+    'k4': { 'c1': '{A}微风', 'c2': '{A}疾风', 'c3': '{A}旋风' },
+    'k5': { 'c1': '{A}精灵', 'c2': '{A}双子', 'c3': '{A}大游行' }
   },
 
   'hud': {
@@ -95,27 +119,23 @@ export default {
     'combo': 'x{n} 连击',
     'times': 'x{n}',
     'victory': '胜利',
-    'defeated': '失败',
-    'coins': '+{n} 金币'
+    'defeated': 'ZZZ…'
   },
 
   'result': {
     'victory': '胜利！',
-    'defeated': '失败',
-    'tapToDuel': '点击开始对决',
-    'coins': '金币：{n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune}伤害 +12%，花费 {price} 金币',
-    'double': '金币 x2',
-    'bonus': '+{n} 金币',
-    'watchAd': '观看广告：{reward}',
-    'claimed': '已领取！'
+    'defeated': 'Zzz……再试一次？',
+    'tapToDuel': '点击开始对决'
   },
 
   'book': {
     'title': '法术书',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': '符文',
+    'lockedRune': '还没找到的符文',
+    'count1': '一个符文的法术',
+    'count2': '两个符文的法术',
+    'count3': '三个符文的法术'
   },
 
   'options': {
@@ -128,7 +148,16 @@ export default {
     'haptics': '震动',
     'on': '开',
     'off': '关',
-    'close': '保存并关闭'
+    'close': '保存并关闭',
+    'traceAssist': '显示符文描画指引',
+    'reducedMotion': '减弱动态效果',
+    'leaveDuel': {
+      'label': '离开对决',
+      'title': '要离开这场对决吗？',
+      'body': '这场对决的进度不会被保存。',
+      'confirm': '离开',
+      'cancel': '留下'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +176,111 @@ export default {
     'allowPrefix': '请在以下网站允许广告：',
     'allowSuffix': '（或为本游戏暂停广告拦截器）然后重试。',
     'gotIt': '知道了'
+  },
+
+  'leaderboard': {
+    'title': '排行榜',
+    'rank': '#',
+    'player': '玩家',
+    'score': '胜场',
+    'flair': '进度',
+    'empty': '还没有记录，快来成为第一个吧！',
+    'failed': '无法连接排行榜。',
+    'loading': '加载中…',
+    'you': '你',
+    'yourRank': '你在 {total} 人中排第 #{n}',
+    'of': '/ {n} 人',
+    'tabGlobal': '全球'
+  },
+
+  'a11y': {
+    'backToMap': '返回地图'
+  },
+
+  'restore': {
+    'openGift': '打开你的礼物',
+    'pickColour': '选一种颜色'
+  },
+
+  'paint': {
+    'rose': '玫瑰粉',
+    'sunflower': '向日葵黄',
+    'bluebell': '风铃草蓝'
+  },
+
+  'tool': {
+    'stardustBrush': '星尘画笔',
+    'magicEraser': '魔法橡皮擦',
+    'sunbeam': '阳光'
+  },
+
+  'chapter': {
+    'c1': '低语森林',
+    'c2': '泡泡湾',
+    'c3': '云朵王国',
+    'c4': '水晶洞穴',
+    'c5': '镜子山',
+    'c6': '彩虹岭',
+    'c7': '沉沙之地',
+    'c8': '暮光雪原',
+    'c9': '星光之巅',
+    'c10': '友谊庆典'
+  },
+
+  'map': {
+    'chapters': '章节'
+  },
+
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': '低语森林变得好安静。',
+        'b2': '嘘……让它们陪我一起睡吧。',
+        'b3': '今天可不行，安布拉！我们把它们叫醒吧！'
+      },
+      'n5': {
+        'b1': '谁在吵醒我的森林？快走开！',
+        'b2': '我只是想帮助你，布莱尔！',
+        'b3': '那就证明给我看，小独角兽。来对决吧！',
+        't1': '哦！森林又变得暖暖的了。',
+        't2': '谢谢你，欧若拉。随时欢迎你再来！'
+      }
+    },
+    'tmpl': {
+      'curious': '{name}好奇地探出头来！',
+      'dusty': '哎呀，{name}看起来有点灰扑扑的。',
+      'cheerUp': '我们一起让{name}开心起来吧！',
+      'almost': '就快到了——{name}在为你加油！'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': '花冠',
+    'seashellNecklace': '贝壳项链',
+    'pegasusWings': '毛茸茸的飞马翅膀',
+    'hoofTrailVfx': '闪亮蹄印',
+    'umbraSkin': '安布拉造型',
+    'colorPicker': '鬃毛调色盘',
+    'pastelTheme': '粉彩梦幻主题',
+    'winterScarf': '暖暖的冬日围巾',
+    'petStar': '宠物星星',
+    'versusMode': '友谊搭档'
+  },
+
+  'place': {
+    'twinGift': '双子礼物'
+  },
+
+  'twinGift': {
+    'holdLabel': '长按让花儿绽放'
+  },
+
+  'bloom': {
+    'claimedToast': '这里开满了鲜花！'
+  },
+
+  'duel': {
+    'almostRune': '差一点就是{rune}！'
   },
 
   'license': {

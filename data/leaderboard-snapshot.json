@@ -1,0 +1,82 @@
+{
+  "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
+  "fetchedAt": 1789765367961,
+  "updatedAt": 1789765367896,
+  "total": 10,
+  "entries": [
+    {
+      "rank": 1,
+      "name": "Fluffy Star 192",
+      "score": 5,
+      "flair": 4
+    },
+    {
+      "rank": 1,
+      "name": "Dreamy Star 569",
+      "score": 5,
+      "flair": 4
+    },
+    {
+      "rank": 1,
+      "name": "Frosty Cloud 795",
+      "score": 5,
+      "flair": 4
+    },
+    {
+      "rank": 4,
+      "name": "Sparkly Firefly 220",
+      "score": 3,
+      "flair": 3
+    },
+    {
+      "rank": 4,
+      "name": "Gentle Otter 450",
+      "score": 3,
+      "flair": 3
+    },
+    {
+      "rank": 4,
+      "name": "Golden Fawn 854",
+      "score": 3,
+      "flair": 3
+    },
+    {
+      "rank": 4,
+      "name": "Shiny Pony 884",
+      "score": 3,
+      "flair": 3
+    },
+    {
+      "rank": 4,
+      "name": "Starry Rainbow 122",
+      "score": 3,
+      "flair": 3
+    },
+    {
+      "rank": 9,
+      "name": "Breezy Maple 361",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 9,
+      "name": "Gentle Maple 668",
+      "score": 1,
+      "flair": 1
+    }
+  ],
+  "dist": [
+    [
+      5,
+      3
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      1,
+      2
+    ]
+  ]
+}

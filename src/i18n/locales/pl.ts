@@ -29,14 +29,27 @@ export default {
     'zephyr': 'ZEPHYR',
     'glace': 'GLACE',
     'terra': 'TERRA',
-    'prism': 'PRISM'
+    'prism': 'PRISM',
+    'briar': 'BRIAR',
+    'pearl': 'PEARL',
+    'echo': 'ECHO',
+    'nova': 'NOVA',
+    'shadow': 'CIEŃ'
   },
 
   'rune': {
     'fire': 'Ogień',
     'wind': 'Wiatr',
     'ice': 'Lód',
-    'earth': 'Ziemia'
+    'earth': 'Ziemia',
+    'nature': 'Natura',
+    'water': 'Woda',
+    'lightning': 'Piorun',
+    'illusion': 'Iluzja',
+    'rainbow': 'Tęcza',
+    'time': 'Czas',
+    'moon': 'Księżyc',
+    'love': 'Miłość'
   },
 
   'spell': {
@@ -62,7 +75,19 @@ export default {
     'ashStorm': 'BURZA POPIOŁU',
     'shatter': 'ROZPRYSK',
     'tempest': 'NAWAŁNICA',
-    'wildSurge': 'DZIKA FALA'
+    'wildSurge': 'DZIKA FALA',
+    'crystalWard': 'KRYSZTAŁOWA TARCZA',
+    'frostLock': 'MROŹNY ZAMEK'
+  },
+
+  // {A} is the rune's nominative name, so the form noun joins it with a hyphen.
+  'spellForm': {
+    'k0': { 'c1': '{A}-POCISK', 'c2': '{A}-SMUGA', 'c3': '{A}-SALWA' },
+    'k1': { 'c1': '{A}-KRĄG', 'c2': '{A}-POLE', 'c3': '{A}-BURZA' },
+    'k2': { 'c1': '{A}-TARCZA', 'c2': '{A}-MUR', 'c3': '{A}-TWIERDZA' },
+    'k3': { 'c1': '{A}-KULA', 'c2': '{A}-GROM', 'c3': '{A}-NOVA' },
+    'k4': { 'c1': '{A}-WIETRZYK', 'c2': '{A}-PODMUCH', 'c3': '{A}-WIR' },
+    'k5': { 'c1': '{A}-DUSZEK', 'c2': '{A}-BLIŹNIAKI', 'c3': '{A}-PARADA' }
   },
 
   'hud': {
@@ -95,27 +120,23 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'ZWYCIĘSTWO',
-    'defeated': 'PORAŻKA',
-    'coins': 'MONETY: +{n}'
+    'defeated': 'CHRRR…'
   },
 
   'result': {
     'victory': 'ZWYCIĘSTWO!',
-    'defeated': 'PORAŻKA',
-    'tapToDuel': 'Dotknij, aby walczyć',
-    'coins': 'Monety: {n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune} +12% obrażeń, cena w monetach: {price}',
-    'double': 'MONETY x2',
-    'bonus': 'MONETY: +{n}',
-    'watchAd': 'Obejrzyj reklamę: {reward}',
-    'claimed': 'ODEBRANO!'
+    'defeated': 'Chrrr... jeszcze raz?',
+    'tapToDuel': 'Dotknij, aby walczyć'
   },
 
   'book': {
     'title': 'KSIĘGA ZAKLĘĆ',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': 'Runy',
+    'lockedRune': 'Runa, którą trzeba jeszcze znaleźć',
+    'count1': 'Zaklęcia z jednej runy',
+    'count2': 'Zaklęcia z dwóch run',
+    'count3': 'Zaklęcia z trzech run'
   },
 
   'options': {
@@ -128,7 +149,16 @@ export default {
     'haptics': 'Wibracje',
     'on': 'Wł.',
     'off': 'Wył.',
-    'close': 'Zapisz i zamknij'
+    'close': 'Zapisz i zamknij',
+    'traceAssist': 'Pokazuj podpowiedzi run',
+    'reducedMotion': 'Mniej animacji',
+    'leaveDuel': {
+      'label': 'Opuść pojedynek',
+      'title': 'Opuścić ten pojedynek?',
+      'body': 'Postęp w tym pojedynku nie zostanie zapisany.',
+      'confirm': 'Wyjdź',
+      'cancel': 'Zostań'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +177,112 @@ export default {
     'allowPrefix': 'Zezwól na reklamy na',
     'allowSuffix': '(lub wstrzymaj blokadę reklam dla tej gry) i spróbuj ponownie.',
     'gotIt': 'Rozumiem'
+  },
+
+  'leaderboard': {
+    'title': 'Ranking',
+    'rank': '#',
+    'player': 'Gracz',
+    'score': 'Wygrane',
+    'flair': 'Postęp',
+    'empty': 'Jeszcze nikt nie zagrał. Zacznij!',
+    'failed': 'Nie udało się wczytać rankingu.',
+    'loading': 'Wczytywanie…',
+    'you': 'Ty',
+    'yourRank': 'Jesteś #{n} z {total}',
+    'of': 'z {n} graczy',
+    'tabGlobal': 'Światowy'
+  },
+
+  'a11y': {
+    'backToMap': 'Wróć do mapy'
+  },
+
+  'restore': {
+    'openGift': 'Otwórz prezent',
+    'pickColour': 'Wybierz kolor'
+  },
+
+  'paint': {
+    'rose': 'Różany róż',
+    'sunflower': 'Słonecznikowy żółty',
+    'bluebell': 'Dzwonkowy błękit'
+  },
+
+  'tool': {
+    'stardustBrush': 'Pędzel gwiezdnego pyłu',
+    'magicEraser': 'Magiczna gumka',
+    'sunbeam': 'Promyk słońca'
+  },
+
+  'chapter': {
+    'c1': 'Szepczący Las',
+    'c2': 'Bąbelkowa Zatoka',
+    'c3': 'Królestwo Chmur',
+    'c4': 'Kryształowe Jaskinie',
+    'c5': 'Lustrzane Góry',
+    'c6': 'Tęczowa Grań',
+    'c7': 'Zaginione Piaski',
+    'c8': 'Tundra Zmierzchu',
+    'c9': 'Gwiezdny Szczyt',
+    'c10': 'Święto Przyjaźni'
+  },
+
+  'map': {
+    'chapters': 'Rozdziały'
+  },
+
+  // {name} is a creature's name inserted as is — it always stands as the subject.
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': 'W Szepczącym Lesie zrobiło się cicho.',
+        'b2': 'Ciii... niech śpią razem ze mną.',
+        'b3': 'Nie dziś, Umbro! Obudźmy je!'
+      },
+      'n5': {
+        'b1': 'Kto budzi mój las? Idź sobie!',
+        'b2': 'Chcę ci tylko pomóc, Briar!',
+        'b3': 'Udowodnij to, mały jednorożcu! Stań do pojedynku!',
+        't1': 'Och! W lesie znów jest ciepło.',
+        't2': 'Dziękuję, Auroro. Wracaj, kiedy chcesz!'
+      }
+    },
+    'tmpl': {
+      'curious': '{name} zerka z ciekawością!',
+      'dusty': 'Ojej, {name} jest trochę w kurzu.',
+      'cheerUp': 'Niech {name} znów się uśmiechnie! Pomóżmy!',
+      'almost': 'Już prawie — {name} trzyma za ciebie kciuki!'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': 'Kwiatowa korona',
+    'seashellNecklace': 'Naszyjnik z muszelek',
+    'pegasusWings': 'Puszyste skrzydła pegaza',
+    'hoofTrailVfx': 'Błyszczący ślad kopytek',
+    'umbraSkin': 'Wygląd Umbry',
+    'colorPicker': 'Paleta kolorów grzywy',
+    'pastelTheme': 'Motyw „Pastelowy sen”',
+    'winterScarf': 'Przytulny zimowy szalik',
+    'petStar': 'Gwiezdny pupil',
+    'versusMode': 'Przyjacielski duet'
+  },
+
+  'place': {
+    'twinGift': 'Podwójny prezent'
+  },
+
+  'twinGift': {
+    'holdLabel': 'Przytrzymaj, by zakwitło'
+  },
+
+  'bloom': {
+    'claimedToast': 'To miejsce jest w pełnym rozkwicie!'
+  },
+
+  'duel': {
+    'almostRune': 'PRAWIE {rune}!'
   },
 
   'license': {

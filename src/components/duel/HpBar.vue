@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { registerHot } from '@/use/useDuelHud'
+import { registerHot, releaseHot } from '@/use/useDuelHud'
 
 /**
  * A duelist's HP bar: a dark plate, a red "ghost" that lags behind the real
@@ -16,8 +16,13 @@ const props = defineProps<{
   label: string
 }>()
 
+const root = ref<HTMLElement | null>(null)
 const fill = ref<HTMLElement | null>(null)
 const ghost = ref<HTMLElement | null>(null)
+// The foe's plate is also the target of the hidden QA ad chord. It is hit-tested
+// by the scene, so it is registered here, and released only if still ours: the
+// landscape and portrait HUDs each mount a bar and can swap in either order.
+let foeBar: HTMLElement | null = null
 
 onMounted(() => {
   if (props.side === 'left') {
@@ -26,6 +31,8 @@ onMounted(() => {
   } else {
     registerHot('ehpFill', fill.value)
     registerHot('ehpGhost', ghost.value)
+    foeBar = root.value
+    registerHot('ehpBar', foeBar)
   }
 })
 onUnmounted(() => {
@@ -35,12 +42,13 @@ onUnmounted(() => {
   } else {
     registerHot('ehpFill', null)
     registerHot('ehpGhost', null)
+    releaseHot('ehpBar', foeBar)
   }
 })
 </script>
 
 <template lang="pug">
-  div.hp-bar.duel-plate(:class="side" role="img" :aria-label="label")
+  div.hp-bar.duel-plate(ref="root" :class="side" role="img" :aria-label="label")
     div.hp-track
       div.hp-ghost(ref="ghost")
       div.hp-fill(ref="fill" :style="{ background: color }")

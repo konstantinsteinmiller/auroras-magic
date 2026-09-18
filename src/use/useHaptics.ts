@@ -53,7 +53,7 @@ import { getState, setState } from '@/use/useGameState'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { HAPTICS_KEY } from '@/keys'
 
-export type HapticCue = 'tick' | 'reward' | 'impact'
+export type HapticCue = 'tick' | 'reward' | 'impact' | 'scrub' | 'restored' | 'restoredBoss'
 
 /**
  * Pattern per cue, in milliseconds — the roadmap's own numbers, and they are
@@ -74,7 +74,15 @@ export type HapticCue = 'tick' | 'reward' | 'impact'
 const PATTERNS: Record<HapticCue, number | number[]> = {
   tick: 8,
   reward: 25,
-  impact: [40, 30, 60]
+  impact: [40, 30, 60],
+  // The restoration wipe (story-spec §8.5). `scrub` is the brush on the dust:
+  // its length comes from the stroke's speed at the call site (10 ms fast …
+  // 30 ms lingering), so a dwell is felt more than a flick. `restored` is the
+  // one "ta-ta-daa" when a sector pops clean.
+  scrub: 20,
+  restored: [40, 40, 90],
+  // The boss sector's longer flourish (§8.5): ta-ta-ta-daa.
+  restoredBoss: [50, 50, 50, 50, 130]
 }
 
 /**
@@ -106,7 +114,12 @@ const BUDGETS: Record<HapticCue, Budget> = {
   reward: { minGapMs: 220, maxPerWindow: 2, windowMs: 1000 },
   // The longest pattern in the file (130 ms of motor) and the rarest event.
   // A raging boss can double-slam; a triple would be one long rumble.
-  impact: { minGapMs: 380, maxPerWindow: 2, windowMs: 1600 }
+  impact: { minGapMs: 380, maxPerWindow: 2, windowMs: 1600 },
+  // The caller paces scrub pulses 70–120 ms apart by speed; this is only the
+  // backstop that keeps a runaway caller from becoming one long buzz.
+  scrub: { minGapMs: 60, maxPerWindow: 14, windowMs: 1000 },
+  restored: { minGapMs: 1000, maxPerWindow: 1, windowMs: 1000 },
+  restoredBoss: { minGapMs: 1000, maxPerWindow: 1, windowMs: 1000 }
 }
 
 const lastAt: Partial<Record<HapticCue, number>> = {}
@@ -188,7 +201,7 @@ export const setHapticsEnabled = (next: boolean): void => {
  * refuses on a hidden document) would otherwise be a console line per tick and
  * a per-frame string allocation, on the exact devices the feature exists for.
  */
-export const haptic = (id: HapticCue): void => {
+export const haptic = (id: HapticCue, ms?: number): void => {
   if (!hapticsAvailable) return
   if (!hapticsEnabled.value) return
   if (isGamePaused.value) return
@@ -197,7 +210,7 @@ export const haptic = (id: HapticCue): void => {
   if (isMobileAudioMuted.value) return
   if (!passesBudget(id)) return
   try {
-    navigator.vibrate(PATTERNS[id])
+    navigator.vibrate(ms !== undefined ? Math.max(1, Math.min(60, ms | 0)) : PATTERNS[id])
   } catch { /* a refusal is not worth a frame — the visual carries the moment */ }
 }
 

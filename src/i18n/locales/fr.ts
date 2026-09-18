@@ -29,14 +29,27 @@ export default {
     'zephyr': 'ZEPHYR',
     'glace': 'GLACE',
     'terra': 'TERRA',
-    'prism': 'PRISM'
+    'prism': 'PRISM',
+    'briar': 'BRIAR',
+    'pearl': 'PEARL',
+    'echo': 'ECHO',
+    'nova': 'NOVA',
+    'shadow': 'OMBRE'
   },
 
   'rune': {
     'fire': 'Feu',
     'wind': 'Vent',
     'ice': 'Glace',
-    'earth': 'Terre'
+    'earth': 'Terre',
+    'nature': 'Nature',
+    'water': 'Eau',
+    'lightning': 'Éclair',
+    'illusion': 'Illusion',
+    'rainbow': 'Arc-en-ciel',
+    'time': 'Temps',
+    'moon': 'Lune',
+    'love': 'Amour'
   },
 
   'spell': {
@@ -62,7 +75,21 @@ export default {
     'ashStorm': 'NUÉE DE CENDRE',
     'shatter': 'ÉCLATEMENT',
     'tempest': 'TOURMENTE',
-    'wildSurge': 'VAGUE SAUVAGE'
+    'wildSurge': 'VAGUE SAUVAGE',
+    'crystalWard': 'BOUCLIER DE CRISTAL',
+    'frostLock': 'VERROU DE GIVRE'
+  },
+
+  // Apposition (« NOVA PRISME », « LASER GLACE »), not « … DE {A} »: French
+  // elides « de » before a vowel (EAU, AMOUR, ILLUSION, ARC-EN-CIEL), which a
+  // fixed template cannot do.
+  'spellForm': {
+    'k0': { 'c1': 'TRAIT {A}', 'c2': 'RAYON {A}', 'c3': 'SALVE {A}' },
+    'k1': { 'c1': 'CERCLE {A}', 'c2': 'CHAMP {A}', 'c3': 'TEMPÊTE {A}' },
+    'k2': { 'c1': 'BOUCLIER {A}', 'c2': 'MUR {A}', 'c3': 'CHÂTEAU {A}' },
+    'k3': { 'c1': 'ORBE {A}', 'c2': 'IMPACT {A}', 'c3': 'NOVA {A}' },
+    'k4': { 'c1': 'SOUFFLE {A}', 'c2': 'RAFALE {A}', 'c3': 'TOURBILLON {A}' },
+    'k5': { 'c1': 'LUTIN {A}', 'c2': 'JUMEAUX {A}', 'c3': 'PARADE {A}' }
   },
 
   'hud': {
@@ -73,49 +100,45 @@ export default {
     'yourRunes': 'Vos runes',
     'foeRunes': 'Runes de l’adversaire',
     'emptySlot': 'Emplacement vide',
-    'forming': 'En formation : {rune}',
+    'forming': 'En formation : {rune}',
     'weakness': '{rune} inflige {n} dégâts à cet adversaire',
     'sound': 'Activer ou couper le son',
     'spellbook': 'Grimoire',
-    'hp': '{name} : {n} sur {max} points de vie'
+    'hp': '{name} : {n} sur {max} points de vie'
   },
 
   'intro': {
     'draw': 'DESSINEZ LA RUNE',
-    'stored': 'STOCKÉE ! JUSQU’À 3',
+    'stored': 'STOCKÉE ! JUSQU’À 3',
     'cast': 'LANCEZ-LA MAINTENANT'
   },
 
   'pop': {
     'notARune': 'PAS UNE RUNE',
-    'noSlots': 'PLUS DE PLACE !',
+    'noSlots': 'PLUS DE PLACE !',
     'blocked': 'BLOQUÉ',
     'hit': '-{n}',
-    'weakHit': 'POINT FAIBLE ! -{n}',
+    'weakHit': 'POINT FAIBLE ! -{n}',
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'VICTOIRE',
-    'defeated': 'DÉFAITE',
-    'coins': '+{n} PIÈCES'
+    'defeated': 'ZZZ…'
   },
 
   'result': {
-    'victory': 'VICTOIRE !',
-    'defeated': 'DÉFAITE',
-    'tapToDuel': 'Touchez pour un duel',
-    'coins': 'Pièces : {n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune} +12 % de dégâts, coûte {price} pièces',
-    'double': 'x2 PIÈCES',
-    'bonus': '+{n} PIÈCES',
-    'watchAd': 'Regarder une pub : {reward}',
-    'claimed': 'RÉCUPÉRÉ !'
+    'victory': 'VICTOIRE !',
+    'defeated': 'Zzz... on réessaie ?',
+    'tapToDuel': 'Touchez pour un duel'
   },
 
   'book': {
     'title': 'GRIMOIRE',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': 'Runes',
+    'lockedRune': 'Une rune encore à trouver',
+    'count1': 'Sorts à une rune',
+    'count2': 'Sorts à deux runes',
+    'count3': 'Sorts à trois runes'
   },
 
   'options': {
@@ -128,7 +151,16 @@ export default {
     'haptics': 'Vibration',
     'on': 'Activé',
     'off': 'Désactivé',
-    'close': 'Enregistrer et fermer'
+    'close': 'Enregistrer et fermer',
+    'traceAssist': 'Afficher les guides des runes',
+    'reducedMotion': 'Animations réduites',
+    'leaveDuel': {
+      'label': 'Quitter le duel',
+      'title': 'Quitter ce duel ?',
+      'body': 'Ta progression dans ce duel ne sera pas enregistrée.',
+      'confirm': 'Quitter',
+      'cancel': 'Rester'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +179,111 @@ export default {
     'allowPrefix': 'Autorisez les publicités sur',
     'allowSuffix': '(ou mettez votre bloqueur en pause pour ce jeu) puis réessayez.',
     'gotIt': 'Compris'
+  },
+
+  'leaderboard': {
+    'title': 'Classement',
+    'rank': '#',
+    'player': 'Joueur',
+    'score': 'Victoires',
+    'flair': 'Progression',
+    'empty': 'Aucun duel enregistré pour l\'instant. À toi de jouer !',
+    'failed': 'Impossible de joindre le classement.',
+    'loading': 'Chargement…',
+    'you': 'Toi',
+    'yourRank': 'Tu es #{n} sur {total}',
+    'of': 'sur {n} joueurs',
+    'tabGlobal': 'Mondial'
+  },
+
+  'a11y': {
+    'backToMap': 'Retour à la carte'
+  },
+
+  'restore': {
+    'openGift': 'Ouvre ton cadeau',
+    'pickColour': 'Choisis une couleur'
+  },
+
+  'paint': {
+    'rose': 'Rose',
+    'sunflower': 'Jaune tournesol',
+    'bluebell': 'Bleu jacinthe'
+  },
+
+  'tool': {
+    'stardustBrush': 'Pinceau de poussière d\'étoiles',
+    'magicEraser': 'Gomme magique',
+    'sunbeam': 'Rayon de soleil'
+  },
+
+  'chapter': {
+    'c1': 'Bois des Murmures',
+    'c2': 'Baie des Bulles',
+    'c3': 'Royaume des Nuages',
+    'c4': 'Grottes de Cristal',
+    'c5': 'Monts Miroirs',
+    'c6': 'Crête Arc-en-ciel',
+    'c7': 'Sables Engloutis',
+    'c8': 'Toundra du Crépuscule',
+    'c9': 'Sommet des Étoiles',
+    'c10': 'Fête de l’Amitié'
+  },
+
+  'map': {
+    'chapters': 'Chapitres'
+  },
+
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': 'Le Bois des Murmures est tout silencieux.',
+        'b2': 'Chut... laisse-les dormir avec moi.',
+        'b3': 'Pas aujourd’hui, Umbra ! Réveillons-les !'
+      },
+      'n5': {
+        'b1': 'Qui réveille mes bois ? Va-t’en !',
+        'b2': 'Je veux juste t’aider, Briar !',
+        'b3': 'Prouve-le, petite licorne. Affronte-moi !',
+        't1': 'Oh ! Les bois sont de nouveau tout chauds.',
+        't2': 'Merci, Aurora. Reviens quand tu veux !'
+      }
+    },
+    'tmpl': {
+      'curious': '{name} pointe son nez avec curiosité !',
+      'dusty': 'Oh, il y a un peu de poussière sur {name}.',
+      'cheerUp': 'Redonnons le sourire à {name} ensemble !',
+      'almost': 'Presque fini — {name} t’encourage !'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': 'Couronne de fleurs',
+    'seashellNecklace': 'Collier de coquillages',
+    'pegasusWings': 'Ailes de Pégase toutes douces',
+    'hoofTrailVfx': 'Traînée de sabots scintillante',
+    'umbraSkin': 'Style Umbra',
+    'colorPicker': 'Palette de couleurs de crinière',
+    'pastelTheme': 'Thème Rêve pastel',
+    'winterScarf': 'Écharpe d’hiver douillette',
+    'petStar': 'Étoile de compagnie',
+    'versusMode': 'Duo de l’amitié'
+  },
+
+  'place': {
+    'twinGift': 'Cadeau jumeau'
+  },
+
+  'twinGift': {
+    'holdLabel': 'Maintiens pour faire fleurir'
+  },
+
+  'bloom': {
+    'claimedToast': 'Cet endroit est en pleine floraison !'
+  },
+
+  'duel': {
+    'almostRune': 'PRESQUE {rune} !'
   },
 
   'license': {

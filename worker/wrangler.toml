@@ -1,0 +1,15 @@
+name = "auroras-magic-leaderboard"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "auroras-magic-leaderboard"
+# Replace with the id `wrangler d1 create auroras-magic-leaderboard` prints.
+database_id = "93151642-97f8-4805-979d-c7232eec22bb"
+
+[vars]
+# Empty = allow any origin. Every portal build serves the game from a different
+# origin and a sandboxed iframe sends `null`, so an allowlist is opt-in.
+ALLOWED_ORIGINS = ""
+# SCORE_SECRET is deliberately NOT here — `wrangler secret put SCORE_SECRET`.

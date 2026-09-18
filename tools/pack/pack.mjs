@@ -186,6 +186,14 @@ for (const [plat, re] of Object.entries(sdkTags)) {
   if (plat === PLATFORM && !present) problems.push(`${plat} build is missing its SDK tag in index.html`)
   if (plat !== PLATFORM && present) problems.push(`index.html carries the ${plat} SDK tag on the ${PLATFORM} build`)
 }
+// The dev server's simulated ads (`src/use/ads/DevAdProvider.ts`) sit behind
+// `import.meta.env.DEV` and must fold out of every build. A "TEST AD" card on a
+// portal would be an ad the network never served, so it is a hard failure.
+for (const p of files) {
+  if (extname(p) === '.js' || extname(p) === '.html') {
+    if (readFileSync(p, 'utf8').includes('am_dev_ads')) problems.push(`simulated dev ads shipped in ${rel(p)}`)
+  }
+}
 // index.html must sit at the archive ROOT (P4D, itch, GamePix all require it).
 if (!existsSync(join(DIST, 'index.html'))) problems.push('index.html is not at the root of dist')
 

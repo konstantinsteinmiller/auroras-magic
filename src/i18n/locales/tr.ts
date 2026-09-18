@@ -29,14 +29,27 @@ export default {
     'zephyr': 'ZEPHYR',
     'glace': 'GLACE',
     'terra': 'TERRA',
-    'prism': 'PRISM'
+    'prism': 'PRISM',
+    'briar': 'BRIAR',
+    'pearl': 'PEARL',
+    'echo': 'ECHO',
+    'nova': 'NOVA',
+    'shadow': 'GÖLGE'
   },
 
   'rune': {
     'fire': 'Ateş',
     'wind': 'Rüzgâr',
     'ice': 'Buz',
-    'earth': 'Toprak'
+    'earth': 'Toprak',
+    'nature': 'Doğa',
+    'water': 'Su',
+    'lightning': 'Şimşek',
+    'illusion': 'İllüzyon',
+    'rainbow': 'Gökkuşağı',
+    'time': 'Zaman',
+    'moon': 'Ay',
+    'love': 'Sevgi'
   },
 
   'spell': {
@@ -62,7 +75,19 @@ export default {
     'ashStorm': 'KÜL FIRTINASI',
     'shatter': 'PARAMPARÇA',
     'tempest': 'BORA',
-    'wildSurge': 'VAHŞİ DALGA'
+    'wildSurge': 'VAHŞİ DALGA',
+    'crystalWard': 'KRİSTAL KALKAN',
+    'frostLock': 'BUZ KİLİDİ'
+  },
+
+  // Bare {A} + possessive-suffixed noun (ATEŞ OKU), so any rune name fits as is.
+  'spellForm': {
+    'k0': { 'c1': '{A} OKU', 'c2': '{A} IŞINI', 'c3': '{A} SAĞANAĞI' },
+    'k1': { 'c1': '{A} HALKASI', 'c2': '{A} ALANI', 'c3': '{A} FIRTINASI' },
+    'k2': { 'c1': '{A} KALKANI', 'c2': '{A} DUVARI', 'c3': '{A} KALESİ' },
+    'k3': { 'c1': '{A} KÜRESİ', 'c2': '{A} DARBESİ', 'c3': '{A} NOVASI' },
+    'k4': { 'c1': '{A} ESİNTİSİ', 'c2': '{A} DALGASI', 'c3': '{A} GİRDABI' },
+    'k5': { 'c1': '{A} PERİSİ', 'c2': '{A} İKİZLERİ', 'c3': '{A} ŞENLİĞİ' }
   },
 
   'hud': {
@@ -95,27 +120,23 @@ export default {
     'combo': 'x{n} KOMBO',
     'times': 'x{n}',
     'victory': 'ZAFER',
-    'defeated': 'YENİLGİ',
-    'coins': '+{n} ALTIN'
+    'defeated': 'ZZZ…'
   },
 
   'result': {
     'victory': 'ZAFER!',
-    'defeated': 'YENİLGİ',
-    'tapToDuel': 'Düello için dokun',
-    'coins': 'Altın: {n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune} +%12 hasar, fiyatı {price} altın',
-    'double': 'x2 ALTIN',
-    'bonus': '+{n} ALTIN',
-    'watchAd': 'Reklam izle: {reward}',
-    'claimed': 'ALINDI!'
+    'defeated': 'Zzz... bir kez daha?',
+    'tapToDuel': 'Düello için dokun'
   },
 
   'book': {
     'title': 'BÜYÜ KİTABI',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': 'Rünler',
+    'lockedRune': 'Henüz bulunmamış bir rün',
+    'count1': 'Tek rünlü büyüler',
+    'count2': 'İki rünlü büyüler',
+    'count3': 'Üç rünlü büyüler'
   },
 
   'options': {
@@ -128,7 +149,16 @@ export default {
     'haptics': 'Titreşim',
     'on': 'Açık',
     'off': 'Kapalı',
-    'close': 'Kaydet ve Kapat'
+    'close': 'Kaydet ve Kapat',
+    'traceAssist': 'Rün ipuçlarını göster',
+    'reducedMotion': 'Hareketi azalt',
+    'leaveDuel': {
+      'label': 'Düellodan Çık',
+      'title': 'Düellodan çıkmak istiyor musun?',
+      'body': 'Bu düellodaki ilerlemen kaydedilmeyecek.',
+      'confirm': 'Çık',
+      'cancel': 'Kal'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +177,113 @@ export default {
     'allowPrefix': 'Lütfen şu adreste reklamlara izin ver:',
     'allowSuffix': '(veya bu oyun için reklam engelleyiciyi duraklat) ve tekrar dene.',
     'gotIt': 'Anladım'
+  },
+
+  'leaderboard': {
+    'title': 'Sıralama',
+    'rank': '#',
+    'player': 'Oyuncu',
+    'score': 'Galibiyet',
+    'flair': 'İlerleme',
+    'empty': 'Henüz düello yok. İlk sen ol!',
+    'failed': 'Sıralamaya ulaşılamadı.',
+    'loading': 'Yükleniyor…',
+    'you': 'Sen',
+    'yourRank': '{total} oyuncu arasında #{n} sıradasın',
+    'of': '/ {n} oyuncu',
+    'tabGlobal': 'Dünya'
+  },
+
+  'a11y': {
+    'backToMap': 'Haritaya dön'
+  },
+
+  'restore': {
+    'openGift': 'Hediyeni aç',
+    'pickColour': 'Bir renk seç'
+  },
+
+  'paint': {
+    'rose': 'Gül pembesi',
+    'sunflower': 'Ayçiçeği sarısı',
+    'bluebell': 'Çançiçeği mavisi'
+  },
+
+  'tool': {
+    'stardustBrush': 'Yıldız Tozu Fırçası',
+    'magicEraser': 'Sihirli Silgi',
+    'sunbeam': 'Güneş Işını'
+  },
+
+  'chapter': {
+    'c1': 'Fısıldayan Orman',
+    'c2': 'Baloncuk Koyu',
+    'c3': 'Bulut Krallığı',
+    'c4': 'Kristal Mağaralar',
+    'c5': 'Ayna Dağları',
+    'c6': 'Gökkuşağı Sırtı',
+    'c7': 'Batık Kumlar',
+    'c8': 'Alacakaranlık Tundrası',
+    'c9': 'Yıldızlı Zirve',
+    'c10': 'Dostluk Şenliği'
+  },
+
+  'map': {
+    'chapters': 'Bölümler'
+  },
+
+  // {name} is a creature's name inserted as is — it always stands as the subject,
+  // never takes a case suffix.
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': 'Fısıldayan Orman sessizleşti.',
+        'b2': 'Şşş... bırak benimle uyusunlar.',
+        'b3': 'Bugün olmaz, Umbra! Hadi onları uyandıralım!'
+      },
+      'n5': {
+        'b1': 'Ormanımı kim uyandırıyor? Git buradan!',
+        'b2': 'Sadece sana yardım etmek istiyorum, Briar!',
+        'b3': 'Kanıtla bakalım, minik tek boynuzlu! Düello zamanı!',
+        't1': 'Ah! Orman yine sıcacık oldu.',
+        't2': 'Teşekkürler, Aurora. İstediğin zaman yine gel!'
+      }
+    },
+    'tmpl': {
+      'curious': '{name} merakla dışarı bakıyor!',
+      'dusty': 'Ah, {name} biraz tozlanmış.',
+      'cheerUp': 'Hadi birlikte, {name} yine gülümsesin!',
+      'almost': 'Az kaldı — {name} seni alkışlıyor!'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': 'Çiçek Tacı',
+    'seashellNecklace': 'Deniz Kabuğu Kolyesi',
+    'pegasusWings': 'Pofuduk Pegasus Kanatları',
+    'hoofTrailVfx': 'Işıltılı Toynak İzi',
+    'umbraSkin': 'Umbra Görünümü',
+    'colorPicker': 'Yele Renk Paleti',
+    'pastelTheme': 'Pastel Rüya Teması',
+    'winterScarf': 'Sıcacık Kış Atkısı',
+    'petStar': 'Evcil Yıldız',
+    'versusMode': 'Dostluk İkilisi'
+  },
+
+  'place': {
+    'twinGift': 'İkiz Hediye'
+  },
+
+  'twinGift': {
+    'holdLabel': 'Çiçek açması için basılı tut'
+  },
+
+  'bloom': {
+    'claimedToast': 'Burası baştan başa çiçek açtı!'
+  },
+
+  'duel': {
+    'almostRune': 'NEREDEYSE {rune}!'
   },
 
   'license': {

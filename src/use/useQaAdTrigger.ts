@@ -1,92 +1,103 @@
-// ─── The hidden QA interstitial tap ─────────────────────────────────────────
+// ─── The hidden QA interstitial chord ───────────────────────────────────────
 //
-// Thirty taps on the coin badge inside thirty seconds request an interstitial.
+// Thirty taps in a row on the FOE's HP bar request an interstitial.
 //
-// It exists because every portal's interstitial is PACED. `canShowInterstitial`
-// holds a 121 s gap between ads and the first call of a session only starts the
-// clock, so a reviewer checking the things portals grade — does the ad mute the
-// music, does it stop the loop, does it land BEFORE the result screen, does the
-// music come back on a no-fill — has to play two full minutes for each attempt,
-// on a build where the answer might be no. This is the back door that turns
-// that into a ten-second job on the bundle they are actually reviewing.
+// It exists because every interstitial is PACED. `canShowInterstitial` holds the
+// first ad back for four minutes and every later one for 121 s. A reviewer
+// checking what portals grade has to play that long for each attempt, and the
+// answer might still be no. The checks are: does the ad mute the music, does it
+// stop the loop, does the game resume cleanly, does the music come back on a
+// no-fill. This back door makes each one a ten-second job on the bundle they
+// are actually reviewing.
+//
+// ── "In a row" ──
+//
+// Each tap must land within QA_AD_MAX_GAP_MS of the one before it, and any
+// press anywhere else breaks the chain (`breakQaAdChain`, called by the scene
+// for every pointerdown that is not on the bar). The foe's bar is a readout, not
+// a control. A duel is fought on the drawing pad, so a real session puts almost
+// no presses on the bar, and never thirty with nothing in between.
 //
 // ── Why it is silent ──
 //
 // No counter, no toast, no glyph. A visible affordance is a feature the player
-// can find, and an ad the player can summon is an ad nobody asked for. The tap
-// count and the window ARE the secret, and thirty deliberate taps in thirty
-// seconds is not a shape a run produces by accident: the badge is a readout
-// rather than a control, and the number of times a real session taps it is
-// zero. The failure mode of guessing wrong here is one extra ad, which is why
-// this is allowed to ship rather than being hidden behind `isDebug` — QA runs
-// the same artefact the player gets, and a back door that only opens on a
-// debug build cannot be used to test the build being submitted.
+// can find, and an ad the player can summon is an ad nobody asked for. If a
+// player somehow completes the chord, the cost is one extra ad. That is why it
+// ships in every build instead of hiding behind `isDebug`: QA runs the same
+// artefact the player gets, and a back door that only exists on a debug build
+// cannot test the build being submitted.
 //
 // ── What it still owes ──
 //
-// It bypasses the PACING gate deliberately — that is the whole point — and
-// obeys every other rule the real placements obey:
+// It bypasses the PACING gate deliberately, which is the whole point. It obeys
+// every other rule the real placements obey:
 //
 //   • it seeds the shared clock (`markInterstitialShown`), so the NEXT
 //     placement still owes the full 121 s. Without this a tester could hand a
 //     portal two interstitials inside the window it rate-limits on, which is
 //     the abuse those limits exist to catch;
 //   • it restarts the music on `.finally()`, because this placement interrupts
-//     a LIVE run. `showMidgameAd` hard-stops the music and clears the play
+//     a LIVE duel. `showMidgameAd` hard-stops the music and clears the play
 //     INTENT by design (so nothing can sound under an ad whose promise settles
-//     early), and the thing that normally brings it back is the next
-//     `startBattleMusic()` on a result screen — minutes away mid-run. Same
-//     rule `useFirstLoadInterstitial` follows, for the same reason;
+//     early). Normally the next result panel brings the music back, and that is
+//     a whole duel away. `useFirstLoadInterstitial` follows the same rule for
+//     the same reason;
 //   • it refuses while an ad is already up, so a tester who keeps tapping
 //     cannot stack a second request behind the first.
 //
 // The pause gate, the audio suspend and the gameplay bracket come free:
 // `showMidgameAd` flips `isAdShowing`, which ORs into `isGamePaused` and is one
-// of `isGameplayLive`'s inputs, so the portals are told play stopped and told
+// of `isGameplayLive`'s inputs. The portals are told play stopped, and told
 // again when it resumes.
 import { showMidgameAd } from '@/use/useAds'
 import { markInterstitialShown } from '@/use/useAdGate'
 import { isAdShowing } from '@/use/useGamePause'
 import { resumeMusicAfterAd } from '@/use/useSound'
 
-/** Taps that open the door… */
+/** Taps in a row that open the door… */
 export const QA_AD_TAPS = 30
-/** …and the rolling window they have to land inside, ms. */
-export const QA_AD_WINDOW_MS = 30_000
+/** …each within this long of the one before it, ms. A longer pause starts the
+ *  count over. That is roomy for a deliberate tester at 3-5 taps a second, with
+ *  space for a hesitation. */
+export const QA_AD_MAX_GAP_MS = 1500
 
-/** Timestamps of the taps still inside the window, oldest first. */
-let taps: number[] = []
-/** True from the request until the ad settles — see the stacking rule above. */
+/** Taps in the current chain. */
+let chain = 0
+/** When the last tap on the bar landed. */
+let lastTapAt = Number.NEGATIVE_INFINITY
+/** True from the request until the ad settles. See the stacking rule above. */
 let inFlight = false
 
 /** Test seam: forget every recorded tap. */
 export const __resetQaAdTaps = (): void => {
-  taps = []
+  chain = 0
+  lastTapAt = Number.NEGATIVE_INFINITY
   inFlight = false
 }
 
+/** A press that did NOT land on the foe's HP bar: the taps are no longer in a
+ *  row, so the count starts over. */
+export const breakQaAdChain = (): void => {
+  chain = 0
+}
+
 /**
- * Record one tap on the coin badge, and request an interstitial once
- * `QA_AD_TAPS` of them have landed inside `QA_AD_WINDOW_MS`.
- *
- * The window ROLLS rather than being counted from the first tap: a tester who
- * starts slowly and speeds up is asking for the same thing, and a window that
- * had to be restarted from scratch would make the back door fiddlier to open
- * than the two minutes of play it exists to replace.
+ * Record one tap on the foe's HP bar, and request an interstitial once
+ * `QA_AD_TAPS` of them have landed in a row.
  *
  * @param now injectable clock, for tests.
  * @returns whether this tap fired the ad. Nothing in the game reads it; it is
  *          what makes the trigger assertable without an ad provider.
  */
 export const registerQaAdTap = (now: number = Date.now()): boolean => {
-  taps.push(now)
-  const cutoff = now - QA_AD_WINDOW_MS
-  if (taps[0]! <= cutoff) taps = taps.filter((t) => t > cutoff)
-  if (taps.length < QA_AD_TAPS) return false
+  chain = now - lastTapAt <= QA_AD_MAX_GAP_MS ? chain + 1 : 1
+  lastTapAt = now
+  if (chain < QA_AD_TAPS) return false
 
-  // Spent either way. A refused burst has to be re-earned rather than leaving
-  // the counter armed, or the ad that could not open now opens on tap 31.
-  taps = []
+  // The chain is used up whether or not the ad fires. A refused chain has to be
+  // re-earned. If the counter stayed armed, the ad that could not open now
+  // would open on tap 31.
+  chain = 0
   if (inFlight || isAdShowing.value) return false
 
   inFlight = true

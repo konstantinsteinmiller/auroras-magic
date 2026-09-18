@@ -29,14 +29,27 @@ export default {
     'zephyr': 'ZEPHYR',
     'glace': 'GLACE',
     'terra': 'TERRA',
-    'prism': 'PRISM'
+    'prism': 'PRISM',
+    'briar': 'BRIAR',
+    'pearl': 'PEARL',
+    'echo': 'ECHO',
+    'nova': 'NOVA',
+    'shadow': 'CÁI BÓNG'
   },
 
   'rune': {
     'fire': 'Lửa',
     'wind': 'Gió',
     'ice': 'Băng',
-    'earth': 'Đất'
+    'earth': 'Đất',
+    'nature': 'Thiên nhiên',
+    'water': 'Nước',
+    'lightning': 'Sét',
+    'illusion': 'Ảo ảnh',
+    'rainbow': 'Cầu vồng',
+    'time': 'Thời gian',
+    'moon': 'Trăng',
+    'love': 'Tình yêu'
   },
 
   'spell': {
@@ -62,7 +75,18 @@ export default {
     'ashStorm': 'BÃO TRO',
     'shatter': 'VỠ VỤN',
     'tempest': 'GIÔNG TỐ',
-    'wildSurge': 'SÓNG HOANG DÃ'
+    'wildSurge': 'SÓNG HOANG DÃ',
+    'crystalWard': 'LÁ CHẮN PHA LÊ',
+    'frostLock': 'KHÓA BĂNG GIÁ'
+  },
+
+  'spellForm': {
+    'k0': { 'c1': 'MŨI TÊN {A}', 'c2': 'TIA {A}', 'c3': 'MƯA SAO {A}' },
+    'k1': { 'c1': 'VÒNG {A}', 'c2': 'VÙNG {A}', 'c3': 'BÃO {A}' },
+    'k2': { 'c1': 'KHIÊN {A}', 'c2': 'TƯỜNG {A}', 'c3': 'PHÁO ĐÀI {A}' },
+    'k3': { 'c1': 'QUẢ CẦU {A}', 'c2': 'CÚ ĐẬP {A}', 'c3': 'NOVA {A}' },
+    'k4': { 'c1': 'HƠI {A}', 'c2': 'LUỒNG {A}', 'c3': 'LỐC XOÁY {A}' },
+    'k5': { 'c1': 'TIÊN {A}', 'c2': 'SONG SINH {A}', 'c3': 'DIỄU HÀNH {A}' }
   },
 
   'hud': {
@@ -95,27 +119,23 @@ export default {
     'combo': 'COMBO x{n}',
     'times': 'x{n}',
     'victory': 'CHIẾN THẮNG',
-    'defeated': 'THẤT BẠI',
-    'coins': '+{n} XU'
+    'defeated': 'ZZZ…'
   },
 
   'result': {
     'victory': 'CHIẾN THẮNG!',
-    'defeated': 'THẤT BẠI',
-    'tapToDuel': 'Chạm để đấu',
-    'coins': 'Xu: {n}',
-    'rankBonus': '+{n}%',
-    'price': '{n}',
-    'buyRank': '{rune} +12% sát thương, giá {price} xu',
-    'double': 'x2 XU',
-    'bonus': '+{n} XU',
-    'watchAd': 'Xem quảng cáo: {reward}',
-    'claimed': 'ĐÃ NHẬN!'
+    'defeated': 'Zzz... thử lại nhé?',
+    'tapToDuel': 'Chạm để đấu'
   },
 
   'book': {
     'title': 'SÁCH PHÉP',
-    'unknown': '? ? ?'
+    'unknown': '? ? ?',
+    'runes': 'Phù văn',
+    'lockedRune': 'Một phù văn chưa tìm thấy',
+    'count1': 'Phép một phù văn',
+    'count2': 'Phép hai phù văn',
+    'count3': 'Phép ba phù văn'
   },
 
   'options': {
@@ -128,7 +148,16 @@ export default {
     'haptics': 'Rung',
     'on': 'Bật',
     'off': 'Tắt',
-    'close': 'Lưu & Đóng'
+    'close': 'Lưu & Đóng',
+    'traceAssist': 'Hiện hướng dẫn vẽ phù văn',
+    'reducedMotion': 'Giảm chuyển động',
+    'leaveDuel': {
+      'label': 'Rời trận đấu',
+      'title': 'Rời trận đấu này?',
+      'body': 'Tiến trình trong trận đấu này sẽ không được lưu.',
+      'confirm': 'Rời đi',
+      'cancel': 'Ở lại'
+    }
   },
 
   'saveStatus': {
@@ -147,6 +176,111 @@ export default {
     'allowPrefix': 'Vui lòng cho phép quảng cáo trên',
     'allowSuffix': '(hoặc tạm dừng trình chặn quảng cáo cho trò chơi này) rồi thử lại.',
     'gotIt': 'Đã hiểu'
+  },
+
+  'leaderboard': {
+    'title': 'Bảng xếp hạng',
+    'rank': '#',
+    'player': 'Người chơi',
+    'score': 'Thắng',
+    'flair': 'Tiến độ',
+    'empty': 'Chưa có trận nào. Hãy là người đầu tiên!',
+    'failed': 'Không thể tải bảng xếp hạng.',
+    'loading': 'Đang tải…',
+    'you': 'Bạn',
+    'yourRank': 'Bạn hạng #{n} trên {total}',
+    'of': 'trên {n} người chơi',
+    'tabGlobal': 'Toàn cầu'
+  },
+
+  'a11y': {
+    'backToMap': 'Quay lại bản đồ'
+  },
+
+  'restore': {
+    'openGift': 'Mở quà của bạn',
+    'pickColour': 'Chọn một màu'
+  },
+
+  'paint': {
+    'rose': 'Hồng hoa hồng',
+    'sunflower': 'Vàng hoa hướng dương',
+    'bluebell': 'Xanh hoa chuông'
+  },
+
+  'tool': {
+    'stardustBrush': 'Cọ Bụi Sao',
+    'magicEraser': 'Cục Tẩy Thần Kỳ',
+    'sunbeam': 'Tia Nắng'
+  },
+
+  'chapter': {
+    'c1': 'Rừng Thì Thầm',
+    'c2': 'Vịnh Bong Bóng',
+    'c3': 'Vương Quốc Mây',
+    'c4': 'Hang Pha Lê',
+    'c5': 'Núi Gương',
+    'c6': 'Đồi Cầu Vồng',
+    'c7': 'Sa Mạc Chìm',
+    'c8': 'Đồng Tuyết Hoàng Hôn',
+    'c9': 'Đỉnh Ánh Sao',
+    'c10': 'Lễ Hội Tình Bạn'
+  },
+
+  'map': {
+    'chapters': 'Chương'
+  },
+
+  'story': {
+    'c1': {
+      'n1': {
+        'b1': 'Rừng Thì Thầm đã im lặng rồi.',
+        'b2': 'Suỵt... để mọi người ngủ cùng tớ nhé.',
+        'b3': 'Hôm nay thì không đâu, Umbra! Cùng đánh thức mọi người nào!'
+      },
+      'n5': {
+        'b1': 'Ai đánh thức rừng của ta? Đi đi!',
+        'b2': 'Tớ chỉ muốn giúp cậu thôi, Briar!',
+        'b3': 'Chứng minh đi, kỳ lân nhỏ. Đấu với ta nào!',
+        't1': 'Ôi! Khu rừng lại ấm áp rồi.',
+        't2': 'Cảm ơn cậu, Aurora. Lúc nào cũng ghé chơi nhé!'
+      }
+    },
+    'tmpl': {
+      'curious': '{name} tò mò ló đầu ra!',
+      'dusty': 'Ôi, {name} trông hơi bụi bặm.',
+      'cheerUp': 'Cùng làm {name} vui lên nào!',
+      'almost': 'Sắp tới rồi — {name} đang cổ vũ cho bạn!'
+    }
+  },
+
+  'gift': {
+    'flowerCrown': 'Vương Miện Hoa',
+    'seashellNecklace': 'Vòng Cổ Vỏ Sò',
+    'pegasusWings': 'Cánh Pegasus Bông Xù',
+    'hoofTrailVfx': 'Dấu Móng Lấp Lánh',
+    'umbraSkin': 'Diện Mạo Umbra',
+    'colorPicker': 'Bảng Màu Bờm',
+    'pastelTheme': 'Chủ Đề Giấc Mơ Pastel',
+    'winterScarf': 'Khăn Quàng Mùa Đông Ấm Áp',
+    'petStar': 'Ngôi Sao Thú Cưng',
+    'versusMode': 'Đôi Bạn Thân'
+  },
+
+  'place': {
+    'twinGift': 'Quà Song Sinh'
+  },
+
+  'twinGift': {
+    'holdLabel': 'Giữ để nở hoa'
+  },
+
+  'bloom': {
+    'claimedToast': 'Nơi này đã nở hoa rực rỡ!'
+  },
+
+  'duel': {
+    'almostRune': 'SUÝT NỮA LÀ {rune}!'
   },
 
   'license': {

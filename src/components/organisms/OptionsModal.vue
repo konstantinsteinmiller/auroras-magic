@@ -9,6 +9,10 @@ import FSlider from '@/components/atoms/FSlider.vue'
 import FSelect from '@/components/atoms/FSelect.vue'
 import { LANGUAGES, LANGUAGE_AUTONYMS } from '@/utils/enums'
 import { hapticsAvailable, hapticsEnabled, setHapticsEnabled } from '@/use/useHaptics'
+import { traceAssist, setTraceAssist, reducedMotion, setReducedMotion } from '@/use/useAccessibility'
+import { flowHud } from '@/use/useFlow'
+import { duelBeat } from '@/use/useDuelBeat'
+import { leaveDuel } from '@/game/flow/duelFlow'
 
 defineProps<{
   isOpen: boolean
@@ -74,6 +78,21 @@ const hapticsList = computed(() => [
   { value: 'on', label: t('options.on') },
   { value: 'off', label: t('options.off') }
 ])
+
+// ─── Leave the duel (story-spec §3.3.7) ─────────────────────────────────────
+//
+// Only while a duel is actually being fought: there is nothing to leave on
+// the map, and a duel that has already ended is leaving by itself. One
+// confirm step, because a stray tap here costs the player the fight — the
+// copy is gentle and never says "lose" (§2.2).
+const inDuel = computed(() => flowHud.scene === 'duel' && duelBeat.phase === 'fight')
+const confirmLeave = ref(false)
+watch(() => inDuel.value, (on) => { if (!on) confirmLeave.value = false })
+const doLeave = (): void => {
+  confirmLeave.value = false
+  emit('close')
+  leaveDuel()
+}
 </script>
 
 <template lang="pug">
@@ -100,6 +119,22 @@ const hapticsList = computed(() => [
         hr(v-if="!isMobileLandscape" class="border-slate-600 my-1 md:my-2 pt-0")
         FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
         FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
+        //- The comfort settings (§3.11, §5.13). Each dropdown sits above the
+        //- next one down, so an open list covers the rows below it.
+        div(class="z-[12] flex flex-col gap-1")
+          FSelect(
+            :label="t('options.traceAssist')"
+            :options="hapticsList"
+            :model-value="traceAssist ? 'on' : 'off'"
+            @update:model-value="setTraceAssist($event === 'on')"
+          )
+        div(class="z-[8] flex flex-col gap-1")
+          FSelect(
+            :label="t('options.reducedMotion')"
+            :options="hapticsList"
+            :model-value="reducedMotion ? 'on' : 'off'"
+            @update:model-value="setReducedMotion($event === 'on')"
+          )
         //- Phones only, and it lives on the GENERAL tab rather than the audio
         //- one for a structural reason: `tabs` above drops the audio tab
         //- entirely on touch devices, so a vibration setting parked there would
@@ -113,6 +148,15 @@ const hapticsList = computed(() => [
             :model-value="hapticsEnabled ? 'on' : 'off'"
             @update:model-value="setHapticsEnabled($event === 'on')"
           )
+        //- Leave the duel: one gentle confirm, then the map.
+        div(v-if="inDuel" class="flex flex-col items-center gap-2 pt-2")
+          FButton(v-if="!confirmLeave" class="px-6" @click="confirmLeave = true") {{ t('options.leaveDuel.label') }}
+          div.leave-confirm(v-else role="alertdialog" :aria-label="t('options.leaveDuel.title')")
+            p.leave-title {{ t('options.leaveDuel.title') }}
+            p.leave-body {{ t('options.leaveDuel.body') }}
+            div(class="flex gap-3 justify-center pt-1")
+              FButton(class="px-5" @click="doLeave") {{ t('options.leaveDuel.confirm') }}
+              FButton(class="px-5" @click="confirmLeave = false") {{ t('options.leaveDuel.cancel') }}
 
     div(v-else-if="currentTab === 'audio'").flex.flex-col.justify-between.items-center
       FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
@@ -126,4 +170,21 @@ const hapticsList = computed(() => [
 <style lang="sass" scoped>
 span
   text-shadow: 2px 2px 0 #000
+
+.leave-confirm
+  text-align: center
+  max-width: 22rem
+  padding: 10px 12px
+  border-radius: 14px
+  background: rgba(24, 17, 48, 0.6)
+
+.leave-title
+  font-weight: 800
+  font-size: 1.1rem
+  color: #ffd76a
+
+.leave-body
+  font-size: 0.95rem
+  color: #fff
+  opacity: 0.9
 </style>

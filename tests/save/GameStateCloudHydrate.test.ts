@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
 // ─── Cloud → composable hydrate (the "fresh user" regression) ───────────────
@@ -7,8 +7,8 @@ import { nextTick } from 'vue'
 //   A returning player reloads. The platform SDK's cloud read is async. The
 //   Vue module graph evaluates first, every composable reads an empty blob and
 //   initialises to defaults, and the player is rendered as a brand-new install:
-//   the first rung, no coins, no ranks. The next write then commits those
-//   defaults over the real cloud save and the loss becomes permanent.
+//   node 1-1 again, the map dusty. The next write then commits those defaults
+//   over the real cloud save and the loss becomes permanent.
 //
 // The whole game state lives in ONE `auroras_magic_state` blob (an allowlisted payload
 // key), so the strategy mirrors it verbatim. `reloadGameState()` is wired into
@@ -36,8 +36,18 @@ beforeEach(() => {
   vi.resetModules()
 })
 
-/** A cloud snapshot for a player who is deep into the ladder, plus the meta
- *  blob the merge resolver needs in order to pick remote over an empty local. */
+// `load()` runs the schema-2 migration, which WRITES (debounced ~200 ms). Drain
+// that timer now, or it fires into the next test's cold boot and reads as a
+// phantom cloud save.
+afterEach(async () => {
+  const { flushPersist } = await import('@/use/useGameState')
+  flushPersist()
+  localStorage.clear()
+})
+
+/** A STEP-1 cloud snapshot (the jam ladder, coins and ranks — schema 1) for a
+ *  player who is deep into the ladder, plus the meta blob the merge resolver
+ *  needs in order to pick remote over an empty local. `load()` migrates it. */
 const seededCloud = async () => {
   const { META_KEY } = await import('@/utils/save/SaveMergePolicy')
   const cloudBlob = {
@@ -100,29 +110,64 @@ describe('auroras_magic_state cloud hydrate → composable refresh', () => {
 
     const { S, load } = await import('@/game/duel/state')
     load()
-    expect(S.coins).toBe(1250)
-    expect(S.foe).toBe(4)
     expect(S.wins).toBe(6)
     expect(S.losses).toBe(3)
     expect(S.best).toBe(41.5)
     // Onboarding already done: the three-beat tutorial must not replay.
     expect(S.intro).toBe(0)
-    // Discovered combos survive, merged over the four base runes.
-    expect(S.seen['03']).toBe(1)
-    expect(S.seen['0']).toBe(1)
   })
 
-  it('refreshes the element ranks the player paid for', async () => {
+  it('migrates a Step-1 save to schema 2 on load, without crashing (§4.7)', async () => {
     const data = await seededCloud()
     await bootCloudOnly(data)
 
     const { S, load } = await import('@/game/duel/state')
+    const { hasBit } = await import('@/game/campaign/bitset')
+    const { comboEnumerationIndex } = await import('@/game/duel/config')
+    const { getState } = await import('@/use/useGameState')
+    expect(() => load()).not.toThrow()
+    // Discoveries fold into the campaign's combo set, over the four singles.
+    expect(hasBit(S.campaign.combosSeen, comboEnumerationIndex([0, 3]))).toBe(true)
+    expect(hasBit(S.campaign.combosSeen, comboEnumerationIndex([0, 0]))).toBe(true)
+    for (const r of [0, 1, 2, 3]) expect(hasBit(S.campaign.combosSeen, r)).toBe(true)
+    // …and none of it is "new" in the spellbook.
+    expect(S.campaign.combosViewed).toBe(S.campaign.combosSeen)
+    // The ladder rung does NOT become campaign progress (F24).
+    expect(S.campaign.furthestNode).toBe(-1)
+    // D3: the currency and the ranks are gone; the old key is folded away.
+    expect(getState('am_coins', 'gone')).toBe('gone')
+    expect(getState('am_upgrades', 'gone')).toBe('gone')
+    expect(getState('am_spells_seen', 'gone')).toBe('gone')
+    expect(getState('am_schema', 0)).toBe(2)
+  })
+
+  it('hydrates a schema-2 campaign: the node reached and the sectors restored', async () => {
+    const { META_KEY } = await import('@/utils/save/SaveMergePolicy')
+    const { setBit, emptyBitset } = await import('@/game/campaign/bitset')
+    let done = emptyBitset(50)
+    for (const n of [0, 1, 2]) done = setBit(done, n)
+    const data = makeFakeData({
+      [MANIFEST_KEY]: JSON.stringify([STATE_KEY, META_KEY]),
+      [STATE_KEY]: JSON.stringify({
+        am_schema: 2,
+        am_wins: 4,
+        am_duels: 5,
+        am_onboarded: 1,
+        am_campaign: { furthestNode: 3, sectorsDone: done, wipeCoverage: null, runesUnlocked: 15 }
+      }),
+      [META_KEY]: JSON.stringify({ savedAt: '2026-09-18T00:00:00.000Z', progressScore: 4 * 500 + 3 * 150 + 50, schemaVersion: 1, maxStage: 4 })
+    })
+    await bootCloudOnly(data)
+
+    const { S, load } = await import('@/game/duel/state')
+    const { hasBit } = await import('@/game/campaign/bitset')
+    const { pendingSectorNode } = await import('@/game/campaign/state')
     load()
-    expect(S.up).toEqual([1, 3, 1, 2])
-    // And the ranks reach the damage a cast does — a rank that loads but does
-    // not bite is content that silently disappears on every reload.
-    const { RANK_BONUS } = await import('@/game/duel/config')
-    expect(1 + RANK_BONUS * S.up[1]!).toBeCloseTo(1.36, 5)
+    expect(S.campaign.furthestNode).toBe(3)
+    expect(hasBit(S.campaign.sectorsDone, 2)).toBe(true)
+    // Node 1-4 is won but its sector is still dusty: its gift is waiting.
+    expect(pendingSectorNode(S.campaign)).toBe(3)
+    expect(S.wins).toBe(4)
   })
 
   it('refreshes user settings so the player keeps their language and volume', async () => {
@@ -164,7 +209,7 @@ describe('hydrate failure modes', () => {
 
     const cloudBlob = JSON.parse(data.store.get(STATE_KEY) || '{}')
     expect(cloudBlob.am_ladder).toBe(4)
-    expect(cloudBlob.am_coins).toBe(1250)
+    expect(cloudBlob.am_wins).toBe(6)
     expect(cloudBlob.am_onboarded).toBe(true)
   })
 
@@ -207,9 +252,8 @@ describe('hydrate failure modes', () => {
 
     const { S, load } = await import('@/game/duel/state')
     load()
-    expect(S.coins).toBe(0)
-    expect(S.up).toEqual([0, 0, 0, 0])
-    expect(S.foe).toBe(0)
+    expect(S.campaign.furthestNode).toBe(-1)
+    expect(S.wins).toBe(0)
     // A genuinely new player gets the onboarding.
     expect(S.intro).toBe(1)
   })
@@ -228,20 +272,18 @@ describe('hydrate failure modes', () => {
     await expect(bootCloudOnly(data)).resolves.toBeDefined()
     const { S, load } = await import('@/game/duel/state')
     expect(() => load()).not.toThrow()
-    expect(S.coins).toBe(0)
+    expect(S.campaign.furthestNode).toBe(-1)
   })
 })
 
 describe('reload round-trip', () => {
-  it('a duel won before the reload is still there after it', async () => {
-    // ── Session 1: win the first duel, then flush at the checkpoint. ──
+  it('a node won before the reload is still there after it', async () => {
+    // ── Session 1: win node 1-1, then flush at the checkpoint. ──
     const data = makeFakeData()
     const m1 = await bootCloudOnly(data)
     const { S, save } = await import('@/game/duel/state')
-    const { winCoins } = await import('@/game/duel/config')
-    S.coins += winCoins(0)
     S.wins++
-    S.foe = 1
+    S.campaign.furthestNode = 0
     S.intro = 0
     save()
     // The checkpoint flush the scene calls when a duel ends (`flushSaveNow`):
@@ -262,10 +304,9 @@ describe('reload round-trip', () => {
 
     const state2 = await import('@/game/duel/state')
     state2.load()
-    expect(state2.S.coins).toBe(winCoins(0))
     expect(state2.S.wins).toBe(1)
-    // The ladder moved on, so the next duel is against the second rung.
-    expect(state2.S.foe).toBe(1)
+    // The campaign moved on: node 1-1 is won, its gift waits on the map.
+    expect(state2.S.campaign.furthestNode).toBe(0)
     expect(state2.S.intro).toBe(0)
   })
 })

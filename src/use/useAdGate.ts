@@ -187,6 +187,31 @@ export const canOfferReward = computed(
 )
 
 // ─── Interstitial pacing ────────────────────────────────────────────────────
+//
+// Two rules, both on the wall clock:
+//
+//   1. nothing in the first FIRST_INTERSTITIAL_AFTER_MS of a session;
+//   2. after that, at least INTERSTITIAL_MIN_GAP_MS between any two ads.
+//
+// The clock is ONE for every placement: the between-duels break asks
+// `canShowInterstitial`, and the two placements that deliberately do not ask
+// (the portal-mandated first-load ad, the hidden QA chord) still call
+// `markInterstitialShown`, so the next ad owes the full gap from them.
+
+/**
+ * No interstitial before the session is this old, ms. Four minutes from page
+ * load.
+ *
+ * The first few duels decide whether a stranger stays. At 30-60 s a duel, four
+ * minutes is the onboarding, the first rank bought and a couple of rungs of the
+ * ladder, which is long enough for the game to earn the interruption. It also
+ * covers Yandex's "none in the first 60 s" rule.
+ *
+ * The first-load ad that GameMonetize, GamePix and GameDistribution require
+ * does not wait for it. Their moderation rejects a build without that ad, so it
+ * fires at the splash and seeds the clock like any other placement.
+ */
+export const FIRST_INTERSTITIAL_AFTER_MS = 240_000
 
 /**
  * Minimum gap between interstitials, ms.
@@ -208,8 +233,8 @@ export const canOfferReward = computed(
  *   • CrazyGames  — one midgame ad per 2 min; an early request is rejected.
  *   • Playgama    — Bridge's own `minimumDelayBetweenInterstitial` is 120 s.
  *   • Yandex      — ≥ 60 s apart, and none in the first 60 s after load. 121 s
- *                   satisfies both, and the "first call starts the clock"
- *                   behaviour below covers the post-load half.
+ *                   satisfies the first, FIRST_INTERSTITIAL_AFTER_MS the
+ *                   second.
  *   • Poki        — paced server-side; the SDK's own bad-event gate is the only
  *                   client-side limit and it is about event SPACING, not ads.
  *   • GamePix / GameDistribution / GameMonetize — frequency-capped inside the
@@ -220,33 +245,44 @@ export const canOfferReward = computed(
  * rather than reintroducing a stage counter — a stage-keyed cadence drifts with
  * how fast the player is, which is exactly what the portals' rules are not.
  */
-const INTERSTITIAL_MIN_GAP_MS = 121_000
+export const INTERSTITIAL_MIN_GAP_MS = 121_000
 
+/**
+ * When this session started, on the `Date.now()` clock: navigation start, not
+ * module evaluation. This module arrives with a lazily loaded chunk, and the
+ * player's four minutes started when the page did.
+ */
+const pageStartedAt = (): number =>
+  Date.now() - (typeof performance !== 'undefined' ? performance.now() : 0)
+
+let sessionStartedAt = pageStartedAt()
+/** 0 = no interstitial yet this session. */
 let lastInterstitialAt = 0
 
 /**
- * True when enough time has passed to show another interstitial.
- *
- * The first call of a session returns false: an interstitial in the opening
- * seconds — before the player has seen the game work — is the single most
- * reliable way to lose them.
+ * True when an interstitial may be shown now: the session is past its opening
+ * four minutes AND the last ad (if any) is a full gap behind us. Pure, with no
+ * side effects. Asking does not start or restart any clock; only
+ * `markInterstitialShown` does.
  */
-export const canShowInterstitial = (): boolean => {
-  if (lastInterstitialAt === 0) {
-    lastInterstitialAt = Date.now()
-    return false
-  }
-  return Date.now() - lastInterstitialAt >= INTERSTITIAL_MIN_GAP_MS
+export const canShowInterstitial = (now: number = Date.now()): boolean =>
+  now - sessionStartedAt >= FIRST_INTERSTITIAL_AFTER_MS
+  && (lastInterstitialAt === 0 || now - lastInterstitialAt >= INTERSTITIAL_MIN_GAP_MS)
+
+/** Record that an interstitial was just shown, restarting the 121 s gap. */
+export const markInterstitialShown = (now: number = Date.now()): void => {
+  lastInterstitialAt = now
 }
 
-/** Record that an interstitial was just shown, restarting the 120 s clock. */
-export const markInterstitialShown = (): void => {
-  lastInterstitialAt = Date.now()
+/** Seconds until the next interstitial is allowed. For debug and telemetry only. */
+export const interstitialCooldownLeft = (now: number = Date.now()): number => {
+  const opening = sessionStartedAt + FIRST_INTERSTITIAL_AFTER_MS - now
+  const gap = lastInterstitialAt === 0 ? 0 : lastInterstitialAt + INTERSTITIAL_MIN_GAP_MS - now
+  return Math.max(0, opening, gap) / 1000
 }
 
-/** Seconds until the next interstitial is allowed — debug/telemetry only. */
-export const interstitialCooldownLeft = (): number =>
-  Math.max(0, INTERSTITIAL_MIN_GAP_MS - (Date.now() - lastInterstitialAt)) / 1000
-
-/** Test seam: reset the pacing clock. */
-export const __resetInterstitialClock = (): void => { lastInterstitialAt = 0 }
+/** Test seam: start a fresh session at `startedAt` with no ad shown yet. */
+export const __resetInterstitialClock = (startedAt: number = Date.now()): void => {
+  sessionStartedAt = startedAt
+  lastInterstitialAt = 0
+}

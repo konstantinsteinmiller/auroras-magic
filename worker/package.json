@@ -1,0 +1,15 @@
+{
+  "name": "auroras-magic-leaderboard",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute auroras-magic-leaderboard --remote --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute auroras-magic-leaderboard --local --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260918.1",
+    "wrangler": "^4.135.0"
+  }
+}

@@ -27,7 +27,8 @@
 //   1. isCrazyWeb              → CrazyGames provider
 //   2. isGameDistribution      → GameDistribution provider
 //   3. showMediatorAds + isNative → LevelPlay (mobile mediation)
-//   4. else                    → Noop (UI hidden, calls inert)
+//   4. `pnpm dev` (mode development) → simulated ads (`DevAdProvider`)
+//   5. else                    → Noop (UI hidden, calls inert)
 
 import { createCrazyGamesProvider } from '@/use/ads/CrazyGamesProvider'
 import { createGameDistributionProvider } from '@/use/ads/GameDistributionProvider'
@@ -37,6 +38,7 @@ import { createGameMonetizeProvider } from '@/use/ads/GameMonetizeProvider'
 import { createYandexProvider } from '@/use/ads/YandexProvider'
 import { createPokiProvider } from '@/use/ads/PokiProvider'
 import { createNoopProvider } from '@/use/ads/NoopProvider'
+import { createDevAdProvider, isDevAdsEnabled } from '@/use/ads/DevAdProvider'
 import type { AdProvider } from '@/use/ads/types'
 import type { PlatformFlags } from './capabilities'
 
@@ -56,5 +58,12 @@ export const resolveAdProvider = (input: AdResolverInput): AdProvider => {
   if (import.meta.env.VITE_APP_GAME_MONETIZE === 'true') return createGameMonetizeProvider()
   if (import.meta.env.VITE_APP_YANDEX === 'true') return createYandexProvider()
   if (import.meta.env.VITE_APP_POKI === 'true') return createPokiProvider()
+  // `pnpm dev` only. Simulated ads, so the placements can be seen and clicked
+  // where the game is developed. `DEV` is the literal `false` in every build,
+  // and the module itself is aliased to a stub there (`vite.config.ts`). Not
+  // under vitest (mode `test`).
+  if (import.meta.env.DEV && import.meta.env.MODE === 'development' && isDevAdsEnabled()) {
+    return createDevAdProvider()
+  }
   return createNoopProvider()
 }

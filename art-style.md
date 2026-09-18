@@ -9,8 +9,10 @@ quietly become the style.
 drawn with one confident, soft outline and flat cel colour, in a pastel world
 that glows. Hand-drawn, not sketchy.
 
-Audience: girls aged 3–12 (see `story-GDD.md`). Everything must read as
-friendly, safe and magical at a glance, including on a phone held upright.
+Audience: all ages, cozy and family-friendly. The owner decided this on
+2026-09-18; see `story-spec.md` §2 and §13. The youngest players are about 3,
+and everything must still be safe for them. Everything must read as friendly,
+safe and magical at a glance, including on a phone held upright.
 
 ---
 
@@ -199,8 +201,8 @@ Only the lightness is softened for the painted art:
 
 Paste this at the top of every image-model prompt, then describe the subject:
 
-> Cute chibi children's picture-book illustration for a magical unicorn game
-> aimed at young girls. Big head, huge sparkly eyes with two white
+> Cute chibi picture-book illustration for a cozy, family-friendly magical
+> unicorn game for all ages. Big head, huge sparkly eyes with two white
 > catch-lights, tiny smile, rounded friendly shapes, short sturdy legs, a few
 > large soft mane locks with pastel rainbow streaks. ONE clean, confident,
 > soft outline in warm deep plum (#3A2340) with slight weight variation. No

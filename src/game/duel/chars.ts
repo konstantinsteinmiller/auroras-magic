@@ -35,11 +35,18 @@
  * limb bounce rim survives every quality level — without it Umbra's four black
  * legs fuse into one unreadable mass.
  */
-import { FOES, RUNES } from '@/game/duel/config'
+import { FOES } from '@/game/duel/foes'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
+
+/**
+ * A face for a dialogue portrait (§9.7.1, §10.6's emote table): brow −1
+ * (stern, inner end down) … 1 (worried, inner end up); eye 0 (closed) … 1
+ * (wide); mouth −1 (frown) … 1 (open smile); blush 0 … 1.
+ */
+export interface Face { brow: number; eye: number; mouth: number; blush: number }
 
 /** Pose inputs for one duelist, all 0..1. */
 export interface PoseState {
@@ -49,6 +56,12 @@ export interface PoseState {
   win?: number
   lose?: number
   form?: number
+  /** A portrait's expression; omitted in the duel. */
+  face?: Face
+  /** Draw a foe-side rig in THIS foe's palette instead of the current duel's. */
+  foe?: number
+  /** Called inside the head group (after the forelock): head-slot cosmetics. */
+  afterHead?: (g: G2D) => void
 }
 
 /** The one hand-inked outline colour. */
@@ -289,18 +302,16 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const fold = lose * 30 // limbs curl up under the body when collapsed
   const D = side > 0 ? 1 : 0 // 1 = the foe
 
-  ;[CO, SH, RM, MA, MH, HO, HF, EY, GL, BL] = PAL[D] as [string, string, string, string, string, string, string, string, string, string]
-  // Each rung of the ladder wears its element. Only the MANE, HORN and AURA
-  // are re-tinted, off the rune palette that already exists — the black coat
-  // and the violet rim stay put, so the foe still reads as the same species.
-  if (D) {
-    const fe = FOES[S.foe]![1]
+  // Every foe is this same rig in her own palette (§9.14: recolour, zero new
+  // topology): Umbra's shadow clones wear their chapter's tint, each Guardian
+  // her own colours.
+  const foe = D ? FOES[st.foe ?? S.foe] : undefined
+  ;[CO, SH, RM, MA, MH, HO, HF, EY, GL, BL] = (foe ? foe.pal : PAL[0]) as [string, string, string, string, string, string, string, string, string, string]
+  // PRISM (ch6) is "every colour at once": her mane, horn and aura cycle.
+  if (foe && foe.slug === 'prism') {
     const rb = rainbow(t * 0.14)
     const rl = rainbow(t * 0.14 + 0.12, 80)
-    // PRISM shares Umbra's "no element", so without the second branch the last
-    // rung would wear the palette of the first. It cycles instead.
-    if (fe >= 0) [MA, MH, GL, HO] = [RUNES[fe]![0], RUNES[fe]![1], RUNES[fe]![0], RUNES[fe]![1]]
-    else if (S.foe) [MA, MH, GL, HO] = [rb, rl, rb, rl]
+    ;[MA, MH, GL, HO] = [rb, rl, rb, rl]
   }
   // Hit flash: strobe the whole coat white/red while `hurt` runs down.
   const F = hit && sin(t * 46) > 0 ? (sin(t * 23) > 0 ? '#fff' : '#f55') : ''
@@ -419,18 +430,49 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
 
   el(27, 6, 1.7, 2.3) // nostril
   ink(OUT)
+  const fc = st.face
   g.beginPath() // mouth
-  g.arc(24, 12, 4.2, 0.3, win ? 2.7 : 1.6)
-  ink(0, 2.2)
+  if (!fc) {
+    g.arc(24, 12, 4.2, 0.3, win ? 2.7 : 1.6)
+    ink(0, 2.2)
+  } else if (fc.mouth >= 0.9) {
+    g.arc(24, 11, 4.9, 0.15, 2.95) // an open grin
+    ink('#b04a5a', 2.2)
+  } else if (fc.mouth > 0.2) {
+    g.arc(24, 12, 4.4, 0.3, 2.4)
+    ink(0, 2.2)
+  } else if (fc.mouth > -0.1) {
+    g.moveTo(21, 13.5) // a firm little line
+    g.lineTo(27.5, 13.2)
+    ink(0, 2.2)
+  } else {
+    g.arc(24, 17.5, 4.2, PI + 0.55, -0.55) // a small frown
+    ink(0, 2.2)
+  }
 
-  g.globalAlpha = 0.4 // soft cheek blush
-  el(4, 10, 5.6, 3.2)
+  g.globalAlpha = 0.4 + (fc ? fc.blush * 0.45 : 0) // soft cheek blush
+  el(4, 10, 5.6 + (fc ? fc.blush * 1.5 : 0), 3.2)
   ink(BL)
   g.globalAlpha = 1
 
+  // A portrait's brow: the inner end (toward the muzzle) rises when worried
+  // and drops when stern — the one line the combat rig never needed.
+  if (fc) {
+    g.beginPath()
+    g.moveTo(1, -15 + fc.brow * 1.5)
+    g.quadraticCurveTo(9, -18 - Math.abs(fc.brow) * 0.5, 18, -15 - fc.brow * 4)
+    ink(0, 3.2)
+  }
+
   /* ---- the one big expressive eye ----------------------------------- */
   // the foe (D) is permanently half-lidded
-  if (win || lose) {
+  if (fc && fc.eye < 0.12) {
+    // A portrait's closed eye: a happy crescent, or a sleepy line.
+    g.beginPath()
+    if (fc.mouth > 0) g.arc(9, 3, 7, PI + 0.4, -0.4)
+    else g.arc(10, -6, 7, 0.5, PI - 0.5)
+    ink(0, 3.4)
+  } else if (win || lose) {
     // closed: a happy upward arc on a win, a defeated downward one on a loss
     g.beginPath()
     g.arc(9, win ? 3 : -8, 7, win ? PI + 0.4 : 0.4, win ? -0.4 : PI - 0.4)
@@ -442,7 +484,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       ink(EY)
       g.globalAlpha = 1
     }
-    el(10, -2, 6.4, 8.8 * (1 - bl) * (1 - D * 0.45) + 0.7)
+    el(10, -2, 6.4, 8.8 * (1 - bl) * (1 - D * 0.45) * (fc ? fc.eye : 1) + 0.7)
     ink(EY, 1.8)
     if (!F) {
       el(12.4, -5.2, 3, 3.4) // key glint...
@@ -475,6 +517,13 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   }
   // forelock swept back over the brow, in front of the horn base
   hair(1, -21, 0.25, 14, 12, 2.6, 0.8, 1)
+  // Head-slot cosmetics (§9.7's `afterHead`): drawn in head space, so they
+  // ride every pose and inherit the head's scale for free.
+  if (st.afterHead) {
+    g.save()
+    st.afterHead(g)
+    g.restore()
+  }
 
   // ONE deliberate shadow pass for the whole character.
   if (form > 0.01 || rear > 0.4) {

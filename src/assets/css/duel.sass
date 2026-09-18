@@ -23,7 +23,9 @@
   // The jam build drew with the canvas' generic `sans-serif` — Arial on
   // Windows, Helvetica on a Mac — so those lead. Real CJK / Thai / Devanagari
   // system faces come before the generic, or a Latin-only face tofus them.
-  font-family: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', sans-serif
+  // Arabic-capable system faces before the generic (§10.16): the stack used to
+  // leave Arabic to uncontrolled OS substitution.
+  font-family: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', 'Geeza Pro', 'Noto Sans Arabic', sans-serif
   font-weight: 900
   line-height: 1
   color: #fff
@@ -43,6 +45,23 @@
 // at 0.28em swallows the joins at small sizes. Thin the outline there.
 :lang(ar) .ink-text
   -webkit-text-stroke-width: 0.18em
+
+// Dialogue body text (story-spec §10.15). `.ink-text` is for single shouted
+// words and cannot wrap; a bubble is a sentence, in 21 scripts. Never
+// truncated: a translation that needs a third line gets one.
+.story-text
+  font-family: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', 'Geeza Pro', 'Noto Sans Arabic', sans-serif
+  font-weight: 600
+  line-height: 1.3
+  white-space: normal
+  overflow-wrap: anywhere
+  word-break: normal
+  line-break: normal
+  letter-spacing: 0
+
+// Bubble text flows right-to-left inside the (LTR) scene.
+:lang(ar) .story-text
+  unicode-bidi: plaintext
 
 // The chunky plate. `--lw` is the outline width.
 .duel-plate
@@ -82,3 +101,28 @@
 // tab, portal pause) instead of finishing unseen.
 .duel-paused, .duel-paused *
   animation-play-state: paused !important
+
+// The spellbook's "new" cue (story-spec §C16): a soft twinkle on the book
+// icon while a discovery waits to be looked at — a sparkle, never a red dot.
+.book-new:not(.abs)
+  position: relative
+
+.book-new::after
+  content: ''
+  position: absolute
+  right: -7px
+  top: -7px
+  width: 20px
+  height: 20px
+  background: #ffd36b
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)
+  animation: book-new-twinkle 1.2s ease-in-out infinite
+  pointer-events: none
+
+@keyframes book-new-twinkle
+  0%, 100%
+    transform: scale(0.7) rotate(0deg)
+    opacity: 0.65
+  50%
+    transform: scale(1.15) rotate(45deg)
+    opacity: 1

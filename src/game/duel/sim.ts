@@ -1,21 +1,27 @@
 /**
- * sim.ts — the duel itself. Owns every rule; draws nothing. Ported unchanged
- * from the jam build; only the callouts changed, from literal English strings
- * to i18n keys the Vue HUD translates.
+ * sim.ts — the duel itself. Owns every rule; draws nothing. The jam build's
+ * duel, grown to the story (story-spec §6): foes come from a `FoeDef`, spells
+ * from the generator, and the foe's pace from §6.14's rate chain.
  *
  * Flow: pointer stroke -> recognise() -> queue (max 3) -> cast -> a shot ->
  * resolve against barriers -> HP -> sky -> win/lose. The NPC runs the same
  * pipeline through `think`, so both duelists obey identical rules.
+ *
+ * BOUNDARY (§4.8.1): nothing here imports `src/game/campaign/` or
+ * `src/game/flow/`. The campaign resolves a node into a `DuelSetup`-shaped
+ * argument; the sim only ever sees a foe's numbers.
  */
 import {
-  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH,
-  PH_DUEL, PH_WIN, PH_LOSE, RUNES, FOES, RANK_BONUS, elemMul, spellFor, comboKey, winCoins,
-  type Rune
+  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE,
+  PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex,
+  type Rune, type ResolvedSpell
 } from '@/game/duel/config'
+import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
 import { S, save, pop, type Shot } from '@/game/duel/state'
-import { recognise } from '@/game/duel/runes'
-import { clamp, damp, rnd, pick, max, hypot, abs } from '@/game/duel/util'
-import { impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail } from '@/game/duel/fx'
+import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
+import { RUNE_DEFS } from '@/game/duel/runeDefs'
+import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
+import { impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints } from '@/game/duel/fx'
 import { sfx, setMood } from '@/game/duel/audio'
 
 /* ------------------------------ tuning ------------------------------ */
@@ -33,16 +39,30 @@ const HORN_Y = GY + HDY
  * flow. The sim stays free of Vue and of every platform module; the scene
  * subscribes.
  */
-export type DuelEvent = 'rune' | 'cast' | 'hurt' | 'hit' | 'finish'
-type Listener = (e: DuelEvent, won?: boolean) => void
+export type DuelEvent = 'rune' | 'cast' | 'hurt' | 'hit' | 'finish' | 'stroke' | 'phase'
+/** A miss scoring at least this is named as a near-miss (§5.12). Junk sits
+ *  well under it; the accept line (`THRESH`) is 0.78. */
+export const NEAR_MISS = 0.6
+
+/** What a finished stroke was, for telemetry (`'stroke'` events only). */
+export interface StrokeInfo {
+  success: boolean
+  /** The recognised rune, or on a miss the best-scoring one. */
+  rune: number
+  ec: number
+  turn: number
+  /** Best template score minus the 0.78 acceptance threshold. */
+  margin: number
+}
+type Listener = (e: DuelEvent, won?: boolean, info?: StrokeInfo) => void
 const listeners = new Set<Listener>()
 export const onDuelEvent = (fn: Listener): (() => void) => {
   listeners.add(fn)
   return () => { listeners.delete(fn) }
 }
-const emit = (e: DuelEvent, won?: boolean): void => {
+const emit = (e: DuelEvent, won?: boolean, info?: StrokeInfo): void => {
   for (const fn of listeners) {
-    try { fn(e, won) } catch (err) { console.warn('[duel] listener threw', err) }
+    try { fn(e, won, info) } catch (err) { console.warn('[duel] listener threw', err) }
   }
 }
 
@@ -89,11 +109,30 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
     p.length = 0
     return
   }
-  const r = recognise(S.pts)
+  // The runes this player can draw: the frozen four plus every rune a boss
+  // chest has granted (§4.4, §5.7.2).
+  const active = (S.campaign.runesUnlocked | FROZEN_MASK) >>> 0
+  const r = recognise(S.pts, active)
+  // Telemetry: what the stroke was, even when it was not a rune. Two more
+  // passes over a 32-point stroke, once per pointer release.
+  const f = strokeFeatures(S.pts)
+  const [best, sc] = rawScore(S.pts, active)
+  emit('stroke', undefined, {
+    success: r >= 0,
+    rune: r >= 0 ? r : best,
+    ec: f?.ec ?? 0,
+    turn: f?.turn ?? 0,
+    margin: sc - 0.78
+  })
   S.pts.length = 0
   if (r < 0) {
     // The ONLY visual sign a stroke was rejected — muted players need it.
-    pop('notARune', '#ff6a8a', calloutX, calloutY)
+    // A stroke that was plausibly reaching for a rune the player HAS names it
+    // instead: "Almost Fire!" (§5.12). Only once a new rune is unlocked, so a
+    // chapter-1 player is never taught about shapes that do not exist yet.
+    const near = (active & ~FROZEN_MASK) !== 0 && best >= 0 && sc >= NEAR_MISS && ((active >> best) & 1) === 1
+    if (near) pop('almostRune', '#ffd76a', calloutX, calloutY, { rune: RUNE_DEFS[best]!.slug })
+    else pop('notARune', '#ff6a8a', calloutX, calloutY)
     sfx('bad')
     return
   }
@@ -105,6 +144,7 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
   }
   const rune = r as Rune
   S.queue.push(rune)
+  S.landed++
   S.snap = { r: rune, t: 0 } // the clean glyph flashes, then it is stored (GDD 2.2)
   sfx('snap', rune)
   emit('rune')
@@ -121,30 +161,59 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
  */
 const guardKind = (q: readonly Rune[]): number => (q[0] === EARTH ? 1 : q[0] === ICE ? 2 : 0)
 
+/** The spell a queue resolves to, with this save's unlocked Signature Spells. */
+export const spellOf = (q: readonly number[]): ResolvedSpell => resolveSpell(q, S.campaign.signaturesUnlocked)
+
+/** The last spell the PLAYER cast, for the listener that records discoveries. */
+export interface CastInfo { key: string; index: number; count: number }
+let lastCast: CastInfo = { key: '', index: -1, count: 0 }
+export const lastPlayerCast = (): CastInfo => lastCast
+
+/** Callout params naming a resolved spell — golden, signature or generated. */
+export const spellPopParams = (sp: ResolvedSpell): Record<string, string | number> =>
+  sp.nameId ? { spell: sp.nameId, n: sp.count } : { form: `k${sp.kind}.c${sp.count}`, rune: sp.dominant, n: sp.count }
+
 /** Fire a spell. `e` = cast by the foe. */
 const launch = (q: Rune[], e: boolean): void => {
-  const sp = spellFor(q)
-  const [name, kind, , ex] = sp
+  const sp = spellOf(q)
+  const kind = sp.kind
+  const foe = FOES[S.foe]!
   /**
-   * The player's damage is the only thing the meta-game touches: the element
-   * the cast LEANS ON is checked against the foe's, then scaled by the rank
-   * bought with coins. The foe's own damage is left flat.
+   * Only the player's damage is scaled by elements: the element the cast
+   * LEANS ON (the last rune drawn) against the foe's. The foe's own damage is
+   * left flat. (No ranks — removed per D3.)
    */
-  const dr = q[q.length - 1]!
-  const mul = e ? 1 : elemMul(dr, FOES[S.foe]![1]) * (1 + RANK_BONUS * S.up[dr]!)
-  const dmg = sp[2] * mul
-  const key = comboKey(q)
+  const dr = sp.lead
+  const mul = e ? 1 : elemMul(dr, foe.element)
+  const dmg = sp.dmg * mul
   const hx = hornX(e)
   const dir = e ? -1 : 1
+  // Briar's phase 2 (§6.11): every non-Nature spell of hers also carries the
+  // Nature dot rider — chip poison on everything.
+  let dot = sp.dot ?? 0
+  if (e && S.ePhase === 2 && foe.phase2 === 'natureRider' && !q.includes(NATURE as Rune)) dot += 2
 
   castBurst(hx, HORN_Y, dr)
   sfx('cast', q.length)
   if (e) S.eCastAnim = 0.55
   else S.castAnim = 0.55
 
+  // A caster heal-over-time (Nature's bloom) starts with the cast itself.
+  if (sp.regen) {
+    const [rate, secs] = sp.regen
+    if (e) {
+      S.eRegenRate = rate
+      S.eRegen = max(S.eRegen, secs)
+    } else {
+      S.regenRate = rate
+      S.regen = max(S.regen, secs)
+    }
+  }
+
   if (kind === 2) {
     // Barriers land on the caster, instantly.
     const k = guardKind(q)
+    const ex = sp.guard ?? 0
     if (e) {
       S.eGuard = ex
       S.eGuardK = k
@@ -159,25 +228,23 @@ const launch = (q: Rune[], e: boolean): void => {
       x: hx,
       y: HORN_Y,
       tx: e ? AX : UX,
-      r: dr,
+      r: dr as Rune,
       k: kind,
       dmg,
-      ex,
+      dot,
+      slow: sp.slow ?? 0,
       dir,
       w: mul > 1.2 ? 1 : 0, // super-effective, for the callout on impact
       n: q.length,
-      delay: DELAY[kind]!,
+      delay: DELAY[kind] ?? 0,
       life: 0
     })
   }
 
   if (!e) {
     S.combo = q.length
-    if (!S.seen[key]) {
-      S.seen[key] = 1
-      save()
-    }
-    pop('spell', RUNES[q[0]!]![0], 640, 250, { spell: name, n: q.length })
+    lastCast = { key: sp.key, index: comboEnumerationIndex(q), count: q.length }
+    pop('spell', RUNES[q[0]!]![0], 640, 250, spellPopParams(sp))
     if (S.intro) {
       S.intro = 0
       S.introStep = 3
@@ -239,15 +306,15 @@ const strike = (s: Shot, e: boolean): void => {
   if (e) {
     S.ehp = max(0, S.ehp - s.dmg)
     S.eHurt = 0.3
-    if (s.ex && s.k === 1) S.eBurn = max(S.eBurn, s.ex)
-    if (s.ex && (s.k === 0 || s.k === 3)) S.eSlow = max(S.eSlow, s.ex)
+    if (s.dot) S.eBurn = max(S.eBurn, s.dot)
+    if (s.slow) S.eSlow = max(S.eSlow, s.slow)
     if (s.k === 4) S.eForm = max(0, S.eForm - 0.5) // pushback disrupts casting
     emit('hit')
   } else {
     S.hp = max(0, S.hp - s.dmg)
     S.hurt = 0.3
-    if (s.ex && s.k === 1) S.burn = max(S.burn, s.ex)
-    if (s.ex && (s.k === 0 || s.k === 3)) S.slow = max(S.slow, s.ex)
+    if (s.dot) S.burn = max(S.burn, s.dot)
+    if (s.slow) S.slow = max(S.slow, s.slow)
     emit('hurt')
   }
   // A weakness the player cannot SEE landing is a weakness they will not learn
@@ -283,17 +350,24 @@ const stepShots = (dt: number): void => {
 
 /* ------------------------------ the NPC ----------------------------- */
 /**
+ * The foe's pace — §6.14's whole chain:
+ *   rate = base(aiTier) × onboarding × dreamDust × slow × phaseWindup
+ * floored at 0.25 runes/s, except during a boss's phase wind-up, which is a
+ * full pause by design (the universal tell, §6.11).
+ */
+export const foeRate = (): number => {
+  if (S.eWindup > 0) return 0
+  const foe = FOES[S.foe]!
+  return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * (S.eSlow > 0 ? 0.55 : 1))
+}
+
+/**
  * The foe forms runes on a timer and casts on intent, never on a coin flip:
- * she answers what is actually on the field. Difficulty ramps with the ladder
- * so a returning player meets a sharper opponent.
+ * she answers what is actually on the field.
  */
 const think = (dt: number): void => {
-  const lv = S.foe // rung on the ladder IS the tier: a new foe is a new brain
-  // The very first duel eases off. A beginner still fighting the gesture
-  // should not be dead before they understand the verb; measured, a 2.5s/rune
-  // hand won 18% of duels at full rate, which is where new players quit.
-  const first = S.wins || S.losses ? 1 : 0.8
-  const rate = (0.42 + lv * 0.085) * (S.eSlow > 0 ? 0.55 : 1) * first
+  const lv = FOES[S.foe]!.aiTier
+  const rate = foeRate()
   // Commit to the next rune BEFORE forming it, so the ghost in her slot shows
   // what is actually coming and the player has something to read.
   if (S.eRune < 0) S.eRune = chooseRune()
@@ -314,35 +388,41 @@ const think = (dt: number): void => {
 
   // Cast when it means something: a full hand, a defensive answer to a shot
   // already in flight, or a finisher that would end the duel now.
-  const finisher = spellFor(q)[2] >= S.hp
+  const finisher = spellOf(q).dmg >= S.hp
   // FROM TIER 2 SHE READS THE PLAYER'S SLOTS, so a player who telegraphs three
   // runes of damage meets a guard instead of a free hit.
-  const threat = lv >= 2 && S.queue.length >= 2 && spellFor(S.queue)[1] !== 2
+  const threat = lv >= 2 && S.queue.length >= 2 && spellOf(S.queue).kind !== 2
   // A half-built attack in hand cannot become a wall, so she DUMPS it and
   // commits to EARTH — a lone EARTH is already a barrier, and `eRune` is the
   // ghost the player can see, so the panic is legible rather than magic.
-  if (threat && S.eGuard <= 0 && q.length && spellFor(q)[1] !== 2) {
+  if (threat && S.eGuard <= 0 && q.length && spellOf(q).kind !== 2) {
     q.length = 0
     S.eRune = EARTH
     S.eForm = max(S.eForm, 0.5)
   }
-  const defend = (incoming || threat) && spellFor(q)[1] === 2 && S.eGuard <= 0
+  const defend = (incoming || threat) && spellOf(q).kind === 2 && S.eGuard <= 0
   if (full || defend || finisher || (q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
 const chooseRune = (): Rune => {
   const q = S.equeue
-  const el = FOES[S.foe]![1]
+  const foe = FOES[S.foe]!
+  // C14's node-3 rule: a chapter's own magic is hers from node 3 on. Before
+  // that she draws only the base four, however she is themed.
+  const magic = S.usesMagic && foe.magic >= 0 ? (foe.magic as Rune) : -1
   // A lone EARTH already IS a barrier, so under a read threat it is the
   // fastest wall she can put up.
-  if (S.foe >= 2 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length) return EARTH
+  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length) return EARTH
   // Answer pressure with defence, otherwise build toward damage.
-  if (S.ehp < HP_MAX * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) return pick([EARTH, ICE, WIND] as const)
+  if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) return pick([EARTH, ICE, WIND] as const)
   if (q.length === 1 && rnd() < 0.55) return q[0]! // doubling up is the strong play
-  // A themed foe leans on its own element — that is what makes it readable,
-  // and therefore what makes its weakness worth learning.
-  return el < 0 || rnd() < 0.4 ? pick([FIRE, FIRE, ICE, ICE, EARTH, WIND] as const) : (el as Rune)
+  // Her chapter's magic (§6.13): Nature opens more once her own HP is < 60 %.
+  if (magic >= 0 && rnd() < (S.ehp < S.ehpMax * 0.6 ? 0.6 : 0.3)) return magic as Rune
+  // A foe themed to a BASE element leans on it — that is what makes it
+  // readable, and therefore what makes its weakness worth learning.
+  const el = foe.element
+  return el >= 0 && el < 4 && rnd() >= 0.4 ? (el as Rune) : pick([FIRE, FIRE, ICE, ICE, EARTH, WIND] as const)
 }
 
 /* ------------------------------- update ----------------------------- */
@@ -358,6 +438,16 @@ const tick = (dt: number): void => {
     S.ehp = max(0, S.ehp - 4 * dt)
     S.eHurt = max(S.eHurt, 0.06)
   }
+  // Heal over time (Nature's bloom), capped at the side's own max.
+  if (S.regen > 0) {
+    S.regen -= dt
+    S.hp = min(S.hpMax, S.hp + S.regenRate * dt)
+  }
+  if (S.eRegen > 0) {
+    S.eRegen -= dt
+    S.ehp = min(S.ehpMax, S.ehp + S.eRegenRate * dt)
+  }
+  if (S.eWindup > 0) S.eWindup = max(0, S.eWindup - dt)
   if (S.guard > 0) S.guard -= dt
   if (S.eGuard > 0) S.eGuard -= dt
   if (S.slow > 0) S.slow -= dt
@@ -380,20 +470,13 @@ const finish = (won: boolean): void => {
   S.shots.length = 0
   S.queue.length = 0
   S.equeue.length = 0
-  S.lastPay = 0
+  S.regen = S.eRegen = 0
   if (won) {
     S.wins++
-    // Coins ONLY come from wins, and a rung further up pays more — the reward
-    // curve has to outrun the difficulty curve or upgrading stops mattering.
-    const c = winCoins(S.foe)
-    S.coins += c
-    S.lastPay = c
-    if (S.foe < FOES.length - 1) S.foe++
     if (!S.best || S.dur < S.best) S.best = S.dur
     rainbowBurst(UX, GY - 120)
     flashAdd(0.7)
     pop('victory', '#ffe98a', 640, 240)
-    pop('coins', '#ffd76a', 640, 300, { n: c })
   } else {
     S.losses++
     pop('defeated', '#ff6a8a', 640, 240)
@@ -404,10 +487,41 @@ const finish = (won: boolean): void => {
   emit('finish', won)
 }
 
-/** Start (or restart) a duel without touching the meta-progress. */
-export const resetDuel = (): void => {
+/** What a duel needs to know about its node — resolved by the campaign. */
+export interface DuelStart {
+  /** Index into `FOES`. */
+  foe: number
+  /** C14's node-3 rule. */
+  usesMagic: boolean
+  /** Dream Dust: this node's current loss streak (§6.15). */
+  lossStreak: number
+}
+
+/** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15). */
+export const dreamDust = (lossStreak: number): number => max(0.6, 1 - 0.08 * max(0, lossStreak))
+/** Onboarding: the foe ramps 0.7× → 1.0× over the player's first six duels (§6.14). */
+export const onboarding = (duelsPlayed: number): number => 0.7 + 0.3 * min(1, max(0, duelsPlayed) / 5)
+
+/**
+ * Start (or restart) a duel without touching the meta-progress. With no
+ * argument it re-runs the current foe (tests, debug hooks).
+ */
+export const resetDuel = (start?: DuelStart): void => {
+  if (start) {
+    S.foe = clamp(start.foe | 0, 0, FOES.length - 1)
+    S.usesMagic = start.usesMagic
+    S.dust = dreamDust(start.lossStreak)
+  }
+  const foe: FoeDef = FOES[S.foe]!
+  S.onboard = onboarding(S.wins + S.losses)
   S.phase = PH_DUEL
-  S.hp = S.ehp = HP_MAX
+  S.hpMax = HP_MAX
+  S.ehpMax = foe.hpMax
+  S.hp = S.hpMax
+  S.ehp = S.ehpMax
+  S.regen = S.eRegen = S.regenRate = S.eRegenRate = 0
+  S.ePhase = 1
+  S.eWindup = 0
   S.queue.length = S.equeue.length = S.shots.length = S.pts.length = 0
   S.eForm = S.guard = S.eGuard = S.burn = S.eBurn = S.slow = S.eSlow = 0
   S.castAnim = S.eCastAnim = S.hurt = S.eHurt = S.draw = 0
@@ -415,22 +529,9 @@ export const resetDuel = (): void => {
   S.resultUp = false
   S.eThink = 1.2 // a grace beat before the foe opens
   S.snap = null
+  S.landed = 0
   S.sky = 0.5
   S.round++
-}
-
-/**
- * Buy one rank of element `i`. Priced off the rank already held, so each is
- * dearer than the last and the player has to pick a lane rather than levelling
- * all four flat. Returns whether it was bought.
- */
-export const buyRank = (i: number, price: (rank: number) => number): boolean => {
-  const c = price(S.up[i]!)
-  if (S.coins < c) return false
-  S.coins -= c
-  S.up[i]!++
-  save()
-  return true
 }
 
 /** One simulation step. Called at a fixed timestep by the scene. */
@@ -454,9 +555,22 @@ export const updateSim = (dt: number): void => {
     }
   } else think(dt)
 
-  // The sky IS the scoreboard (GDD 2.3): it tracks the HP balance, damped so
-  // a single bolt tilts the weather rather than snapping it.
-  const bal = 0.5 + (S.hp - S.ehp) / (2 * HP_MAX)
+  // A boss crossing half her HP shifts phase (§6.11): a 1.8 s wind-up in which
+  // she forms nothing — the universal tell — then her chapter's mechanic.
+  const foe = FOES[S.foe]!
+  if (foe.boss && S.ePhase === 1 && S.ehp > 0 && S.ehp <= S.ehpMax * 0.5) {
+    S.ePhase = 2
+    S.eWindup = 1.8
+    gatherGlints(UX, GY - 150, 1.4)
+    shakeAdd(0.25)
+    sfx('guard')
+    emit('phase')
+  }
+
+  // The sky IS the scoreboard (GDD 2.3): it tracks the HP balance per side
+  // (F18: a boss's extra HP must not read as a blowout), damped so a single
+  // bolt tilts the weather rather than snapping it.
+  const bal = 0.5 + (S.hp / S.hpMax - S.ehp / S.ehpMax) / 2
   S.sky = damp(S.sky, clamp(bal, 0, 1), 1.4, dt)
   setMood(S.sky)
 

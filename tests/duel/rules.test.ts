@@ -1,15 +1,17 @@
-// The duel's rules — spell matrix, the elemental ladder, damage, barriers,
-// the end of a duel and the shop. Driven through the real sim (`updateSim` at
-// the scene's fixed 1/120 s step), with the foe held still where a test needs
-// a clean exchange.
+// The duel's rules — the spell generator, the elemental graph, the foe
+// roster, damage and barriers, the end of a duel, and the story's difficulty
+// chain (story-spec §6). Driven through the real sim (`updateSim` at the
+// scene's fixed 1/120 s step), with the foe held still where a test needs a
+// clean exchange. No coins, no ranks, no shop (D3).
 
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  SPELLS, WILD, spellFor, comboKey, elemMul, CTR, FOES, winCoins, rankPrice, MAX_RUNES,
-  FIRE, WIND, ICE, EARTH, PH_DUEL, PH_WIN, PH_LOSE, RANK_BONUS
+  SPELLS, comboKey, resolveSpell, dominantRune, comboEnumerationIndex, comboFromIndex, COMBO_COUNT,
+  elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, PH_DUEL, PH_WIN, PH_LOSE
 } from '@/game/duel/config'
+import { FOES, shadowOf, guardianOf, tierRate } from '@/game/duel/foes'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, buyRank, onDuelEvent } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, onboarding, foeRate } from '@/game/duel/sim'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -21,54 +23,127 @@ const holdFoe = (): void => {
   S.eForm = 0
   S.equeue.length = 0
 }
+const MOON = 10
 
 beforeEach(() => {
-  S.foe = 0
-  S.coins = 0
-  S.up = [0, 0, 0, 0]
-  S.wins = 1 // not the eased first duel
+  S.wins = 5 // past onboarding
   S.losses = 0
   S.intro = 0
   S.pops.length = 0
-  resetDuel()
+  resetDuel({ foe: 0, usesMagic: false, lossStreak: 0 })
 })
 
-describe('the spell matrix', () => {
-  it('keys a combination by its SORTED runes, so draw order never matters', () => {
-    expect(comboKey([ICE, FIRE])).toBe('02')
-    expect(spellFor([ICE, FIRE])).toBe(SPELLS['02'])
-    expect(spellFor([FIRE, ICE])).toBe(SPELLS['02'])
+describe('the spell generator (§6.2, §6.4)', () => {
+  it('keys a combination by its SORTED, DELIMITED runes, so draw order never matters', () => {
+    expect(comboKey([ICE, FIRE])).toBe('0.2')
+    expect(comboKey([11, 1])).toBe('1.11')
+    const a = resolveSpell([ICE, FIRE])
+    const b = resolveSpell([FIRE, ICE])
+    expect(a.key).toBe('0.2')
+    expect(b.key).toBe('0.2')
+    expect(a.nameId).toBe(b.nameId)
+    expect(a.dmg).toBe(b.dmg)
   })
 
-  it('every key is reachable — no combination longer than the hand', () => {
-    for (const k of Object.keys(SPELLS)) expect(k.length).toBeLessThanOrEqual(MAX_RUNES)
+  it('keeps the golden 22 byte-identical: name, kind, and (below three runes) damage', () => {
+    for (const [key, [nameId, kind, dmg]] of Object.entries(SPELLS)) {
+      const q = key.split('.').map(Number)
+      expect(q.length, key).toBeLessThanOrEqual(MAX_RUNES)
+      const sp = resolveSpell(q)
+      expect(sp.nameId, key).toBe(nameId)
+      expect(sp.kind, key).toBe(kind)
+      if (q.length < 3) expect(sp.dmg, key).toBe(dmg)
+      else expect(sp.dmg, key).toBeGreaterThanOrEqual(dmg) // the combo bonus only ever lifts
+    }
   })
 
-  it('falls back to WILD SURGE for an unlisted combination', () => {
-    expect(spellFor([FIRE, FIRE, WIND])).toBe(WILD)
+  it('names a new rune by the generator, not by a key of its own', () => {
+    const sp = resolveSpell([NATURE])
+    expect(sp.nameId).toBeNull()
+    expect(sp.dominant).toBe(NATURE)
+    expect(sp.count).toBe(1)
+  })
+
+  it('lets the dominant rune lead; a tie goes to the last one drawn', () => {
+    expect(dominantRune([FIRE, FIRE, WIND])).toBe(FIRE)
+    expect(dominantRune([FIRE, ICE])).toBe(ICE)
+    expect(dominantRune([ICE, FIRE])).toBe(FIRE)
+    // A base-rune dominant keeps its golden name; the minority is a rider.
+    expect(resolveSpell([FIRE, FIRE, WIND]).nameId).toBe('fireRain')
+  })
+
+  it('never makes three runes worse than 1.5x the best pair inside them (§6.16)', () => {
+    for (let i = 90; i < COMBO_COUNT; i++) {
+      const q = comboFromIndex(i)
+      const sp = resolveSpell(q)
+      if (![0, 1, 3, 4].includes(sp.kind) || sp.dmg <= 0) continue
+      let best = 0
+      for (let j = 0; j < 3; j++) best = Math.max(best, resolveSpell(q.filter((_, k) => k !== j)).dmg)
+      expect(sp.dmg, q.join('.')).toBeGreaterThanOrEqual(best * 1.5 - 1e-9)
+    }
+  })
+
+  it('enumerates all 454 combinations, one index each, round-tripping (§4.3.1)', () => {
+    expect(COMBO_COUNT).toBe(454)
+    const seen = new Set<string>()
+    for (let i = 0; i < COMBO_COUNT; i++) {
+      const q = comboFromIndex(i)
+      expect(q.length).toBeGreaterThanOrEqual(1)
+      expect(q.length).toBeLessThanOrEqual(3)
+      expect(comboEnumerationIndex(q)).toBe(i)
+      expect(comboEnumerationIndex([...q].reverse())).toBe(i)
+      seen.add(comboKey(q))
+    }
+    expect(seen.size).toBe(COMBO_COUNT)
+    expect(comboEnumerationIndex([12])).toBe(-1)
+    expect(comboEnumerationIndex([0, 0, 0, 0])).toBe(-1)
   })
 })
 
-describe('the elemental ladder', () => {
-  it('is one 4-cycle: every element has exactly one counter', () => {
-    expect([...CTR].sort()).toEqual([0, 1, 2, 3])
+describe('the elemental graph (§6.6)', () => {
+  it('keeps the frozen four as one 4-cycle', () => {
+    expect([...CTR.slice(0, 4)].sort()).toEqual([0, 1, 2, 3])
     for (let e = 0; e < 4; e++) expect(CTR[e]).not.toBe(e)
   })
 
-  it('pays x1.7 for the counter, x0.55 for the same element, x1 otherwise', () => {
+  it('adds cycle B — Moon → Nature → Water → Lightning → Illusion → Moon — and exempts the rest', () => {
+    expect(CTR[NATURE]).toBe(MOON)
+    expect(CTR[5]).toBe(NATURE)
+    expect(CTR[6]).toBe(5)
+    expect(CTR[7]).toBe(6)
+    expect(CTR[MOON]).toBe(7)
+    for (const e of [8, 9, 11]) expect(CTR[e]).toBe(-1)
+  })
+
+  it('pays x1.7 for the counter, x0.55 for the same element, x1 otherwise or with no element', () => {
     expect(elemMul(EARTH, FIRE)).toBe(1.7)
     expect(elemMul(FIRE, FIRE)).toBe(0.55)
     expect(elemMul(WIND, FIRE)).toBe(1)
-  })
-
-  it('has no weakness to exploit on the first and the last rung', () => {
-    expect(FOES[0]![1]).toBe(-1)
-    expect(FOES[FOES.length - 1]![1]).toBe(-1)
+    expect(elemMul(MOON, NATURE)).toBe(1.7)
     expect(elemMul(FIRE, -1)).toBe(1)
   })
+})
 
-  it('pays more further up — the reward curve outruns the difficulty curve', () => {
-    for (let f = 1; f < FOES.length; f++) expect(winCoins(f)).toBeGreaterThan(winCoins(f - 1))
+describe('the foe roster (§6.10–§6.12)', () => {
+  it('holds a shadow clone and a Guardian per chapter, by position', () => {
+    expect(FOES.length).toBe(20)
+    for (let c = 0; c < 10; c++) {
+      expect(FOES[shadowOf(c)]!.boss).toBe(false)
+      expect(FOES[guardianOf(c)]!.boss).toBe(true)
+      expect(FOES[shadowOf(c)]!.slug).toBe('shadow')
+    }
+    expect(FOES[guardianOf(0)]!.slug).toBe('briar')
+    expect(FOES[guardianOf(9)]!.slug).toBe('umbra')
+  })
+
+  it('grows HP by 3 a chapter, +20 for a Guardian (+16 at the finale), tiers every 3 chapters', () => {
+    for (let c = 0; c < 10; c++) {
+      expect(FOES[shadowOf(c)]!.hpMax).toBe(100 + 3 * c)
+      expect(FOES[guardianOf(c)]!.hpMax).toBe(100 + 3 * c + (c === 9 ? 16 : 20))
+      expect(FOES[shadowOf(c)]!.aiTier).toBe(Math.min(2, Math.floor(c / 3)))
+    }
+    expect(FOES[guardianOf(0)]!.phase2).toBe('natureRider')
+    expect(FOES[shadowOf(0)]!.element).toBe(NATURE)
   })
 })
 
@@ -81,16 +156,16 @@ describe('casting and resolution', () => {
     expect(S.shots.length).toBe(1)
     run(1)
     expect(S.shots.length).toBe(0)
-    expect(S.ehp).toBeCloseTo(100 - SPELLS['0']![2], 5)
+    expect(S.ehp).toBeCloseTo(S.ehpMax - SPELLS['0']![2], 5)
   })
 
-  it('element ranks scale the player\'s damage by +12% each', () => {
+  it('the counter rune hits the chapter-1 shadow (Nature) for x1.7', () => {
     holdFoe()
-    S.up[FIRE] = 2
-    S.queue.push(FIRE)
+    const before = S.ehp
+    S.queue.push(MOON)
     cast()
-    run(1)
-    expect(S.ehp).toBeCloseTo(100 - 8 * (1 + 2 * RANK_BONUS), 5)
+    run(1.5)
+    expect(before - S.ehp).toBeCloseTo(resolveSpell([MOON]).dmg * 1.7, 5)
   })
 
   it('an EARTH WALL on the foe stops a bolt outright', () => {
@@ -100,7 +175,7 @@ describe('casting and resolution', () => {
     S.queue.push(FIRE)
     cast()
     run(1)
-    expect(S.ehp).toBe(100)
+    expect(S.ehp).toBe(S.ehpMax)
     expect(S.pops.some((p) => p.k === 'blocked')).toBe(true)
   })
 
@@ -111,12 +186,12 @@ describe('casting and resolution', () => {
     S.queue.push(FIRE)
     cast()
     run(1)
-    expect(S.ehp).toBe(100)
+    expect(S.ehp).toBe(S.ehpMax)
     expect(S.eGuard).toBe(0)
     S.queue.push(FIRE)
     cast()
     run(1)
-    expect(S.ehp).toBeLessThan(100)
+    expect(S.ehp).toBeLessThan(S.ehpMax)
   })
 
   it('casting with an empty hand does nothing', () => {
@@ -126,7 +201,7 @@ describe('casting and resolution', () => {
 })
 
 describe('the end of a duel', () => {
-  it('a win pays coins, climbs the ladder, and fires exactly one finish event', () => {
+  it('a win ends the fight and fires exactly one finish event — and pays nothing (D3)', () => {
     holdFoe()
     const events: boolean[] = []
     const off = onDuelEvent((e, won) => { if (e === 'finish') events.push(!!won) })
@@ -136,49 +211,71 @@ describe('the end of a duel', () => {
     run(2)
     off()
     expect(S.phase).toBe(PH_WIN)
-    expect(S.coins).toBe(winCoins(0))
-    expect(S.lastPay).toBe(winCoins(0))
-    expect(S.foe).toBe(1)
+    expect(S.foe).toBe(0) // the campaign, not the sim, decides what comes next
     expect(events).toEqual([true])
+    expect('coins' in S).toBe(false)
   })
 
-  it('a loss pays nothing and keeps the rung', () => {
+  it('a loss ends the fight where it stands', () => {
     S.hp = 0.01
     S.burn = 5
     run(0.1)
     expect(S.phase).toBe(PH_LOSE)
-    expect(S.coins).toBe(0)
     expect(S.foe).toBe(0)
   })
 
-  it('the sky tracks the HP balance while the duel runs', () => {
+  it('the sky tracks each side\'s HP share while the duel runs', () => {
     holdFoe()
-    S.ehp = 20
+    S.ehp = S.ehpMax * 0.2
     run(3)
     expect(S.sky).toBeGreaterThan(0.8)
   })
 
   it('a new duel resets the fight but not the meta-progress', () => {
-    S.coins = 30
-    S.foe = 2
+    S.wins = 7
     S.hp = 10
     S.phase = PH_WIN
     resetDuel()
     expect(S.phase).toBe(PH_DUEL)
-    expect(S.hp).toBe(100)
-    expect(S.coins).toBe(30)
-    expect(S.foe).toBe(2)
+    expect(S.hp).toBe(S.hpMax)
+    expect(S.wins).toBe(7)
+    expect(S.foe).toBe(0)
+    expect(S.landed).toBe(0)
   })
 })
 
-describe('the element shop', () => {
-  it('prices each rank off the rank already held, and refuses what it cannot afford', () => {
-    S.coins = 25
-    expect(buyRank(FIRE, rankPrice)).toBe(true) // 10
-    expect(S.coins).toBe(15)
-    expect(buyRank(FIRE, rankPrice)).toBe(false) // 20 > 15
-    expect(S.up[FIRE]).toBe(1)
-    expect(buyRank(ICE, rankPrice)).toBe(true) // a fresh lane is 10 again
-    expect(S.coins).toBe(5)
+describe('the difficulty chain (§6.14–§6.15)', () => {
+  it('Dream Dust eases 8 % per loss in a row, never below 0.6', () => {
+    expect(dreamDust(0)).toBe(1)
+    expect(dreamDust(1)).toBeCloseTo(0.92)
+    expect(dreamDust(5)).toBeCloseTo(0.6)
+    expect(dreamDust(8)).toBe(0.6)
+    expect(dreamDust(-3)).toBe(1)
+  })
+
+  it('onboarding eases the first five duels', () => {
+    expect(onboarding(0)).toBeCloseTo(0.7)
+    expect(onboarding(5)).toBe(1)
+    expect(onboarding(50)).toBe(1)
+  })
+
+  it('a duel starts from its node: foe, magic rule, HP per side, and dust', () => {
+    resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 2 })
+    expect(S.foe).toBe(guardianOf(0))
+    expect(S.usesMagic).toBe(true)
+    expect(S.ehpMax).toBe(120)
+    expect(S.ehp).toBe(120)
+    expect(S.hpMax).toBe(100)
+    expect(S.dust).toBeCloseTo(0.84)
+  })
+
+  it('the foe\'s rate is the product of the chain, floored, and zero in a wind-up', () => {
+    resetDuel({ foe: shadowOf(0), usesMagic: false, lossStreak: 3 })
+    expect(foeRate()).toBeCloseTo(Math.max(0.25, tierRate(0) * 1 * dreamDust(3)))
+    S.eWindup = 1
+    expect(foeRate()).toBe(0)
+    S.eWindup = 0
+    S.dust = 0.01
+    expect(foeRate()).toBe(0.25)
   })
 })

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { hudPops, hudLayout } from '@/use/useDuelHud'
 import { POP_LIFE, type Pop } from '@/game/duel/state'
+import { spellName } from '@/use/useSpellName'
 
 /**
  * The floating callouts — "NOT A RUNE", "-12", "WEAK! -20", the spell name,
@@ -16,12 +17,25 @@ import { POP_LIFE, type Pop } from '@/game/duel/state'
  * floor on the type — the stage is a quarter scale on a phone held upright.
  */
 const props = defineProps<{ portrait: boolean }>()
-const { t } = useI18n()
+const { t, te, locale } = useI18n()
 
 const text = (p: Pop): string => {
+  if (p.k === 'almostRune') {
+    // A rune without a translated name yet falls back to the plain miss.
+    const k = `rune.${String(p.p?.rune ?? '')}`
+    // Shouted like every callout; the LOCALE upper-cases the name, so a
+    // Turkish i and a caseless script both come out right.
+    return te(k) ? t('duel.almostRune', { rune: t(k).toLocaleUpperCase(locale.value) }) : t('pop.notARune')
+  }
   if (p.k === 'spell') {
-    const name = t(`spell.${p.p?.spell ?? 'wildSurge'}`)
+    // Golden/signature spells carry their own name; every other combo is
+    // named by the generator's grammar (§10.12).
     const n = Number(p.p?.n ?? 1)
+    const form = String(p.p?.form ?? '')
+    const m = /^k(\d)\.c(\d)$/.exec(form)
+    const name = p.p?.spell
+      ? t(`spell.${p.p.spell}`)
+      : spellName(t, locale.value, { nameId: null, kind: m ? +m[1]! : 0, count: m ? +m[2]! : n, rune: Number(p.p?.rune ?? 0) })
     return n > 1 ? `${name}  ${t('pop.times', { n })}` : name
   }
   return t(`pop.${p.k}`, p.p ?? {})

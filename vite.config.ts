@@ -1,5 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 
 import { defineConfig, loadEnv, type Plugin } from 'vite'
@@ -87,6 +88,158 @@ const pkg = JSON.parse(
   readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8')
 ) as { version?: string }
 const appVersion: string = pkg.version ?? '0.0.0'
+// ─── The baked leaderboard ──────────────────────────────────────────────────
+//
+// It ships `data/leaderboard-snapshot.json` as the virtual module
+// `virtual:leaderboard-snapshot`, which `src/use/leaderboardSnapshot.ts`
+// re-exports and `useLeaderboard` falls back to.
+//
+// PASS `true` FOR EVERY BUILD, not just the offline portals. The snapshot does
+// two different jobs:
+//
+//   • On Poki and Yandex — the portals that forbid the runtime request, which
+//     `loadEnv` surfaces here as an empty `VITE_LEADERBOARD_URL` — it IS the
+//     leaderboard. There is no other board on those builds.
+//   • On every live build it is the bottom rung of `useLeaderboard`'s offline
+//     ladder: what a player sees when the fetch fails and their device has no
+//     cache of its own yet. That is not hypothetical — the Worker's D1
+//     row-read allowance ran out mid-afternoon and `/top` threw for every live
+//     build at once, which without this shows a first-time player "Couldn't
+//     reach the leaderboard". It costs ~1.7 kB gzipped.
+//
+// The refresh runs as a CHILD PROCESS of `scripts/leaderboard-snapshot.mjs` —
+// the same code path `pnpm leaderboard:snapshot` runs, so the build cannot
+// drift from the manual command, and a fetch that hangs or throws cannot take
+// the vite process with it. It is allowed to fail: the file is committed, so a
+// build with no network bakes the last known board instead of quietly shipping
+// without the feature.
+
+
+/**
+ * The SEEDED board, for builds that can never write to the real one.
+ *
+ * Poki forbids every external runtime request and Yandex rejects third-party
+ * storage URLs, so neither can post a score — their baked copy is not a stale
+ * view of a living board, it is the entire board for the life of the build.
+ * Seeding those from the live snapshot ranks their players against a 2 422-row
+ * sample of everyone who ever opened the game once, 56 % of whom never passed
+ * stage 2. `scripts/leaderboard-seed.mjs` builds a modelled retention curve
+ * instead; the file it writes is committed and deterministic.
+ */
+const SEED_FILE = resolve(
+  fileURLToPath(new URL('./data/leaderboard-seed.json', import.meta.url))
+)
+
+const SNAPSHOT_VIRTUAL_ID = 'virtual:leaderboard-snapshot'
+const SNAPSHOT_RESOLVED = '\0' + SNAPSHOT_VIRTUAL_ID
+const SNAPSHOT_FILE = resolve(
+  fileURLToPath(new URL('./data/leaderboard-snapshot.json', import.meta.url))
+)
+const SNAPSHOT_SCRIPT = resolve(
+  fileURLToPath(new URL('./scripts/leaderboard-snapshot.mjs', import.meta.url))
+)
+
+interface LeaderboardSnapshotFile {
+  /** When this process last pulled it off the Worker — the freshness clock. */
+  fetchedAt: number
+  updatedAt: number
+  total: number
+  entries: { rank: number; name: string; score: number; flair: number }[]
+  dist: [number, number][]
+}
+
+/** How recently the file must have been fetched for the build to accept it as
+ *  already current. Long enough that a `build:*` script's own refresh (and a
+ *  run of several portal builds back to back) costs the Worker ONE request. */
+const SNAPSHOT_FRESH_MS = 10 * 60_000
+
+const readSnapshotFile = (file: string): LeaderboardSnapshotFile | null => {
+  if (!existsSync(file)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf-8')) as Partial<LeaderboardSnapshotFile>
+    if (!Array.isArray(parsed.entries) || !Array.isArray(parsed.dist)) return null
+    if (!(Number(parsed.total) > 0)) return null
+    return {
+      fetchedAt: Number(parsed.fetchedAt) || 0,
+      updatedAt: Number(parsed.updatedAt) || 0,
+      total: Number(parsed.total),
+      entries: parsed.entries,
+      dist: parsed.dist
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * @param seeded whether this build can never gain a real player (Poki, Yandex —
+ *   no endpoint, so no writes). Those bake the modelled board; every other
+ *   target bakes the real snapshot as the bottom rung of its offline ladder.
+ */
+const leaderboardSnapshotPlugin = (seeded: boolean): Plugin => ({
+  name: 'auroras-magic-leaderboard-snapshot',
+  buildStart() {
+    if (seeded) {
+      // Nothing to fetch: the seed is generated from a curve, committed, and
+      // deterministic. Re-running `pnpm leaderboard:seed` reproduces it byte for
+      // byte, so a build never needs to and never should.
+      const seed = readSnapshotFile(SEED_FILE)
+      if (seed) {
+        console.log(
+          `[leaderboard] baking the SEEDED board — ${seed.total} players / `
+          + `${seed.entries.length} rows, top score ${seed.dist[0]?.[0] ?? 0}. `
+          + 'This build cannot post scores, so the board is modelled.'
+        )
+      } else {
+        console.warn(
+          `[leaderboard] no seed at ${SEED_FILE} — run \`pnpm leaderboard:seed\`. `
+          + 'This build has no leaderboard.'
+        )
+      }
+      return
+    }
+
+    // The `build:*` scripts refresh it themselves, so the file is usually
+    // seconds old by the time this runs. Refetching would be a second round
+    // trip for the same bytes — and building five portal targets in a row would
+    // be five. This hook is the SAFETY NET for anyone invoking `vite build
+    // --mode <x>` directly, which is why it stays.
+    const onDisk = readSnapshotFile(SNAPSHOT_FILE)
+    const fresh = onDisk !== null && Date.now() - onDisk.fetchedAt < SNAPSHOT_FRESH_MS
+    if (!fresh) {
+      try {
+        execFileSync(process.execPath, [SNAPSHOT_SCRIPT], { stdio: 'inherit', timeout: 60_000 })
+      } catch {
+        // Offline, or the Worker is down. The committed file stands in.
+        console.warn(
+          '[leaderboard] could not refresh the snapshot — building with the committed copy.'
+        )
+      }
+    }
+    const snap = readSnapshotFile(SNAPSHOT_FILE)
+    if (snap) {
+      console.log(
+        `[leaderboard] baking ${snap.total} players / ${snap.entries.length} rows `
+        + `(board of ${new Date(snap.updatedAt).toISOString().slice(0, 10)})`
+      )
+    } else {
+      // Not a build failure: `leaderboardEnabled` goes false and the game ships
+      // exactly as it did before, with no board and no rank cell.
+      console.warn(
+        `[leaderboard] no usable snapshot at ${SNAPSHOT_FILE} — this build has no leaderboard.`
+      )
+    }
+  },
+  resolveId(id) {
+    if (id === SNAPSHOT_VIRTUAL_ID) return SNAPSHOT_RESOLVED
+    return null
+  },
+  load(id) {
+    if (id !== SNAPSHOT_RESOLVED) return null
+    return `export default ${JSON.stringify(readSnapshotFile(seeded ? SEED_FILE : SNAPSHOT_FILE))}`
+  }
+})
+
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
@@ -138,6 +291,11 @@ export default defineConfig(({ mode, command }) => {
 
   // Art-sheet export endpoint. `apply: 'serve'`, so it is not in any build.
   plugins.push(artSheetsPlugin())
+  // The leaderboard, baked. A build with no Worker URL (Poki, Yandex, Playgama/
+  // Playables — no external calls) bakes the SEEDED board: the rank badge only,
+  // from a modelled curve. Every other build bakes the live snapshot as the
+  // bottom rung of its offline ladder.
+  plugins.push(leaderboardSnapshotPlugin(!env.VITE_LEADERBOARD_URL))
 
 
   // Only push the obfuscator if both conditions are met
@@ -618,6 +776,14 @@ export default defineConfig(({ mode, command }) => {
           // reason, as the gamepixPlugin alias above.
           '@/utils/pokiPlugin': fileURLToPath(new URL('./src/utils/pokiPlugin.stub.ts', import.meta.url))
         }),
+        // The dev server's simulated ads: every BUILD gets the stub. The
+        // `import.meta.env.DEV` guard in `resolveAdProvider` stops the call, but
+        // the obfuscator hoisted the module's strings before the env fold, and
+        // a "TEST AD" card shipped in the GameMonetize bundle. `tools/pack`
+        // fails any archive that still carries it.
+        ...(command === 'build' ? {
+          '@/use/ads/DevAdProvider': fileURLToPath(new URL('./src/use/ads/DevAdProvider.stub.ts', import.meta.url))
+        } : {}),
         '@': fileURLToPath(new URL('./src', import.meta.url)),
         '@/': fileURLToPath(new URL('./src/', import.meta.url)),
         '#': fileURLToPath(new URL('./src/assets', import.meta.url))

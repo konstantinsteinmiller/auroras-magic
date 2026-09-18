@@ -13,14 +13,18 @@
  * so a platform build round-trips one object through its cloud store.
  */
 import {
-  HP_MAX, PH_DUEL, FOES, type Phase, type Rune, type SpellKind
+  HP_MAX, PH_DUEL, type Phase, type Rune, type SpellKind
 } from '@/game/duel/config'
-import { clamp, sin, TAU } from '@/game/duel/util'
+import { sin, TAU } from '@/game/duel/util'
 import { getState, setStates } from '@/use/useGameState'
 import {
-  WINS_KEY, LOSSES_KEY, BEST_TIME_KEY, SPELLS_SEEN_KEY, ONBOARDED_KEY,
-  BEST_STAGE_KEY, COINS_KEY, UPGRADES_KEY, RUNS_KEY
+  WINS_KEY, LOSSES_KEY, BEST_TIME_KEY, ONBOARDED_KEY, RUNS_KEY, CAMPAIGN_KEY, SCHEMA_KEY
 } from '@/keys'
+import { defaultCampaign, readCampaign, type CampaignState } from '@/game/campaign/state'
+import { migrateToSchema2 } from '@/game/campaign/migrate'
+// Type-only: erased at compile time, so it cannot form a runtime cycle with
+// `flow/scene.ts`, which imports `S` from here.
+import type { FlowState } from '@/game/flow/scene'
 
 /** A spell in flight. */
 export interface Shot {
@@ -33,8 +37,10 @@ export interface Shot {
   /** Spell kind. */
   k: SpellKind
   dmg: number
-  /** Extra seconds (dot / slow) from the spell matrix. */
-  ex: number
+  /** Seconds of damage-over-time it leaves on the target. */
+  dot: number
+  /** Seconds of cast-slow it leaves on the target. */
+  slow: number
   /** +1 flies right (cast by Aurora), -1 flies left (cast by the foe). */
   dir: number
   /** Super-effective — for the callout on impact. */
@@ -121,18 +127,35 @@ export interface DuelState {
   /* spells in flight */
   shots: Shot[]
 
+  /* the story duel (story-spec §6) */
+  /** Max HP per side (F18) — a boss has more than the player. */
+  hpMax: number
+  ehpMax: number
+  /** Heal-over-time seconds left, and its rate, per side (Nature's bloom). */
+  regen: number
+  eRegen: number
+  regenRate: number
+  eRegenRate: number
+  /** A boss's phase (1, then 2 at half HP) and its wind-up seconds (§6.11). */
+  ePhase: number
+  eWindup: number
+  /** Dream Dust's rate factor for this duel (§6.15), 0.6..1. */
+  dust: number
+  /** Onboarding's rate factor for this duel (§6.14), 0.7..1. */
+  onboard: number
+  /** C14's node-3 rule: the foe may cast her chapter's own magic. */
+  usesMagic: boolean
+  /** Runes the player has landed this duel (trace assist stops at 1, §5.13). */
+  landed: number
+
   /* scoring / meta */
+  /** Index into `FOES` (`duel/foes.ts`) for the CURRENT duel. Not persisted. */
   foe: number
-  coins: number
-  up: number[]
   wins: number
   losses: number
   best: number
   dur: number
-  seen: Record<string, 1>
   combo: number
-  /** Coins the last win paid — the rewarded ×2 doubles exactly this. */
-  lastPay: number
 
   /* feel */
   shake: number
@@ -143,9 +166,13 @@ export interface DuelState {
   /* adaptive quality */
   q: number
   fdt: number
-}
 
-const BASE_SEEN = (): Record<string, 1> => ({ '0': 1, '1': 1, '2': 1, '3': 1 })
+  /* story (story-spec §4) */
+  /** The story's progress. Persisted whole as `am_campaign`. */
+  campaign: CampaignState
+  /** Which scene the canvas shows. NOT persisted — like `pts` and `shots`. */
+  flow: FlowState
+}
 
 /**
  * THE single duel-state object. Everything mutable lives here.
@@ -201,18 +228,25 @@ export const auroras_magic_state: DuelState = {
 
   shots: [],
 
+  hpMax: HP_MAX,
+  ehpMax: HP_MAX,
+  regen: 0,
+  eRegen: 0,
+  regenRate: 0,
+  eRegenRate: 0,
+  ePhase: 1,
+  eWindup: 0,
+  dust: 1,
+  onboard: 1,
+  usesMagic: false,
+  landed: 0,
+
   foe: 0,
-  coins: 0,
-  up: [0, 0, 0, 0],
   wins: 0,
   losses: 0,
   best: 0,
   dur: 0,
-  /* The four single-rune spells start KNOWN — they are the alphabet, not a
-     secret, and a book that opens completely blank teaches nothing. */
-  seen: BASE_SEEN(),
   combo: 0,
-  lastPay: 0,
 
   shake: 0,
   flash: 0,
@@ -220,25 +254,33 @@ export const auroras_magic_state: DuelState = {
   pops: [],
 
   q: 1,
-  fdt: 0.016
+  fdt: 0.016,
+
+  campaign: defaultCampaign(),
+  flow: { scene: 'boot', node: -1, mode: 'campaign', overlay: null, armed: false }
 }
 /** Short alias. Same object — never reassign either binding. */
 export const S = auroras_magic_state
 
 /* --------------------------- persistence --------------------------- */
 
-/** Write the handful of fields worth surviving a reload into the save blob. */
+/**
+ * Write the handful of fields worth surviving a reload into the save blob.
+ * Schema 2 (§4.6): the story lives in `am_campaign`; `am_coins`,
+ * `am_upgrades` and `am_spells_seen` are retired (D3, §4.7) and `am_ladder`
+ * is frozen — nothing writes them any more.
+ */
 export const save = (): void => {
   setStates({
+    [SCHEMA_KEY]: 2,
     [WINS_KEY]: S.wins,
     [LOSSES_KEY]: S.losses,
     [RUNS_KEY]: S.wins + S.losses,
     [BEST_TIME_KEY]: S.best,
-    [SPELLS_SEEN_KEY]: { ...S.seen },
     [ONBOARDED_KEY]: S.intro ? 0 : 1,
-    [BEST_STAGE_KEY]: S.foe,
-    [COINS_KEY]: S.coins,
-    [UPGRADES_KEY]: [...S.up]
+    // A copy: the save layer must never hold a live reference it could see
+    // change under a debounced write.
+    [CAMPAIGN_KEY]: { ...S.campaign, giftsEquipped: [...S.campaign.giftsEquipped], lossStreaks: { ...S.campaign.lossStreaks } }
   })
 }
 
@@ -247,20 +289,18 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0
 }
 
-/** Read the persisted fields back. Safe on a fresh profile and on junk. */
+/**
+ * Read the persisted fields back. Safe on a fresh profile and on junk. Runs
+ * the one-way Step-1 → schema-2 migration first (§4.7), so nothing below
+ * ever sees the old shape.
+ */
 export const load = (): void => {
+  migrateToSchema2()
   S.wins = num(getState(WINS_KEY, 0)) | 0
   S.losses = num(getState(LOSSES_KEY, 0)) | 0
   S.best = num(getState(BEST_TIME_KEY, 0))
-  // Merge, so the four base runes stay known even for an older save.
-  const seen = getState<Record<string, 1> | null>(SPELLS_SEEN_KEY, null)
-  S.seen = { ...BASE_SEEN(), ...(seen && typeof seen === 'object' ? seen : {}) }
   S.intro = num(getState(ONBOARDED_KEY, 0)) ? 0 : 1
-  // clamp: a hand-edited save must not index past the roster.
-  S.foe = clamp(num(getState(BEST_STAGE_KEY, 0)) | 0, 0, FOES.length - 1)
-  S.coins = Math.max(0, num(getState(COINS_KEY, 0)) | 0)
-  const up = getState<unknown>(UPGRADES_KEY, null)
-  S.up = Array.isArray(up) && up.length === 4 ? up.map((v) => Math.max(0, num(v) | 0)) : [0, 0, 0, 0]
+  S.campaign = readCampaign(getState<unknown>(CAMPAIGN_KEY, null))
 }
 
 /* ----------------------------- helpers ----------------------------- */

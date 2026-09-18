@@ -66,20 +66,20 @@ describe('flushSaveNow — immediate flush on a hard checkpoint', () => {
     expect(cloudBlob.am_ladder).toBe(2)
   })
 
-  it('also carries coexisting progress (coins) written in the same checkpoint', async () => {
+  it('also carries coexisting progress written in the same checkpoint', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
 
     const { setState } = await import('@/use/useGameState')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
 
-    setState('am_coins', 250)
+    setState('am_wins', 7)
     setState('am_ladder', 3)
     await flushSaveNow()
 
     const cloudBlob = JSON.parse(data.store.get(STATE_KEY) || '{}')
     expect(cloudBlob.am_ladder).toBe(3)
-    expect(cloudBlob.am_coins).toBe(250)
+    expect(cloudBlob.am_wins).toBe(7)
   })
 })
 
@@ -89,43 +89,49 @@ describe('flushSaveNow — immediate flush on a hard checkpoint', () => {
 // not the throttle.
 const settle = () => new Promise((r) => setTimeout(r, 0))
 
-describe('discrete duel events reach the backend without the debounce', () => {
-  it('a finished duel writes the ladder, the coins and the tally in one checkpoint', async () => {
+describe('discrete story events reach the backend without the debounce', () => {
+  it('a won node writes the campaign, the tally and the schema in one checkpoint', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
     const { S, save } = await import('@/game/duel/state')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
 
-    // What `finish(true)` leaves behind on the first rung.
+    // What the campaign controller leaves behind after winning node 1-1.
     S.wins = 1
-    S.foe = 1
-    S.coins = 12
+    S.campaign.furthestNode = 0
     save()
     await flushSaveNow()
 
     const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
-    expect(blob.am_ladder).toBe(1)
-    expect(blob.am_coins).toBe(12)
+    expect(blob.am_campaign.furthestNode).toBe(0)
     expect(blob.am_wins).toBe(1)
     expect(blob.am_duels).toBe(1)
+    expect(blob.am_schema).toBe(2)
+    // D3: the currency and the ranks are gone for good.
+    expect(blob.am_coins).toBeUndefined()
+    expect(blob.am_upgrades).toBeUndefined()
   })
 
-  it('buying an element rank flushes the new rank and the spent coins', async () => {
+  it('a restored sector flushes its done bit and drops the in-progress coverage', async () => {
     const data = makeFakeData()
     await bootCloudOnly(data)
-    const { S } = await import('@/game/duel/state')
-    const { buyRank } = await import('@/game/duel/sim')
-    const { rankPrice } = await import('@/game/duel/config')
+    const { S, save } = await import('@/game/duel/state')
+    const { setBit, hasBit } = await import('@/game/campaign/bitset')
     const { flushSaveNow } = await import('@/use/useSaveStatus')
 
-    S.coins = 30
-    S.up = [0, 0, 0, 0]
-    expect(buyRank(2, rankPrice)).toBe(true)
-    await flushSaveNow()
+    S.campaign.furthestNode = 0
+    S.campaign.wipeCoverage = 'A'.repeat(56)
+    save()
+    // The reveal wave lands (wipe.ts `finishWave`): done bit + coverage cleared.
+    S.campaign.sectorsDone = setBit(S.campaign.sectorsDone, 0)
+    S.campaign.wipeCoverage = null
+    save()
+    void flushSaveNow()
     await settle()
+    await flushSaveNow()
 
     const blob = JSON.parse(data.store.get(STATE_KEY) || '{}')
-    expect(blob.am_upgrades).toEqual([0, 0, 1, 0])
-    expect(blob.am_coins).toBe(20)
+    expect(hasBit(blob.am_campaign.sectorsDone, 0)).toBe(true)
+    expect(blob.am_campaign.wipeCoverage).toBeNull()
   })
 })

@@ -69,6 +69,7 @@ let playing = false // music requested
 let nx = 0 // next step time, on the AudioContext clock
 let step = 0 // step index (one eighth note)
 let lastDraw = 0 // 'draw' rate limiter
+let lastScrub = 0 // 'scrub' rate limiter
 let lastMel = -9 // step of the last melody note — never two in a row
 let mi = 0 // melodic contour index
 
@@ -221,7 +222,12 @@ const SNAP: readonly VoiceArgs[] = [
   [NOISE, 300, 80, 0.22, 0.12]
 ]
 
-export type Cue = 'draw' | 'snap' | 'bad' | 'cast' | 'hit' | 'guard' | 'hurt' | 'win' | 'lose' | 'ui'
+export type Cue =
+  | 'draw' | 'snap' | 'bad' | 'cast' | 'hit' | 'guard' | 'hurt' | 'win' | 'lose' | 'ui'
+  // restoration (story-spec §8.5)
+  | 'scrub' | 'chime' | 'untie' | 'unbox' | 'paint' | 'whoosh' | 'reveal'
+  // the boss chest and its Sunbeam (story-spec §8.3–§8.5)
+  | 'fanfare' | 'beam' | 'ready'
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -237,7 +243,18 @@ const CUES: Record<Cue, (v?: number) => void> = {
 
   /* A rune was RECOGNISED. v = rune id 0..3. */
   snap: (v) => {
-    const r = cl((v ?? 0) | 0, 0, 3)
+    const id = (v ?? 0) | 0
+    if (id >= 4) {
+      // The story's runes: a leafy rustle under a rising pluck for Nature;
+      // later runes borrow the pluck on their own scale degree until they
+      // get a voice of their own with their chapter.
+      if (id === 4) V(NOISE, 2600, 1300, 0.22, 0.05, 1, 0, 0.02)
+      const f = nf(id % 6) * 4
+      V(TRI, f, f * 1.5, 0.26, 0.1, 4)
+      V(SIN, f * 2, 0, 0.35, 0.04, 1, 0.03)
+      return
+    }
+    const r = cl(id, 0, 3)
     V(...SNAP[r]!)
     V(...SNAP[r + 4]!)
   },
@@ -300,7 +317,99 @@ const CUES: Record<Cue, (v?: number) => void> = {
     V(SIN, 55, 27, 2.6, 0.18, 1, 0, 0.4)
   },
 
-  ui: () => V(TRI, 760, 900, 0.09, 0.09)
+  ui: () => V(TRI, 760, 900, 0.09, 0.09),
+
+  /* ── RESTORATION (story-spec §8.5). No sustained oscillator anywhere: the
+        continuous scrub is short overlapping one-shots, like everything else. */
+
+  /* The brush on the dust: a 120 ms band of noise every ~90 ms while the
+     brush moves. v = stroke speed, CSS px/s. The band's centre tracks it, so
+     a quick pass sounds bright and airy and a slow one low and gritty. It is
+     sand being swept, not a note. */
+  scrub: (v) => {
+    const t = now()
+    if (t - lastScrub < 0.09) return
+    lastScrub = t
+    const sp = cl(v, 0, 2000)
+    const f = cl(900 + 2.4 * sp, 700, 3200)
+    V(NOISE, f, f * 0.86, 0.12, 0.028 + 0.02 * Math.min(1, sp / 600), 1, 0, 0.03)
+  },
+
+  /* One rung of the coverage ladder: every 10 % cleared rings one step up
+     the same scale the music uses, so the chimes never clash with the bed.
+     v = step 1..10. */
+  chime: (v) => {
+    const i = cl((v ?? 1) | 0, 1, 10)
+    const f = nf(i % 6) * 2 * (i >= 6 ? 2 : 1)
+    V(TRI, f, f * 1.02, 0.35, 0.12, 5)
+    V(SIN, f * 2, 0, 0.5, 0.035, 1, 0.02)
+  },
+
+  /* The bow slipping loose: a soft ribbon swish into a little pluck. */
+  untie: () => {
+    V(NOISE, 1400, 4200, 0.2, 0.06, 1, 0, 0.04)
+    V(TRI, nf(2) * 2, nf(4) * 2, 0.22, 0.09, 4, 0.12)
+  },
+
+  /* The gift opens: a quick rising sparkle arpeggio over a soft pop. */
+  unbox: () => {
+    V(SIN, 220, 90, 0.18, 0.2)
+    V(NOISE, 800, 6000, 0.4, 0.05, 1, 0, 0.02)
+    for (let i = 0; i < 4; i++) {
+      const f = nf(i + 1) * 4
+      V(TRI, f, f, 0.4, 0.07, 6, 0.05 + i * 0.06)
+    }
+  },
+
+  /* A paint pot picked: a round "blop" and one bright chime. v = pot 0..2. */
+  paint: (v) => {
+    V(SIN, 520, 180, 0.16, 0.18, 1, 0, 0.01)
+    V(TRI, nf(cl((v ?? 0) | 0, 0, 2) * 2) * 4, 0, 0.45, 0.06, 5, 0.08)
+  },
+
+  /* The reveal wave travelling out: an airy rising sweep. */
+  whoosh: () => {
+    V(NOISE, 500, 5200, 0.45, 0.08, 1, 0, 0.2)
+  },
+
+  /* The sector restored — the same six-voice flourish as `win`, shorter and
+     softer, and it leaves the mood where it was: a restoration is a quiet
+     joy, not a second victory. */
+  reveal: () => {
+    for (let i = 0; i < 6; i++) {
+      const f = nf(i) * 4
+      V(TRI, f, 0, 0.7, 0.07, 6, i * 0.07)
+      V(SIN, f * 2, 0, 0.5, 0.03, 1, i * 0.07 + 0.02)
+    }
+    V(NOISE, 1200, 8000, 0.8, 0.05, 1, 0, 0.25)
+  },
+
+  /* The boss chest's flourish, under the Sunbeam's float (§8.5): the six
+     voices of `win`, an octave lower and slower, with a held fifth under
+     them — "this chapter's magic", not "victory again", so the mood stays. */
+  fanfare: () => {
+    for (let i = 0; i < 6; i++) {
+      const f = nf(i) * 2
+      V(TRI, f, 0, 1.1, 0.09, 6, i * 0.12)
+      V(SIN, f * 2, 0, 0.8, 0.035, 1, i * 0.12 + 0.03)
+    }
+    V(TRI, nf(0), nf(0), 1.6, 0.07, 3, 0.1, 0.2)
+    V(TRI, nf(4), nf(4), 1.6, 0.05, 3, 0.1, 0.2)
+    V(NOISE, 900, 7000, 1.4, 0.05, 1, 0, 0.4)
+  },
+
+  /* The Sunbeam let go: a bright airy rush that climbs as the band travels. */
+  beam: () => {
+    V(NOISE, 700, 6200, 0.7, 0.07, 1, 0, 0.05)
+    V(TRI, nf(2) * 2, nf(2) * 4, 0.55, 0.07, 5, 0.02)
+    V(SIN, nf(4) * 4, nf(4) * 8, 0.5, 0.03, 1, 0.05)
+  },
+
+  /* The Sunbeam has gathered its light again: one small bell. */
+  ready: () => {
+    V(TRI, nf(4) * 4, 0, 0.3, 0.05, 6)
+    V(SIN, nf(4) * 8, 0, 0.3, 0.02, 1, 0.02)
+  }
 }
 
 /* ---------------------------------------------------------------- music */
@@ -388,6 +497,51 @@ export const initAudio = (): void => {
 export const sfx = (n: Cue, v?: number): void => {
   if (!A) return
   CUES[n]?.(v)
+}
+
+/* ---------------------------------------------------------------- babble */
+/**
+ * The dialogue babble (story-spec §10.11, D6: babble only, no voice-over).
+ * One soft blip per BEAT — a number fixed from the English source, never the
+ * on-screen string, so every locale babbles the same rhythm. Each speaker has
+ * a fixed register on the music's own scale (nothing clashes with the bed):
+ * Aurora bright and quick, Umbra lowest and slowest, a Guardian in between, a
+ * wood sprite highest of all. `ask` bends the last blip up; `excite` is a
+ * touch louder and quicker. It inherits every mute/pause/ad gate through V().
+ */
+const CHATTER: Readonly<Record<string, readonly [number, number, number]>> = {
+  // [scale-degree offset, octave multiplier, gap between blips (s)]
+  aurora: [2, 4, 0.1],
+  umbra: [0, 1, 0.15],
+  briar: [1, 2, 0.12],
+  creature: [4, 8, 0.085]
+}
+/**
+ * The babble's voice budget (§10.11's `CHATTER_MAXV = 4`) holds by
+ * construction: blips are 90–140 ms long and start 85–150 ms apart, so at
+ * most two ever overlap, and a new bubble cannot start before the 600 ms
+ * dwell of the last. Dialogue also runs outside the gameplay bracket, so it
+ * never competes with combat cues for `MAXV`.
+ */
+export const CHATTER_MAXV = 4
+
+export const chatter = (speaker: string, beats: number, tone: 'neutral' | 'ask' | 'excite'): void => {
+  if (!A || isAudioSuspended()) return
+  const [deg, oct, gap0] = CHATTER[speaker] ?? CHATTER.aurora!
+  const n = cl(beats | 0, 3, 9)
+  const excite = tone === 'excite'
+  const gap = gap0 * (excite ? 0.85 : 1)
+  let d = deg
+  for (let i = 0; i < n; i++) {
+    // A wandering contour, a step or two at a time, like a sung syllable.
+    d = Math.max(0, Math.min(5, d + (rnd() < 0.5 ? -1 : 1) * (rnd() < 0.3 ? 2 : 1)))
+    const f = nf(d) * oct
+    const last = i === n - 1
+    const bend = last && tone === 'ask' ? 1.35 : last ? 0.94 : 1
+    const len = 0.09 + rnd() * 0.05
+    const g0 = (excite ? 0.055 : 0.04) * (0.8 + rnd() * 0.4)
+    V(i & 1 ? SIN : TRI, f, f * bend, len, g0, 3, i * gap + rnd() * 0.012, 0.01)
+  }
 }
 
 /** 0 = losing (dark) .. 0.5 even .. 1 = winning (bright). Feed it S.sky. */

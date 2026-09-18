@@ -1,14 +1,15 @@
-// The hidden QA interstitial tap: thirty taps on the coin badge inside thirty
-// seconds request an interstitial.
+// The hidden QA interstitial chord: thirty taps in a row on the foe's HP bar
+// request an interstitial.
 //
-// Every portal paces interstitials at 121 s and only starts that clock on the
-// first request of a session, so the things portals actually grade — the music
-// hard-stop, the loop pause, the ad landing BEFORE the result screen, the music
-// coming back on a no-fill — cost two minutes of play per attempt to look at.
-// This is the back door that makes them checkable on the submitted bundle.
+// Interstitials are paced (nothing in a session's first four minutes, then
+// 121 s apart), so the things portals actually grade cost minutes of play per
+// attempt to look at. They are the music hard-stop, the loop pause, and the
+// music coming back on a no-fill. This is the back door that makes them
+// checkable on the submitted bundle.
 //
-// What is asserted here is the half that is easy to get wrong and impossible to
-// see: that the back door still pays the debts every real placement pays.
+// Asserted here: what "in a row" means, and that the back door still pays the
+// debts every real placement pays. The second half is easy to get wrong and
+// impossible to see.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
@@ -63,35 +64,45 @@ afterEach(() => {
   vi.doUnmock('@/use/useGamePause')
 })
 
-describe('the hidden QA ad trigger', () => {
+describe('the hidden QA ad chord', () => {
   it('stays shut for twenty-nine taps and opens on the thirtieth', async () => {
     const mod = await load()
+    expect(mod.QA_AD_TAPS).toBe(30)
     tap(mod, mod.QA_AD_TAPS - 1, 1000)
     expect(showMidgameAd).not.toHaveBeenCalled()
 
-    expect(mod.registerQaAdTap(1000 + mod.QA_AD_TAPS * 100)).toBe(true)
+    expect(mod.registerQaAdTap(1000 + (mod.QA_AD_TAPS - 1) * 100)).toBe(true)
     expect(showMidgameAd).toHaveBeenCalledTimes(1)
   })
 
-  it('does not count taps that have aged out of the window', async () => {
+  it('a press anywhere else breaks the chain', async () => {
     const mod = await load()
-    tap(mod, mod.QA_AD_TAPS - 1, 1000)
-    // One more tap, but a minute later: every earlier tap is stale, so this is
-    // tap ONE of a new burst rather than the thirtieth of the old one.
-    expect(mod.registerQaAdTap(1000 + 60_000)).toBe(false)
+    const t = tap(mod, mod.QA_AD_TAPS - 1, 1000)
+    // One stroke on the pad in between: the taps are no longer consecutive.
+    mod.breakQaAdChain()
+    expect(mod.registerQaAdTap(t)).toBe(false)
     expect(showMidgameAd).not.toHaveBeenCalled()
+    // That tap was tap ONE of a new chain: 28 more stay shut, the 29th opens.
+    const u = tap(mod, mod.QA_AD_TAPS - 2, t + 100)
+    expect(showMidgameAd).not.toHaveBeenCalled()
+    expect(mod.registerQaAdTap(u)).toBe(true)
   })
 
-  it('rolls the window rather than restarting it, so a slow start still opens', async () => {
+  it('a pause longer than the allowed gap starts the count over', async () => {
     const mod = await load()
-    // Ten taps, then a long pause that ages exactly those out, then thirty more
-    // spread across the window. The burst that lands inside the window is a
-    // full one and must fire.
-    const after = tap(mod, 10, 1000, 200)
-    const late = after + mod.QA_AD_WINDOW_MS
-    tap(mod, mod.QA_AD_TAPS - 1, late, 900)
+    const t = tap(mod, mod.QA_AD_TAPS - 1, 1000)
+    const late = t - 100 + mod.QA_AD_MAX_GAP_MS + 1
+    expect(mod.registerQaAdTap(late)).toBe(false)
     expect(showMidgameAd).not.toHaveBeenCalled()
-    expect(mod.registerQaAdTap(late + (mod.QA_AD_TAPS - 1) * 900)).toBe(true)
+    // …that late tap was tap ONE of a new chain.
+    tap(mod, mod.QA_AD_TAPS - 1, late + 100)
+    expect(showMidgameAd).toHaveBeenCalledTimes(1)
+  })
+
+  it('tolerates a hesitation up to the gap: a slow, steady tester still gets in', async () => {
+    const mod = await load()
+    tap(mod, mod.QA_AD_TAPS, 1000, mod.QA_AD_MAX_GAP_MS)
+    expect(showMidgameAd).toHaveBeenCalledTimes(1)
   })
 
   it('seeds the shared interstitial clock, so the next placement still owes its gap', async () => {
@@ -103,7 +114,7 @@ describe('the hidden QA ad trigger', () => {
     expect(markInterstitialShown).toHaveBeenCalledTimes(1)
   })
 
-  it('restarts the music afterwards — it interrupted a live run', async () => {
+  it('restarts the music afterwards — it interrupted a live duel', async () => {
     const mod = await load()
     tap(mod, mod.QA_AD_TAPS, 1000)
     await settle()
@@ -143,31 +154,30 @@ describe('the hidden QA ad trigger', () => {
   it('refuses while any other placement has an ad on screen', async () => {
     const mod = await load()
     adShowing.value = true
-    expect(mod.registerQaAdTap(1000)).toBe(false)
     tap(mod, mod.QA_AD_TAPS, 1000)
     expect(showMidgameAd).not.toHaveBeenCalled()
   })
 
-  it('spends the burst on a refusal instead of leaving the counter armed', async () => {
+  it('spends the chain on a refusal instead of leaving the counter armed', async () => {
     const mod = await load()
     adShowing.value = true
-    tap(mod, mod.QA_AD_TAPS, 1000)
+    const t = tap(mod, mod.QA_AD_TAPS, 1000)
     adShowing.value = false
-    // The very next tap must not be the one that opens the door — a refused
-    // burst has to be re-earned, or the ad that could not open opens on tap 31.
-    expect(mod.registerQaAdTap(1000 + mod.QA_AD_TAPS * 100)).toBe(false)
+    // The very next tap must not be the one that opens the door. A refused
+    // chain has to be re-earned, or the ad that could not open opens on tap 31.
+    expect(mod.registerQaAdTap(t)).toBe(false)
     expect(showMidgameAd).not.toHaveBeenCalled()
   })
 
   it('needs a fresh thirty after every ad', async () => {
     const mod = await load()
-    tap(mod, mod.QA_AD_TAPS, 1000)
+    const t = tap(mod, mod.QA_AD_TAPS, 1000)
     await settle()
     expect(showMidgameAd).toHaveBeenCalledTimes(1)
 
-    tap(mod, mod.QA_AD_TAPS - 1, 10_000)
+    const u = tap(mod, mod.QA_AD_TAPS - 1, t)
     expect(showMidgameAd).toHaveBeenCalledTimes(1)
-    mod.registerQaAdTap(10_000 + mod.QA_AD_TAPS * 100)
+    mod.registerQaAdTap(u)
     expect(showMidgameAd).toHaveBeenCalledTimes(2)
   })
 })

@@ -21,7 +21,38 @@ const upgradesJson = (levels: Record<string, unknown> = {}): string =>
   JSON.stringify(levels)
 
 // Score formula under test:  bestStage × 500 + upgradeLevels × 150 + runs × 10
-describe('SaveMergePolicy.computeMeta', () => {
+describe('SaveMergePolicy.computeMeta — the story campaign (§4.16)', () => {
+  const STATE = 'auroras_magic_state'
+  const blob = (campaign: unknown, extra: Record<string, unknown> = {}): Record<string, string> =>
+    ({ [STATE]: JSON.stringify({ am_campaign: campaign, ...extra }) })
+  // 50 bits → 7 bytes; bits 0..2 set = 0b111 in the first byte.
+  const threeDone = btoa(String.fromCharCode(0b111, 0, 0, 0, 0, 0, 0))
+
+  it('scores (furthestNode + 1) × 500 + restored sectors × 150 + duels × 10', () => {
+    const meta = computeMeta(reader(blob({ furthestNode: 3, sectorsDone: threeDone }, { am_duels: 9 })))
+    expect(meta.progressScore).toBe(4 * 500 + 3 * 150 + 9 * 10)
+    expect(meta.maxStage).toBe(4)
+  })
+
+  it('scores a fresh campaign by its duels only, so an empty device never wins', () => {
+    const meta = computeMeta(reader(blob({ furthestNode: -1, sectorsDone: '' })))
+    expect(meta.progressScore).toBe(0)
+    expect(meta.maxStage).toBe(0)
+  })
+
+  it('ignores the frozen Step-1 ladder once a campaign exists', () => {
+    const a = computeMeta(reader(blob({ furthestNode: 7, sectorsDone: '' }, { am_ladder: 1 })))
+    const b = computeMeta(reader(blob({ furthestNode: 2, sectorsDone: '' }, { am_ladder: 5 })))
+    expect(a.progressScore).toBeGreaterThan(b.progressScore)
+  })
+
+  it('survives junk in the campaign fields', () => {
+    const meta = computeMeta(reader(blob({ furthestNode: 'x', sectorsDone: '%%%' })))
+    expect(meta.progressScore).toBe(0)
+  })
+})
+
+describe('SaveMergePolicy.computeMeta — a Step-1 snapshot', () => {
   it('returns score=0 for a fresh install (nothing survived, nothing bought)', () => {
     const meta = computeMeta(reader({}), '2026-04-27T10:00:00Z')
     expect(meta).toEqual({
@@ -135,11 +166,11 @@ describe('SaveMergePolicy.decideMerge', () => {
     expect(decideMerge(null, meta({ progressScore: 5000 }))).toEqual({ kind: 'remote-only' })
   })
 
-  it('returns \'remote-wins\' with bonus when remote score > local score AND local had progress', () => {
+  it('returns \'remote-wins\' when remote score > local score AND local had progress — no bonus (D3)', () => {
     const local = meta({ progressScore: 2000, maxStage: 4 })
     const remote = meta({ progressScore: 8000, maxStage: 12 })
-    // bonus = remote.maxStage * 50 = 12 * 50 = 600
-    expect(decideMerge(local, remote)).toEqual({ kind: 'remote-wins', bonusCoins: 600 })
+    // No consolation bonus: the story build has no currency (D3).
+    expect(decideMerge(local, remote)).toEqual({ kind: 'remote-wins', bonusCoins: 0 })
   })
 
   it('returns \'remote-wins\' with NO bonus when local was completely empty (score 0)', () => {

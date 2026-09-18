@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FOES, CTR, PH_DUEL, MAX_RUNES, RUNE_IDS, SPELLBOOK, SW, SH, elemMul } from '@/game/duel/config'
+import { CTR, PH_DUEL, MAX_RUNES, RUNE_IDS, SPELLBOOK, SW, SH, elemMul } from '@/game/duel/config'
+import { FOES } from '@/game/duel/foes'
+import { S } from '@/game/duel/state'
 import { hud, hudLayout } from '@/use/useDuelHud'
+import { spellName } from '@/use/useSpellName'
+import { bookHud } from '@/use/useBook'
 import HpBar from '@/components/duel/HpBar.vue'
 import RuneSlot from '@/components/duel/RuneSlot.vue'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
@@ -28,27 +32,32 @@ const props = defineProps<{
   paused: boolean
 }>()
 const emit = defineEmits<{ cast: []; mute: []; options: []; book: [] }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const L = computed(() => hudLayout.value)
 const portrait = computed(() => L.value.portrait)
 
-const foeName = computed(() => t(`duelist.${FOES[hud.foe]?.[0] ?? 'umbra'}`))
+const foeName = computed(() => t(`duelist.${FOES[hud.foe]?.slug ?? 'umbra'}`))
 const auroraName = computed(() => t('duelist.aurora'))
-/** The element this foe fears, or -1 for the neutral rungs (Umbra, Prism). */
+/**
+ * The rune this foe fears — shown only when the player HAS it. Chapter 1's
+ * foes are Nature, whose counter (Moon) arrives in chapter 9: a hint naming a
+ * rune the player cannot draw would teach nothing (§6.6).
+ */
 const weakTo = computed(() => {
-  const fe = FOES[hud.foe]?.[1] ?? -1
-  return fe >= 0 ? CTR[fe]! : -1
+  const fe = FOES[hud.foe]?.element ?? -1
+  const c = fe >= 0 ? CTR[fe] ?? -1 : -1
+  return c >= 0 && ((S.campaign.runesUnlocked | 0b1111) >> c) & 1 ? c : -1
 })
-const weakMul = computed(() => (weakTo.value >= 0 ? elemMul(weakTo.value, FOES[hud.foe]![1]) : 1))
+const weakMul = computed(() => (weakTo.value >= 0 ? elemMul(weakTo.value, FOES[hud.foe]!.element) : 1))
 const weakLabel = computed(() => weakTo.value >= 0
-  ? t('hud.weakness', { rune: t(`rune.${RUNE_IDS[weakTo.value as 0 | 1 | 2 | 3]}`), n: `x${weakMul.value}` })
+  ? t('hud.weakness', { rune: t(`rune.${RUNE_IDS[weakTo.value]}`), n: `x${weakMul.value}` })
   : '')
 
 const duel = computed(() => hud.phase === PH_DUEL)
 const castLive = computed(() => duel.value && hud.queue.length > 0)
 const castLabel = computed(() => {
-  if (hud.castSpell) return t(`spell.${hud.castSpell}`)
+  if (hud.cast) return spellName(t, locale.value, hud.cast)
   return props.keyboard ? t('hud.castKey') : t('hud.cast')
 })
 const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length)
@@ -157,6 +166,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         GameIcon.gear(name="settings")
       button.abs.duel-plate.icon-btn(
         v-if="SPELLBOOK"
+        :class="{ 'book-new': bookHud.hasNew }"
         :style="box(1053.5, 607.5, 73, 67)"
         :aria-label="t('hud.spellbook')"
         @click="emit('book')"
@@ -204,7 +214,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           )
             span.cast-glow(v-if="castLive")
             span.ink-text.cast-label(:style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
-        button.duel-plate.icon-btn.port-icon(v-if="SPELLBOOK" :aria-label="t('hud.spellbook')" @click="emit('book')")
+        button.duel-plate.icon-btn.port-icon(v-if="SPELLBOOK" :class="{ 'book-new': bookHud.hasNew }" :aria-label="t('hud.spellbook')" @click="emit('book')")
           GameIcon.gear.small(name="book")
         button.duel-plate.icon-btn.port-icon(:aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
           span.ink-text(:style="{ fontSize: '26px', color: muted ? '#7a6f95' : '#fff' }") ♪

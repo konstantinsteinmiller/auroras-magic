@@ -552,6 +552,16 @@ const tap = async () => {
   await sleep(150)
 }
 
+/** A real (trusted) press-and-release at a viewport point. */
+const pressAt = async (x, y) => {
+  const at = (type) => send('Input.dispatchMouseEvent', {
+    type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1
+  })
+  await at('mousePressed')
+  await at('mouseReleased')
+  await sleep(60)
+}
+
 try {
   console.log(`browser   ${version.Browser}`)
   console.log(`platform  ${PLATFORM} (${plat.label})`)
@@ -644,6 +654,54 @@ try {
       if (musicAfter === 0) await sleep(250)
     }
     check('music starts once the ad closes', musicAfter > 0, `synth voices=${musicAfter}`)
+
+    // ── The hidden QA chord: 30 taps in a row on the foe's HP bar ──────────
+    //
+    // Checked on the BUILT bundle because the chord ships in every build: QA
+    // runs the artefact players get. It bypasses the pacing (the first-load ad
+    // above just seeded a 121 s gap), so this is also the proof that a tester
+    // does not have to wait that gap out. The stubbed ad is shortened, since
+    // its audio was already audited above.
+    await ev('window.__qa.adMs = 3000')
+    const adsBefore = await ev('window.__qa.ads.length')
+    const bar = JSON.parse(await ev(`(() => {
+      const e = document.querySelector('.hp-bar.right'); if (!e) return 'null';
+      const r = e.getBoundingClientRect();
+      return JSON.stringify({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+    })()`))
+    if (!bar) {
+      check('foe HP bar is on screen for the QA chord', false)
+    } else {
+      for (let i = 0; i < 29; i++) await pressAt(bar.x, bar.y)
+      await sleep(600)
+      check('29 taps on the foe HP bar → no ad yet', await ev('window.__qa.ads.length') === adsBefore)
+      const voicesBefore = await ev('window.__qa.musicPlays()')
+      await pressAt(bar.x, bar.y)
+      let chordAds = adsBefore
+      for (let i = 0; i < 20 && chordAds === adsBefore; i++) {
+        await sleep(150)
+        chordAds = await ev('window.__qa.ads.length')
+      }
+      check('30th tap in a row → interstitial requested (QA chord)', chordAds === adsBefore + 1,
+        `ads=${await ev('JSON.stringify(window.__qa.ads)')}`)
+      // Wait for it to open, then close.
+      for (let i = 0; i < 20 && !(await ev('!!window.__qa.adOpen')); i++) await sleep(150)
+      const musicDuring = await ev('window.__musicOn()')
+      const voicesDuring = await ev('window.__qa.musicPlays()')
+      await sleep(1000)
+      check('silent under the chord ad', !musicDuring && await ev('window.__qa.musicPlays()') === voicesDuring,
+        `score on=${musicDuring}, voices ${voicesDuring} → ${await ev('window.__qa.musicPlays()')}`)
+      for (let i = 0; i < 60 && await ev('!!window.__qa.adOpen'); i++) await sleep(150)
+      // It interrupted a live duel, so it owes the MUSIC a restart. Read the
+      // score's own state: the foe's spell sounds would move a voice count on
+      // their own, with the music dead.
+      let musicAfter = false
+      for (let i = 0; i < 20 && !musicAfter; i++) {
+        await sleep(250)
+        musicAfter = await ev('window.__musicOn()')
+      }
+      check('music comes back after the chord ad', musicAfter === true, `before the chord: voices=${voicesBefore}`)
+    }
   }
 
   // ── CrazyGames: the gameplay bracket, in order ──────────────────────────

@@ -17,7 +17,8 @@ import { isGameplayLive, type GameplayLiveInputs } from '@/use/useGameplayLifecy
 
 /** A player mid-duel with nothing in the way. Each test negates one thing. */
 const playing: GameplayLiveInputs = {
-  phase: 'duel',
+  scene: 'duel',
+  duelPhaseIsLive: true,
   showResult: false,
   anyModalOpen: false,
   adShowing: false,
@@ -32,7 +33,33 @@ describe('isGameplayLive', () => {
   })
 
   it('is not live once a duelist has fallen — the duel is over either way', () => {
-    expect(isGameplayLive({ ...playing, phase: 'result' })).toBe(false)
+    // The scene is still `duel` through the flourish / sting; the PHASE is
+    // what ended (story-spec §4.9.1 — the case the first draft got wrong).
+    expect(isGameplayLive({ ...playing, duelPhaseIsLive: false })).toBe(false)
+  })
+
+  // ─── The story scenes (story-spec §4.9.1, §11.2) ─────────────────────────
+
+  it('is live in exactly two scenes: a duel being fought, and a wipe', () => {
+    const scenes = ['boot', 'map', 'dialogue', 'duel', 'unbox', 'wipe', 'wardrobe', 'versusSetup'] as const
+    for (const scene of scenes) {
+      for (const duelPhaseIsLive of [true, false]) {
+        const want = (scene === 'duel' && duelPhaseIsLive) || scene === 'wipe'
+        expect(isGameplayLive({ ...playing, scene, duelPhaseIsLive }), `${scene}/${duelPhaseIsLive}`).toBe(want)
+      }
+    }
+  })
+
+  it('keeps a wipe live whatever the (finished) duel phase says', () => {
+    // A wipe follows a WON duel, so `S.phase` is PH_WIN the whole time.
+    expect(isGameplayLive({ ...playing, scene: 'wipe', duelPhaseIsLive: false })).toBe(true)
+  })
+
+  it('closes a wipe for every pause reason, exactly like a duel', () => {
+    const wiping = { ...playing, scene: 'wipe' as const, duelPhaseIsLive: false }
+    for (const k of ['showResult', 'anyModalOpen', 'adShowing', 'visibilityHidden', 'platformPaused', 'awaitingInput'] as const) {
+      expect(isGameplayLive({ ...wiping, [k]: true }), k).toBe(false)
+    }
   })
 
   // ─── The two that were missing ───────────────────────────────────────────

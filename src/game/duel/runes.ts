@@ -2,18 +2,34 @@
  * Rune recognition — a compact $1 Unistroke Recognizer with the Protractor
  * (optimal cosine distance) extension, as recommended by GDD 3.3.
  *
- * Ported unchanged from the jam build. The classic $1 is rotation-invariant
- * but NOT invariant to where you started drawing a closed shape: a triangle
- * begun at a different corner is a cyclic shift of the point sequence, which
- * $1 scores as a different gesture. Rather than special-case that, every start
- * point and both directions are generated as separate templates at load — a few
- * dozen templates cost nothing and make the recogniser dramatically more
- * forgiving, which GDD 3.3 and 6 both insist on.
+ * Ported unchanged from the jam build, then made data-driven over
+ * `RUNE_DEFS` (story-spec §5) so the story runes can join without touching
+ * the four shipped ones. `tests/duel/rune-corpus.test.ts` pins the four
+ * stroke by stroke.
+ *
+ * The classic $1 is rotation-invariant but NOT invariant to where you started
+ * drawing a closed shape: a triangle begun at a different corner is a cyclic
+ * shift of the point sequence, which $1 scores as a different gesture. Rather
+ * than special-case that, every start point and both directions are generated
+ * as separate templates at load. A few dozen templates cost nothing and make
+ * the recogniser dramatically more forgiving, which GDD 3.3 and 6 both insist
+ * on.
+ *
+ * WHICH RUNES ARE LIVE
+ *   `recognise(raw, activeMask)` only considers runes whose bit is set. The
+ *   default is `FROZEN_MASK`: the four shipped runes, exactly as before. The
+ *   campaign passes `S.campaign.runesUnlocked`. This module never reads
+ *   campaign state itself; it stays a pure function of a stroke and a number.
+ *   A rune the player has not earned is not a smaller target, it is no target.
+ *   That keeps the active alphabet small and accurate for young hands.
  */
-import { FIRE, WIND, ICE, EARTH, type Rune } from '@/game/duel/config'
-import { hypot, sin, cos, atan2, min, max, sqrt, TAU, PI } from '@/game/duel/util'
+import { RUNE_DEFS, FROZEN_MASK, type RuneId, type RuneRecognition } from '@/game/duel/runeDefs'
+import { hypot, atan2, min, max, sqrt, sin, cos, TAU } from '@/game/duel/util'
 
-/** Points per normalised stroke. 32 is plenty for four primitives. */
+export { FROZEN_MASK, ALL_RUNES_MASK } from '@/game/duel/runeDefs'
+export type { RuneId } from '@/game/duel/runeDefs'
+
+/** Points per normalised stroke. 32 is plenty for these primitives. */
 const N = 32
 
 /* ------------------------- stroke normalisation ------------------------ */
@@ -101,22 +117,28 @@ const vectorise = (p: readonly number[]): Float32Array => {
 }
 
 /**
- * Effective corner count — how CONCENTRATED the stroke's turning is.
+ * The stroke's structure: [ec, turn, winding].
  *
+ * `ec` (effective corner count) measures how CONCENTRATED the turning is.
  * Protractor compares point positions, which cannot tell a corner from a
  * curve: a circle scored 0.992 against the square templates, higher than a
- * real square. So one scalar is added. With `t` = per-point turning angle,
+ * real square. With `t` = per-point turning angle,
  *   ec = (sum t^2)^2 / sum t^4
  * is ~k for k sharp corners and ~N for evenly spread curvature. It needs no
  * rotation or start-point alignment, so it costs one pass and nothing else.
- * Measured: all four runes land in 3.6..13, a circle at 29.6.
+ *
+ * `turn` is the total heading swing. `winding` is the same sum WITHOUT the
+ * absolute value, in revolutions. It stays near ±turn/TAU for a shape that
+ * always curves one way (circle, spiral), and cancels toward 0 for one whose
+ * curvature alternates (wave, Z). It is what separates a slightly over-drawn
+ * circle from a spiral.
  */
-const feat = (raw: readonly number[]): [number, number] => {
+const feat = (raw: readonly number[]): [number, number, number] => {
   // THREE 1-2-1 blur passes. One is not enough: hand jitter fakes corners and
   // inflates both features, and it inflates them MORE on a small stroke (the
   // jitter is the same size while the shape is not). Three passes flatten
   // jitter but leave real corners standing, which is what opens the gap that
-  // lets the envelope below be generous to players and still ruthless with junk.
+  // lets the envelopes be generous to players and still ruthless with junk.
   const p = raw.slice()
   for (let k = 0; k < 3; k++) {
     const q = p.slice()
@@ -129,6 +151,7 @@ const feat = (raw: readonly number[]): [number, number] => {
   let s2 = 0
   let s4 = 0
   let tot = 0
+  let signed = 0
   for (let i = 1; i < N - 1; i++) {
     const j = i * 2
     const ax = p[j]! - p[j - 2]!
@@ -140,33 +163,39 @@ const feat = (raw: readonly number[]): [number, number] => {
     s2 += q
     s4 += q * q
     tot += a < 0 ? -a : a // total heading swing
+    signed += a
   }
-  return [s4 > 0 ? (s2 * s2) / s4 : N, tot]
+  return [s4 > 0 ? (s2 * s2) / s4 : N, tot, signed / TAU]
 }
 
 /**
- * Per-rune feature envelope: [ecMin, ecMax, turnMin, turnMax].
- *
- * Shape matching alone is far too generous — it will happily call a straight
- * swipe WIND and a circle EARTH. So the winning template must also prove the
- * stroke HAS the right structure: a triangle really turning at three corners,
- * a quad at four, a Z two hard corners, a wave actually undulating.
- *
- * Bounds are p5..p95 over 300 strokes per case, measured across BOTH clean
- * large strokes and small very sloppy ones, then widened. After three blur
- * passes the junk sits far outside:
- *   straight line  turn 1.1-2.1  (every rune floor is 2.7+)
- *   rough circle   ec 17.8-24.9  (every rune ceiling is at most 17)
+ * How many times the resampled stroke crosses itself, treated as a closed
+ * loop. Only ILLUSION (∞) asks: it crosses exactly once, and none of the other
+ * runes ever does, so this gate only ever removes a false accept.
  */
-const ENV: readonly (readonly [number, number, number, number])[] = [
-  [2, 9, 3.4, 9], // FIRE  — three corners, one loop
-  // WIND is the loosest because a shallow two-hump wave is genuinely close to
-  // a line: it swings only 3.1 where a line swings 2.1, so the floor sits in
-  // that narrow gap. The ceiling still keeps rough circles (17.8+) out.
-  [3.5, 17, 2.7, 12], // WIND  — must undulate, not just travel
-  [1.5, 6.5, 4, 8.8], // ICE   — a Z: two hard corners, open stroke
-  [4, 12.5, 3.6, 8] // EARTH — four corners, one loop
-]
+const SEAM = 3
+const crossingCount = (rs: readonly number[]): number => {
+  const n = rs.length / 2
+  const d = (px: number, py: number, qx: number, qy: number, rx: number, ry: number): number =>
+    (qx - px) * (ry - py) - (qy - py) * (rx - px)
+  let c = 0
+  // Segments of the stroke AS DRAWN (open): i → i+1 for i < n-1.
+  for (let i = 0; i < n - 1; i++) {
+    const i2 = i + 1
+    for (let j = i + 2; j < n - 1; j++) {
+      const j2 = j + 1
+      if (i < SEAM && j >= n - 1 - SEAM) continue // the start/end overlap of a closed loop
+      const ax = rs[i * 2]!, ay = rs[i * 2 + 1]!, bx = rs[i2 * 2]!, by = rs[i2 * 2 + 1]!
+      const cx = rs[j * 2]!, cy = rs[j * 2 + 1]!, ex = rs[j2 * 2]!, ey = rs[j2 * 2 + 1]!
+      const d1 = d(ax, ay, bx, by, cx, cy)
+      const d2 = d(ax, ay, bx, by, ex, ey)
+      const d3 = d(cx, cy, ex, ey, ax, ay)
+      const d4 = d(cx, cy, ex, ey, bx, by)
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) c++
+    }
+  }
+  return c
+}
 
 /** Protractor: optimal angular distance between two unit vectors. */
 const score = (a: Float32Array, b: Float32Array): number => {
@@ -182,67 +211,8 @@ const score = (a: Float32Array, b: Float32Array): number => {
 
 /* ---------------------------- the templates ---------------------------- */
 
-/**
- * Sample a closed polygon whose corners lie on a circle, once. No rotation
- * argument: the matcher finds the optimal rotation itself.
- */
-const poly = (corners: number): number[] => {
-  const p: number[] = []
-  const per = 96 / corners // points per edge, plenty before resampling
-  // `e < corners` closes the shape exactly once. Walking one edge further
-  // retraces an edge and skews the normalised vector badly enough that
-  // triangles scored higher against the square template than their own.
-  for (let e = 0; e < corners; e++) {
-    const a0 = e * (TAU / corners)
-    const a1 = (e + 1) * (TAU / corners)
-    for (let k = 0; k < per; k++) {
-      const t = k / per
-      p.push(cos(a0) + (cos(a1) - cos(a0)) * t, sin(a0) + (sin(a1) - sin(a0)) * t)
-    }
-  }
-  return p
-}
-
-/**
- * A Z — the ICE primitive. A five-point star is miserable to draw with a
- * mouse, so ICE is the letter Z: across, back down the diagonal, across again.
- * Two hard corners, one stroke, no crossings.
- */
-const zed = (dir: number): number[] => {
-  const V: [number, number][] = [
-    [-1, -0.8],
-    [1, -0.8],
-    [-1, 0.8],
-    [1, 0.8]
-  ]
-  if (dir < 0) V.reverse()
-  const p: number[] = []
-  for (let e = 0; e < 3; e++) {
-    const [x0, y0] = V[e]!
-    const [x1, y1] = V[e + 1]!
-    // resample() walks by arc length, so a flat count per edge is fine.
-    for (let k = 0; k < 40; k++) {
-      const t = k / 40
-      p.push(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
-    }
-  }
-  p.push(V[3]![0], V[3]![1])
-  return p
-}
-
-/** A horizontal wavy line — the WIND primitive. */
-const wave = (humps: number, dir: number): number[] => {
-  const p: number[] = []
-  for (let i = 0; i <= 120; i++) {
-    const t = i / 120
-    const x = dir > 0 ? t * 2 - 1 : 1 - t * 2
-    p.push(x, sin(t * PI * humps) * 0.55)
-  }
-  return p
-}
-
-const TPL: [Rune, Float32Array][] = []
-const addTpl = (rune: Rune, pts: number[]): void => { TPL.push([rune, vectorise(resample(pts))]) }
+/** Templates per rune, indexed by id. Built once at load. */
+const BANK: Float32Array[][] = RUNE_DEFS.map(() => [])
 
 /**
  * Add a CLOSED shape as templates evenly spaced around its outline. Players
@@ -251,7 +221,7 @@ const addTpl = (rune: Rune, pts: number[]): void => { TPL.push([rune, vectorise(
  * triangle template. Shifting the already-resampled ring is far cheaper than
  * re-sampling the polygon k times.
  */
-const addRing = (rune: Rune, pts: number[]): void => {
+const addRing = (bank: Float32Array[], pts: number[]): void => {
   const b = resample(pts)
   for (let s = 0; s < N; s += 4) {
     const q: number[] = []
@@ -259,26 +229,20 @@ const addRing = (rune: Rune, pts: number[]): void => {
       const j = ((i + s) % N) * 2
       q.push(b[j]!, b[j + 1]!)
     }
-    TPL.push([rune, vectorise(q)])
+    bank.push(vectorise(q))
   }
 }
 
-/** Reversing the sample list covers the opposite drawing direction. */
-const rev = (p: readonly number[]): number[] => {
-  const q: number[] = []
-  for (let i = p.length - 2; i >= 0; i -= 2) q.push(p[i]!, p[i + 1]!)
-  return q
-}
-
-/** Build every start point x direction so the stroke order never matters. */
+/** Build every start point × direction so the stroke order never matters. */
 const build = (): void => {
-  const tri = poly(3)
-  const quad = poly(4)
-  for (let d = -1; d <= 1; d += 2) {
-    addRing(FIRE, d > 0 ? tri : rev(tri))
-    addRing(EARTH, d > 0 ? quad : rev(quad))
-    addTpl(ICE, zed(d))
-    for (const h of [2, 3, 4]) addTpl(WIND, wave(h, d))
+  for (const d of [-1, 1] as const) {
+    for (const def of RUNE_DEFS) {
+      const bank = BANK[def.id]!
+      for (const make of def.variants) {
+        if (def.family === 'ring') addRing(bank, make(d))
+        else bank.push(vectorise(resample(make(d))))
+      }
+    }
   }
 }
 build()
@@ -286,54 +250,86 @@ build()
 /** Below this the shape is rejected and the player gets the "bad" nudge. */
 const THRESH = 0.78
 
+const active = (mask: number): RuneRecognition[] => RUNE_DEFS.filter((r) => (mask >> r.id) & 1)
+
+const bestScore = (v: Float32Array, id: number): number => {
+  let best = -1
+  for (const tv of BANK[id]!) {
+    const s = score(v, tv)
+    if (s > best) best = s
+  }
+  return best
+}
+
 /**
- * Classify a raw stroke (flat [x,y,...] in stage coords).
+ * Classify a raw stroke (flat [x,y,...] in stage coords) among the runes whose
+ * bit is set in `activeMask` (default: the four shipped runes).
  * Returns the rune id, or -1 if nothing matched well enough.
  */
-export const recognise = (raw: readonly number[]): Rune | -1 => {
+export const recognise = (raw: readonly number[], activeMask: number = FROZEN_MASK): RuneId | -1 => {
   if (raw.length < 12) return -1
   const p = raw.slice()
   if (pathLen(p) < 60) return -1 // a tap or a twitch, not a gesture
   const rs = resample(p)
   const v = vectorise(rs)
-  const bs = [-1, -1, -1, -1] // best template score per rune
-  for (const [rune, tv] of TPL) {
-    const s = score(v, tv)
-    if (s > bs[rune]!) bs[rune] = s
-  }
-  const [ec, turn] = feat(rs)
+  const live = active(activeMask)
+  const bs: number[] = []
+  for (const def of live) bs[def.id] = bestScore(v, def.id)
+  const [ec, turn, wind] = feat(rs)
+  const crossings = live.some((d) => d.crossingGate !== undefined) ? crossingCount(rs) : 0
   /*
    * Take the best-scoring rune that ALSO passes its structure test, instead of
    * testing only the single top template. Shape matching alone confuses a
    * rough triangle with a quad — they are both one closed loop. The envelope
    * acts as a tie-break, so the stroke's own corner count decides, and a
    * triangle that genuinely turns three times lands as FIRE even when a square
-   * template scored higher.
+   * template scored higher. Runes are checked in id order, so the four
+   * shipped runes are always weighed first, exactly as before.
    */
-  let bestR: Rune | -1 = -1
+  let bestR: RuneId | -1 = -1
   let bestS = THRESH
-  for (let r = 0; r < 4; r++) {
-    const e = ENV[r]!
-    if (bs[r]! > bestS && ec >= e[0] && ec <= e[1] && turn >= e[2] && turn <= e[3]) {
-      bestS = bs[r]!
-      bestR = r as Rune
-    }
+  const aw = wind < 0 ? -wind : wind
+  for (const def of live) {
+    const e = def.env
+    if (!(bs[def.id]! > bestS && ec >= e[0] && ec <= e[1] && turn >= e[2] && turn <= e[3])) continue
+    if (def.windGate && (aw < def.windGate[0] || aw > def.windGate[1])) continue
+    if (def.crossingGate !== undefined && crossings !== def.crossingGate) continue
+    bestS = bs[def.id]!
+    bestR = def.id
   }
   return bestR
 }
 
-/** Exposed for tuning/debug: the best score without the threshold. */
-export const rawScore = (raw: readonly number[]): [number, number] => {
+/**
+ * The best template score among the active runes, without the threshold or
+ * the structure gates. It is used for tuning, and for the "almost a …!"
+ * near-miss nudge.
+ */
+export const rawScore = (raw: readonly number[], activeMask: number = FROZEN_MASK): [RuneId | -1, number] => {
   if (raw.length < 12) return [-1, 0]
   const v = vectorise(resample(raw.slice()))
-  let bestR = -1
+  let bestR: RuneId | -1 = -1
   let bestS = -1
-  for (const [rune, tv] of TPL) {
-    const s = score(v, tv)
+  for (const def of active(activeMask)) {
+    const s = bestScore(v, def.id)
     if (s > bestS) {
       bestS = s
-      bestR = rune
+      bestR = def.id
     }
   }
   return [bestR, bestS]
 }
+
+/**
+ * Structure features of a raw stroke, for the tuning harness and telemetry:
+ * effective corner count, total turn, winding (revolutions), self-crossings.
+ */
+export const strokeFeatures = (raw: readonly number[]): { ec: number; turn: number; wind: number; crossings: number } | null => {
+  if (raw.length < 12) return null
+  const rs = resample(raw.slice())
+  const [ec, turn, wind] = feat(rs)
+  return { ec, turn, wind, crossings: crossingCount(rs) }
+}
+
+/** Template counts per rune id (tests and the harness report them). */
+export const templateCounts = (): number[] => BANK.map((b) => b.length)

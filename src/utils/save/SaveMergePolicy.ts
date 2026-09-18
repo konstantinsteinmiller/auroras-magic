@@ -9,23 +9,27 @@
 // the player's actual keys. The blob lets the next hydrate score local vs.
 // remote and pick a winner deterministically without prompting.
 //
-// Score formula (Survivalist):
-//   bestStage           × 500
-// + totalUpgradeLevels  × 150
-// + runsPlayed          ×  10
+// Score formula — the story's campaign (story-spec §4.16, M22):
+//   (furthestNode + 1)  × 500
+// + sectorsRestored     × 150
+// + duelsPlayed         ×  10
 //
-// `bestStage` is the headline progress number (deepest stage ever cleared),
-// upgrade levels are the permanent spend, and the run counter breaks ties
-// between two saves that reached the same stage with the same upgrades.
+// `furthestNode` is the headline progress number (the deepest node whose duel
+// is won), restored sectors are the work the player put into the map, and
+// the duel counter breaks ties between two saves at the same place. A
+// snapshot with no `am_campaign` at all is a Step-1 save that has not been
+// migrated yet: it keeps the old formula (ladder × 500 + rank levels × 150 +
+// runs × 10), so it still outranks an empty device and the migration runs on
+// the side that wins.
 //
 // Conflict policy:
 //   - higher score wins
 //   - tie on score → newer savedAt wins
 //   - same time too → keep local (no needless writes)
-//   - if remote wins and local had ANY progress (score > 0), the player
-//     gets bonus coins = winner.maxStage × 50 to soften the loss
+//   - no consolation bonus: the story build has no currency (D3), so a lost
+//     conflict pays nothing and the "bonus coins" banner never shows.
 
-import { BEST_STAGE_KEY, COINS_KEY, UPGRADES_KEY, RUNS_KEY } from '@/keys'
+import { BEST_STAGE_KEY, COINS_KEY, UPGRADES_KEY, RUNS_KEY, CAMPAIGN_KEY } from '@/keys'
 import { STATE_KEY } from '@/use/useGameState'
 
 /** Where the meta blob is stored in localStorage / on the remote backend.
@@ -33,8 +37,14 @@ import { STATE_KEY } from '@/use/useGameState'
  *  through the strategy's mirror just like player data. */
 export const META_KEY = '__save_meta__'
 
-/** Bumped when the meta blob's shape changes in a non-additive way. */
+/** Bumped when the meta blob's shape changes in a non-additive way. A
+ *  SEPARATE counter from the game's own `am_schema`: §4.16 changed which game
+ *  field feeds the score, not the meta blob's shape, so this stays 1. */
 export const SCHEMA_VERSION = 1
+
+/** The consolation per stage of the winning save when a conflict is lost.
+ *  0 — the story build has no currency (D3). */
+export const CONFLICT_BONUS_PER_STAGE = 0
 
 // ─── Game-specific keys the score formula needs to read ────────────────────
 //
@@ -134,14 +144,51 @@ const readField = (read: SnapshotReader, field: string): string | null => {
   return read.get(field)
 }
 
+/** The story's campaign record, when the snapshot has one (§4.16). */
+const readCampaign = (read: SnapshotReader): { furthestNode: number; sectorsDone: string } | null => {
+  const raw = readField(read, CAMPAIGN_KEY)
+  const c = safeJson<Record<string, unknown> | null>(raw, null)
+  if (!c || typeof c !== 'object') return null
+  const f = typeof c.furthestNode === 'number' && Number.isFinite(c.furthestNode) ? Math.trunc(c.furthestNode) : -1
+  return { furthestNode: Math.max(-1, Math.min(49, f)), sectorsDone: typeof c.sectorsDone === 'string' ? c.sectorsDone : '' }
+}
+
+/** Set bits in a base64 bitset; junk counts as none. */
+const countBits = (b64: string): number => {
+  let n = 0
+  try {
+    const bin = atob(b64)
+    for (let i = 0; i < bin.length; i++) {
+      let v = bin.charCodeAt(i)
+      while (v) {
+        n += v & 1
+        v >>= 1
+      }
+    }
+  } catch {
+    return 0
+  }
+  return n
+}
+
 export const computeMeta = (
   read: SnapshotReader,
   savedAt: string = new Date().toISOString()
 ): SaveMeta => {
-  // `bestStage` is 0 for a player who has never cleared a stage, so a brand-new
-  // local snapshot scores 0 and can never beat a real cloud save on a tie.
-  const bestStage = Math.max(0, safeInt(readField(read, BEST_STAGE_KEY), 0))
   const runs = Math.max(0, safeInt(readField(read, RUNS_KEY), 0))
+  const campaign = readCampaign(read)
+  if (campaign) {
+    // A fresh campaign (furthestNode −1, nothing restored) scores only its
+    // duels, so a brand-new device can never beat a real cloud save.
+    const reached = campaign.furthestNode + 1
+    const restored = countBits(campaign.sectorsDone)
+    const progressScore = reached * 500 + restored * 150 + runs * 10
+    return { savedAt, progressScore, schemaVersion: SCHEMA_VERSION, maxStage: reached }
+  }
+  // A Step-1 snapshot (no campaign yet). `bestStage` is 0 for a player who has
+  // never cleared a stage, so a brand-new local snapshot scores 0 and can
+  // never beat a real cloud save on a tie.
+  const bestStage = Math.max(0, safeInt(readField(read, BEST_STAGE_KEY), 0))
 
   // Upgrades are stored as a flat `{ id: level }` record. Summing the levels
   // (rather than counting the tracks) makes a deeply-invested save beat a
@@ -201,7 +248,8 @@ export const serializeMeta = (meta: SaveMeta): string => JSON.stringify(meta)
  * Rules (in order):
  *   1. No remote → 'local-only'
  *   2. No local  → 'remote-only'  (nothing to lose; no bonus needed)
- *   3. remote.score > local.score → 'remote-wins' with bonus = remote.maxStage * 50 if local had any progress
+ *   3. remote.score > local.score → 'remote-wins' (bonus = remote.maxStage × CONFLICT_BONUS_PER_STAGE
+ *      if local had any progress — 0 in the story build, D3)
  *   4. local.score > remote.score → 'local-wins'
  *   5. Equal scores → newer savedAt wins (no bonus on score-tie wins)
  *   6. Equal everything → 'tie-keep-local'
@@ -214,7 +262,7 @@ export const decideMerge = (
   if (!localMeta) return { kind: 'remote-only' }
 
   if (remoteMeta.progressScore > localMeta.progressScore) {
-    const bonus = localMeta.progressScore > 0 ? remoteMeta.maxStage * 50 : 0
+    const bonus = localMeta.progressScore > 0 ? remoteMeta.maxStage * CONFLICT_BONUS_PER_STAGE : 0
     return { kind: 'remote-wins', bonusCoins: bonus }
   }
   if (localMeta.progressScore > remoteMeta.progressScore) {

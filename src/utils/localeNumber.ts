@@ -24,13 +24,6 @@
  * is the half that was wanted. If a game DOES localise its digits everywhere,
  * drop that option here so the board follows the rest rather than fighting it.
  *
- * ⚠ NOT the `formatCount` in `useSurvivalArt.ts`, which shares the name and does
- * the opposite job: that one COMPACTS for a canvas label (1 234 → "1.2k")
- * because a five-digit number does not fit on a barricade. This one groups for
- * a DOM readout and never abbreviates — a rank the player is meant to compare
- * cannot be rounded. They never meet in one file; if a future edit brings them
- * together, rename at the call site rather than aliasing the import.
- *
  * ── Why the cache ──
  *
  * Constructing an `Intl.NumberFormat` costs far more than formatting with one,

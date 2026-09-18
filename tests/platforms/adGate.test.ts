@@ -169,43 +169,89 @@ describe('reward gating', () => {
 })
 
 describe('interstitial pacing', () => {
-  it('never fires on the first opportunity of a session', async () => {
+  // Fixed session start, so every assertion reads as "seconds into the session".
+  const T0 = 1_000_000
+
+  const gateAt = async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(T0)
     const gate = await loadGate()
-    gate.__resetInterstitialClock()
-    // The opening minute is when a player decides whether the game is worth
-    // their time; an ad there is the most reliable way to lose them.
-    expect(gate.canShowInterstitial()).toBe(false)
+    gate.__resetInterstitialClock(T0)
+    return gate
+  }
+  const at = (s: number): number => T0 + s * 1000
+
+  it('pins the numbers: first ad after 240 s, then 121 s apart', async () => {
+    const gate = await gateAt()
+    expect(gate.FIRST_INTERSTITIAL_AFTER_MS).toBe(240_000)
+    expect(gate.INTERSTITIAL_MIN_GAP_MS).toBe(121_000)
   })
 
-  it('holds the break for a full two minutes', async () => {
-    vi.useFakeTimers()
-    const gate = await loadGate()
-    gate.__resetInterstitialClock()
-    gate.canShowInterstitial() // starts the clock
-
-    vi.advanceTimersByTime(119_000)
-    expect(gate.canShowInterstitial()).toBe(false)
-
-    vi.advanceTimersByTime(2_000)
-    expect(gate.canShowInterstitial()).toBe(true)
+  it('shows nothing in the first four minutes of a session', async () => {
+    const gate = await gateAt()
+    // The first duels decide whether a stranger stays. An ad there is the most
+    // reliable way to lose them.
+    for (const s of [0, 30, 121, 180, 239]) {
+      expect(gate.canShowInterstitial(at(s)), `at ${s} s`).toBe(false)
+    }
+    expect(gate.canShowInterstitial(at(240))).toBe(true)
   })
 
-  it('restarts the clock once a break is actually shown', async () => {
+  it('asking does not start a clock', async () => {
+    const gate = await gateAt()
+    // The old gate started its clock on the first ASK, so the first ad drifted
+    // to "121 s after the first duel ended" instead of a fixed point in the
+    // session. Asking early must not move the first opportunity.
+    gate.canShowInterstitial(at(10))
+    gate.canShowInterstitial(at(200))
+    expect(gate.canShowInterstitial(at(240))).toBe(true)
+  })
+
+  it('holds 121 s after every ad, not 120', async () => {
+    const gate = await gateAt()
+    gate.markInterstitialShown(at(250))
+    expect(gate.canShowInterstitial(at(250))).toBe(false)
+    expect(gate.canShowInterstitial(at(370))).toBe(false)
+    expect(gate.canShowInterstitial(at(371))).toBe(true)
+  })
+
+  it('a first-load ad does not open the opening window early', async () => {
+    const gate = await gateAt()
+    // GameMonetize / GamePix / GameDistribution show a mandated ad at the splash
+    // and seed the clock. The next ad still waits for the four-minute mark, not
+    // just 121 s after that one.
+    gate.markInterstitialShown(at(3))
+    expect(gate.canShowInterstitial(at(124))).toBe(false)
+    expect(gate.canShowInterstitial(at(239))).toBe(false)
+    expect(gate.canShowInterstitial(at(240))).toBe(true)
+  })
+
+  it('an ad late in the opening window pushes the next one past 240 s', async () => {
+    const gate = await gateAt()
+    // The hidden QA chord bypasses pacing but seeds the clock. At 200 s, the
+    // next paced ad is due at 321 s, not at the four-minute mark.
+    gate.markInterstitialShown(at(200))
+    expect(gate.canShowInterstitial(at(240))).toBe(false)
+    expect(gate.canShowInterstitial(at(320))).toBe(false)
+    expect(gate.canShowInterstitial(at(321))).toBe(true)
+  })
+
+  it('reports the wait until the next allowed ad', async () => {
+    const gate = await gateAt()
+    expect(gate.interstitialCooldownLeft(at(40))).toBe(200)
+    gate.markInterstitialShown(at(300))
+    expect(gate.interstitialCooldownLeft(at(301))).toBe(120)
+    expect(gate.interstitialCooldownLeft(at(500))).toBe(0)
+  })
+
+  it('counts the session from page load, not from when the module loaded', async () => {
     vi.useFakeTimers()
+    vi.setSystemTime(T0)
+    // The gate arrives with a lazily loaded chunk; the player's four minutes
+    // started with the page. 100 s of navigation time already elapsed here.
+    vi.spyOn(performance, 'now').mockReturnValue(100_000)
     const gate = await loadGate()
-    gate.__resetInterstitialClock()
-    gate.canShowInterstitial()
-
-    vi.advanceTimersByTime(121_000)
-    expect(gate.canShowInterstitial()).toBe(true)
-    gate.markInterstitialShown()
-
-    // Immediately after a break, the next one is a full gap away again — this
-    // is what stops a fast run from stacking two breaks in a row.
-    expect(gate.canShowInterstitial()).toBe(false)
-    expect(gate.interstitialCooldownLeft()).toBeGreaterThan(119)
-
-    vi.advanceTimersByTime(121_000)
-    expect(gate.canShowInterstitial()).toBe(true)
+    expect(gate.canShowInterstitial(at(139))).toBe(false)
+    expect(gate.canShowInterstitial(at(140))).toBe(true)
   })
 })
