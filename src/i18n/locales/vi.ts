@@ -120,7 +120,11 @@ export default {
     'times': 'x{n}',
     'victory': 'CHIẾN THẮNG',
     'defeated': 'ZZZ…',
-    'pierced': 'XẸT!'
+    'pierced': 'XẸT!',
+    'reflected': 'BẬT LẠI!',
+    'decoy': 'PHỤT!',
+    'frozen': 'ĐÓNG BĂNG!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -222,7 +226,29 @@ export default {
     'sunshell': 'Vàng nắng',
     'lavender': 'Tím oải hương',
     'skyblue': 'Xanh da trời',
-    'sunrise': 'Cam bình minh'
+    'sunrise': 'Cam bình minh',
+    'amethyst': 'Tím thạch anh',
+    'aquamarine': 'Xanh ngọc biển',
+    'rosequartz': 'Hồng thạch anh',
+    'silverblue': 'Xanh ánh bạc',
+    'mintglass': 'Xanh bạc hà',
+    'peach': 'Hồng đào',
+    'cherry': 'Đỏ anh đào',
+    'tangerine': 'Cam quýt',
+    'lime': 'Xanh chanh',
+    'terracotta': 'Màu đất nung',
+    'turquoise': 'Xanh ngọc lam',
+    'saffron': 'Vàng nghệ tây',
+    'icicle': 'Xanh băng giá',
+    'auroragreen': 'Xanh cực quang',
+    'berry': 'Tím quả mọng',
+    'stargold': 'Vàng ánh sao',
+    'midnight': 'Xanh nửa đêm',
+    'cosmicpink': 'Hồng vũ trụ',
+    'candypink': 'Hồng kẹo ngọt',
+    'lemon': 'Vàng chanh',
+    'mint': 'Màu bạc hà',
+    'rainbow': 'Màu cầu vồng'
   },
 
   'tool': {
@@ -291,12 +317,131 @@ export default {
         't2': 'Cảm ơn cậu, Aurora. Sớm quay lại bay cùng chúng tớ nhé!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'Hang Pha Lê đã tối om rồi.',
+        'b2': 'Vẫn còn tỏa sáng à, Aurora? Bóng tối dễ chịu mà.',
+        'b3': 'Terra ơi, cùng thắp sáng pha lê nào!'
+      },
+      'n5': {
+        'b1': 'Pha lê của ta vỡ cả rồi. Cứ để yên đó.',
+        'b2': 'Tớ có thể giúp chúng sáng lại!',
+        'b3': 'Vậy cho ta xem ánh sáng của cậu. Đấu nào!',
+        't1': 'Hang động lại lấp lánh rồi!',
+        't2': 'Cảm ơn cậu, Aurora. Cậu đúng là bạn thật lòng.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Những tấm gương giờ chỉ bày trò đánh lừa.',
+        'b2': 'Cậu có biết đâu mới là tớ không?',
+        'b3': 'Cùng tìm xem đâu là thật nào!'
+      },
+      'n5': {
+        'b1': 'Cậu là ai? Cậu là ai?',
+        'b2': 'Tớ là Aurora! Còn cậu là Echo, đúng không?',
+        'b3': 'Đúng không? Đúng rồi! Chứng minh cậu là thật đi. Đấu nào!',
+        't1': 'Chỉ có một tớ thôi. Chính là tớ!',
+        't2': 'Cảm ơn cậu, Aurora. Cảm ơn cậu, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Cây cầu vồng đang mất dần màu sắc!',
+        'b2': 'Màu xám thật yên bình... và hơi buồn.',
+        'b3': 'Prism ơi, cùng tô màu lại ngọn đồi nào!'
+      },
+      'n5': {
+        'b1': 'Đừng nhìn tớ! Tớ phai màu hết rồi!',
+        'b2': 'Màu sắc của cậu vẫn còn trong đó, Prism!',
+        'b3': 'Vậy làm tớ lấp lánh lại đi. Đấu nào!',
+        't1': 'Nhìn tớ này! Màu nào cũng trở lại rồi!',
+        't2': 'Cảm ơn cậu, Aurora. Cậu cũng rực rỡ lắm!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Thời gian đã ngừng trôi ở thác cát.',
+        'b2': 'Tớ thích khi chẳng có gì thay đổi.',
+        'b3': 'Ember ơi, cùng làm cát chảy lại nào!'
+      },
+      'n5': {
+        'b1': 'Ta phải giữ chiếc đồng hồ cát. Một mình!',
+        'b2': 'Cậu không phải làm một mình đâu!',
+        'b3': 'Vậy cho ta xem ngọn lửa của cậu. Đấu nào!',
+        't1': 'Cát lại chảy rồi. Ta được nghỉ ngơi rồi!',
+        't2': 'Cảm ơn cậu, Aurora. Cậu thật tốt bụng.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Cực quang bị mắc kẹt trong băng rồi!',
+        'b2': 'Những nơi lạnh giá... hơi cô đơn nhỉ.',
+        'b3': 'Glace ơi, cùng giải thoát bầu trời nào!'
+      },
+      'n5': {
+        'b1': 'Lùi lại. Ta thích giữ khoảng cách hơn.',
+        'b2': 'Bạn bè có thể sưởi ấm cho nhau mà!',
+        'b3': 'Hừm. Vậy thì sưởi ấm ta đi. Đấu.',
+        't1': 'Cực quang lại nhảy múa rồi. Thật đẹp.',
+        't2': 'Cảm ơn cậu, Aurora. Thỉnh thoảng ghé thăm ta nhé.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Các vì sao đều tắt hết rồi!',
+        'b2': 'Liệu có ai nhớ một ánh sáng đã tắt không?',
+        'b3': 'Ánh sáng nào cũng quý giá. Cùng thắp lại nào!'
+      },
+      'n5': {
+        'b1': 'Tớ mờ quá rồi, không tỏa sáng được nữa.',
+        'b2': 'Tớ tin cậu, Nova!',
+        'b3': 'Vậy giúp tớ tìm lại tia sáng nhé. Đấu nào!',
+        't1': 'Tớ đang tỏa sáng! Mọi vì sao đều tỏa sáng!',
+        't2': 'Cảm ơn cậu, Aurora. Cậu đã soi đường cho tớ.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Mọi người đang tổ chức lễ hội cho Umbra đấy!',
+        'b2': 'Lễ hội á? Tớ chẳng cần đâu.',
+        'b3': 'Ai cũng cần có bạn. Cả cậu nữa, Umbra!'
+      },
+      'n2': {
+        'b1': 'Khu rừng gửi hoa đến cho bữa tiệc!',
+        'b2': 'Còn hang động gửi đèn lồng pha lê!'
+      },
+      'n3': {
+        'b1': 'Chúng mình sẽ hát bài chào mừng!',
+        'b2': 'Bài chào mừng! Bài chào mừng!'
+      },
+      'n4': {
+        'b1': 'Tớ sẽ tô màu bầu trời chỉ riêng cho bạn ấy!',
+        'b2': 'Đêm nay mọi vì sao sẽ tỏa sáng!'
+      },
+      'n5': {
+        'b1': 'Sao mọi người cứ không để tớ yên thế?',
+        'b2': 'Vì chúng tớ muốn cậu ở bên chúng tớ, Umbra!',
+        'b3': 'Được thôi. Nhưng đừng mong thắng dễ nhé!',
+        't1': 'Các cậu... thật sự muốn tớ đến lễ hội sao?',
+        't2': 'Tất nhiên rồi! Cậu là bạn của chúng tớ mà, Umbra!',
+        't3': 'Trước giờ chưa ai mời tớ cả.',
+        't4': 'Vậy thì đi thôi! Lễ hội bắt đầu nào!'
+      }
+    },
     'tmpl': {
       'curious': '{name} tò mò ló đầu ra!',
       'dusty': 'Ôi, {name} trông hơi bụi bặm.',
       'cheerUp': 'Cùng làm {name} vui lên nào!',
       'almost': 'Sắp tới rồi — {name} đang cổ vũ cho bạn!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra không còn cô đơn nữa.',
+    'umbra1': 'Chào Aurora! Cảm ơn cậu đã làm bạn với tớ.',
+    'umbra2': 'Nơi này giờ đẹp quá đi!',
+    'umbra3': 'Khi nào mình đấu cho vui nhé?'
   },
 
   'gift': {

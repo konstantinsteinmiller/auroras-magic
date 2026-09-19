@@ -28,17 +28,40 @@ export interface FoeDef {
   /** This chapter's new magic (a rune id) — castable from node 3 — or -1. */
   magic: number
   boss: boolean
-  /** The boss's phase-2 mechanic at ≤ 50 % HP (§6.11), if shipped:
-   *  Briar's Nature rider on everything, Pearl opening a bubble ward at the
-   *  phase start, Zephyr's bolts piercing. */
+  /** The boss's phase-2 mechanic at ≤ 50 % HP (§6.11). */
   phase2: Phase2 | null
+  /** Signature Spells this foe may cast once `usesMagic` holds — a bitmask
+   *  over `SIGNATURE_SPELLS`. Only Crystal Ward (chapter 4); Frost Lock is
+   *  player-only (C14). */
+  sigs: number
   pal: FoePalette
 }
 
-export type Phase2 = 'natureRider' | 'wardOpen' | 'pierceBolts'
+/**
+ * Each chapter's boss phase 2 (§6.11), after the universal 1.8 s wind-up:
+ *   natureRider  Briar — every spell of hers also carries Nature's dot
+ *   wardOpen     Pearl — opens a bubble ward at the phase start
+ *   pierceBolts  Zephyr — her bolts pierce (Lightning mechanics, M2)
+ *   crystalLong  Terra — her Crystal Ward's window runs 7 s, not 5
+ *   twoDecoys    Echo — may hold two decoys at once
+ *   prismGlow    Prism — cosmetic only (an all-colour glow): out-played,
+ *                never counter-picked
+ *   slowDouble   Ember — her slow shaves twice as much off a guard (Time)
+ *   frostResist  Glace — Frost Lock holds her 1.5 s, not 2.5
+ *   lifestealUp  Nova — her lifesteal rises 40 % → 55 %
+ *   umbraFalter  Umbra — phase 2 is a plain tell (she falters, she does not
+ *                power up); phase 3 at 25 % opens her own Love finisher
+ */
+export type Phase2 =
+  | 'natureRider' | 'wardOpen' | 'pierceBolts' | 'crystalLong' | 'twoDecoys'
+  | 'prismGlow' | 'slowDouble' | 'frostResist' | 'lifestealUp' | 'umbraFalter'
 
-/** The phase-2 mechanics that have shipped, by chapter (§6.11). */
-const PHASE2: readonly (Phase2 | null)[] = ['natureRider', 'wardOpen', 'pierceBolts']
+const PHASE2: readonly Phase2[] = [
+  'natureRider', 'wardOpen', 'pierceBolts', 'crystalLong', 'twoDecoys',
+  'prismGlow', 'slowDouble', 'frostResist', 'lifestealUp', 'umbraFalter'
+]
+/** Chapter 4's foes may raise Crystal Ward from node 3 (§6.10). */
+const SIGS: readonly number[] = [0, 0, 0, 0b01, 0, 0, 0, 0, 0, 0]
 
 /** Umbra's own look: matte black coat, violet rim, neon cyan streaks. */
 const UMBRA: FoePalette = ['#213', '#102', '#74c', '#84d', '#7ff', '#a5f', '#539', '#7ff', '#b7f', '#639']
@@ -47,8 +70,23 @@ const UMBRA: FoePalette = ['#213', '#102', '#74c', '#84d', '#7ff', '#a5f', '#539
 const shade = (mane: string, streak: string, glow: string): FoePalette =>
   ['#213', '#102', glow, mane, streak, streak, '#539', streak, glow, '#639']
 
-const hp = (chapter: number, boss: boolean): number => 100 + 3 * chapter + (boss ? (chapter === 9 ? 16 : 20) : 0)
-const tier = (chapter: number): 0 | 1 | 2 => Math.min(2, Math.floor(chapter / 3)) as 0 | 1 | 2
+/**
+ * HP by chapter (0-based), measured on the real duel against §7.2's core
+ * child (S4 tuning, `tests/duel/winRate.test.ts`): a standard foe 100 + 1 per
+ * chapter — flat 100 where she has no weakness to exploit — and a boss
+ * 115 + 2 per chapter. (§6.12 had 100 + 3·(ch − 1) and +20 per boss, +16 at
+ * 10-5: tuned on an abstract sim that was far kinder than the real one.)
+ */
+const hp = (chapter: number, boss: boolean, element: number): number =>
+  boss ? 115 + 2 * chapter : element < 0 ? 100 : 100 + chapter
+/**
+ * §6.14's tier by chapter (0-based): 1–3 → 0, 4–6 → 1, 7–10 → 2 — one tier
+ * gentler for a foe with no weakness to exploit (Prism, Ember, Umbra and
+ * their shadows): measured on the real duel, a child who cannot counter-pick
+ * needs the slower hand to stay inside §7.2's targets (S4 tuning).
+ */
+const tier = (chapter: number, element: number): 0 | 1 | 2 =>
+  Math.max(0, Math.min(2, Math.floor(chapter / 3)) - (element < 0 ? 1 : 0)) as 0 | 1 | 2
 
 /** Chapter index (0-based) → [weakness element, new magic]. */
 const CH: readonly (readonly [number, number])[] = [
@@ -96,7 +134,7 @@ for (let c = 0; c < 10; c++) {
   const [element, magic] = CH[c]!
   const [mane, streak, glow] = SHADOW_TINT[c]!
   roster.push({
-    slug: 'shadow', element, hpMax: hp(c, false), aiTier: tier(c), magic, boss: false, phase2: null,
+    slug: 'shadow', element, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
     pal: c === 9 ? UMBRA : shade(mane, streak, glow)
   })
 }
@@ -104,8 +142,8 @@ for (let c = 0; c < 10; c++) {
   const [element, magic] = CH[c]!
   const [slug, pal] = GUARDIAN[c]!
   roster.push({
-    slug, element, hpMax: hp(c, true), aiTier: tier(c), magic, boss: true,
-    phase2: PHASE2[c] ?? null, pal
+    slug, element, hpMax: hp(c, true, element), aiTier: tier(c, element), magic, boss: true,
+    phase2: PHASE2[c] ?? null, sigs: SIGS[c]!, pal
   })
 }
 
@@ -117,8 +155,13 @@ export const FOES: readonly FoeDef[] = roster
 export const shadowOf = (chapter: number): number => chapter
 export const guardianOf = (chapter: number): number => 10 + chapter
 
-/** Rate of rune formation for an AI tier (§6.14). */
-export const tierRate = (aiTier: number): number => 0.42 + 0.085 * aiTier
+/**
+ * Rate of rune formation for an AI tier (§6.14): 0.40 / 0.43 / 0.46 runes/s.
+ * §6.14 had 0.42 + 0.085 per tier; measured on the real duel against §7.2's
+ * core child (`tests/duel/winRate.test.ts`, S4) that curve put chapters 7–10
+ * at 25–40 % first-attempt wins, so the tiers step gently and a hair lower.
+ */
+export const tierRate = (aiTier: number): number => 0.4 + 0.03 * aiTier
 
 /**
  * The NPC contract per magic (§6.13, M26), as a record a test can assert:
@@ -137,7 +180,7 @@ export interface AiContract {
   counteredBy: 'dot' | 'ward' | 'pierce' | 'decoy' | 'none' | 'tank'
   /** The chapter's boss gains a phase-2 tie to this magic (§6.11). */
   bossPhase2?: true
-  /** Built in this stage (S2 dot, S3 ward + pierce; the rest land in S4). */
+  /** Built: S2 dot, S3 ward + pierce, S4 the rest. */
   built: boolean
 }
 
@@ -145,11 +188,11 @@ export const AI_CONTRACTS: readonly AiContract[] = [
   { magic: 'dot', usesFromNode: 3, usesWhen: 'own HP < 60%', aiOnly: false, counteredBy: 'none', bossPhase2: true, built: true },
   { magic: 'ward', usesFromNode: 3, usesWhen: 'incoming shot', aiOnly: false, counteredBy: 'pierce', bossPhase2: true, built: true },
   { magic: 'pierce', usesFromNode: 3, usesWhen: 'player guard>0', aiOnly: false, counteredBy: 'decoy', bossPhase2: true, built: true },
-  { magic: 'crystal', usesFromNode: 3, usesWhen: 'defensive default', aiOnly: false, counteredBy: 'pierce', bossPhase2: true, built: false },
-  { magic: 'decoy', usesFromNode: 3, usesWhen: 'own HP < 30%', aiOnly: false, counteredBy: 'tank', bossPhase2: true, built: false },
-  { magic: 'wildcard', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: false },
-  { magic: 'slow', usesFromNode: 3, usesWhen: 'player guard>0', aiOnly: false, counteredBy: 'none', bossPhase2: true, built: false },
-  { magic: 'frostLock', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: false },
-  { magic: 'lifesteal', usesFromNode: 3, usesWhen: 'own HP < 50%', aiOnly: false, counteredBy: 'decoy', bossPhase2: true, built: false },
-  { magic: 'finisher', usesFromNode: 1, usesWhen: 'Umbra only, own HP <=25% (phase 3)', aiOnly: false, counteredBy: 'none', built: false }
+  { magic: 'crystal', usesFromNode: 3, usesWhen: 'defensive default', aiOnly: false, counteredBy: 'pierce', bossPhase2: true, built: true },
+  { magic: 'decoy', usesFromNode: 3, usesWhen: 'own HP < 30%', aiOnly: false, counteredBy: 'tank', bossPhase2: true, built: true },
+  { magic: 'wildcard', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: true },
+  { magic: 'slow', usesFromNode: 3, usesWhen: 'player guard>0', aiOnly: false, counteredBy: 'none', bossPhase2: true, built: true },
+  { magic: 'frostLock', usesFromNode: 1, usesWhen: 'never', aiOnly: true, counteredBy: 'none', built: true },
+  { magic: 'lifesteal', usesFromNode: 3, usesWhen: 'own HP < 50%', aiOnly: false, counteredBy: 'decoy', bossPhase2: true, built: true },
+  { magic: 'finisher', usesFromNode: 1, usesWhen: 'Umbra only, own HP <=25% (phase 3)', aiOnly: false, counteredBy: 'none', built: true }
 ]

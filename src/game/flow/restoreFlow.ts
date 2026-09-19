@@ -13,7 +13,7 @@
  *     between the reveal and the idle map (§3.9.2 item 3).
  */
 import { S, save } from '@/game/duel/state'
-import { COSMETIC_SLOTS, COSMETICS } from '@/game/campaign/tables'
+import { COSMETIC_SLOTS, COSMETICS, FINALE_NODE } from '@/game/campaign/tables'
 import { onUnboxComplete, type ChestGrant } from '@/game/campaign/controller'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, DIP_ZOOM } from '@/game/flow/transition'
@@ -23,6 +23,7 @@ import { triggerHappytime } from '@/use/useCrazyGames'
 import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
 import { offerTwinGift } from '@/use/useDuelRewards'
 import { beginRestore, type RestoreEnd } from '@/game/restore/wipe'
+import { mapHud } from '@/use/useMapHud'
 
 let lastGrant: ChestGrant = { rune: null, signature: null, cosmetic: null }
 let lastNode = -1
@@ -62,11 +63,20 @@ export const onRestoreFinished = (why: RestoreEnd): void => {
       save()
       admiringKeepsake = true
       gotoScene('wardrobe')
-      admire()
+      admire(keepsake)
       return
     }
     gotoScene('map', n)
     focusMap(n)
+    // The Festival's own sector, restored for the first time: the finale
+    // (§10.19). Its card comes up over the map, once; after it, Umbra
+    // wanders the restored world (§8.11).
+    if (why === 'restored' && n === FINALE_NODE && !S.campaign.finaleSeen) {
+      S.campaign.finaleSeen = true
+      save()
+      mapHud.finale = true
+      return
+    }
     if (why === 'restored') offerTwinGift(n)
   }, DIP_ZOOM)
 }

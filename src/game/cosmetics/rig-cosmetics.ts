@@ -1,20 +1,30 @@
 /**
  * rig-cosmetics.ts — what Aurora wears (story-spec §9.7, C17, C31).
  *
- * Each item is a small named draw function hooked into the rig's draw order
- * (`drawUnicorn`'s `afterHead` for the head slot), so it rides every pose —
- * a rear, a victory hop, a portrait — and inherits the head's scale for free.
- * Procedural until Step 3's painted overlay replaces it.
+ * Each item is a small named draw function hooked into the rig's draw order,
+ * so it rides every pose — a rear, a victory hop, a portrait — and a head
+ * item inherits the head's scale for free. Procedural until Step 3's painted
+ * overlay replaces it.
  *
- * S2 shipped the head slot (chapter 1's Flower Crown); S3 adds the neck slot
- * (chapter 2's Seashell Necklace, at `afterMane`) and the back slot
- * (chapter 3's Fluffy Pegasus Wings: a far layer at `beforeTorso`, a near
- * one at `afterTorso`). The other slots are data in `campaign/tables.ts`
- * waiting for their chapters.
+ *   slot       item (chapter)                  hook
+ *   head       Flower Crown (1)                `afterHead`, head space
+ *   neck       Seashell Necklace (2)           `afterMane`, rig space
+ *              Cozy Winter Scarf (8)           `afterMane`, rig space
+ *   back       Fluffy Pegasus Wings (3)        `beforeTorso` far + `afterMane` near
+ *   trail      Sparkly Hoof-trail (4)          `afterRig`, stage space — a pooled emitter
+ *   skin       Umbra Look (5)                  `skin`, a palette on her own shape
+ *              Pastel Dream Theme (7)          `skin` + a few `afterRig` twinkles
+ *   mane       Mane Color Palette (6)          `mane`, one of 8 swatches
+ *   companion  Pet Star (9)                    `afterRig`, stage space
+ *
+ * Every hook is optional and any combination is valid; `equippedHooks()`
+ * composes what is worn into one `PoseState` fragment, cached until the
+ * wardrobe changes, and `equippedKey()` names it for baked portraits.
  */
 import { S } from '@/game/duel/state'
 import { COSMETICS, COSMETIC_SLOTS } from '@/game/campaign/tables'
-import { TAU, sin, cos } from '@/game/duel/util'
+import { FOES, guardianOf, type FoePalette } from '@/game/duel/foes'
+import { TAU, PI, sin, cos, min, clamp, ease } from '@/game/duel/util'
 import type { PoseState, RigAnchors } from '@/game/duel/chars'
 
 type G2D = CanvasRenderingContext2D
@@ -206,14 +216,580 @@ export const drawWingsNear = (g: G2D, a: RigAnchors): void => {
   wing(g, x - 16, y + 6, 1.5, flapOf(a), '#fff6fb', '#ffb3d2')
 }
 
+/* ------------------------------ sparkles ------------------------------ */
+
+/** Add a four-point sparkle to the current path (no beginPath). */
+export const sparklePath = (g: G2D, x: number, y: number, r: number, rot: number): void => {
+  for (let i = 0; i < 8; i++) {
+    const a = rot + (i * PI) / 4
+    const rr = i & 1 ? r * 0.36 : r
+    const px = x + cos(a) * rr
+    const py = y + sin(a) * rr
+    if (i) g.lineTo(px, py)
+    else g.moveTo(px, py)
+  }
+  g.closePath()
+}
+
+/** Ink the current path the rig's way: a plum outline, the fill on top. */
+const inkFill = (g: G2D, fill: string, w: number): void => {
+  g.lineWidth = w
+  g.strokeStyle = INK
+  g.stroke()
+  g.fillStyle = fill
+  g.fill()
+}
+
+/** A fixed little cluster of sparkles, `spots` as [dx, dy, r, colour index]
+ *  from (x, y), mirrored by `f`, each twinkling on its own slow beat. */
+const sparkleSet = (
+  g: G2D, x: number, y: number, f: number, spots: readonly (readonly number[])[], cols: readonly string[],
+  t: number, still: boolean
+): void => {
+  g.lineJoin = 'round'
+  for (let c = 0; c < cols.length; c++) {
+    g.beginPath()
+    let any = false
+    for (let i = 0; i < spots.length; i++) {
+      const s = spots[i]!
+      if (s[3] !== c) continue
+      // Pops in, holds, shrinks out — and rests between (still: always on).
+      const p = still ? 0.3 : (t * 0.55 + i * 0.37) % 1
+      const k = still ? 0.85 : p < 0.6 ? sin((p / 0.6) * PI) : 0
+      if (k < 0.05) continue
+      sparklePath(g, x + f * s[0]!, y + s[1]! - p * 8, s[2]! * k, 0.3 * i)
+      any = true
+    }
+    if (any) inkFill(g, cols[c]!, 2.2)
+  }
+}
+
+/* ------------------------ the Sparkly Hoof-trail ---------------------- */
+/*
+ * Chapter 4's keepsake: little sparkles that stream from her hooves — a
+ * gentle trickle at rest, livelier while she rears, and a burst on every hop
+ * and cast. A tiny pooled emitter of its own: a hard cap of 40 particles in
+ * typed arrays, round-robin reuse, a seeded PRNG, no allocation per frame.
+ * It ages on the rig's own clock (`a.t`), so a paused duel freezes it, and a
+ * jump in that clock (a new scene) starts it over, pre-warmed.
+ */
+const TRAIL_MAX = 40
+const TX = new Float32Array(TRAIL_MAX)
+const TY = new Float32Array(TRAIL_MAX)
+const TVX = new Float32Array(TRAIL_MAX)
+const TVY = new Float32Array(TRAIL_MAX)
+const TAGE = new Float32Array(TRAIL_MAX).fill(1)
+const TLIFE = new Float32Array(TRAIL_MAX)
+const TSIZE = new Float32Array(TRAIL_MAX)
+const TROT = new Float32Array(TRAIL_MAX)
+const TCOL = new Uint8Array(TRAIL_MAX)
+/** Butter, candy pink, sky, white. */
+const TRAIL_COLS = ['#fff09a', '#ffb3da', '#a6e4ff', '#ffffff'] as const
+let trailNext = 0
+let trailClock = Number.NaN
+let trailLift = 0
+let trailAcc = 0
+let trailHoof = 0
+let trailSeed = 7
+/** The trail's own deterministic dice (no Math.random in a draw path). */
+const trnd = (): number => ((trailSeed = (trailSeed * 16807) % 2147483647) - 1) / 2147483646
+
+const trailSpawn = (x: number, y: number, vx: number, vy: number, life: number, size: number, age = 0): void => {
+  const i = trailNext
+  trailNext = (i + 1) % TRAIL_MAX
+  TX[i] = x + vx * age
+  TY[i] = y + vy * age
+  TVX[i] = vx
+  TVY[i] = vy
+  TAGE[i] = age
+  TLIFE[i] = life
+  TSIZE[i] = size
+  TROT[i] = trnd() * TAU
+  TCOL[i] = (trnd() * TRAIL_COLS.length) | 0
+}
+
+/** Live particles right now (for tests and the frame budget). */
+export const hoofTrailLive = (): number => {
+  let n = 0
+  for (let i = 0; i < TRAIL_MAX; i++) if (TAGE[i]! < TLIFE[i]!) n++
+  return n
+}
+export const HOOF_TRAIL_MAX = TRAIL_MAX
+
+/** One sparkle leaving a hoof, drifting up and back. */
+const trailEmit = (a: RigAnchors, age: number): void => {
+  const h = (trailHoof ^= 1) ? a.hoofFront : a.hoofHind
+  trailSpawn(
+    h[0] - a.facing * 4 + (trnd() - 0.5) * 14, h[1] - 2 - trnd() * 6,
+    -a.facing * (10 + trnd() * 22), -(26 + trnd() * 30),
+    0.9 + trnd() * 0.6, 6 + trnd() * 3.5, age
+  )
+}
+
+const trailStep = (a: RigAnchors, dt: number): void => {
+  const drag = 1 - min(1, 0.9 * dt)
+  for (let i = 0; i < TRAIL_MAX; i++) {
+    if (TAGE[i]! >= TLIFE[i]!) continue
+    TAGE[i] = TAGE[i]! + dt
+    TVX[i] = TVX[i]! * drag
+    TVY[i] = TVY[i]! * drag - 10 * dt // they float, gently, upward
+    TX[i] = TX[i]! + TVX[i]! * dt
+    TY[i] = TY[i]! + TVY[i]! * dt
+  }
+  // A gentle stream at rest, livelier while she rears; none once she is down.
+  trailAcc += (10 + 20 * a.lift) * (1 - a.lose) * dt
+  while (trailAcc >= 1) {
+    trailAcc -= 1
+    trailEmit(a, 0)
+  }
+  // The burst: the rising edge of a hop or a cast.
+  if (a.lift > 0.45 && trailLift <= 0.45 && a.lose < 0.5) {
+    for (let k = 0; k < 12; k++) {
+      const h = k & 1 ? a.hoofHind : a.hoofFront
+      const ang = -PI / 2 + (trnd() - 0.5) * 2.4
+      const sp = 45 + trnd() * 70
+      trailSpawn(h[0], h[1] - 3, cos(ang) * sp, sin(ang) * sp, 0.6 + trnd() * 0.5, 7 + trnd() * 4)
+    }
+  }
+  trailLift = a.lift
+}
+
+/** Start over: an empty pool, then a second's worth of stream already under way. */
+const trailRestart = (a: RigAnchors): void => {
+  TAGE.fill(1)
+  TLIFE.fill(0)
+  trailAcc = 0
+  trailLift = a.lift
+  if (a.lose < 0.5) for (let k = 0; k < 10; k++) trailEmit(a, k * 0.1)
+}
+
+/** The portrait's still: a few sparkles rising into the frame's bottom edge,
+ *  in front of her chest (the hooves are out of shot). */
+const TRAIL_STILL: readonly (readonly number[])[] = [
+  [12, 40, 5.5, 0], [30, 30, 4.5, 1], [-6, 50, 4.8, 2], [40, 48, 6, 3], [22, 56, 4, 0]
+]
+
+export const drawHoofTrail = (g: G2D, a: RigAnchors): void => {
+  if (a.portrait) {
+    sparkleSet(g, a.headStage[0], a.headStage[1], a.facing, TRAIL_STILL, TRAIL_COLS, a.t, true)
+    return
+  }
+  const dt = a.t - trailClock
+  if (!(dt >= 0 && dt < 0.5)) trailRestart(a)
+  else if (dt > 0) trailStep(a, min(dt, 0.1))
+  trailClock = a.t
+  g.lineJoin = 'round'
+  const ink = S.q ? 2.6 : 0
+  for (let c = 0; c < TRAIL_COLS.length; c++) {
+    g.beginPath()
+    let any = false
+    for (let i = 0; i < TRAIL_MAX; i++) {
+      if (TCOL[i] !== c || TAGE[i]! >= TLIFE[i]!) continue
+      const age = TAGE[i]!
+      const k = age / TLIFE[i]!
+      // Snaps in, then shrinks out rather than fading (art-style §6).
+      const r = TSIZE[i]! * min(1, age * 16) * (k > 0.55 ? (1 - k) / 0.45 : 1)
+      sparklePath(g, TX[i]!, TY[i]!, r, TROT[i]! + age * 2.5)
+      any = true
+    }
+    if (!any) continue
+    if (ink) {
+      g.lineWidth = ink
+      g.strokeStyle = INK
+      g.stroke()
+    }
+    g.fillStyle = TRAIL_COLS[c]!
+    g.fill()
+  }
+}
+
+/* ----------------------------- the Pet Star --------------------------- */
+/*
+ * Chapter 9's keepsake: a small, chubby five-point star with a face, who
+ * floats above her tail on a lazy figure-eight, blinks now and then, and
+ * does a happy spin-and-hop whenever she casts or hops. A faint twinkle
+ * trail follows it — its own path a moment ago, so it costs no state.
+ */
+const STAR_R = 14
+/** The star's soft warm glow, baked once (a blur per frame costs far more). */
+let glowCv: HTMLCanvasElement | null = null
+const starGlow = (): HTMLCanvasElement | null => {
+  if (glowCv || typeof document === 'undefined') return glowCv
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 64
+  const g = cv.getContext('2d')
+  if (!g) return null
+  const gr = g.createRadialGradient(32, 32, 3, 32, 32, 32)
+  gr.addColorStop(0, 'rgba(255, 236, 140, 0.9)')
+  gr.addColorStop(0.45, 'rgba(255, 216, 74, 0.38)')
+  gr.addColorStop(1, 'rgba(255, 216, 74, 0)')
+  g.fillStyle = gr
+  g.fillRect(0, 0, 64, 64)
+  glowCv = cv
+  return cv
+}
+let starSpin = -99
+let starLift = 0
+let starClock = Number.NaN
+
+/** The star's float at time `t`, around the anchor (x, y), mirrored by `f`. */
+const starX = (x: number, f: number, t: number): number => x + f * (-16 + sin(t * 1.15) * 8)
+const starY = (y: number, t: number): number => y - 50 + sin(t * 2.3) * 5
+
+/** The star itself at the origin: the chubby body, a highlight, a face. */
+export const drawStarBody = (g: G2D, r: number, blink: boolean, happy: boolean): void => {
+  g.lineJoin = g.lineCap = 'round'
+  g.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a = -PI / 2 + (i * PI) / 5
+    const rr = i & 1 ? r * 0.56 : r
+    if (i) g.lineTo(cos(a) * rr, sin(a) * rr)
+    else g.moveTo(cos(a) * rr, sin(a) * rr)
+  }
+  g.closePath()
+  g.lineWidth = r * 0.36
+  g.strokeStyle = INK
+  g.stroke()
+  g.fillStyle = '#ffd84a'
+  g.fill()
+  // A soft top-left highlight, inside the silhouette.
+  g.beginPath()
+  g.ellipse(-r * 0.3, -r * 0.34, r * 0.2, r * 0.12, -0.6, 0, TAU)
+  g.fillStyle = '#fff6c2'
+  g.fill()
+  // Cheeks.
+  g.globalAlpha = 0.75
+  g.beginPath()
+  g.ellipse(-r * 0.4, r * 0.22, r * 0.13, r * 0.08, 0, 0, TAU)
+  g.moveTo(r * 0.53, r * 0.22)
+  g.ellipse(r * 0.4, r * 0.22, r * 0.13, r * 0.08, 0, 0, TAU)
+  g.fillStyle = '#ff9ec0'
+  g.fill()
+  g.globalAlpha = 1
+  // Eyes: open with a glint, or the happy/blinking crescents.
+  g.strokeStyle = INK
+  if (blink || happy) {
+    g.beginPath()
+    for (let d = -1; d <= 1; d += 2) {
+      const ex = d * r * 0.24
+      if (happy) {
+        g.moveTo(ex - r * 0.11, r * 0.03)
+        g.quadraticCurveTo(ex, -r * 0.16, ex + r * 0.11, r * 0.03)
+      } else {
+        g.moveTo(ex - r * 0.11, -r * 0.02)
+        g.quadraticCurveTo(ex, r * 0.08, ex + r * 0.11, -r * 0.02)
+      }
+    }
+    g.lineWidth = r * 0.1
+    g.stroke()
+  } else {
+    g.beginPath()
+    g.ellipse(-r * 0.24, -r * 0.04, r * 0.1, r * 0.15, 0, 0, TAU)
+    g.moveTo(r * 0.34, -r * 0.04)
+    g.ellipse(r * 0.24, -r * 0.04, r * 0.1, r * 0.15, 0, 0, TAU)
+    g.fillStyle = INK
+    g.fill()
+    g.beginPath()
+    g.arc(-r * 0.21, -r * 0.1, r * 0.045, 0, TAU)
+    g.moveTo(r * 0.315, -r * 0.1)
+    g.arc(r * 0.27, -r * 0.1, r * 0.045, 0, TAU)
+    g.fillStyle = '#fff'
+    g.fill()
+  }
+  // A small smile.
+  g.beginPath()
+  g.arc(0, r * 0.12, r * 0.13, 0.25, PI - 0.25)
+  g.lineWidth = r * 0.085
+  g.stroke()
+}
+
+export const drawPetStar = (g: G2D, a: RigAnchors): void => {
+  const t = a.t
+  const f = a.facing
+  let x: number
+  let y: number
+  let sp = 1
+  if (a.portrait) {
+    // The portrait: peeking in over her mane, beside her head.
+    x = a.headStage[0] - f * 44
+    y = a.headStage[1] - 26
+  } else {
+    // The happy spin: the rising edge of a hop or a cast, 0.75 s — only on
+    // a running clock (a frozen one, reduced motion or a pause, never starts one).
+    const ticking = t > starClock && t - starClock < 0.5
+    if (!(t >= starClock && t - starClock < 0.5)) {
+      starSpin = -99
+      starLift = a.lift
+    }
+    starClock = t
+    if (ticking && a.lift > 0.4 && starLift <= 0.4) starSpin = t
+    starLift = a.lift
+    sp = clamp((t - starSpin) / 0.75, 0, 1)
+    x = starX(a.tailStage[0], f, t)
+    y = starY(a.tailStage[1], t) - sin(sp * PI) * 14
+    // The twinkle trail: where it floated a moment ago.
+    if (S.q) {
+      g.beginPath()
+      for (let j = 1; j <= 4; j++) {
+        const tj = t - j * 0.11
+        sparklePath(g, starX(a.tailStage[0], f, tj), starY(a.tailStage[1], tj) + 2, STAR_R * (0.34 - j * 0.05), tj * 3)
+      }
+      g.globalAlpha = 0.55
+      g.fillStyle = '#fff4b8'
+      g.fill()
+      g.globalAlpha = 1
+    }
+  }
+  g.translate(x, y)
+  const glow = S.q ? starGlow() : null
+  if (glow) g.drawImage(glow, -STAR_R * 2, -STAR_R * 2, STAR_R * 4, STAR_R * 4)
+  g.rotate(sp < 1 ? ease(sp) * TAU * f : sin(t * 1.7) * 0.14)
+  const blink = !a.portrait && (t * 0.29 + 0.4) % 1 < 0.045
+  drawStarBody(g, STAR_R, blink, sp < 1)
+}
+
+/* -------------------------- the Cozy Winter Scarf --------------------- */
+/*
+ * Chapter 8's keepsake: a chunky knitted scarf in cranberry and cream
+ * stripes, wrapped round the neck at the collar and knotted at the throat,
+ * two fringed tails fluttering — gently at rest, more on a hop.
+ */
+const SCARF_A = '#e0485a'
+const SCARF_B = '#fff1da'
+const SCARF_A_BACK = '#b73a4e'
+const SCARF_B_BACK = '#ead8bf'
+/** A tail's spine, reused: 7 points. */
+const SP = new Float32Array(14)
+const SEGS = 6
+
+/** Path a strip along the spine from point j0 to j1, half-width `hw`. */
+const stripPath = (g: G2D, j0: number, j1: number, hw: number): void => {
+  g.beginPath()
+  for (let pass = 0; pass < 2; pass++) {
+    const s = pass ? -1 : 1
+    for (let q = 0; q <= j1 - j0; q++) {
+      const j = pass ? j1 - q : j0 + q
+      const ja = Math.max(0, j - 1)
+      const jb = Math.min(SEGS, j + 1)
+      const dx = SP[jb * 2]! - SP[ja * 2]!
+      const dy = SP[jb * 2 + 1]! - SP[ja * 2 + 1]!
+      const l = Math.hypot(dx, dy) || 1
+      const w = hw * (1 + (j / SEGS) * 0.15) // a touch wider toward the fringe
+      const px = SP[j * 2]! - (dy / l) * w * s
+      const py = SP[j * 2 + 1]! + (dx / l) * w * s
+      if (q || pass) g.lineTo(px, py)
+      else g.moveTo(px, py)
+    }
+  }
+  g.closePath()
+}
+
+/** One fringed tail from (x, y), hanging at angle `a0`, fluttering. */
+const scarfTail = (
+  g: G2D, x: number, y: number, a0: number, len: number, hw: number,
+  t: number, ph: number, amp: number, ca: string, cb: string
+): void => {
+  let px = x
+  let py = y
+  SP[0] = px
+  SP[1] = py
+  for (let j = 1; j <= SEGS; j++) {
+    const f = j / SEGS
+    const aa = a0 + amp * sin(t * 3.3 + ph - f * 3.4) * (0.2 + f)
+    px += (cos(aa) * len) / SEGS
+    py += (sin(aa) * len) / SEGS
+    SP[j * 2] = px
+    SP[j * 2 + 1] = py
+  }
+  // The fringe: four tassels off the end, along the last segment.
+  const ex = SP[SEGS * 2]!
+  const ey = SP[SEGS * 2 + 1]!
+  const dx = ex - SP[SEGS * 2 - 2]!
+  const dy = ey - SP[SEGS * 2 - 1]!
+  const l = Math.hypot(dx, dy) || 1
+  const ux = dx / l
+  const uy = dy / l
+  g.beginPath()
+  for (let k = 0; k < 4; k++) {
+    const o = (k / 3 - 0.5) * hw * 2.1
+    const bx = ex - uy * o
+    const by = ey + ux * o
+    const w = sin(t * 5 + k * 1.7 + ph) * 1.2
+    g.moveTo(bx, by)
+    g.lineTo(bx + ux * 6 - uy * w, by + uy * 6 + ux * w)
+  }
+  g.lineCap = 'round'
+  g.lineWidth = 4.4
+  g.strokeStyle = INK
+  g.stroke()
+  // The strip: one silhouette, one fill, then the cream stripes over it.
+  stripPath(g, 0, SEGS, hw)
+  inkFill(g, ca, 4.6)
+  for (let j = 1; j < SEGS; j += 2) {
+    stripPath(g, j, j + 1, hw)
+    g.fillStyle = cb
+    g.fill()
+  }
+  // The tassels' own colour, over their outline.
+  g.beginPath()
+  for (let k = 0; k < 4; k++) {
+    const o = (k / 3 - 0.5) * hw * 2.1
+    const bx = ex - uy * o
+    const by = ey + ux * o
+    const w = sin(t * 5 + k * 1.7 + ph) * 1.2
+    g.moveTo(bx, by)
+    g.lineTo(bx + ux * 6 - uy * w, by + uy * 6 + ux * w)
+  }
+  g.lineWidth = 1.8
+  g.strokeStyle = cb
+  g.stroke()
+}
+
+/**
+ * The scarf at (cx, cy): the wrap lies across the neck along (nx, ny) —
+ * the unit vector from the nape to the throat — with its two tails knotted
+ * on the throat side. `lift` 0..1 livens the flutter.
+ */
+export const drawScarfAt = (g: G2D, cx: number, cy: number, nx: number, ny: number, t: number, lift: number): void => {
+  const W = 19
+  const H = 15
+  // Down the neck, toward the chest.
+  const dx = -ny
+  const dy = nx
+  const kx = cx + nx * W * 0.58 + dx * H * 0.2
+  const ky = cy + ny * W * 0.58 + dy * H * 0.2
+  const amp = 0.09 + 0.36 * lift
+  g.lineJoin = 'round'
+  // The back tail, blown back over the shoulder, then the front one down the chest.
+  scarfTail(g, kx, ky, PI / 2 + 0.85, 30, 5.4, t, 1.3, amp * 1.25, SCARF_A_BACK, SCARF_B_BACK)
+  scarfTail(g, kx, ky, PI / 2 - 0.22, 34, 6, t, 0, amp, SCARF_A, SCARF_B)
+  // The wrap: a chunky pill round the neck, striped across its length. No
+  // clip: the stripes sit inside the pill's straight run, and the roll's
+  // band follows its rounded ends exactly.
+  const r = H / 2
+  const e = W - r
+  g.save()
+  g.translate(cx, cy)
+  g.rotate(Math.atan2(ny, nx))
+  g.beginPath()
+  g.roundRect(-W, -r, W * 2, H, r)
+  inkFill(g, SCARF_A, 5)
+  g.fillStyle = SCARF_B
+  g.fillRect(-W * 0.6, -r, W * 0.4, H)
+  g.fillRect(W * 0.2, -r, W * 0.4, H)
+  // A soft roll: the lower edge a shade deeper…
+  const y0 = r * 0.44
+  const a0 = Math.asin(y0 / r)
+  g.beginPath()
+  g.arc(-e, 0, r, PI - a0, PI / 2, true)
+  g.arc(e, 0, r, PI / 2, a0, true)
+  g.closePath()
+  g.globalAlpha = 0.16
+  g.fillStyle = INK
+  g.fill()
+  g.globalAlpha = 1
+  // …and a knit rib across the middle.
+  g.beginPath()
+  for (let x = -W + 3; x < W - 3; x += 5.2) {
+    g.moveTo(x, 0)
+    g.lineTo(x + 2.2, 0)
+  }
+  g.lineWidth = 1.3
+  g.strokeStyle = 'rgba(58,35,64,0.45)'
+  g.stroke()
+  g.restore()
+  // The knot over the tails' roots.
+  g.beginPath()
+  g.ellipse(kx, ky, 6.6, 5.6, 0.4, 0, TAU)
+  inkFill(g, SCARF_A, 3.6)
+}
+
+/** The scarf on the rig: low on the neck like the necklace, clear of the head. */
+export const drawWinterScarf = (g: G2D, a: RigAnchors): void => {
+  const [dx, dy] = a.neckDir
+  drawScarfAt(g, a.neckCollar[0] - dx * 15, a.neckCollar[1] - dy * 15, -dy, dx, a.t, a.lift)
+}
+
+/* -------------------------------- skins ------------------------------- */
+
+const UMBRA_PAL = FOES[guardianOf(9)]!.pal
+/**
+ * The Umbra Look (ch5, C31): Umbra's matte night coat, violet rim and
+ * neon-cyan streaks, worn on Aurora's own round shape — no dread aura, no
+ * half-lidded eye (the rig's side decides those, not the skin). Two friendly
+ * touches keep it cute rather than spooky: a soft cornflower eye instead of
+ * Umbra's glow, and a pink blush that actually shows on the dark coat.
+ */
+export const UMBRA_LOOK: FoePalette = [
+  UMBRA_PAL[0], UMBRA_PAL[1], UMBRA_PAL[2], UMBRA_PAL[3], UMBRA_PAL[4],
+  UMBRA_PAL[5], UMBRA_PAL[6], '#6f9dff', UMBRA_PAL[8], '#ff8fcf'
+]
+
+/**
+ * The Pastel Dream Theme (ch7): a pastel-rainbow coat — every form's three
+ * cel bands become sky rim, lilac shadow and blush-pink light — a
+ * cotton-candy mane, a pearly horn, lilac hooves; and a few twinkles
+ * popping in and out around her.
+ */
+export const PASTEL_DREAM: FoePalette = [
+  '#ffe8f5', '#dcc8ff', '#a8eedc', '#ffaedb', '#a8e4ff', '#fdf4ff', '#c9a6f0', '#5b3f8f', '#ffd0f0', '#ff8fc6'
+]
+const DREAM_COLS = ['#ffb3de', '#b4f2dc', '#d9c2ff', '#b0e2ff', '#fff3a6'] as const
+/** Around her silhouette, from the barrel's centre (rig units, facing +x). */
+const DREAM_SPOTS: readonly (readonly number[])[] = [
+  [-74, -12, 6.5, 0], [-52, -66, 5.5, 1], [62, 6, 5.5, 2], [80, -52, 6, 3], [-14, -100, 5, 4], [34, 60, 5, 1], [-66, 52, 5.5, 2]
+]
+/** In a portrait: around the head. */
+const DREAM_SPOTS_HEAD: readonly (readonly number[])[] = [
+  [-40, -40, 7, 0], [50, -30, 6, 2], [58, 20, 7, 3], [-50, 10, 6, 1], [4, -64, 5.5, 4]
+]
+export const drawDreamTwinkles = (g: G2D, a: RigAnchors): void => {
+  if (a.portrait) sparkleSet(g, a.headStage[0], a.headStage[1], a.facing, DREAM_SPOTS_HEAD, DREAM_COLS, a.t, true)
+  else sparkleSet(g, a.bodyStage[0], a.bodyStage[1], a.facing, DREAM_SPOTS, DREAM_COLS, a.t, false)
+}
+
+/* ------------------------ the Mane Color Palette ---------------------- */
+
+/** A swatch's micro-glyph: every mane colour carries a shape (§3.11). */
+export type SwatchGlyph = 'star' | 'flower' | 'leaf' | 'drop' | 'heart' | 'dot' | 'diamond' | 'moon'
+export interface ManeSwatch {
+  /** The mane's `[base, streak]`, `'rainbow'`, or null = the skin's own. */
+  mane: readonly [string, string] | 'rainbow' | null
+  glyph: SwatchGlyph
+  /** Its colour's name, read aloud (an i18n key). */
+  label: string
+}
+/**
+ * The 8 swatches (C17, §2.4): `art-style.md`'s four mane-streak hues as the
+ * template, plus four more — six of the eight are not pink. Position is the
+ * saved `maneSwatch`; never reorder. Swatch 0 is her own (the skin's) mane.
+ */
+export const MANE_SWATCHES: readonly ManeSwatch[] = [
+  { mane: null, glyph: 'star', label: 'paint.sunshell' },
+  { mane: ['#c7a6ff', '#f1e6ff'], glyph: 'flower', label: 'paint.lavender' },
+  { mane: ['#8fe8c6', '#e2fff2'], glyph: 'leaf', label: 'paint.mint' },
+  { mane: ['#9fd8ff', '#e6f5ff'], glyph: 'drop', label: 'paint.skyblue' },
+  { mane: ['#ff9ecf', '#ffe2f1'], glyph: 'heart', label: 'paint.rose' },
+  { mane: ['#ff9466', '#ffd9a0'], glyph: 'dot', label: 'paint.sunrise' },
+  { mane: 'rainbow', glyph: 'diamond', label: 'paint.rainbow' },
+  { mane: ['#3c4aa6', '#a9dcff'], glyph: 'moon', label: 'paint.midnight' }
+]
+
+/* ------------------------------ the registry -------------------------- */
+
 const HEAD_DRAW: Readonly<Record<string, (g: G2D) => void>> = {
   flowerCrown: drawFlowerCrown
 }
 const NECK_DRAW: Readonly<Record<string, (g: G2D, a: RigAnchors) => void>> = {
-  seashellNecklace: drawSeashellNecklace
+  seashellNecklace: drawSeashellNecklace,
+  winterScarf: drawWinterScarf
 }
 const BACK_DRAW: Readonly<Record<string, readonly [(g: G2D, a: RigAnchors) => void, (g: G2D, a: RigAnchors) => void]>> = {
   pegasusWings: [drawWingsFar, drawWingsNear]
+}
+const SKIN_PAL: Readonly<Record<string, FoePalette>> = {
+  umbraSkin: UMBRA_LOOK,
+  pastelTheme: PASTEL_DREAM
 }
 
 /** The equipped item's index in a slot, or -1. */
@@ -234,20 +810,45 @@ const slugIn = (slot: typeof COSMETIC_SLOTS[number]): string | undefined => {
   return def && def.slot === slot ? def.slug : undefined
 }
 
-/**
- * Everything Aurora wears, as the rig's draw hooks (§9.7). Spread into a
- * `PoseState` wherever she is drawn — the duel, the wardrobe, a portrait.
- */
-export const equippedHooks = (): Pick<PoseState, 'afterHead' | 'afterMane' | 'beforeTorso' | 'afterTorso'> => {
+/** The saved swatch, clamped (a hand-edited save can hold anything). */
+export const maneSwatchIndex = (): number => {
+  const i = S.campaign.maneSwatch | 0
+  return i >= 0 && i < MANE_SWATCHES.length ? i : 0
+}
+
+/** The mane override worn right now, if the Mane Color Palette is on and a
+ *  swatch other than her own is picked. */
+const maneWorn = (): ManeSwatch['mane'] =>
+  slugIn('mane') === 'colorPicker' ? MANE_SWATCHES[maneSwatchIndex()]!.mane : null
+
+/** The mane `[base, streak]` a swatch 0 shows: the worn skin's own. */
+export const ownManeColours = (): readonly [string, string] => {
+  const skin = slugIn('skin')
+  const pal = skin ? SKIN_PAL[skin] : undefined
+  return pal ? [pal[3], pal[4]] : ['#ffcc33', '#ffee99']
+}
+
+type Hooks = Pick<PoseState, 'afterHead' | 'afterMane' | 'beforeTorso' | 'afterTorso' | 'afterRig' | 'skin' | 'mane'>
+
+/** The last composed hooks, and what they were composed from. */
+let hooks: Hooks | null = null
+const hooksFrom = new Int16Array(8)
+
+const composeHooks = (): Hooks => {
   const head = slugIn('head')
   const neck = slugIn('neck')
   const back = slugIn('back')
+  const skin = slugIn('skin')
   const wings = back ? BACK_DRAW[back] : undefined
   const necklace = neck ? NECK_DRAW[neck] : undefined
   const near = wings?.[1]
+  const trail = slugIn('trail') === 'hoofTrailVfx'
+  const star = slugIn('companion') === 'petStar'
+  const dream = skin === 'pastelTheme'
+  const mane = maneWorn()
   return {
     afterHead: head ? HEAD_DRAW[head] : undefined,
-    // The near wing lies over the mane; the necklace goes on last, on top.
+    // The near wing lies over the mane; the neck item goes on last, on top.
     afterMane: near || necklace
       ? (g: G2D, a: RigAnchors): void => {
           near?.(g, a)
@@ -255,9 +856,61 @@ export const equippedHooks = (): Pick<PoseState, 'afterHead' | 'afterMane' | 'be
         }
       : undefined,
     beforeTorso: wings?.[0],
-    afterTorso: undefined
+    afterTorso: undefined,
+    // Stage space, after the whole rig: twinkles, then the trail, then the
+    // star in front of everything.
+    afterRig: trail || star || dream
+      ? (g: G2D, a: RigAnchors): void => {
+          if (dream) {
+            g.save()
+            drawDreamTwinkles(g, a)
+            g.restore()
+          }
+          if (trail) {
+            g.save()
+            drawHoofTrail(g, a)
+            g.restore()
+          }
+          if (star) drawPetStar(g, a)
+        }
+      : undefined,
+    skin: skin ? SKIN_PAL[skin] : undefined,
+    mane: mane ?? undefined
   }
 }
 
-/** A key naming what is worn (for caches of baked portraits). */
-export const equippedKey = (): string => [slugIn('head'), slugIn('neck'), slugIn('back')].map((s) => s ?? '-').join('|')
+/**
+ * Everything Aurora wears, as the rig's draw hooks and palette (§9.7).
+ * Spread into a `PoseState` wherever she is drawn — the duel, the wardrobe,
+ * a portrait. Every key is always present (undefined when nothing is worn
+ * there), so `Object.assign` onto a reused pose also takes things OFF.
+ * Composed once per wardrobe change, not per frame.
+ */
+export const equippedHooks = (): Hooks => {
+  const eq = S.campaign.giftsEquipped
+  let same = hooks !== null
+  for (let i = 0; i < 7; i++) {
+    const v = eq[i] ?? -1
+    if (hooksFrom[i] !== v) {
+      same = false
+      hooksFrom[i] = v
+    }
+  }
+  const sw = maneSwatchIndex()
+  if (hooksFrom[7] !== sw) {
+    same = false
+    hooksFrom[7] = sw
+  }
+  if (!same || !hooks) hooks = composeHooks()
+  return hooks
+}
+
+/**
+ * A key naming everything that changes how she looks (for caches of baked
+ * portraits): every slot's item, and the mane swatch while the palette is
+ * worn.
+ */
+export const equippedKey = (): string => {
+  const slots = COSMETIC_SLOTS.map((s) => slugIn(s) ?? '-').join('|')
+  return slugIn('mane') === 'colorPicker' ? `${slots}#${maneSwatchIndex()}` : slots
+}

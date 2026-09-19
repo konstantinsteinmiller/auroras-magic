@@ -120,7 +120,11 @@ export default {
     'times': 'x{n}',
     'victory': 'MENANG',
     'defeated': 'ZZZ…',
-    'pierced': 'CTAR!'
+    'pierced': 'CTAR!',
+    'reflected': 'MEMANTUL!',
+    'decoy': 'PUF!',
+    'frozen': 'BEKU!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -222,7 +226,29 @@ export default {
     'sunshell': 'Emas cerah',
     'lavender': 'Lavender',
     'skyblue': 'Biru langit',
-    'sunrise': 'Jingga fajar'
+    'sunrise': 'Jingga fajar',
+    'amethyst': 'Ungu kecubung',
+    'aquamarine': 'Akuamarin',
+    'rosequartz': 'Merah muda kuarsa',
+    'silverblue': 'Biru perak',
+    'mintglass': 'Hijau mint',
+    'peach': 'Persik',
+    'cherry': 'Merah ceri',
+    'tangerine': 'Jingga jeruk',
+    'lime': 'Hijau limau',
+    'terracotta': 'Terakota',
+    'turquoise': 'Toska',
+    'saffron': 'Emas safron',
+    'icicle': 'Biru es',
+    'auroragreen': 'Hijau aurora',
+    'berry': 'Ungu beri',
+    'stargold': 'Emas bintang',
+    'midnight': 'Biru tengah malam',
+    'cosmicpink': 'Merah muda kosmik',
+    'candypink': 'Merah muda permen',
+    'lemon': 'Kuning lemon',
+    'mint': 'Mint',
+    'rainbow': 'Pelangi'
   },
 
   'tool': {
@@ -291,12 +317,131 @@ export default {
         't2': 'Terima kasih, Aurora. Ayo terbang bersama kami lagi!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'Gua Kristal jadi gelap gulita.',
+        'b2': 'Masih bersinar, Aurora? Gelap itu menenangkan.',
+        'b3': 'Terra, ayo kita nyalakan kristalnya bersama!'
+      },
+      'n5': {
+        'b1': 'Kristalku sudah pecah. Biarkan saja.',
+        'b2': 'Aku bisa membuatnya bercahaya lagi!',
+        'b3': 'Kalau begitu, tunjukkan cahayamu. Ayo duel!',
+        't1': 'Guanya bercahaya lagi!',
+        't2': 'Terima kasih, Aurora. Kamu sahabat sejati.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Cermin-cermin kini hanya menampilkan tipuan.',
+        'b2': 'Memangnya kamu bisa tahu mana yang aku?',
+        'b3': 'Ayo kita cari yang asli, bersama-sama!'
+      },
+      'n5': {
+        'b1': 'Siapa kamu? Siapa kamu?',
+        'b2': 'Aku Aurora! Dan kamu Echo, kan?',
+        'b3': 'Kan? Kan! Buktikan kamu asli. Ayo duel!',
+        't1': 'Aku cuma ada satu. Itu aku!',
+        't2': 'Terima kasih, Aurora. Terima kasih, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Jembatan pelangi kehilangan warnanya!',
+        'b2': 'Abu-abu itu menenangkan... dan agak sedih.',
+        'b3': 'Prism, ayo kita warnai bukitnya lagi!'
+      },
+      'n5': {
+        'b1': 'Jangan lihat aku! Warnaku pudar semua!',
+        'b2': 'Warnamu masih ada di dalam sana, Prism!',
+        'b3': 'Kalau begitu, buat aku berkilau lagi. Ayo duel!',
+        't1': 'Lihat aku! Semua warnaku kembali!',
+        't2': 'Terima kasih, Aurora. Kamu juga memesona!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Waktu berhenti di air terjun pasir.',
+        'b2': 'Aku suka kalau tidak ada yang berubah.',
+        'b3': 'Ember, ayo kita alirkan pasirnya lagi!'
+      },
+      'n5': {
+        'b1': 'Aku harus menjaga jam pasir ini. Sendirian!',
+        'b2': 'Kamu tidak harus melakukannya sendirian!',
+        'b3': 'Kalau begitu, tunjukkan apimu. Ayo duel!',
+        't1': 'Pasirnya mengalir lagi. Aku bisa istirahat!',
+        't2': 'Terima kasih, Aurora. Kamu baik sekali.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Cahaya aurora terperangkap dalam es!',
+        'b2': 'Tempat yang dingin itu... agak sepi.',
+        'b3': 'Glace, ayo kita bebaskan langitnya!'
+      },
+      'n5': {
+        'b1': 'Jangan mendekat. Aku lebih suka menjaga jarak.',
+        'b2': 'Sahabat bisa saling menghangatkan!',
+        'b3': 'Hmph. Kalau begitu, hangatkan aku. Duel.',
+        't1': 'Cahaya aurora menari lagi. Indah sekali.',
+        't2': 'Terima kasih, Aurora. Kapan-kapan mampirlah.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Semua bintang sudah padam!',
+        'b2': 'Adakah yang rindu pada cahaya yang padam?',
+        'b3': 'Setiap cahaya itu berarti. Ayo kita nyalakan lagi!'
+      },
+      'n5': {
+        'b1': 'Cahayaku terlalu redup untuk bersinar lagi.',
+        'b2': 'Aku percaya padamu, Nova!',
+        'b3': 'Kalau begitu, bantu aku temukan percikanku. Ayo duel!',
+        't1': 'Aku bersinar! Semua bintang bersinar!',
+        't2': 'Terima kasih, Aurora. Kamu menerangi jalanku.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Semuanya membuat festival untuk Umbra!',
+        'b2': 'Festival? Aku tidak butuh.',
+        'b3': 'Semua butuh teman. Kamu juga, Umbra!'
+      },
+      'n2': {
+        'b1': 'Hutan mengirim bunga untuk pestanya!',
+        'b2': 'Dan gua mengirim lentera kristal!'
+      },
+      'n3': {
+        'b1': 'Kita akan menyanyikan lagu sambutan!',
+        'b2': 'Lagu sambutan! Lagu sambutan!'
+      },
+      'n4': {
+        'b1': 'Aku akan mewarnai langit khusus untuknya!',
+        'b2': 'Semua bintang akan bersinar malam ini!'
+      },
+      'n5': {
+        'b1': 'Kenapa kalian tidak mau membiarkanku sendiri?',
+        'b2': 'Karena kami ingin kamu bersama kami, Umbra!',
+        'b3': 'Baiklah. Tapi jangan harap ini mudah!',
+        't1': 'Kalian... sungguh ingin aku datang ke festival?',
+        't2': 'Tentu saja! Kamu teman kami, Umbra!',
+        't3': 'Belum pernah ada yang mengundangku.',
+        't4': 'Kalau begitu, ayo! Festivalnya dimulai!'
+      }
+    },
     'tmpl': {
       'curious': '{name} mengintip, penasaran!',
       'dusty': 'Aduh, {name} kelihatan agak berdebu.',
       'cheerUp': 'Ayo kita hibur {name} bersama!',
       'almost': 'Hampir sampai — {name} menyemangatimu!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra tidak kesepian lagi.',
+    'umbra1': 'Hai, Aurora! Terima kasih sudah jadi temanku.',
+    'umbra2': 'Tempat ini cantik sekali sekarang!',
+    'umbra3': 'Kapan-kapan mau duel seru-seruan?'
   },
 
   'gift': {

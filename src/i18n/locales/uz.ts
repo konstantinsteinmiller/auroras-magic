@@ -120,7 +120,11 @@ export default {
     'times': 'x{n}',
     'victory': 'G‘ALABA',
     'defeated': 'ZZZ…',
-    'pierced': 'YARQ!'
+    'pierced': 'YARQ!',
+    'reflected': 'QAYTARILDI!',
+    'decoy': 'PUF!',
+    'frozen': 'MUZLADI!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -222,7 +226,29 @@ export default {
     'sunshell': 'Quyoshli oltin',
     'lavender': 'Lavanda',
     'skyblue': 'Osmon ko‘ki',
-    'sunrise': 'Tong to‘q sarig‘i'
+    'sunrise': 'Tong to‘q sarig‘i',
+    'amethyst': 'Ametist binafshasi',
+    'aquamarine': 'Akvamarin',
+    'rosequartz': 'Kvars pushtisi',
+    'silverblue': 'Kumushrang ko‘k',
+    'mintglass': 'Yalpiz yashili',
+    'peach': 'Shaftoli',
+    'cherry': 'Olcha qizili',
+    'tangerine': 'Mandarin to‘q sarig‘i',
+    'lime': 'Laym yashili',
+    'terracotta': 'Terrakota',
+    'turquoise': 'Feruza',
+    'saffron': 'Zaʼfaron oltini',
+    'icicle': 'Muz ko‘ki',
+    'auroragreen': 'Aurora yashili',
+    'berry': 'Rezavor binafshasi',
+    'stargold': 'Yulduz oltini',
+    'midnight': 'Yarim tun ko‘ki',
+    'cosmicpink': 'Koinot pushtisi',
+    'candypink': 'Konfet pushtisi',
+    'lemon': 'Limon sarig‘i',
+    'mint': 'Yalpiz',
+    'rainbow': 'Kamalak'
   },
 
   'tool': {
@@ -291,12 +317,131 @@ export default {
         't2': 'Rahmat, Aurora. Tez orada biz bilan birga uch!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'Billur g‘orlar qorong‘i bo‘lib qoldi.',
+        'b2': 'Hali ham porlayapsanmi, Aurora? Qorong‘ilik huzur beradi-ku.',
+        'b3': 'Terra, keling, billurlarni birga yoritamiz!'
+      },
+      'n5': {
+        'b1': 'Billurlarim singan. Ularga tegma.',
+        'b2': 'Men ularni yana porlata olaman!',
+        'b3': 'Unda nuringni ko‘rsat. Duel qil!',
+        't1': 'G‘orlar yana porlayapti!',
+        't2': 'Rahmat, Aurora. Sen haqiqiy do‘stsan.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Ko‘zgular endi faqat aldov ko‘rsatadi.',
+        'b2': 'Qaysi biri men ekanini ajrata olasanmi o‘zi?',
+        'b3': 'Keling, haqiqiysini birga topamiz!'
+      },
+      'n5': {
+        'b1': 'Sen kimsan? Sen kimsan?',
+        'b2': 'Men Auroraman! Sen esa Echosan, to‘g‘rimi?',
+        'b3': 'To‘g‘rimi? To‘g‘ri! Haqiqiy ekaningni isbotla. Duel qil!',
+        't1': 'Men faqat bittaman. Mana, men!',
+        't2': 'Rahmat, Aurora. Rahmat, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Kamalak ko‘prigi ranglarini yo‘qotyapti!',
+        'b2': 'Kulranglik orom beradi... va biroz g‘amgin.',
+        'b3': 'Prism, keling, qirni yana bo‘yaymiz!'
+      },
+      'n5': {
+        'b1': 'Menga qarama! Ranglarim butunlay o‘chib ketdi!',
+        'b2': 'Ranglaring hali ham ichingda, Prism!',
+        'b3': 'Unda meni yana yaltirat. Duel qil!',
+        't1': 'Menga qara! Hamma ranglarim qaytdi!',
+        't2': 'Rahmat, Aurora. Sen ham ko‘zni qamashtirasan!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Qum sharsharalarida vaqt to‘xtab qoldi.',
+        'b2': 'Hech narsa o‘zgarmasa, menga yoqadi.',
+        'b3': 'Ember, keling, qumlarni yana oqizamiz!'
+      },
+      'n5': {
+        'b1': 'Qum soatni men ushlab turishim kerak. Yolg‘iz!',
+        'b2': 'Buni yolg‘iz qilishing shart emas!',
+        'b3': 'Unda olovingni ko‘rsat. Duel qil!',
+        't1': 'Qumlar yana oqyapti. Endi dam olsam bo‘ladi!',
+        't2': 'Rahmat, Aurora. Juda mehribonsan.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Qutb yog‘dulari muzga qamalib qoldi!',
+        'b2': 'Sovuq joylarda... biroz yolg‘iz bo‘ladi.',
+        'b3': 'Glace, keling, osmonni ozod qilamiz!'
+      },
+      'n5': {
+        'b1': 'Yaqinlashma. Men uzoqroq turishni afzal ko‘raman.',
+        'b2': 'Do‘stlar bir-birini isitadi!',
+        'b3': 'Hm. Unda meni isitib ko‘r. Duel.',
+        't1': 'Qutb yog‘dulari yana raqsga tushyapti. Qanday go‘zal.',
+        't2': 'Rahmat, Aurora. Bir kun mehmonga kel.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Hamma yulduzlar o‘chib qoldi!',
+        'b2': 'O‘chib qolgan nurni kimdir sog‘inarmikan?',
+        'b3': 'Har bir nur muhim. Keling, ularni qayta yoqamiz!'
+      },
+      'n5': {
+        'b1': 'Men juda xira bo‘lib qoldim, endi porlay olmayman.',
+        'b2': 'Men senga ishonaman, Nova!',
+        'b3': 'Unda uchqunimni topishga yordam ber. Duel qil!',
+        't1': 'Men porlayapman! Hamma yulduzlar porlayapti!',
+        't2': 'Rahmat, Aurora. Yo‘limni yoritding.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Hamma Umbra uchun bayram tayyorlayapti!',
+        'b2': 'Bayram? Menga kerak emas.',
+        'b3': 'Hammaga do‘st kerak. Senga ham, Umbra!'
+      },
+      'n2': {
+        'b1': 'O‘rmon bazm uchun gullar yubordi!',
+        'b2': 'G‘orlar esa billur chiroqlar yubordi!'
+      },
+      'n3': {
+        'b1': '«Xush kelibsan» qo‘shig‘ini aytamiz!',
+        'b2': '«Xush kelibsan» qo‘shig‘i! «Xush kelibsan» qo‘shig‘i!'
+      },
+      'n4': {
+        'b1': 'Osmonni faqat u uchun bo‘yayman!',
+        'b2': 'Bu kecha har bir yulduz porlaydi!'
+      },
+      'n5': {
+        'b1': 'Nega hammangiz meni tinch qo‘ymaysiz?',
+        'b2': 'Chunki biz bilan bo‘lishingni istaymiz, Umbra!',
+        'b3': 'Mayli. Lekin oson taslim bo‘lmayman!',
+        't1': 'Sizlar... rostdan ham meni bayramda ko‘rmoqchimisizlar?',
+        't2': 'Albatta! Sen bizning do‘stimizsan, Umbra!',
+        't3': 'Meni hech kim hech qachon taklif qilmagan edi.',
+        't4': 'Unda ketdik! Bayram boshlansin!'
+      }
+    },
     'tmpl': {
       'curious': '{name} qiziqib mo‘ralayapti!',
       'dusty': 'Voy, {name} biroz changga botibdi.',
       'cheerUp': '{name} quvonsin! Keling, birga yordam beraylik!',
       'almost': 'Oz qoldi — {name} seni olqishlayapti!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra endi yolg‘iz emas.',
+    'umbra1': 'Salom, Aurora! Do‘stim bo‘lganing uchun rahmat.',
+    'umbra2': 'Bu joy endi juda chiroyli!',
+    'umbra3': 'Bir kun shunchaki o‘yin uchun duel qilamizmi?'
   },
 
   'gift': {

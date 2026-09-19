@@ -34,6 +34,7 @@ import { mapHud } from '@/use/useMapHud'
 import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
+import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
 import { drawFxUnder, drawFxOver, sparkleBurst } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
@@ -140,18 +141,28 @@ const thumbOf = (n: number): HTMLCanvasElement => {
 
 /* --------------------------------------------------------------- layout */
 
+/** The strip of the view the map's own chrome covers (CSS px): the corner
+ *  buttons along the bottom in portrait, the tab ribbon down the right in
+ *  landscape. The camera may scroll the last page past it, and a focused
+ *  node is centred in the view that is left — so no pulsing node is ever
+ *  stuck under a button (a tap there would open the leaderboard). */
+const CHROME_BOTTOM = 96
+const CHROME_RIGHT = 64
+let chromeB = CHROME_BOTTOM
+
 export const mapResize = (w: number, h: number): void => {
   vw = w
   vh = h
   portrait = h >= w
   const ins = readInsets()
   insetTop = ins.top
+  chromeB = CHROME_BOTTOM + ins.bottom
   if (portrait) {
     ms = w / PAGE_WP
-    camMax = Math.max(0, HUB_P + CHAPTER_COUNT * PAGE_HP - (h - ins.top) / ms)
+    camMax = Math.max(0, HUB_P + CHAPTER_COUNT * PAGE_HP - (h - ins.top - chromeB) / ms)
   } else {
     ms = Math.min(w / PAGE_W, h / PAGE_H)
-    camMax = Math.max(0, HUB + CHAPTER_COUNT * PAGE_W - w / ms)
+    camMax = Math.max(0, HUB + CHAPTER_COUNT * PAGE_W - (w - CHROME_RIGHT - ins.right) / ms)
   }
   cam = clamp(cam, 0, camMax)
   publish()
@@ -161,7 +172,7 @@ export const mapResize = (w: number, h: number): void => {
 export const focusMap = (n = -1, animate = false): void => {
   const node = n >= 0 ? n : Math.max(0, Math.min(LAST_BUILT_NODE, S.campaign.furthestNode + 1))
   const s = slotOf(node)
-  const target = clamp(portrait ? s.y - (vh - insetTop) / ms / 2 : s.x - vw / ms / 2, 0, camMax)
+  const target = clamp(portrait ? s.y - (vh - insetTop - chromeB) / ms / 2 : s.x - (vw - CHROME_RIGHT) / ms / 2, 0, camMax)
   if (animate) camTo = target
   else {
     cam = target
@@ -174,7 +185,7 @@ export const focusMap = (n = -1, animate = false): void => {
 /** Page-turn to chapter `c` (the tab ribbon). */
 export const showChapter = (c: number): void => {
   const [ox, oy] = pageOrigin(c)
-  const target = portrait ? oy : ox + PAGE_W / 2 - vw / ms / 2
+  const target = portrait ? oy : ox + PAGE_W / 2 - (vw - CHROME_RIGHT) / ms / 2
   camTo = clamp(target, 0, camMax)
   camV = 0
 }
@@ -191,7 +202,9 @@ let dragging = false
 let pressed = false
 
 /** What a tap on the map may hit. */
-export type MapTarget = { kind: 'node'; node: number } | { kind: 'gift'; node: number } | { kind: 'tent' } | { kind: 'creature'; node: number }
+export type MapTarget =
+  | { kind: 'node'; node: number } | { kind: 'gift'; node: number } | { kind: 'tent' } | { kind: 'creature'; node: number }
+  | { kind: 'umbra' }
 
 /* ── The tap creatures (§8.8 beat 2): a ~900 ms peek-a-boo on a restored
  *    sector, re-triggerable forever, delight only. ── */
@@ -239,6 +252,13 @@ const hitTest = (x: number, y: number): MapTarget | null => {
   if (tentShown()) {
     const [tx, ty, ts] = tentScreen()
     if (Math.abs(x - tx) < Math.max(40, ts * 0.6) && y > ty - ts && y < ty + 12) return { kind: 'tent' }
+  }
+  // Umbra, visiting after the finale (§8.11): she stands beside a marker,
+  // never on it, so she is tested first.
+  const wh = wanderHome()
+  if (wh >= 0) {
+    const [ux, uy, uh] = wandererScreen(wh)
+    if (Math.abs(x - ux) < Math.max(30, uh * 0.4) && y > uy - uh * 0.95 && y < uy + 8) return { kind: 'umbra' }
   }
   for (let n = 0; n <= LAST_BUILT_NODE; n++) {
     const [mx, my] = markerScreen(n)
@@ -331,6 +351,26 @@ const markerScreen = (n: number): [number, number] => {
   const s = slotOf(n)
   return [sx(s.x), sy(s.y + s.h / 2)]
 }
+/** Where wandering Umbra stands on sector `n`: hooves (x, y), height, CSS px
+ *  — its lower left corner, clear of the node marker (and, on a page's last
+ *  sector, of the landscape tab ribbon down the right edge). */
+const wandererScreen = (n: number): [number, number, number] => {
+  const s = slotOf(n)
+  return [sx(s.x - s.w * 0.34), sy(s.y + s.h * 0.46), Math.max(56, s.h * ms * 0.55)]
+}
+/** Her bubble's anchor, kept on screen whatever the sector's position. */
+const sayAt = (x: number, y: number, h: number): { x: number; y: number } =>
+  ({ x: Math.round(clamp(x, 140, vw - 140)), y: Math.round(Math.max(90, y - h)) })
+let sayUntil = 0
+/** Umbra was tapped: she answers (the bubble is the DOM's, `mapHud.umbraSay`). */
+export const greetUmbra = (): void => {
+  const key = greetWanderer(T)
+  sayUntil = T + 2.8
+  const wh = wanderHome()
+  if (wh < 0) return
+  const [x, y, h] = wandererScreen(wh)
+  mapHud.umbraSay = { key, ...sayAt(x, y, h) }
+}
 const giftScreen = (n: number): [number, number, number] => {
   const s = slotOf(n)
   const sec = sectorOf(n)
@@ -369,7 +409,14 @@ const drawBackdrop = (g: G2D): void => {
 const PAGE_WASH: readonly (readonly [string, string])[] = [
   ['#c9f5b4', '#a8eb92'], // Whispering Woods: meadow greens
   ['#ffe9b0', '#a6e6f5'], // Bubble Bay: sand over a sea band
-  ['#e6e9ff', '#cfd6fa'] // Cloud Kingdom: cloud and lavender
+  ['#e6e9ff', '#cfd6fa'], // Cloud Kingdom: cloud and lavender
+  ['#e3d6ff', '#c9b6f5'], // Crystal Caves: amethyst glow
+  ['#dcf5ee', '#c2e6f0'], // Mirror Mountains: mint glass and silver
+  ['#ffe0ef', '#ffe9c4'], // Rainbow Ridge: pink into peach
+  ['#ffe8c4', '#ffd6a8'], // Sunken Sands: warm dunes
+  ['#e0f4ff', '#d8ecf8'], // Twilight Tundra: snow and ice
+  ['#d8dcff', '#c4c6f5'], // Starlight Summit: night periwinkle
+  ['#ffe0ea', '#fff0c8'] // Friendship Festival: candy and lemon
 ]
 
 /** One chapter page: a paper card with a soft biome wash and the trail. */
@@ -676,6 +723,11 @@ export const drawMap = (g: G2D): void => {
   for (let n = 0; n <= LAST_BUILT_NODE; n++) drawSector(g, n, budget)
   for (let n = 0; n <= LAST_BUILT_NODE; n++) drawMarker(g, n)
   drawPendingGift(g)
+  const wh = wanderHome()
+  if (wh >= 0) {
+    const [ux, uy, uh] = wandererScreen(wh)
+    if (ux > -uh && ux < vw + uh && uy > -uh && uy < vh + uh) drawWanderer(g, ux, uy, uh, Td)
+  }
   if (twinGift.node >= 0) {
     const [x, y, s] = twinScreen(twinGift.node)
     if (x > -s && x < vw + s && y > -s && y < vh + s * 1.5) drawTwin(g, x, y, s, Td)
@@ -702,6 +754,16 @@ const publish = (): void => {
     const tw = mapHud.twin
     if (!tw || tw.x !== bx || tw.y !== by || tw.size !== size) mapHud.twin = { x: bx, y: by, size }
   } else if (mapHud.twin) mapHud.twin = null
+  // Umbra's line follows her as the map pans, and ends on its own.
+  if (mapHud.umbraSay) {
+    const wh = wanderHome()
+    if (wh < 0 || T > sayUntil) mapHud.umbraSay = null
+    else {
+      const [x, y, h] = wandererScreen(wh)
+      const p = sayAt(x, y, h)
+      if (mapHud.umbraSay.x !== p.x || mapHud.umbraSay.y !== p.y) mapHud.umbraSay = { ...mapHud.umbraSay, ...p }
+    }
+  }
 }
 
 /** Test/QA seams. */
@@ -722,6 +784,13 @@ export const qaMap = {
     return p ? [p[0], p[1]] : null
   },
   peeking: (n: number): boolean => peeks.has(n),
+  /** Wandering Umbra's hooves on screen, or null (§8.11). */
+  umbraAt: (): [number, number] | null => {
+    const wh = wanderHome()
+    if (wh < 0) return null
+    const [x, y, h] = wandererScreen(wh)
+    return [x, y - h * 0.4]
+  },
   tentAt: (): [number, number] => {
     const [x, y, s] = tentScreen()
     return [x, y - s * 0.4]

@@ -24,6 +24,13 @@ import { sin, TAU, PI } from '@/game/duel/util'
 import type { SectorDef, TapCreature, RescueCollectible } from '@/game/map/sectorDef'
 import { C2_SECTORS } from '@/game/map/sectorsC2'
 import { C3_SECTORS } from '@/game/map/sectorsC3'
+import { C4_SECTORS } from '@/game/map/sectorsC4'
+import { C5_SECTORS } from '@/game/map/sectorsC5'
+import { C6_SECTORS } from '@/game/map/sectorsC6'
+import { C7_SECTORS } from '@/game/map/sectorsC7'
+import { C8_SECTORS } from '@/game/map/sectorsC8'
+import { C9_SECTORS } from '@/game/map/sectorsC9'
+import { C10_SECTORS } from '@/game/map/sectorsC10'
 
 export type { Pot } from '@/game/map/kit'
 
@@ -415,7 +422,7 @@ const WOODS: readonly SectorDef[] = [cottageMeadow, brookBridge, flowerGarden, t
   }))
 
 export const SECTORS: Readonly<Record<number, SectorDef>> = Object.fromEntries(
-  [...WOODS, ...C2_SECTORS, ...C3_SECTORS].map((s) => [s.node, s])
+  [...WOODS, ...C2_SECTORS, ...C3_SECTORS, ...C4_SECTORS, ...C5_SECTORS, ...C6_SECTORS, ...C7_SECTORS, ...C8_SECTORS, ...C9_SECTORS, ...C10_SECTORS].map((s) => [s.node, s])
 )
 
 /** The sector of node `n` (a chapter-1 sector stands in for unbuilt ones). */

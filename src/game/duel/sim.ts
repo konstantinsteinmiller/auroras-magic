@@ -12,8 +12,8 @@
  * argument; the sim only ever sees a foe's numbers.
  */
 import {
-  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING,
-  PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex,
+  AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING, ILLUSION,
+  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex,
   type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
@@ -21,7 +21,10 @@ import { S, save, pop, type Shot } from '@/game/duel/state'
 import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
-import { impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints } from '@/game/duel/fx'
+import {
+  impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
+  decoyPoof, frostBurst, heartBurst, BAR_CRYSTAL, BAR_FROST
+} from '@/game/duel/fx'
 import { sfx, setMood } from '@/game/duel/audio'
 
 /* ------------------------------ tuning ------------------------------ */
@@ -29,6 +32,14 @@ import { sfx, setMood } from '@/game/duel/audio'
 const SPD = [980, 0, 0, 0, 1500]
 /** Seconds a delayed spell hangs before it lands. GDD: Fire Rain ~2s. */
 const DELAY = [0, 0.5, 0, 1.7, 0]
+/** A slow with no strength of its own (the base runes' `wetBall`,
+ *  `magmaShard`…) is the shipped 45 % (§6.7.7). */
+const SLOW_BASE = 0.45
+/** A reflected spell comes back at half its base damage (§6.5 says the
+ *  whole base; the owner's child-first ruling, 2026-09-18, halves it: a
+ *  child's first big combo bounced into her own face is the harshest
+ *  lesson in the game, and a pierce or a short wait still beats the ward). */
+const REFLECT_K = 0.5
 /** Where a duelist's horn is, in stage coords. `e` = is this the foe. */
 const hornX = (e: boolean | number): number => (e ? UX - HDX : AX + HDX)
 const HORN_Y = GY + HDY
@@ -158,15 +169,18 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
 /**
  * Barrier flavour from the spell's leading element — no extra matrix column
  * needed. WIND (0) stops projectiles, EARTH (1) stops everything, ICE (2) is
- * a one-shot pillar, and WATER's bubble ward (3, §6.3) holds for two hits.
+ * a one-shot pillar, WATER's bubble ward (3, §6.3) holds for two hits, and
+ * Crystal Ward (4, §6.5) stops everything and sends it back. Frost Lock is
+ * an earth-strength wall (1) with a freeze riding on it.
  */
 const guardKind = (sp: ResolvedSpell): number =>
-  sp.wardHits ? 3 : sp.dominant === EARTH ? 1 : sp.dominant === ICE ? 2 : 0
-/** The rune a barrier of flavour `gk` is drawn as. */
-const guardRune = (gk: number): number => (gk === 1 ? EARTH : gk === 2 ? ICE : gk === 3 ? WATER : WIND)
+  sp.reflect ? 4 : sp.freeze ? 1 : sp.wardHits ? 3 : sp.dominant === EARTH ? 1 : sp.dominant === ICE ? 2 : 0
+/** How a barrier of flavour `gk` is drawn: its rune, or Crystal Ward's facets. */
+const guardRune = (gk: number): number =>
+  gk === 4 ? BAR_CRYSTAL : gk === 1 ? EARTH : gk === 2 ? ICE : gk === 3 ? WATER : WIND
 
-/** Raise a barrier on one side (and its visual). */
-const raise = (e: boolean, gk: number, secs: number, hits: number): void => {
+/** Raise a barrier on one side (and its visual, `look`). */
+const raise = (e: boolean, gk: number, secs: number, hits: number, look = guardRune(gk)): void => {
   if (e) {
     S.eGuard = secs
     S.eGuardK = gk
@@ -176,11 +190,124 @@ const raise = (e: boolean, gk: number, secs: number, hits: number): void => {
     S.guardK = gk
     S.guardHits = hits
   }
-  barrier(e ? UX : AX, GY - 70, guardRune(gk), secs, 0)
+  barrier(e ? UX : AX, GY - 70, look, secs, 0)
 }
 
 /** The spell a queue resolves to, with this save's unlocked Signature Spells. */
 export const spellOf = (q: readonly number[]): ResolvedSpell => resolveSpell(q, S.campaign.signaturesUnlocked)
+/** The foe's: only the Signature Spell her chapter lets her cast, from node 3
+ *  (§6.10 — chapter 4's Crystal Ward). */
+const foeSpellOf = (q: readonly number[]): ResolvedSpell => resolveSpell(q, S.usesMagic ? FOES[S.foe]!.sigs : 0)
+
+/* ---------------------------- chapter magic ------------------------- */
+/** Heal one side, capped at its own max, and show it. */
+const mend = (e: boolean, n: number): void => {
+  if (!(n > 0)) return
+  if (e) S.ehp = min(S.ehpMax, S.ehp + n)
+  else S.hp = min(S.hpMax, S.hp + n)
+  heal(e ? UX : AX, GY - 110)
+  pop('heal', '#9dffb0', e ? UX : AX, GY - 285, { n: Math.round(n) })
+}
+
+/**
+ * The Love finisher's gate (§6.9): at least four hits have landed between
+ * the two, or the caster is down to 30 % — and only once per duel, per side.
+ */
+export const finisherOpen = (e: boolean): boolean =>
+  !(e ? S.eUsedFinisher : S.usedFinisher) &&
+  (S.hitsLanded >= 4 || (e ? S.ehp <= S.ehpMax * 0.3 : S.hp <= S.hpMax * 0.3))
+
+/** Where a side's decoy stands: `i` 0 in front of its caster, 1 behind. */
+export const decoyX = (e: boolean, i: number): number => (e ? UX + (i ? 58 : -64) : AX + (i ? -58 : 64))
+
+/**
+ * Illusion's decoy (§6.3, kind 5): a shimmering mirror-twin that swallows
+ * whole spells. A new one replaces the old — except Echo's in her phase 2,
+ * who may hold two at once (§6.11).
+ */
+const summon = (e: boolean, hits: number, secs: number, two: boolean): void => {
+  if (e) {
+    if (two && S.eDecoy > 0) {
+      S.eDecoy = min(4, S.eDecoy + hits)
+      S.eDecoyN = 2
+    } else {
+      S.eDecoy = hits
+      S.eDecoyN = 1
+    }
+    S.eDecoyT = secs
+  } else {
+    S.decoy = hits
+    S.decoyN = 1
+    S.decoyT = secs
+  }
+  decoyPoof(decoyX(e, 0), GY - 90, 1)
+  sfx('decoy')
+}
+
+/** A decoy took a spell for its caster: one hit off, and it says so. */
+const decoyHit = (e: boolean): void => {
+  const left = (e ? S.eDecoy : S.decoy) - 1
+  const x = decoyX(e, 0)
+  if (e) {
+    S.eDecoy = max(0, left)
+    S.eDecoyN = min(S.eDecoyN, S.eDecoy)
+    if (left <= 0) S.eDecoyT = 0
+  } else {
+    S.decoy = max(0, left)
+    S.decoyN = min(S.decoyN, S.decoy)
+    if (left <= 0) S.decoyT = 0
+  }
+  decoyPoof(x, GY - 90, left <= 0 ? 1 : 0.6)
+  sfx('decoy')
+  shakeAdd(0.1)
+  pop('decoy', '#ecdcff', x, GY - 230)
+}
+
+/**
+ * Frost Lock lands on the caster's opponent (§6.5): her hand is discarded
+ * and she does nothing at all for 2.5 s, then cannot be held again for 6 s.
+ * Glace, in her phase 2, shrugs it off in 1.5 s (§6.11). The player's side
+ * is only ever frozen in 2P versus (§6.19).
+ */
+const freeze = (onFoe: boolean, secs: number): void => {
+  if (onFoe) {
+    if (S.eFrozen > 0 || S.eFreezeCd > 0) return
+    const foe = FOES[S.foe]!
+    S.eFrozen = S.ePhase >= 2 && foe.phase2 === 'frostResist' ? 1.5 : secs
+    S.equeue.length = 0
+    S.eForm = 0
+  } else {
+    if (S.frozen > 0 || S.freezeCd > 0) return
+    S.frozen = secs
+    S.queue.length = 0
+  }
+  const x = onFoe ? UX : AX
+  frostBurst(x, GY - 100)
+  sfx('freeze')
+  pop('frozen', '#bfe9ff', x, GY - 190)
+}
+
+/**
+ * Crystal Ward (§6.5): the spell turns round at its BASE damage — the
+ * reflecting side's own elemental bonus never applies — and the ward is
+ * spent on it, like the ice pillar. A spell already reflected once is only
+ * blocked, so two wards never play ping-pong.
+ */
+const reflect = (s: Shot, e: boolean): void => {
+  const tx = e ? UX : AX
+  if (e) S.eGuard = 0
+  else S.guard = 0
+  barrier(tx, GY - 70, BAR_CRYSTAL, 0)
+  impact(tx - s.dir * 58, GY - 90, ILLUSION, 0.5)
+  sfx('reflect')
+  shakeAdd(0.18)
+  pop(s.rf ? 'blocked' : 'reflected', '#e0c4ff', tx, GY - 210)
+  if (s.rf) return
+  S.shots.push({
+    ...s, x: tx - s.dir * 58, y: GY - 90, tx: e ? AX : UX, dir: -s.dir, dmg: s.b * REFLECT_K, w: 0, p: 0, ls: 0, rf: 1,
+    delay: DELAY[s.k] ? 0.55 : 0, life: 0
+  })
+}
 
 /** The last spell the PLAYER cast, for the listener that records discoveries. */
 export interface CastInfo { key: string; index: number; count: number }
@@ -193,9 +320,19 @@ export const spellPopParams = (sp: ResolvedSpell): Record<string, string | numbe
 
 /** Fire a spell. `e` = cast by the foe. */
 const launch = (q: Rune[], e: boolean): void => {
-  const sp = spellOf(q)
+  let sp = e ? foeSpellOf(q) : spellOf(q)
+  // The Love finisher (§6.9): open, it is spent; closed, it softly becomes
+  // the double — never a refusal (§6.8 rule 6).
+  if (sp.finisher) {
+    if (finisherOpen(e)) {
+      if (e) S.eUsedFinisher = true
+      else S.usedFinisher = true
+    } else sp = resolveSpell([LOVE, LOVE])
+  }
   const kind = sp.kind
   const foe = FOES[S.foe]!
+  /** This boss's phase-2 mechanic, once she is in it (§6.11). */
+  const boss2 = e && S.ePhase >= 2 ? foe.phase2 : null
   /**
    * Only the player's damage is scaled by elements: the element the cast
    * LEANS ON (the last rune drawn) against the foe's. The foe's own damage is
@@ -209,7 +346,8 @@ const launch = (q: Rune[], e: boolean): void => {
   // Briar's phase 2 (§6.11): every non-Nature spell of hers also carries the
   // Nature dot rider — chip poison on everything.
   let dot = sp.dot ?? 0
-  if (e && S.ePhase === 2 && foe.phase2 === 'natureRider' && !q.includes(NATURE as Rune)) dot += 2
+  // (+1 s of Nature's 4/s: the first boss a child ever meets — S4 tuning.)
+  if (boss2 === 'natureRider' && !q.includes(NATURE as Rune)) dot += 1
 
   castBurst(hx, HORN_Y, dr)
   sfx('cast', q.length)
@@ -228,17 +366,38 @@ const launch = (q: Rune[], e: boolean): void => {
     }
   }
 
+  // Love heals its caster as it is cast (§6.3): a share of her own max HP,
+  // or the finisher's flat +25.
+  mend(e, (sp.healPct ?? 0) * (e ? S.ehpMax : S.hpMax) + (sp.healFlat ?? 0))
+  if (sp.finisher) {
+    heartBurst(hx, HORN_Y - 10, 1)
+    flashAdd(0.35)
+    sfx('finisher')
+  }
+
   if (kind === 2) {
     // Barriers land on the caster, instantly.
     const k = guardKind(sp)
-    raise(e, k, sp.guard ?? 0, k === 3 ? sp.wardHits ?? 2 : 0)
+    // Terra's phase 2 (§6.11): her Crystal Ward holds 7 s, not 5.
+    const secs = k === 4 && boss2 === 'crystalLong' ? 7 : sp.guard ?? 0
+    raise(e, k, secs, k === 3 ? sp.wardHits ?? 2 : 0, sp.freeze ? BAR_FROST : guardRune(k))
     sfx('guard')
+    if (sp.freeze) freeze(!e, sp.freeze)
+  } else if (kind === 5) {
+    // A summon is no shot at all: the decoy stands up beside its caster.
+    summon(e, sp.decoyHits ?? 1, sp.decoySecs ?? 8, boss2 === 'twoDecoys')
   } else {
     // A Water rider (or the Tidal Wave itself) leaves the caster a 1-hit
     // personal ward for 2 s (§6.3) — never over a wall already standing.
     if (sp.wardHits && (e ? S.eGuard : S.guard) <= 0) raise(e, 3, 2, sp.wardHits)
     // Zephyr's phase 2 (§6.11): her bolts gain Lightning's pierce.
-    const pierce = !!sp.pierce || (e && S.ePhase === 2 && foe.phase2 === 'pierceBolts' && kind === 0)
+    const pierce = !!sp.pierce || (boss2 === 'pierceBolts' && kind === 0)
+    // Ember's phase 2: her slow shaves twice as much off a guard; Nova's:
+    // her lifesteal rises 40 % → 55 % (§6.11).
+    let slowPct = sp.slowPct ?? 0
+    if (boss2 === 'slowDouble' && sp.slow) slowPct = min(0.6, 2 * (slowPct || SLOW_BASE))
+    let ls = sp.lifestealPct ?? 0
+    if (boss2 === 'lifestealUp' && ls > 0) ls += 0.15
     S.shots.push({
       x: hx,
       y: HORN_Y,
@@ -253,7 +412,11 @@ const launch = (q: Rune[], e: boolean): void => {
       p: pierce ? 1 : 0,
       n: q.length,
       delay: DELAY[kind] ?? 0,
-      life: 0
+      life: 0,
+      b: sp.dmg,
+      ls,
+      sp: slowPct,
+      rf: 0
     })
   }
 
@@ -272,9 +435,16 @@ const launch = (q: Rune[], e: boolean): void => {
 }
 
 /** Player pressed cast. Harmless when the queue is empty. */
-export const cast = (): void => {
-  if (S.phase !== PH_DUEL || !S.queue.length) return
-  launch(S.queue, false)
+export const cast = (): void => castSide(false)
+
+/**
+ * Cast one side's stored runes: `e` = the right-hand duelist — the foe, or
+ * player 2 in local versus (§6.19). A frozen side cannot cast (§6.5).
+ */
+export const castSide = (e: boolean): void => {
+  const q = e ? S.equeue : S.queue
+  if (S.phase !== PH_DUEL || !q.length || (e ? S.eFrozen : S.frozen) > 0) return
+  launch(q, e)
 }
 
 /* ----------------------------- resolution --------------------------- */
@@ -287,10 +457,12 @@ export const cast = (): void => {
  *     roof, so things falling from above go straight over it.
  *   bubble ward (3) catches bolts, fields and pushes — two of them — but a
  *     heavy falls from above, straight onto it (§6.3).
+ *   crystal ward (4) stops everything, and sends it back (§6.5).
  * A piercing shot never asks (§6.8 rule 1).
  */
 export const stops = (gk: number, kind: number): boolean =>
-  gk === 1 || (gk === 3 ? kind === 0 || kind === 1 || kind === 4 : kind === 0 || kind === 4 || (!gk && kind === 3))
+  gk === 1 || gk === 4 ||
+  (gk === 3 ? kind === 0 || kind === 1 || kind === 4 : kind === 0 || kind === 4 || (!gk && kind === 3))
 
 /** Land a resolved spell on a duelist. `e` = it hits the foe. */
 const strike = (s: Shot, e: boolean): void => {
@@ -304,6 +476,10 @@ const strike = (s: Shot, e: boolean): void => {
     impact(tx - s.dir * 58, GY - 90, LIGHTNING, 0.3)
     pop('pierced', '#fff176', tx, GY - 210)
   } else if (g > 0 && stops(gk, s.k)) {
+    if (gk === 4) {
+      reflect(s, e)
+      return
+    }
     // Blocked. Still loud — a block the player cannot see is a bug report.
     impact(tx - s.dir * 58, GY - 90, guardRune(gk), 0.35)
     sfx('guard')
@@ -328,6 +504,14 @@ const strike = (s: Shot, e: boolean): void => {
     return
   }
 
+  // A decoy swallows the WHOLE spell (§6.8 rule 3) — no HP, no rider, and a
+  // pierce does not get past it: it is a body in the way, not a ward.
+  if ((e ? S.eDecoy : S.decoy) > 0) {
+    decoyHit(e)
+    return
+  }
+
+  S.hitsLanded++
   const p = clamp(s.dmg / 40, 0.15, 1)
   // fireRain is FIRE-flavoured art, so it only fits a fire heavy. Non-fire
   // heavies get a full-power elemental impact.
@@ -342,16 +526,25 @@ const strike = (s: Shot, e: boolean): void => {
     S.ehp = max(0, S.ehp - s.dmg)
     S.eHurt = 0.3
     if (s.dot) S.eBurn = max(S.eBurn, s.dot)
-    if (s.slow) S.eSlow = max(S.eSlow, s.slow)
+    if (s.slow) {
+      // On the foe a slow throttles her hand (§6.7.7): the stronger one wins.
+      const pct = s.sp || SLOW_BASE
+      S.eSlowPct = S.eSlow > 0 ? max(S.eSlowPct, pct) : pct
+      S.eSlow = max(S.eSlow, s.slow)
+    }
     if (s.k === 4) S.eForm = max(0, S.eForm - 0.5) // pushback disrupts casting
     emit('hit')
   } else {
     S.hp = max(0, S.hp - s.dmg)
     S.hurt = 0.3
     if (s.dot) S.burn = max(S.burn, s.dot)
-    if (s.slow) S.slow = max(S.slow, s.slow)
+    // On the player a slow never touches her hand — a child's drawing is the
+    // real skill gate (§6.7.7): it shaves her active guard instead, once.
+    if (s.slow && S.guard > 0) S.guard *= 1 - (s.sp || SLOW_BASE)
     emit('hurt')
   }
+  // Moon's lifesteal (§6.7.9): the caster drinks a share of what landed.
+  if (s.ls > 0) mend(!e, s.dmg * s.ls)
   // A weakness the player cannot SEE landing is a weakness they will not learn
   // to aim for, so the counter-hit says so in its own colour.
   pop(s.w ? 'weakHit' : 'hit', s.w ? '#7dffa8' : e ? '#ffd76a' : '#ff6a8a', tx, GY - 250, { n: s.dmg | 0 })
@@ -391,16 +584,45 @@ const stepShots = (dt: number): void => {
  * full pause by design (the universal tell, §6.11).
  */
 export const foeRate = (): number => {
-  if (S.eWindup > 0) return 0
+  if (S.eWindup > 0 || S.eFrozen > 0) return 0
   const foe = FOES[S.foe]!
-  return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * (S.eSlow > 0 ? 0.55 : 1))
+  return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * (S.eSlow > 0 ? 1 - S.eSlowPct : 1))
 }
+
+/** Chapter 4's Crystal Ward is hers from node 3 (§6.10). */
+const crystalOk = (): boolean => S.usesMagic && (FOES[S.foe]!.sigs & 1) !== 0
+/** Umbra's phase 3 (§6.11): the one foe who may reach for Love, once. */
+const loveOk = (): boolean => S.ePhase >= 3 && !S.eUsedFinisher && FOES[S.foe]!.phase2 === 'umbraFalter'
+const CRYSTAL: readonly Rune[] = [ICE, ICE, EARTH]
+/** Is `q` part of `recipe` (as a multiset)? */
+const within = (q: readonly number[], recipe: readonly number[]): boolean => {
+  const left = [...recipe]
+  for (const x of q) {
+    const i = left.indexOf(x)
+    if (i < 0) return false
+    left.splice(i, 1)
+  }
+  return true
+}
+/** The rune `q` still needs to complete `recipe`. */
+const nextOf = (q: readonly number[], recipe: readonly Rune[]): Rune => {
+  const left = [...recipe]
+  for (const x of q) left.splice(left.indexOf(x as Rune), 1)
+  return left[0]!
+}
+/** Half-way through a recipe she means to finish (Crystal Ward, Love). */
+const building = (q: readonly number[]): boolean =>
+  q.length > 0 && q.length < MAX_RUNES &&
+  ((crystalOk() && within(q, CRYSTAL)) || (loveOk() && q.every((r) => r === LOVE)))
 
 /**
  * The foe forms runes on a timer and casts on intent, never on a coin flip:
  * she answers what is actually on the field.
  */
 const think = (dt: number): void => {
+  // Frost Lock (§6.5): a frozen foe does nothing at all — no forming, no
+  // casting, not even the panic dump.
+  if (S.eFrozen > 0) return
   const lv = FOES[S.foe]!.aiTier
   const rate = foeRate()
   // Commit to the next rune BEFORE forming it, so the ghost in her slot shows
@@ -422,24 +644,32 @@ const think = (dt: number): void => {
   const full = q.length >= MAX_RUNES
 
   // Cast when it means something: a full hand, a defensive answer to a shot
-  // already in flight, or a finisher that would end the duel now.
-  const finisher = spellOf(q).dmg >= S.hp
+  // already in flight, or a hit that would end the duel now.
+  const holding = building(q)
+  const lethal = foeSpellOf(q).dmg >= S.hp
   // FROM TIER 2 SHE READS THE PLAYER'S SLOTS, so a player who telegraphs three
   // runes of damage meets a guard instead of a free hit.
   const threat = lv >= 2 && S.queue.length >= 2 && spellOf(S.queue).kind !== 2
   // A half-built attack in hand cannot become a wall, so she DUMPS it and
   // commits to EARTH — a lone EARTH is already a barrier, and `eRune` is the
   // ghost the player can see, so the panic is legible rather than magic.
-  if (threat && S.eGuard <= 0 && q.length && spellOf(q).kind !== 2) {
+  if (threat && S.eGuard <= 0 && q.length && !holding && foeSpellOf(q).kind !== 2) {
     q.length = 0
     S.eRune = EARTH
     S.eForm = max(S.eForm, 0.5)
   }
-  const defend = (incoming || threat) && spellOf(q).kind === 2 && S.eGuard <= 0
-  // Lightning's contract (§6.13): a pierce in hand goes out the moment the
-  // player's guard is up — that is exactly what it is for.
-  const zap = S.guard > 0 && !!spellOf(q).pierce
-  if (full || defend || zap || finisher || (q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
+  const sp = foeSpellOf(q)
+  const defend = !holding && (incoming || threat) && sp.kind === 2 && S.eGuard <= 0
+  // Lightning's and Time's contract (§6.13): a pierce or a slow in hand goes
+  // out the moment the player's guard is up — that is exactly what it is for.
+  const zap = S.guard > 0 && (!!sp.pierce || !!sp.slowPct)
+  // A decoy goes up the moment it is in her hand (§6.13).
+  const summonNow = sp.kind === 5 && S.eDecoy <= 0
+  // Nature "opens" as its pair (§6.13): she throws the Poison Bloom as soon
+  // as she holds it, never saving up a Bloom Storm's 38 damage and 20 HP of
+  // mending — the first chapter's trick must stay a trick (S4 tuning).
+  const bloom = q.length === 2 && q[0] === NATURE && q[1] === NATURE
+  if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
@@ -449,19 +679,34 @@ const chooseRune = (): Rune => {
   // C14's node-3 rule: a chapter's own magic is hers from node 3 on. Before
   // that she draws only the base four, however she is themed.
   const magic = S.usesMagic && foe.magic >= 0 ? (foe.magic as Rune) : -1
+  // Umbra's phase 3 (§6.11): she reaches for the Love finisher — three
+  // hearts forming in her slots, telegraphed, answerable like any heavy.
+  if (loveOk() && q.every((r) => r === LOVE)) return LOVE
+  // Crystal Ward is chapter 4's defensive default (§6.13): under pressure she
+  // builds Ice, Ice, Earth — and a half-built one she finishes.
+  if (crystalOk() && S.eGuard <= 0 && q.length < MAX_RUNES && within(q, CRYSTAL) &&
+    (q.length > 0 || S.queue.length >= 1 || S.shots.some((s) => s.dir > 0))) return nextOf(q, CRYSTAL)
   // A lone EARTH already IS a barrier, so under a read threat it is the
   // fastest wall she can put up.
   if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length) return EARTH
-  // Answer pressure with defence, otherwise build toward damage.
-  if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) return pick([EARTH, ICE, WIND] as const)
+  // Answer pressure with defence — in chapter 5, maybe a decoy (§6.13) —
+  // otherwise build toward damage.
+  if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) {
+    return magic === ILLUSION && S.eDecoy <= 0 && rnd() < 0.5 ? ILLUSION : pick([EARTH, ICE, WIND] as const)
+  }
   if (q.length === 1 && rnd() < 0.55) return q[0]! // doubling up is the strong play
-  // Her chapter's magic (§6.13):
+  // Her chapter's magic, exactly when its contract says (§6.13) — never at
+  // random on top, so a chapter's node 3 is its node 1 plus a readable trick:
+  //   Nature, once her own HP is under 60 % (dot + a little heal);
   //   Water raises a ward against a shot in flight — builds toward the pair;
-  //   Lightning is what she reaches for while the player's guard is up;
-  //   Nature opens more once her own HP is < 60 %.
+  //   Lightning and Time, while the player's guard is up (a pierce goes
+  //   through it, a slow shaves it);
+  //   Moon, once her own HP is under half (lifesteal mends her);
+  //   Illusion only as the low-HP decoy above.
+  if (magic === NATURE && S.ehp < S.ehpMax * 0.6 && rnd() < 0.12) return NATURE
   if (magic === WATER && S.eGuard <= 0 && q.every((r) => r === WATER) && S.shots.some((s) => s.dir > 0)) return WATER
-  if (magic === LIGHTNING && S.guard > 0 && rnd() < 0.7) return LIGHTNING
-  if (magic >= 0 && rnd() < (S.ehp < S.ehpMax * 0.6 ? 0.6 : 0.3)) return magic as Rune
+  if ((magic === LIGHTNING || magic === TIME) && S.guard > 0 && rnd() < 0.7) return magic
+  if (magic === MOON && S.ehp < S.ehpMax * 0.5 && rnd() < 0.6) return MOON
   // A foe themed to a BASE element leans on it — that is what makes it
   // readable, and therefore what makes its weakness worth learning.
   const el = foe.element
@@ -499,6 +744,30 @@ const tick = (dt: number): void => {
       sfx('guard')
     }
   }
+  // A decoy fades on its own clock (8 s / 10 s cap, §6.3).
+  if (S.decoyT > 0 && (S.decoyT -= dt) <= 0) {
+    if (S.decoy > 0) decoyPoof(decoyX(false, 0), GY - 90, 0.5)
+    S.decoy = S.decoyN = S.decoyT = 0
+  }
+  if (S.eDecoyT > 0 && (S.eDecoyT -= dt) <= 0) {
+    if (S.eDecoy > 0) decoyPoof(decoyX(true, 0), GY - 90, 0.5)
+    S.eDecoy = S.eDecoyN = S.eDecoyT = 0
+  }
+  // Frost Lock thaws, then the 6 s before it can hold again (§6.5).
+  if (S.eFrozen > 0) {
+    if ((S.eFrozen -= dt) <= 0) {
+      S.eFrozen = 0
+      S.eFreezeCd = 6
+      impact(UX, GY - 100, ICE, 0.4)
+    }
+  } else if (S.eFreezeCd > 0) S.eFreezeCd = max(0, S.eFreezeCd - dt)
+  if (S.frozen > 0) {
+    if ((S.frozen -= dt) <= 0) {
+      S.frozen = 0
+      S.freezeCd = 6
+      impact(AX, GY - 100, ICE, 0.4)
+    }
+  } else if (S.freezeCd > 0) S.freezeCd = max(0, S.freezeCd - dt)
   if (S.guard > 0) S.guard -= dt
   if (S.eGuard > 0) S.eGuard -= dt
   if (S.guard <= 0) S.guardHits = 0
@@ -524,6 +793,8 @@ const finish = (won: boolean): void => {
   S.queue.length = 0
   S.equeue.length = 0
   S.regen = S.eRegen = 0
+  S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
+  S.frozen = S.eFrozen = 0
   if (won) {
     S.wins++
     if (!S.best || S.dur < S.best) S.best = S.dur
@@ -578,6 +849,11 @@ export const resetDuel = (start?: DuelStart): void => {
   S.queue.length = S.equeue.length = S.shots.length = S.pts.length = 0
   S.eForm = S.guard = S.eGuard = S.burn = S.eBurn = S.slow = S.eSlow = 0
   S.guardHits = S.eGuardHits = 0
+  S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
+  S.frozen = S.eFrozen = S.freezeCd = S.eFreezeCd = 0
+  S.eSlowPct = SLOW_BASE
+  S.hitsLanded = 0
+  S.usedFinisher = S.eUsedFinisher = false
   S.castAnim = S.eCastAnim = S.hurt = S.eHurt = S.draw = 0
   S.dur = S.over = S.panelT = 0
   S.resultUp = false
@@ -611,9 +887,14 @@ export const updateSim = (dt: number): void => {
 
   // A boss crossing half her HP shifts phase (§6.11): a 1.8 s wind-up in which
   // she forms nothing — the universal tell — then her chapter's mechanic.
+  // Umbra alone has a third, at a quarter: she falters, then reaches for Love.
   const foe = FOES[S.foe]!
-  if (foe.boss && S.ePhase === 1 && S.ehp > 0 && S.ehp <= S.ehpMax * 0.5) {
-    S.ePhase = 2
+  const next = foe.boss && S.ehp > 0
+    ? S.ePhase === 1 && S.ehp <= S.ehpMax * 0.5 ? 2
+      : S.ePhase === 2 && foe.phase2 === 'umbraFalter' && S.ehp <= S.ehpMax * 0.25 ? 3 : 0
+    : 0
+  if (next) {
+    S.ePhase = next
     S.eWindup = 1.8
     gatherGlints(UX, GY - 150, 1.4)
     shakeAdd(0.25)

@@ -120,7 +120,11 @@ export default {
     'times': 'x{n}',
     'victory': 'SIEG',
     'defeated': 'ZZZ…',
-    'pierced': 'ZACK!'
+    'pierced': 'ZACK!',
+    'reflected': 'BOING!',
+    'decoy': 'PUFF!',
+    'frozen': 'EINGEFROREN!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -222,7 +226,29 @@ export default {
     'sunshell': 'Sonnengold',
     'lavender': 'Lavendel',
     'skyblue': 'Himmelblau',
-    'sunrise': 'Sonnenaufgangsorange'
+    'sunrise': 'Sonnenaufgangsorange',
+    'amethyst': 'Amethystlila',
+    'aquamarine': 'Aquamarin',
+    'rosequartz': 'Rosenquarzrosa',
+    'silverblue': 'Silberblau',
+    'mintglass': 'Mintgrün',
+    'peach': 'Pfirsich',
+    'cherry': 'Kirschrot',
+    'tangerine': 'Mandarinenorange',
+    'lime': 'Limettengrün',
+    'terracotta': 'Terrakotta',
+    'turquoise': 'Türkis',
+    'saffron': 'Safrangold',
+    'icicle': 'Eiszapfenblau',
+    'auroragreen': 'Polarlichtgrün',
+    'berry': 'Beerenlila',
+    'stargold': 'Sternengold',
+    'midnight': 'Mitternachtsblau',
+    'cosmicpink': 'Weltraumrosa',
+    'candypink': 'Bonbonrosa',
+    'lemon': 'Zitronengelb',
+    'mint': 'Mint',
+    'rainbow': 'Regenbogen'
   },
 
   'tool': {
@@ -291,12 +317,131 @@ export default {
         't2': 'Danke, Aurora. Flieg bald mit uns!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'In den Kristallhöhlen ist es dunkel geworden.',
+        'b2': 'Leuchtest du immer noch, Aurora? Die Dunkelheit ist so erholsam.',
+        'b3': 'Terra, wir bringen die Kristalle zusammen zum Leuchten!'
+      },
+      'n5': {
+        'b1': 'Meine Kristalle sind kaputt. Lass sie in Ruhe.',
+        'b2': 'Ich kann ihnen helfen, wieder zu leuchten!',
+        'b3': 'Dann zeig mir dein Licht. Zum Duell!',
+        't1': 'Die Höhlen leuchten wieder!',
+        't2': 'Danke, Aurora. Du bist eine echte Freundin.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Die Spiegel spielen nur noch Streiche.',
+        'b2': 'Erkennst du überhaupt, welche ich bin?',
+        'b3': 'Wir finden zusammen heraus, was echt ist!'
+      },
+      'n5': {
+        'b1': 'Wer bist du? Wer bist du?',
+        'b2': "Ich bin Aurora! Und du bist Echo, stimmt's?",
+        'b3': "Stimmt's? Stimmt! Beweis, dass du echt bist. Zum Duell!",
+        't1': 'Nur eine von mir. Das bin ich!',
+        't2': 'Danke, Aurora. Danke, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Die Regenbogenbrücke verliert ihre Farben!',
+        'b2': 'Grau ist erholsam... und ein bisschen traurig.',
+        'b3': 'Prism, wir malen den Hügel wieder bunt!'
+      },
+      'n5': {
+        'b1': 'Sieh mich nicht an! Ich bin ganz verblasst!',
+        'b2': 'Deine Farben sind noch in dir, Prism!',
+        'b3': 'Dann bring mich wieder zum Funkeln. Zum Duell!',
+        't1': 'Sieh mich an! Alle Farben sind zurück!',
+        't2': 'Danke, Aurora. Du strahlst auch wunderschön!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Bei den Sandfällen steht die Zeit still.',
+        'b2': 'Ich mag es, wenn sich nichts verändert.',
+        'b3': 'Ember, wir lassen den Sand wieder rieseln!'
+      },
+      'n5': {
+        'b1': 'Ich muss die Sanduhr halten. Allein!',
+        'b2': 'Du musst das nicht allein schaffen!',
+        'b3': 'Dann zeig mir dein Feuer. Zum Duell!',
+        't1': 'Der Sand rieselt wieder. Ich kann mich ausruhen!',
+        't2': 'Danke, Aurora. Das war so lieb von dir.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Die Polarlichter sind im Eis gefangen!',
+        'b2': 'Kalte Orte sind... ein bisschen einsam.',
+        'b3': 'Glace, lass uns den Himmel befreien!'
+      },
+      'n5': {
+        'b1': 'Bleib zurück. Ich halte lieber Abstand.',
+        'b2': 'Freunde können sich gegenseitig wärmen!',
+        'b3': 'Hmpf. Dann wärm mich mal auf. Zum Duell.',
+        't1': 'Die Polarlichter tanzen wieder. Wie schön.',
+        't2': 'Danke, Aurora. Besuch mich doch mal.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Die Sterne sind alle ausgegangen!',
+        'b2': 'Würde jemand ein Licht vermissen, das ausgegangen ist?',
+        'b3': 'Jedes Licht zählt. Wir zünden sie wieder an!'
+      },
+      'n5': {
+        'b1': 'Ich bin zu matt, um noch zu leuchten.',
+        'b2': 'Ich glaube an dich, Nova!',
+        'b3': 'Dann hilf mir, meinen Funken zu finden. Zum Duell!',
+        't1': 'Ich leuchte! Alle Sterne leuchten!',
+        't2': 'Danke, Aurora. Du hast mir den Weg geleuchtet.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Alle machen ein Fest für Umbra!',
+        'b2': 'Ein Fest? Das brauche ich nicht.',
+        'b3': 'Jeder braucht Freunde. Sogar du, Umbra!'
+      },
+      'n2': {
+        'b1': 'Der Wald schickt Blumen für die Feier!',
+        'b2': 'Und die Höhlen schicken Kristall-Laternen!'
+      },
+      'n3': {
+        'b1': 'Wir singen ein Willkommenslied!',
+        'b2': 'Willkommenslied! Willkommenslied!'
+      },
+      'n4': {
+        'b1': 'Ich male den Himmel nur für sie bunt!',
+        'b2': 'Heute Nacht leuchtet jeder Stern!'
+      },
+      'n5': {
+        'b1': 'Warum lasst ihr mich nicht einfach in Ruhe?',
+        'b2': 'Weil wir dich bei uns haben wollen, Umbra!',
+        'b3': 'Na gut. Aber leicht mache ich es euch nicht!',
+        't1': 'Ihr... wollt mich wirklich beim Fest dabeihaben?',
+        't2': 'Na klar! Du bist unsere Freundin, Umbra!',
+        't3': 'Mich hat noch nie jemand eingeladen.',
+        't4': 'Dann los! Das Fest kann beginnen!'
+      }
+    },
     'tmpl': {
       'curious': '{name} lugt neugierig hervor!',
       'dusty': 'Oh, {name} ist ein bisschen staubig.',
       'cheerUp': 'Lass uns {name} gemeinsam aufmuntern!',
       'almost': 'Fast geschafft — {name} feuert dich an!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra ist nicht mehr einsam.',
+    'umbra1': 'Hallo, Aurora! Danke, dass du meine Freundin bist.',
+    'umbra2': 'Hier ist es jetzt so schön!',
+    'umbra3': 'Wollen wir mal zum Spaß ein Duell machen?'
   },
 
   'gift': {

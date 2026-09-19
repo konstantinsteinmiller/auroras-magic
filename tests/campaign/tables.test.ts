@@ -37,12 +37,11 @@ describe('the node grid (C5)', () => {
     expect(duelSetup(4).def).toBe(FOES[guardianOf(0)])
   })
 
-  it('ships chapters 1–3 built (v1, D2), and only those', () => {
+  it('ships all ten chapters built (S4)', () => {
     expect(CHAPTERS.length).toBe(CHAPTER_COUNT)
-    expect(CHAPTERS.slice(0, 3).every((c) => c.built)).toBe(true)
-    expect(CHAPTERS.slice(3).every((c) => !c.built)).toBe(true)
-    expect(LAST_BUILT_NODE).toBe(14)
-    expect(CHAPTERS.map((c) => c.newRune).slice(0, 3)).toEqual([NATURE, 5, 6])
+    expect(CHAPTERS.every((c) => c.built)).toBe(true)
+    expect(LAST_BUILT_NODE).toBe(49)
+    expect(CHAPTERS.map((c) => c.newRune)).toEqual([NATURE, 5, 6, null, 7, 8, 9, null, 10, 11])
   })
 
   it('gives each chapter either a new rune or a Signature Spell, never both', () => {

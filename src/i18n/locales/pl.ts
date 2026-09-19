@@ -121,7 +121,11 @@ export default {
     'times': 'x{n}',
     'victory': 'ZWYCIĘSTWO',
     'defeated': 'CHRRR…',
-    'pierced': 'TRZASK!'
+    'pierced': 'TRZASK!',
+    'reflected': 'ODBICIE!',
+    'decoy': 'PUF!',
+    'frozen': 'ZAMROŻONO!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -223,7 +227,29 @@ export default {
     'sunshell': 'Słoneczne złoto',
     'lavender': 'Lawendowy fiolet',
     'skyblue': 'Błękit nieba',
-    'sunrise': 'Poranny pomarańcz'
+    'sunrise': 'Poranny pomarańcz',
+    'amethyst': 'Ametystowy fiolet',
+    'aquamarine': 'Akwamaryna',
+    'rosequartz': 'Różowy kwarc',
+    'silverblue': 'Srebrzysty błękit',
+    'mintglass': 'Miętowa zieleń',
+    'peach': 'Brzoskwiniowy',
+    'cherry': 'Wiśniowa czerwień',
+    'tangerine': 'Mandarynkowy pomarańcz',
+    'lime': 'Limonkowa zieleń',
+    'terracotta': 'Terakota',
+    'turquoise': 'Turkus',
+    'saffron': 'Szafranowe złoto',
+    'icicle': 'Lodowy błękit',
+    'auroragreen': 'Zieleń zorzy',
+    'berry': 'Jagodowy fiolet',
+    'stargold': 'Gwiezdne złoto',
+    'midnight': 'Nocny granat',
+    'cosmicpink': 'Kosmiczny róż',
+    'candypink': 'Cukierkowy róż',
+    'lemon': 'Cytrynowy żółty',
+    'mint': 'Mięta',
+    'rainbow': 'Tęcza'
   },
 
   'tool': {
@@ -293,12 +319,131 @@ export default {
         't2': 'Dziękuję, Auroro. Wpadnij wkrótce polatać z nami!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'W Kryształowych Jaskiniach zrobiło się ciemno.',
+        'b2': 'Wciąż świecisz, Auroro? W ciemności jest tak spokojnie.',
+        'b3': 'Terro, zapalmy razem kryształy!'
+      },
+      'n5': {
+        'b1': 'Moje kryształy są pęknięte. Zostaw je.',
+        'b2': 'Pomogę im znów zalśnić!',
+        'b3': 'To pokaż mi swoje światło. Do pojedynku!',
+        't1': 'Jaskinie znów lśnią!',
+        't2': 'Dziękuję, Auroro. Jesteś prawdziwą przyjaciółką.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Lustra pokazują teraz same sztuczki.',
+        'b2': 'Zgadniesz w ogóle, która z nich to ja?',
+        'b3': 'Znajdźmy razem to, co prawdziwe!'
+      },
+      'n5': {
+        'b1': 'Kim jesteś? Kim jesteś?',
+        'b2': 'Jestem Aurora! A ty jesteś Echo, prawda?',
+        'b3': 'Prawda? Prawda! Udowodnij, że jesteś prawdziwa. Do pojedynku!',
+        't1': 'Jest mnie tylko jedna. To ja!',
+        't2': 'Dziękuję, Auroro. Dziękuję, Auroro!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Tęczowy most traci swoje kolory!',
+        'b2': 'Szarość jest kojąca... i trochę smutna.',
+        'b3': 'Prism, pomalujmy znów tę grań!'
+      },
+      'n5': {
+        'b1': 'Nie patrz na mnie! Jestem cała wyblakła!',
+        'b2': 'Twoje kolory wciąż są w tobie, Prism!',
+        'b3': 'To spraw, żebym znów lśniła. Do pojedynku!',
+        't1': 'Spójrz na mnie! Wróciły wszystkie kolory!',
+        't2': 'Dziękuję, Auroro. Ty też olśniewasz!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'W piaskowych wodospadach stanął czas.',
+        'b2': 'Lubię, kiedy nic się nie zmienia.',
+        'b3': 'Ember, niech piaski znów popłyną!'
+      },
+      'n5': {
+        'b1': 'Muszę trzymać klepsydrę. Sama!',
+        'b2': 'Nie musisz robić tego sama!',
+        'b3': 'To pokaż mi swój ogień. Do pojedynku!',
+        't1': 'Piaski znów płyną. Mogę odpocząć!',
+        't2': 'Dziękuję, Auroro. To było bardzo miłe.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Zorze polarne są uwięzione w lodzie!',
+        'b2': 'W zimnych miejscach jest... trochę samotnie.',
+        'b3': 'Glace, uwolnijmy niebo!'
+      },
+      'n5': {
+        'b1': 'Nie zbliżaj się. Wolę zachować dystans.',
+        'b2': 'Przyjaciele mogą się nawzajem ogrzać!',
+        'b3': 'Hmpf. No to mnie ogrzej. Do pojedynku.',
+        't1': 'Zorze znów tańczą. Jak uroczo.',
+        't2': 'Dziękuję, Auroro. Odwiedź mnie kiedyś.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Wszystkie gwiazdy zgasły!',
+        'b2': 'Czy ktoś tęskniłby za światełkiem, które zgasło?',
+        'b3': 'Każde światełko jest ważne. Zapalmy je znowu!'
+      },
+      'n5': {
+        'b1': 'Jestem zbyt blada, żeby świecić.',
+        'b2': 'Wierzę w ciebie, Novo!',
+        'b3': 'To pomóż mi odnaleźć moją iskrę. Do pojedynku!',
+        't1': 'Świecę! Wszystkie gwiazdy świecą!',
+        't2': 'Dziękuję, Auroro. Oświetliłaś mi drogę.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Wszyscy szykują święto dla Umbry!',
+        'b2': 'Święto? Nie potrzebuję żadnego.',
+        'b3': 'Każdy potrzebuje przyjaciół. Nawet ty, Umbro!'
+      },
+      'n2': {
+        'b1': 'Las przysłał kwiaty na przyjęcie!',
+        'b2': 'A jaskinie — kryształowe lampiony!'
+      },
+      'n3': {
+        'b1': 'Zaśpiewamy piosenkę na powitanie!',
+        'b2': 'Na powitanie! Na powitanie!'
+      },
+      'n4': {
+        'b1': 'Pomaluję niebo specjalnie dla niej!',
+        'b2': 'Dziś zaświeci każda gwiazda!'
+      },
+      'n5': {
+        'b1': 'Czemu nie zostawicie mnie w spokoju?',
+        'b2': 'Bo chcemy, żebyś była z nami, Umbro!',
+        'b3': 'Dobrze. Ale łatwo nie będzie!',
+        't1': 'Wy... naprawdę chcecie mnie na święcie?',
+        't2': 'Oczywiście! Jesteś naszą przyjaciółką, Umbro!',
+        't3': 'Nikt nigdy wcześniej mnie nie zaprosił.',
+        't4': 'To chodźmy! Niech święto się zacznie!'
+      }
+    },
     'tmpl': {
       'curious': '{name} zerka z ciekawością!',
       'dusty': 'Ojej, {name} jest trochę w kurzu.',
       'cheerUp': 'Niech {name} znów się uśmiechnie! Pomóżmy!',
       'almost': 'Już prawie — {name} trzyma za ciebie kciuki!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra nie jest już samotna.',
+    'umbra1': 'Cześć, Auroro! Dziękuję, że jesteś moją przyjaciółką.',
+    'umbra2': 'Jak tu teraz pięknie!',
+    'umbra3': 'Zagramy kiedyś w pojedynek dla zabawy?'
   },
 
   'gift': {

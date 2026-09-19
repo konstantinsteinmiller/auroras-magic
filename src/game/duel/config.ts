@@ -59,6 +59,11 @@ export const EARTH = 3
 export const NATURE = 4
 export const WATER = 5
 export const LIGHTNING = 6
+export const ILLUSION = 7
+export const RAINBOW = 8
+export const TIME = 9
+export const MOON = 10
+export const LOVE = 11
 /** Any rune id, 0..11. */
 export type Rune = RuneId
 /** i18n ids of the runes, in rune order (`rune.<id>`). Also their save slugs. */
@@ -202,9 +207,8 @@ export const comboFromIndex = (index: number): number[] => {
 
 /* ------------------------- the new-rune table ---------------------- */
 /**
- * Riders a spell may carry beyond its kind/damage (§6.3). Only the ones the
- * shipped chapters need are wired in `sim.ts`; the rest are data waiting for
- * their chapter (S3/S4) and do nothing yet.
+ * Riders a spell may carry beyond its kind/damage (§6.3, §6.5). All of them
+ * are wired in `sim.ts`.
  */
 export interface SpellRiders {
   /** Seconds of the 4/s damage-over-time on the target. */
@@ -221,6 +225,16 @@ export interface SpellRiders {
   healPct?: number
   wardHits?: number
   decoyHits?: number
+  /** Seconds a summoned decoy (kind 5) lasts before it fades (§6.3). */
+  decoySecs?: number
+  /** A flat heal on the caster when the spell is cast (Love). */
+  healFlat?: number
+  /** The Love finisher: gated, once per duel per side (§6.9). */
+  finisher?: boolean
+  /** Crystal Ward: the barrier REFLECTS (guardK 4, §6.5). */
+  reflect?: boolean
+  /** Frost Lock: seconds the opponent is frozen, her hand discarded (§6.5). */
+  freeze?: number
 }
 
 export interface SpellTriple extends SpellRiders { kind: SpellKind; dmg: number }
@@ -244,8 +258,8 @@ export const NEW_RUNE_BASE: Readonly<Record<number, readonly [SpellTriple, Spell
   ],
   7: [
     { kind: 0, dmg: 7 },
-    { kind: 5, dmg: 0, decoyHits: 1 },
-    { kind: 5, dmg: 0, decoyHits: 2 }
+    { kind: 5, dmg: 0, decoyHits: 1, decoySecs: 8 },
+    { kind: 5, dmg: 0, decoyHits: 2, decoySecs: 10 }
   ],
   8: [
     { kind: 0, dmg: 8 },
@@ -262,10 +276,12 @@ export const NEW_RUNE_BASE: Readonly<Record<number, readonly [SpellTriple, Spell
     { kind: 1, dmg: 12, dot: 3, lifestealPct: 0.4 },
     { kind: 3, dmg: 22, lifestealPct: 0.5 }
   ],
+  // Love's heals are on the caster: 10 % / 20 % of her own max HP, and the
+  // finisher's flat +25 (§6.3). The triple IS the finisher — gated (§6.9).
   11: [
     { kind: 0, dmg: 8, healPct: 0.1 },
     { kind: 1, dmg: 16, dot: 2, healPct: 0.2 },
-    { kind: 3, dmg: 40, healPct: 0.25 }
+    { kind: 3, dmg: 40, healFlat: 25, finisher: true }
   ]
 }
 
@@ -276,7 +292,7 @@ const RIDER: Readonly<Partial<Record<RuneTag, SpellRiders>>> = {
   pierce: { pierce: true },
   slow: { slowPct: 0.15, slow: 2 },
   lifesteal: { lifestealPct: 0.15 },
-  finisher: { healPct: 0.05 }
+  finisher: { healFlat: 5 }
 }
 
 /** A golden entry's `extra`, read the way the jam build read it. */
@@ -298,15 +314,18 @@ export interface ResolvedSpell extends SpellRiders {
   dominant: number
   /** The last rune drawn: colours the cast and decides the element (§6.2 step 7). */
   lead: number
+  /** Rainbow completed this cast (§6.20): the queue it resolved as. */
+  wild?: readonly number[]
 }
 
 /** A Signature Spell (§6.5), gated on its unlock bit. */
 export interface SignatureSpell { key: string; nameId: string; kind: SpellKind; dmg: number; riders: SpellRiders }
 export const SIGNATURE_SPELLS: readonly SignatureSpell[] = [
   // ch4 — Crystal Ward: the reflect barrier (guardK 4), one-shot.
-  { key: '2.2.3', nameId: 'crystalWard', kind: 2, dmg: 0, riders: { guard: 5 } },
-  // ch8 — Frost Lock: an earth-strength barrier that freezes the foe (S4).
-  { key: '1.2.2', nameId: 'frostLock', kind: 2, dmg: 0, riders: { guard: 3 } }
+  { key: '2.2.3', nameId: 'crystalWard', kind: 2, dmg: 0, riders: { guard: 5, reflect: true } },
+  // ch8 — Frost Lock: an earth-strength barrier that also freezes the foe for
+  // 2.5 s and discards her hand. Player-only (C14).
+  { key: '1.2.2', nameId: 'frostLock', kind: 2, dmg: 0, riders: { guard: 3, freeze: 2.5 } }
 ]
 
 /**
@@ -346,6 +365,7 @@ const mergeRiders = (into: SpellRiders, add: SpellRiders): void => {
   if (add.pierce) into.pierce = true
   if (add.lifestealPct) into.lifestealPct = (into.lifestealPct ?? 0) + add.lifestealPct
   if (add.healPct) into.healPct = (into.healPct ?? 0) + add.healPct
+  if (add.healFlat) into.healFlat = (into.healFlat ?? 0) + add.healFlat
   if (add.wardHits) into.wardHits = (into.wardHits ?? 0) + add.wardHits
 }
 
@@ -365,7 +385,9 @@ const resolveRaw = (q: readonly number[], signatures: number): ResolvedSpell => 
   if (golden) {
     return { key, nameId: golden[0], kind: golden[1], dmg: golden[2], count, dominant: lead, lead, ...goldenRiders(golden) }
   }
-  // Step 2 (Rainbow's substitution) arrives with chapter 6 (S4).
+  // Step 2: Rainbow completes whatever else is in the hand (§6.20).
+  const wild = substitute(q, signatures)
+  if (wild) return wild
   // Steps 3–5: the dominant rune's pure spell at this length.
   const dominant = dominantRune(q)
   const base = pureOf(dominant, count)
@@ -382,6 +404,33 @@ const resolveRaw = (q: readonly number[], signatures: number): ResolvedSpell => 
     if (rider) mergeRiders(out, rider)
   }
   return out
+}
+
+/**
+ * Rainbow, the wildcard (§6.20). With at least one other rune in the hand,
+ * every Rainbow stands in for one of them: each distinct other rune is tried
+ * (all Rainbows replaced by it) through the whole generator — so a Rainbow can
+ * complete a golden spell — and the strongest wins, a tie going to the rune
+ * drawn LAST. (§6.20's "shared tag" rule never separates the candidates: each
+ * one IS one of the other runes, so they all match any tag those share.) A
+ * hand of nothing but Rainbow is its own colourless spell (§6.3); null here.
+ */
+const substitute = (q: readonly number[], signatures: number): ResolvedSpell | null => {
+  if (!q.includes(RAINBOW)) return null
+  let best: ResolvedSpell | null = null
+  let bestAt = -1
+  for (let i = 0; i < q.length; i++) {
+    const r = q[i]!
+    if (r === RAINBOW || q.indexOf(r) !== i) continue
+    const cand = q.map((x) => (x === RAINBOW ? r : x))
+    const sp = resolveRaw(cand, signatures)
+    const at = q.lastIndexOf(r)
+    if (!best || sp.dmg > best.dmg || (sp.dmg === best.dmg && at > bestAt)) {
+      best = { ...sp, key: comboKey(q), wild: cand }
+      bestAt = at
+    }
+  }
+  return best
 }
 
 /**

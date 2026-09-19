@@ -169,6 +169,10 @@ let tFreeze = T_FREEZE
 let tWave = T_WAVE
 /** The rune the chest just granted, tracing itself; -1 when none. */
 let revealRune = -1
+/** Or the Signature Spell it granted (§6.5): its recipe's three runes trace
+ *  one after another, then its emblem blooms under them. -1 when none. */
+let revealSig = -1
+const SIG_RECIPE: readonly (readonly number[])[] = [[2, 2, 3], [1, 2, 2]]
 let revealT = 0
 let revealSparkT = 0
 /** The rescue collectible: its cells, and seconds since it was found (-1 =
@@ -318,7 +322,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   tWave = boss ? T_WAVE_BOSS : T_WAVE
   beam = boss ? new Sunbeam(1) : null
   beamPuffAcc = beamTrailT = 0
-  revealRune = -1
+  revealRune = revealSig = -1
   onEnd = done
   resetFx()
   const pick = getPaintPick(S.campaign.paintPicks, n)
@@ -387,7 +391,7 @@ const end = (why: RestoreEnd): void => {
   onEnd = null
   hand()?.release()
   beam?.stop()
-  revealRune = -1
+  revealRune = revealSig = -1
   setPhase('idle')
   restoreHud.showContinue = false
   // Release the two sector-sized canvases; the stamp and noise are tiny and
@@ -848,14 +852,53 @@ const runeFrame = (): [number, number, number] => {
  *  full-speed, as "here's how it goes" (§5.13, §8.3's 950–1500 ms beat). */
 const beginRuneReveal = (k: number): void => {
   revealRune = k
+  revealSig = -1
   revealT = revealSparkT = 0
+}
+/** The chest just granted Signature Spell `i`: its recipe writes itself. */
+const beginSignatureReveal = (i: number): void => {
+  revealSig = i
+  revealRune = -1
+  revealT = revealSparkT = 0
+}
+/** Is a chest's grant still being read? The pots wait for it. */
+const revealing = (): boolean => revealRune >= 0 || revealSig >= 0
+
+/** Where glyph `i` of a recipe's three sits, and how big (CSS px). */
+const recipeSlot = (i: number): [number, number, number] => {
+  const [cx, cy, r] = runeFrame()
+  return [cx + (i - 1) * r * 0.95, cy - r * 0.18, r * 0.4]
 }
 
 const stepRuneReveal = (dt: number): void => {
-  if (revealRune < 0) return
+  if (!revealing()) return
   const was = revealT
   revealT += dt
   const [cx, cy, r] = runeFrame()
+  if (revealSig >= 0) {
+    // Three glyphs, a third of the trace each, a snap as each one lands.
+    const recipe = SIG_RECIPE[revealSig]!
+    const per = T_RUNE_TRACE / 3
+    const i = Math.min(2, Math.floor(revealT / per))
+    if (revealT < T_RUNE_TRACE) {
+      revealSparkT -= dt
+      if (revealSparkT <= 0) {
+        revealSparkT = 0.04
+        const [gx, gy, gr] = recipeSlot(i)
+        const [hx, hy] = glyphPoints(recipe[i]!, gx, gy, gr, ease((revealT - i * per) / per)).head
+        brushTrail(hx, hy, 1, 0.9)
+      }
+    }
+    for (let k = 0; k < 3; k++) {
+      if (was < (k + 1) * per && revealT >= (k + 1) * per) sfx('snap', recipe[k])
+    }
+    if (was < T_RUNE_TRACE && revealT >= T_RUNE_TRACE) {
+      haptic('reward')
+      sparkleBurst(cx, cy + r * 0.62, 1)
+    }
+    if (revealT >= T_RUNE) revealSig = -1
+    return
+  }
   if (revealT < T_RUNE_TRACE) {
     // A spark rides the tip of the stroke, the way a finger would.
     revealSparkT -= dt
@@ -896,6 +939,7 @@ export const updateRestore = (dt: number, now: number): void => {
         // granted HERE, riding the burst (R-1b, §8.3) — not at the win.
         const grant = onUnboxed(node)
         if (grant.rune !== null) beginRuneReveal(grant.rune)
+        else if (grant.signature !== null) beginSignatureReveal(grant.signature)
         toolFromX = toolX = gx
         toolFromY = toolY = gy
       }
@@ -907,7 +951,7 @@ export const updateRestore = (dt: number, now: number): void => {
         toolX = lerp(toolFromX, touchX, e)
         toolY = lerp(toolFromY, touchY, e)
         // The pots wait for the new rune to finish being read.
-        if (k >= 1 && revealRune < 0) setPhase('pots')
+        if (k >= 1 && !revealing()) setPhase('pots')
       }
       break
     }
@@ -1151,8 +1195,63 @@ const drawOpeningGift = (g: G2D): void => {
   })
 }
 
+/**
+ * A Signature Spell's emblem (§6.5), under its recipe: Crystal Ward's prism
+ * cluster, Frost Lock's snowflake. Drawn, never written — zero-UI (§8.2).
+ */
+const drawSigEmblem = (g: G2D, i: number, x: number, y: number, s: number): void => {
+  g.save()
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  g.lineWidth = Math.max(2.5, s * 0.09)
+  g.strokeStyle = '#3A2340'
+  if (i === 0) {
+    const P3: readonly (readonly [number, number])[] = [[-0.42, 0.62], [0, 1], [0.42, 0.7]]
+    for (const [dx, h] of P3) {
+      const px = x + dx * s
+      g.beginPath()
+      g.moveTo(px - s * 0.2, y + s * 0.5)
+      g.lineTo(px - s * 0.2, y + s * 0.5 - h * s * 0.8)
+      g.lineTo(px, y + s * 0.5 - h * s)
+      g.lineTo(px + s * 0.2, y + s * 0.5 - h * s * 0.8)
+      g.lineTo(px + s * 0.2, y + s * 0.5)
+      g.closePath()
+      g.fillStyle = '#c9a2ff'
+      g.fill()
+      g.stroke()
+    }
+  } else {
+    g.strokeStyle = '#ffffff'
+    g.lineWidth = Math.max(4, s * 0.16)
+    for (let k = 0; k < 2; k++) {
+      g.beginPath()
+      for (let j = 0; j < 3; j++) {
+        const a = (j * PI) / 3
+        g.moveTo(x - cos(a) * s * 0.6, y - sin(a) * s * 0.6)
+        g.lineTo(x + cos(a) * s * 0.6, y + sin(a) * s * 0.6)
+        for (const sg of [-1, 1]) {
+          const bx = x + sg * cos(a) * s * 0.36
+          const by = y + sg * sin(a) * s * 0.36
+          g.moveTo(bx, by)
+          g.lineTo(bx + sg * cos(a + 0.8) * s * 0.18, by + sg * sin(a + 0.8) * s * 0.18)
+          g.moveTo(bx, by)
+          g.lineTo(bx + sg * cos(a - 0.8) * s * 0.18, by + sg * sin(a - 0.8) * s * 0.18)
+        }
+      }
+      g.stroke()
+      g.strokeStyle = '#7fd4ff'
+      g.lineWidth = Math.max(2, s * 0.07)
+    }
+  }
+  g.restore()
+}
+
 /** The new rune writing itself over the sector, on a warm glow. */
 const drawRuneReveal = (g: G2D): void => {
+  if (revealSig >= 0) {
+    drawSignatureReveal(g)
+    return
+  }
   if (revealRune < 0) return
   const [cx, cy, r] = runeFrame()
   const f = ease(clamp(revealT / T_RUNE_TRACE, 0, 1))
@@ -1173,6 +1272,38 @@ const drawRuneReveal = (g: G2D): void => {
   // The whole glyph, faint, so the eye knows where the stroke is going.
   drawGlyph(g, revealRune, cx, cy, rr, a * 0.16, 1)
   drawGlyph(g, revealRune, cx, cy, rr, a, f)
+}
+
+/** A Signature Spell's recipe writing itself, rune by rune, then its emblem. */
+const drawSignatureReveal = (g: G2D): void => {
+  const [cx, cy, r] = runeFrame()
+  const out = clamp((revealT - T_RUNE_TRACE - T_RUNE_HOLD) / T_RUNE_FADE, 0, 1)
+  const a = clamp(revealT / 0.2, 0, 1) * (1 - out)
+  if (a <= 0) return
+  g.save()
+  g.globalAlpha = a * 0.9
+  const halo = g.createRadialGradient(cx, cy, r * 0.15, cx, cy, r * 1.9)
+  halo.addColorStop(0, 'rgba(255, 248, 222, 0.95)')
+  halo.addColorStop(1, 'rgba(255, 248, 222, 0)')
+  g.fillStyle = halo
+  g.fillRect(cx - r * 1.9, cy - r * 1.9, r * 3.8, r * 3.8)
+  g.restore()
+  const recipe = SIG_RECIPE[revealSig]!
+  const per = T_RUNE_TRACE / 3
+  for (let i = 0; i < 3; i++) {
+    const [gx, gy, gr] = recipeSlot(i)
+    const f = ease(clamp((revealT - i * per) / per, 0, 1))
+    drawGlyph(g, recipe[i]!, gx, gy, gr, a * 0.16, 1)
+    if (f > 0) drawGlyph(g, recipe[i]!, gx, gy, gr, a, f)
+  }
+  // The emblem blooms in as the last glyph lands.
+  const e = clamp((revealT - T_RUNE_TRACE) / 0.3, 0, 1)
+  if (e > 0) {
+    g.save()
+    g.globalAlpha = a * e
+    drawSigEmblem(g, revealSig, cx, cy + r * 0.62, r * 0.36 * (0.7 + 0.3 * ease(e)))
+    g.restore()
+  }
 }
 
 /**

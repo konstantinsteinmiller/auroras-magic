@@ -42,6 +42,55 @@ export const SKY_POTS: readonly Pot[] = [
   { id: 'sunrise', base: '#ff9f5a', shade: '#e57a3c', lite: '#ffd2a8' }
 ]
 
+/** Crystal Caves' three pots (chapter 4). */
+export const CAVE_POTS: readonly Pot[] = [
+  { id: 'amethyst', base: '#b06bff', shade: '#8a45e0', lite: '#dcc0ff' },
+  { id: 'aquamarine', base: '#3ee8d6', shade: '#1fb8b0', lite: '#aef7ef' },
+  { id: 'rosequartz', base: '#ff7aa8', shade: '#e0527f', lite: '#ffc2d8' }
+]
+
+/** Mirror Mountains' three pots (chapter 5). */
+export const MIRROR_POTS: readonly Pot[] = [
+  { id: 'silverblue', base: '#7fa8ff', shade: '#5a80e0', lite: '#c8dbff' },
+  { id: 'mintglass', base: '#4fe8a8', shade: '#2fbf82', lite: '#b8f7da' },
+  { id: 'peach', base: '#ff9f7a', shade: '#e07852', lite: '#ffd4c2' }
+]
+
+/** Rainbow Ridge's three pots (chapter 6). */
+export const RIDGE_POTS: readonly Pot[] = [
+  { id: 'cherry', base: '#ff5a78', shade: '#e03a58', lite: '#ffb8c6' },
+  { id: 'tangerine', base: '#ffa53d', shade: '#e07f1f', lite: '#ffd9a3' },
+  { id: 'lime', base: '#8fe04a', shade: '#6bb82e', lite: '#d0f5a8' }
+]
+
+/** Sunken Sands' three pots (chapter 7). */
+export const SANDS_POTS: readonly Pot[] = [
+  { id: 'terracotta', base: '#ff7f5c', shade: '#e05a3a', lite: '#ffc4b0' },
+  { id: 'turquoise', base: '#33d6e0', shade: '#1faab8', lite: '#aef0f5' },
+  { id: 'saffron', base: '#ffc233', shade: '#e09a1f', lite: '#ffe3a0' }
+]
+
+/** Twilight Tundra's three pots (chapter 8). */
+export const TUNDRA_POTS: readonly Pot[] = [
+  { id: 'icicle', base: '#6fd0ff', shade: '#45a4e0', lite: '#c4ecff' },
+  { id: 'auroragreen', base: '#52e89a', shade: '#2fbf74', lite: '#bdf7d8' },
+  { id: 'berry', base: '#d06bff', shade: '#a845e0', lite: '#ecc4ff' }
+]
+
+/** Starlight Summit's three pots (chapter 9). */
+export const SUMMIT_POTS: readonly Pot[] = [
+  { id: 'stargold', base: '#ffd84d', shade: '#e8b030', lite: '#fff0a8' },
+  { id: 'midnight', base: '#7078ff', shade: '#4f55e0', lite: '#c4c8ff' },
+  { id: 'cosmicpink', base: '#ff6fd0', shade: '#e04aab', lite: '#ffc4ec' }
+]
+
+/** Friendship Festival's three pots (chapter 10). */
+export const FESTIVAL_POTS: readonly Pot[] = [
+  { id: 'candypink', base: '#ff7ab8', shade: '#e05593', lite: '#ffc6e0' },
+  { id: 'lemon', base: '#ffe14d', shade: '#e8bb2a', lite: '#fff3a8' },
+  { id: 'mint', base: '#5ce0a8', shade: '#35b884', lite: '#c0f5de' }
+]
+
 export const C = {
   skyTop: '#6cc4ff',
   skyLow: '#ffd3ea',

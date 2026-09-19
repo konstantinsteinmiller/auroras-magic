@@ -121,7 +121,11 @@ export default {
     'times': 'x{n}',
     'victory': 'OVERWINNING',
     'defeated': 'ZZZ…',
-    'pierced': 'ZAP!'
+    'pierced': 'ZAP!',
+    'reflected': 'BOING!',
+    'decoy': 'POEF!',
+    'frozen': 'BEVROREN!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -223,7 +227,29 @@ export default {
     'sunshell': 'Zonnegoud',
     'lavender': 'Lavendel',
     'skyblue': 'Hemelsblauw',
-    'sunrise': 'Zonsopgangoranje'
+    'sunrise': 'Zonsopgangoranje',
+    'amethyst': 'Amethistpaars',
+    'aquamarine': 'Aquamarijn',
+    'rosequartz': 'Rozenkwartsroze',
+    'silverblue': 'Zilverblauw',
+    'mintglass': 'Mintgroen',
+    'peach': 'Perzik',
+    'cherry': 'Kersenrood',
+    'tangerine': 'Mandarijnoranje',
+    'lime': 'Limoengroen',
+    'terracotta': 'Terracotta',
+    'turquoise': 'Turquoise',
+    'saffron': 'Saffraangoud',
+    'icicle': 'IJspegelblauw',
+    'auroragreen': 'Noorderlichtgroen',
+    'berry': 'Bessenpaars',
+    'stargold': 'Sterrengoud',
+    'midnight': 'Middernachtblauw',
+    'cosmicpink': 'Kosmisch roze',
+    'candypink': 'Snoeproze',
+    'lemon': 'Citroengeel',
+    'mint': 'Mint',
+    'rainbow': 'Regenboog'
   },
 
   'tool': {
@@ -292,12 +318,131 @@ export default {
         't2': 'Dank je, Aurora. Kom gauw met ons vliegen!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'De Kristalgrotten zijn donker geworden.',
+        'b2': 'Straal je nog steeds, Aurora? Donker is zo rustgevend.',
+        'b3': 'Terra, samen maken we de kristallen weer licht!'
+      },
+      'n5': {
+        'b1': 'Mijn kristallen zijn kapot. Laat ze maar.',
+        'b2': 'Ik kan ze weer laten gloeien!',
+        'b3': 'Laat me dan je licht zien. Duelleer!',
+        't1': 'De grotten gloeien weer!',
+        't2': 'Dank je, Aurora. Jij bent een echte vriendin.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'De spiegels tonen alleen nog trucjes.',
+        'b2': 'Zie jij eigenlijk wel welke ik ben?',
+        'b3': 'Laten we samen zoeken wat echt is!'
+      },
+      'n5': {
+        'b1': 'Wie ben jij? Wie ben jij?',
+        'b2': 'Ik ben Aurora! En jij bent Echo, toch?',
+        'b3': 'Toch? Toch! Bewijs dat je echt bent. Duelleer!',
+        't1': 'Er is maar één van mij. Dat ben ik!',
+        't2': 'Dank je, Aurora. Dank je, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'De regenboogbrug verliest zijn kleuren!',
+        'b2': 'Grijs is rustig... en een beetje verdrietig.',
+        'b3': 'Prism, laten we de bergkam weer verven!'
+      },
+      'n5': {
+        'b1': 'Kijk niet naar me! Ik ben helemaal verbleekt!',
+        'b2': 'Je kleuren zitten er nog, Prism!',
+        'b3': 'Laat me dan weer schitteren. Duelleer!',
+        't1': 'Kijk naar me! Alle kleuren zijn terug!',
+        't2': 'Dank je, Aurora. Jij schittert ook!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Het zand valt niet meer: de tijd staat stil.',
+        'b2': 'Ik vind het fijn als er niks verandert.',
+        'b3': 'Ember, laten we het zand weer laten stromen!'
+      },
+      'n5': {
+        'b1': 'Ik moet de zandloper vasthouden. Alleen!',
+        'b2': 'Je hoeft het niet alleen te doen!',
+        'b3': 'Laat me dan je vuur zien. Duelleer!',
+        't1': 'Het zand stroomt weer. Ik kan rusten!',
+        't2': 'Dank je, Aurora. Wat was dat lief.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Het noorderlicht zit vast in het ijs!',
+        'b2': 'Koude plekken zijn... een beetje eenzaam.',
+        'b3': 'Glace, laten we de lucht bevrijden!'
+      },
+      'n5': {
+        'b1': 'Blijf daar. Ik houd liever afstand.',
+        'b2': 'Vrienden houden elkaar warm!',
+        'b3': 'Hmpf. Warm me dan maar op. Duelleer.',
+        't1': 'Het noorderlicht danst weer. Wat prachtig.',
+        't2': 'Dank je, Aurora. Kom eens langs.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Alle sterren zijn uitgegaan!',
+        'b2': 'Zou iemand een gedoofd lichtje missen?',
+        'b3': 'Elk lichtje telt. Laten we ze weer aansteken!'
+      },
+      'n5': {
+        'b1': 'Ik ben te dof om nog te stralen.',
+        'b2': 'Ik geloof in je, Nova!',
+        'b3': 'Help me dan mijn vonk te vinden. Duelleer!',
+        't1': 'Ik straal! Alle sterren stralen!',
+        't2': 'Dank je, Aurora. Jij hebt mijn pad verlicht.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Iedereen maakt een feest voor Umbra!',
+        'b2': 'Een feest? Dat hoeft voor mij niet.',
+        'b3': 'Iedereen heeft vrienden nodig. Jij ook, Umbra!'
+      },
+      'n2': {
+        'b1': 'Het bos stuurde bloemen voor het feest!',
+        'b2': 'En de grotten stuurden kristallen lantaarns!'
+      },
+      'n3': {
+        'b1': 'We zingen een welkomstlied!',
+        'b2': 'Welkomstlied! Welkomstlied!'
+      },
+      'n4': {
+        'b1': 'Ik verf de lucht speciaal voor haar!',
+        'b2': 'Vannacht straalt elke ster!'
+      },
+      'n5': {
+        'b1': 'Waarom laten jullie me niet gewoon met rust?',
+        'b2': 'Omdat we jou erbij willen, Umbra!',
+        'b3': 'Goed dan. Maar ik maak het jullie niet makkelijk!',
+        't1': 'Willen jullie... echt dat ik naar het feest kom?',
+        't2': 'Natuurlijk! Jij bent onze vriendin, Umbra!',
+        't3': 'Niemand heeft me ooit eerder uitgenodigd.',
+        't4': 'Kom op dan! Laat het feest beginnen!'
+      }
+    },
     'tmpl': {
       'curious': '{name} kijkt nieuwsgierig om het hoekje!',
       'dusty': 'Ach, {name} is een beetje stoffig.',
       'cheerUp': 'Laten we {name} samen opvrolijken!',
       'almost': 'Nog even — {name} moedigt je aan!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra is niet meer eenzaam.',
+    'umbra1': 'Hoi, Aurora! Bedankt dat je mijn vriendin bent.',
+    'umbra2': 'Wat is het hier nu mooi!',
+    'umbra3': 'Zin om eens voor de lol te duelleren?'
   },
 
   'gift': {

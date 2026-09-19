@@ -136,12 +136,18 @@ describe('the foe roster (§6.10–§6.12)', () => {
     expect(FOES[guardianOf(9)]!.slug).toBe('umbra')
   })
 
-  it('grows HP by 3 a chapter, +20 for a Guardian (+16 at the finale), tiers every 3 chapters', () => {
+  // S4 tuning on the real duel (tests/duel/winRate.test.ts, §7.2's core
+  // child): a shadow 100 + 1 a chapter (flat 100 with no weakness), a
+  // Guardian 115 + 2 a chapter, tiers every 3 chapters — one gentler where
+  // there is no weakness to exploit — at 0.40 / 0.43 / 0.46 runes a second.
+  it('grows HP gently by chapter, bosses more; tiers every 3 chapters, gentler with no weakness', () => {
     for (let c = 0; c < 10; c++) {
-      expect(FOES[shadowOf(c)]!.hpMax).toBe(100 + 3 * c)
-      expect(FOES[guardianOf(c)]!.hpMax).toBe(100 + 3 * c + (c === 9 ? 16 : 20))
-      expect(FOES[shadowOf(c)]!.aiTier).toBe(Math.min(2, Math.floor(c / 3)))
+      const el = FOES[shadowOf(c)]!.element
+      expect(FOES[shadowOf(c)]!.hpMax).toBe(el < 0 ? 100 : 100 + c)
+      expect(FOES[guardianOf(c)]!.hpMax).toBe(115 + 2 * c)
+      expect(FOES[shadowOf(c)]!.aiTier).toBe(Math.max(0, Math.min(2, Math.floor(c / 3)) - (el < 0 ? 1 : 0)))
     }
+    ;[0.4, 0.43, 0.46].forEach((r, i) => expect(tierRate(i)).toBeCloseTo(r, 9))
     expect(FOES[guardianOf(0)]!.phase2).toBe('natureRider')
     expect(FOES[shadowOf(0)]!.element).toBe(NATURE)
   })
@@ -263,8 +269,8 @@ describe('the difficulty chain (§6.14–§6.15)', () => {
     resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 2 })
     expect(S.foe).toBe(guardianOf(0))
     expect(S.usesMagic).toBe(true)
-    expect(S.ehpMax).toBe(120)
-    expect(S.ehp).toBe(120)
+    expect(S.ehpMax).toBe(115)
+    expect(S.ehp).toBe(115)
     expect(S.hpMax).toBe(100)
     expect(S.dust).toBeCloseTo(0.84)
   })
@@ -366,13 +372,15 @@ describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
     expect(shot?.p).toBe(1)
   })
 
-  it('every shipped magic has its AI contract, and its boss phase exists', async () => {
+  it('every magic has its AI contract (all built at S4), and every boss a phase 2', async () => {
     const { AI_CONTRACTS } = await import('@/game/duel/foes')
     expect(AI_CONTRACTS.length).toBe(10)
-    const built = AI_CONTRACTS.filter((c) => c.built).map((c) => c.magic)
-    expect(built).toEqual(['dot', 'ward', 'pierce'])
-    const phases = [FOES[guardianOf(0)]!.phase2, FOES[guardianOf(1)]!.phase2, FOES[guardianOf(2)]!.phase2]
-    expect(phases).toEqual(['natureRider', 'wardOpen', 'pierceBolts'])
-    for (const c of AI_CONTRACTS.filter((x) => x.built)) expect(c.bossPhase2).toBe(true)
+    expect(AI_CONTRACTS.every((c) => c.built)).toBe(true)
+    expect(Array.from({ length: 10 }, (_, c) => FOES[guardianOf(c)]!.phase2)).toEqual([
+      'natureRider', 'wardOpen', 'pierceBolts', 'crystalLong', 'twoDecoys',
+      'prismGlow', 'slowDouble', 'frostResist', 'lifestealUp', 'umbraFalter'
+    ])
+    // The two player-only magics are never cast by a foe (C14).
+    expect(AI_CONTRACTS.filter((c) => c.aiOnly).map((c) => c.magic)).toEqual(['wildcard', 'frostLock'])
   })
 })

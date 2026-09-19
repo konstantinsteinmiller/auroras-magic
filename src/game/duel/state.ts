@@ -51,6 +51,15 @@ export interface Shot {
   n: number
   delay: number
   life: number
+  /** Its base damage, before the elemental multiplier — what a Crystal Ward
+   *  bounces back (§6.5: the reflector's own `elemMul` never applies). */
+  b: number
+  /** Lifesteal: the caster heals this share of the damage it deals (Moon). */
+  ls: number
+  /** Slow strength, 0..1 (§6.7.7); 0 = the base runes' shipped 45 %. */
+  sp: number
+  /** Already reflected once: a second Crystal Ward only blocks it. */
+  rf: 0 | 1
 }
 
 /** A floating HUD callout. `k` is an i18n key under `pop.`; `p` its params. */
@@ -154,6 +163,27 @@ export interface DuelState {
   landed: number
   /** The chapter (0-based) the arena is dressed for (§9.6). Set by the flow. */
   theme: number
+  /** A decoy's remaining hit capacity (Illusion, kind 5), how many mirror
+   *  bodies it shows (Echo's phase 2 holds two), and its seconds left. */
+  decoy: number
+  eDecoy: number
+  decoyN: number
+  eDecoyN: number
+  decoyT: number
+  eDecoyT: number
+  /** Frost Lock (§6.5): seconds frozen, then a per-target cooldown. The
+   *  player's own pair only ever runs in 2P versus (§6.19). */
+  frozen: number
+  eFrozen: number
+  freezeCd: number
+  eFreezeCd: number
+  /** How hard the foe is slowed while `eSlow` runs (§6.7.7): 0..1. */
+  eSlowPct: number
+  /** Hits landed by either side this duel — the Love finisher's gate (§6.9). */
+  hitsLanded: number
+  /** The finisher is once per duel, per side (§6.9). */
+  usedFinisher: boolean
+  eUsedFinisher: boolean
 
   /* scoring / meta */
   /** Index into `FOES` (`duel/foes.ts`) for the CURRENT duel. Not persisted. */
@@ -250,6 +280,20 @@ export const auroras_magic_state: DuelState = {
   usesMagic: false,
   landed: 0,
   theme: 0,
+  decoy: 0,
+  eDecoy: 0,
+  decoyN: 0,
+  eDecoyN: 0,
+  decoyT: 0,
+  eDecoyT: 0,
+  frozen: 0,
+  eFrozen: 0,
+  freezeCd: 0,
+  eFreezeCd: 0,
+  eSlowPct: 0.45,
+  hitsLanded: 0,
+  usedFinisher: false,
+  eUsedFinisher: false,
 
   foe: 0,
   wins: 0,

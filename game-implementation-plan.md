@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -112,9 +112,9 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 |---|---|---|---|---|
 | S0 | Rune spike: frozen-corpus test (`tests/duel/rune-corpus.*`), committed harness `tools/rune-spike/`, `RUNE_DEFS` + `shapes.ts`, `recognise(raw, activeMask)`, 8 new runes measured (§5) | The four shipped runes classify bit-identically; each new rune ≥ 95 % sloppy accuracy, junk ≤ 5 %, or its fallback applied | 4–5 | ✅ 2026-09-18 |
 | S1 | One wipe sector end to end: restore view, coverage grid, dust, brush, 85 % + reveal, colour-me pick, in-progress persistence, bracket "wipe = live" (§8, §9.3–§9.4) | A single sector, from gift to permanence, at 320×658 and in landscape, ≤ 3 ms/frame for the mask | 6–8 | ✅ 2026-09-18 |
-| S2 | Flow shell + chapter 1: `AppScene.vue` (one canvas, RAF, input, `S.flow`), scene FSM, boot into arena, `useDuelRewards.ts`, map, dialogue, Boss Chest + Sunbeam, save schema v2 + migration (§3, §4, §10) | Chapter 1 playable from a cold boot through its boss and wipe; portal QA green | 15–19 | ⬜ next |
-| S3 | Chapters 1–3 = **the v1 release** (D2): water / lightning magics, Eraser, spellbook, wardrobe tent, Twin Gift (bloom), i18n for 21 locales (§6, §8, §10, §11) | §12.2.4 gate, kid playtest, portal QA on every target | 9–13 | ⬜ |
-| S4 | Chapters 4–10 in pairs (4–5, 6–7, 8–9, 10): Signature Spells, the remaining runes and magics, finale (§6, §10) | Win-rate floors hold from telemetry per pair (§7.2, §12.6) | 26–32 | ⬜ |
+| S2 | Flow shell + chapter 1: `AppScene.vue` (one canvas, RAF, input, `S.flow`), scene FSM, boot into arena, `useDuelRewards.ts`, map, dialogue, Boss Chest + Sunbeam, save schema v2 + migration (§3, §4, §10) | Chapter 1 playable from a cold boot through its boss and wipe; portal QA green | 15–19 | ✅ 2026-09-18 |
+| S3 | Chapters 1–3 = **the v1 release** (D2): water / lightning magics, Eraser, spellbook, wardrobe tent, Twin Gift (bloom), i18n for 21 locales (§6, §8, §10, §11) | §12.2.4 gate, kid playtest, portal QA on every target | 9–13 | ✅ 2026-09-19 (engineering gate) |
+| S4 | Chapters 4–10 in pairs (4–5, 6–7, 8–9, 10): Signature Spells, the remaining runes and magics, finale (§6, §10) | Win-rate floors hold from telemetry per pair (§7.2, §12.6) | 26–32 | ✅ 2026-09-19 |
 | S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ⬜ |
 | S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ⬜ |
 
@@ -428,6 +428,82 @@ lands, resume from the first unticked line):**
   - the node-12 fatigue probe (§12.7);
   - the three target reviews (§12.3);
   - the real portal ids and submissions.
+
+**S4 — chapters 4–10 (2026-09-19), as built (story-spec §8.18):**
+- [x] **The magic.**
+  - Crystal Ward (reflect, at half base damage — a child-first deviation).
+  - Illusion's decoys (Echo holds two).
+  - Rainbow's wildcard.
+  - Time's two-mode slow (F19).
+  - Frost Lock (freeze plus discard, 6 s cooldown; Glace resists).
+  - Moon's lifesteal (Nova's rises).
+  - Love and its gated finisher.
+  - Umbra's three phases.
+  - Every boss's phase 2.
+  - `castSide(e)`, ready for S5.
+- [x] **The foe follows her AI contract exactly (§6.13).** The random
+  magic on top is gone; Nature's pair goes out at once; Briar's rider is
+  +1 s.
+- [x] **Difficulty re-measured on the real duel.** `pnpm test:winrate` runs
+  §7.2's core child against `updateSim`.
+  - Tiers are `0.40 + 0.03·tier`, one gentler with no weakness to exploit.
+  - Standard HP is 100 + 1 per chapter (flat 100 with no weakness).
+  - A boss is 115 + 2 per chapter.
+  - Every chapter clears the two-part target with margin, and chapters 1–3
+    got a little easier too.
+- [x] **35 sectors** (`sectorsC4–C10.ts`, one `kit*.ts` per biome), with
+  pots, accents, tap creatures and rescues. Chapter 10's creature is Sprig
+  in a party hat, and there is no rescue there.
+- [x] **Signature-Spell chests** trace their recipe, then bloom an emblem.
+- [x] **Arena themes and ambient loops** for all ten chapters.
+- [x] **Dialogue for chapters 4–10:** 64 lines to §10.10's outline.
+  Chapter 10's lead-up is the returning Guardians, and its thank-you is the
+  4-bubble finale.
+- [x] **Portraits and pictograms:**
+  - six Guardian portraits, all seven emotes;
+  - seven creatures (Glint, Blink, Rio, Dune, Frosty, Wisp, Sprig);
+  - six pictograms;
+  - babble voices for the new speakers.
+- [x] **The finale:**
+  - a one-time card with the whole cast (`am_campaign.finaleSeen`);
+  - wandering Umbra on the map, who says three friendly lines;
+  - the versus unlock.
+- [x] **Six keepsakes:** hoof-trail, Umbra Look, the Mane Color Palette (8
+  swatches, `maneSwatch`), Pastel Dream (a skin), winter scarf and Pet Star.
+- [x] **i18n:** 94 new keys in all 21 locales.
+
+**S4 result (2026-09-19):**
+- **Difficulty (`pnpm test:winrate`, real duel, §7.2's core child, n = 360
+  per cell):**
+  - first-attempt wins are 91–100 % at standard nodes and 83–99 % at
+    bosses;
+  - ≥ 99.9 % clear within three tries, in every chapter.
+
+  The full table is in story-spec §8.18.
+- **Browser:**
+  - **Landscape, 4-1 → 10-5:** a full playthrough on a production build:
+    - all 50 sectors restored, all 12 runes, both Signature Spells;
+    - all 9 keepsakes and all 9 rescues;
+    - real Magic Eraser wipes and seven Sunbeam chests;
+    - the finale card, then wandering Umbra greeting.
+  - **Portrait (320×658), the same playthrough.** It found a real bug:
+    - after 10-4, node 10-5's marker sat under the map's corner buttons,
+      because the last page could not scroll past them;
+    - fixed by giving the camera the chrome strip, in both orientations;
+    - chapter 10 then replayed clean in portrait and landscape.
+  - No bracket violations and no console errors.
+- **Portal QA** (built bundles):
+  - GamePix 29/29;
+  - GameMonetize 31/31 (dummy id, as an env override only);
+  - CrazyGames pre-release 22/22 and full release 37/37;
+  - web 20/20.
+- **Size:** `build:all` packs all ten archives within budget, at 522–629 kB.
+  Poki's initial load is 402 kB of 5 MB.
+- **Candy palette:** 35/35 new sectors clear the floor (dust S95 11–12,
+  candy share 24–60 %, median ΔL 37–51).
+- **Tests:** 76 files and 727 tests green, plus the opt-in win-rate
+  harness; `vue-tsc` clean.
+
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

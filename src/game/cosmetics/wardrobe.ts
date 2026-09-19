@@ -4,16 +4,19 @@
  * Inside the striped tent: Aurora stands big on a round rug under a string of
  * fairy lights, breathing, wearing whatever is equipped — drawn by the SAME
  * rig as the duel, with the cosmetics hooked into its draw order. The shelf of
- * items is DOM (`WardrobeScene.vue`). Landscape puts Aurora at ~40 % of the
- * width; portrait puts her in the upper 45 %.
+ * items is DOM (`WardrobeScene.vue`), which reports where it sits so she is
+ * fitted beside it (landscape) or above it (portrait).
  *
  * An ADMIRE moment (§3.9.2 item 3) plays the first time a new keepsake is
- * worn: a sparkle burst and a happy rear.
+ * worn: a happy rear, and a sparkle burst where the keepsake is — the crown
+ * on her head, the scarf at her neck, the star above her tail, the trail at
+ * her hooves, a whole-coat shimmer for a skin.
  */
 import { S } from '@/game/duel/state'
-import { drawUnicorn } from '@/game/duel/chars'
+import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { sparkleBurst, drawFxOver, drawFxUnder } from '@/game/duel/fx'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
+import { COSMETICS, type CosmeticSlot } from '@/game/campaign/tables'
 import { TAU, sin, clamp } from '@/game/duel/util'
 import { reducedMotion } from '@/use/useAccessibility'
 
@@ -24,28 +27,66 @@ let Ta = 0
 let admireT = -1
 let vw = 1
 let vh = 1
+/** The shelf's box in CSS px (0 wide = not measured yet). */
+const shelf = { left: 0, top: 0, width: 0 }
 
 export const wardrobeResize = (): void => {
   vw = S.w
   vh = S.h
 }
 
+/** Where the DOM shelf sits (CSS px), so Aurora stands clear of it. */
+export const setWardrobeShelf = (left: number, top: number, width: number): void => {
+  shelf.left = left
+  shelf.top = top
+  shelf.width = width
+}
+
 /** Where Aurora stands, CSS px, and how tall (hooves to horn). */
 const stand = (): { x: number; y: number; size: number } => {
   const portrait = vh >= vw
   if (portrait) {
-    const size = Math.min(vw * 0.62, vh * 0.34)
-    return { x: vw * 0.5 - size * 0.08, y: vh * 0.43, size }
+    // Above the shelf, below the back button's row.
+    const floor = shelf.width ? shelf.top - 14 : vh * 0.5
+    const room = floor - 78
+    const size = Math.max(90, Math.min(vw * 0.62, vh * 0.34, room / 1.16))
+    return { x: vw * 0.5 - size * 0.08, y: floor - size * 0.15, size }
   }
-  const size = Math.min(vh * 0.62, vw * 0.3)
-  return { x: vw * 0.38 - size * 0.08, y: vh * 0.8, size }
+  // Beside the shelf: at ~38 % of the width, nudged left (and, on a small
+  // phone, shrunk) only when her muzzle would reach under it.
+  const room = shelf.width ? shelf.left - 12 : vw
+  const size = Math.min(vh * 0.62, vw * 0.3, room * 0.62)
+  const x = Math.min(vw * 0.38 - size * 0.08, room - size * 0.34)
+  return { x, y: vh * 0.8, size }
 }
 
-/** Celebrate the item just put on (the admire moment). */
-export const admire = (): void => {
+/** Where on her (rig units, facing +x, hooves at 0) a slot's keepsake sits. */
+const SLOT_SPOT: Readonly<Record<CosmeticSlot, readonly [number, number]>> = {
+  head: [22, -150],
+  neck: [14, -84],
+  back: [-14, -126],
+  companion: [-42, -132],
+  trail: [0, -8],
+  mane: [-12, -112],
+  skin: [0, -90]
+}
+
+/** Celebrate the item just put on (the admire moment). `id` is the
+ *  cosmetic worn; without it the burst goes to her head. */
+export const admire = (id?: number): void => {
   admireT = 0
   const s = stand()
-  sparkleBurst(s.x + s.size * 0.12, s.y - s.size * 0.85, 1.1)
+  const k = s.size / 197
+  const slot = id !== undefined ? COSMETICS[id]?.slot : undefined
+  const [rx, ry] = SLOT_SPOT[slot ?? 'head']
+  sparkleBurst(s.x + rx * k, s.y + (ry - 6) * k, slot === 'skin' ? 1.3 : 1.1)
+  if (slot === 'skin') {
+    // A skin is all of her: a shimmer over the coat, head to hooves.
+    sparkleBurst(s.x - 40 * k, s.y - 60 * k, 0.8)
+    sparkleBurst(s.x + 30 * k, s.y - 130 * k, 0.8)
+  } else if (slot === 'trail') {
+    sparkleBurst(s.x - 27 * k, s.y - 8 * k, 0.8)
+  }
 }
 
 export const updateWardrobe = (dt: number): void => {
@@ -55,6 +96,9 @@ export const updateWardrobe = (dt: number): void => {
     if (admireT > 2.2) admireT = -1
   }
 }
+
+/** Her pose, reused frame to frame. */
+const POSE: PoseState = { win: 0, form: 0 }
 
 export const drawWardrobe = (g: G2D): void => {
   // Reduced motion (§3.11): the lights and her idle bob settle; the admire
@@ -122,7 +166,10 @@ export const drawWardrobe = (g: G2D): void => {
   g.save()
   g.translate(s.x, s.y)
   g.scale(k, k)
-  drawUnicorn(g, 0, 0, -1, { win: hop * 0.8, form: 0.15 + 0.1 * sin(Ta * 1.4), ...equippedHooks() }, Ta)
+  POSE.win = hop * 0.8
+  POSE.form = 0.15 + 0.1 * sin(Ta * 1.4)
+  Object.assign(POSE, equippedHooks())
+  drawUnicorn(g, 0, 0, -1, POSE, Ta)
   g.restore()
   g.setTransform(d, 0, 0, d, 0, 0)
   drawFxUnder(g)

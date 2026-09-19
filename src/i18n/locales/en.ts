@@ -154,7 +154,15 @@ export default {
     // A loss is a doze, never a defeat (story-spec §10.19, C27).
     'defeated': 'ZZZ…',
     // Lightning went straight through a shield (§6.8).
-    'pierced': 'ZAP!'
+    'pierced': 'ZAP!',
+    // Crystal Ward sent a spell back at its caster (§6.5).
+    'reflected': 'BOUNCE!',
+    // A spell hit a decoy — a mirror-twin — and vanished (§6.3).
+    'decoy': 'POOF!',
+    // Frost Lock froze the opponent in ice (§6.5).
+    'frozen': 'FROZEN!',
+    // HP mended (Love's heal, Moon's lifesteal). {n} is a number.
+    'heal': '+{n}'
   },
 
   // ─── The duel's end (story-spec §10.19). No coins, no shop (D3). ─────────
@@ -271,7 +279,30 @@ export default {
     'sunshell': 'Sunny gold',
     'lavender': 'Lavender',
     'skyblue': 'Sky blue',
-    'sunrise': 'Sunrise orange'
+    'sunrise': 'Sunrise orange',
+    'amethyst': 'Amethyst purple',
+    'aquamarine': 'Aquamarine',
+    'rosequartz': 'Rose quartz pink',
+    'silverblue': 'Silver blue',
+    'mintglass': 'Mint green',
+    'peach': 'Peach',
+    'cherry': 'Cherry red',
+    'tangerine': 'Tangerine orange',
+    'lime': 'Lime green',
+    'terracotta': 'Terracotta',
+    'turquoise': 'Turquoise',
+    'saffron': 'Saffron gold',
+    'icicle': 'Icicle blue',
+    'auroragreen': 'Aurora green',
+    'berry': 'Berry purple',
+    'stargold': 'Star gold',
+    'midnight': 'Midnight blue',
+    'cosmicpink': 'Cosmic pink',
+    'candypink': 'Candy pink',
+    'lemon': 'Lemon yellow',
+    'mint': 'Mint',
+    // A mane swatch (the Mane Color Palette keepsake), not a pot: every colour.
+    'rainbow': 'Rainbow'
   },
 
   'tool': {
@@ -345,6 +376,118 @@ export default {
         't2': 'Thank you, Aurora. Fly with us soon!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'The Crystal Caves have gone dark.',
+        'b2': 'Still shining, Aurora? The dark is restful.',
+        'b3': "Terra, let's light the crystals together!"
+      },
+      'n5': {
+        'b1': 'My crystals are broken. Leave them be.',
+        'b2': 'I can help them glow again!',
+        'b3': 'Show me your light, then. Duel!',
+        't1': 'The caves are glowing again!',
+        't2': "Thank you, Aurora. You're a true friend."
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'The mirrors only show tricks now.',
+        'b2': 'Can you even tell which one is me?',
+        'b3': "Let's find what's real, together!"
+      },
+      'n5': {
+        'b1': 'Who are you? Who are you?',
+        'b2': "I'm Aurora! And you're Echo, right?",
+        'b3': "Right? Right! Prove you're real. Duel!",
+        't1': "Only one of me. That's me!",
+        't2': 'Thank you, Aurora. Thank you, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'The rainbow bridge is losing its colours!',
+        'b2': 'Grey is restful... and a little sad.',
+        'b3': "Prism, let's paint the ridge again!"
+      },
+      'n5': {
+        'b1': "Don't look at me! I'm all faded!",
+        'b2': 'Your colours are still in there, Prism!',
+        'b3': 'Then make me sparkle again. Duel!',
+        't1': 'Look at me! Every colour is back!',
+        't2': "Thank you, Aurora. You're dazzling too!"
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Time has stopped in the sandfalls.',
+        'b2': 'I like it when nothing changes.',
+        'b3': "Ember, let's get the sands flowing!"
+      },
+      'n5': {
+        'b1': 'I must hold the hourglass. Alone!',
+        'b2': "You don't have to do it alone!",
+        'b3': 'Then show me your fire. Duel!',
+        't1': 'The sands flow again. I can rest!',
+        't2': 'Thank you, Aurora. That was so kind.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'The auroras are trapped in ice!',
+        'b2': 'Cold places are... a little lonely.',
+        'b3': "Glace, let's set the sky free!"
+      },
+      'n5': {
+        'b1': 'Stay back. I prefer my distance.',
+        'b2': 'Friends can keep each other warm!',
+        'b3': 'Hmph. Warm me up, then. Duel.',
+        't1': 'The auroras dance again. How lovely.',
+        't2': 'Thank you, Aurora. Visit me sometime.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'The stars have all gone out!',
+        'b2': 'Would anyone miss a light that went dark?',
+        'b3': "Every light matters. Let's relight them!"
+      },
+      'n5': {
+        'b1': "I'm too dim to shine anymore.",
+        'b2': 'I believe in you, Nova!',
+        'b3': 'Then help me find my spark. Duel!',
+        't1': "I'm shining! Every star is shining!",
+        't2': 'Thank you, Aurora. You lit my way.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': "Everyone's making a festival for Umbra!",
+        'b2': "A festival? I don't need one.",
+        'b3': 'Everyone needs friends. Even you, Umbra!'
+      },
+      'n2': {
+        'b1': 'The woods sent flowers for the party!',
+        'b2': 'And the caves sent crystal lanterns!'
+      },
+      'n3': {
+        'b1': "We'll sing a welcome song!",
+        'b2': 'Welcome song! Welcome song!'
+      },
+      'n4': {
+        'b1': "I'll paint the sky just for her!",
+        'b2': 'Every star will shine tonight!'
+      },
+      'n5': {
+        'b1': "Why won't you all leave me alone?",
+        'b2': 'Because we want you with us, Umbra!',
+        'b3': "Fine. But I won't make it easy!",
+        't1': 'You... really want me at the festival?',
+        't2': "Of course! You're our friend, Umbra!",
+        't3': 'No one ever invited me before.',
+        't4': "Then let's go! Let the festival begin!"
+      }
+    },
     // The shared beats of every chapter's nodes 2–4 (§10.8).
     'tmpl': {
       'curious': '{name} peeks out, curious!',
@@ -352,6 +495,15 @@ export default {
       'cheerUp': "Let's cheer {name} up together!",
       'almost': 'Almost there — {name} is cheering for you!'
     }
+  },
+
+  // The finale (§10.19, §8.11): the capstone line on the Festival's card, and
+  // what Umbra says when tapped as she wanders the restored map afterwards.
+  'finale': {
+    'line': "Umbra isn't lonely anymore.",
+    'umbra1': 'Hi, Aurora! Thanks for being my friend.',
+    'umbra2': 'This place looks so pretty now!',
+    'umbra3': 'Want to duel for fun sometime?'
   },
 
   // Wardrobe keepsakes, one per chapter's boss chest (§10.13.C).

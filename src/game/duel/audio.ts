@@ -95,7 +95,7 @@ const hz = (s: number): number => 55 * 2 ** (s / 12)
 
 /** The ambience's own level under the sound-effects volume, 0..1 (a fade). */
 let ambLevel = 0
-/** The biome whose loop is playing: 0 woods, 1 bay, 2 clouds; -1 none. */
+/** The biome whose loop is playing: the chapter (0-based); -1 none. */
 let ambBiome = -1
 let ambNext = 0
 /** The ambience sits well under everything else. */
@@ -247,6 +247,9 @@ export type Cue =
   | 'fanfare' | 'beam' | 'ready'
   // permanence (§8.8): a tap creature peeks; a rescue is found
   | 'peek' | 'rescue'
+  // chapter magic (story-spec §6.5–§6.9): Crystal Ward bounces a spell, a
+  // decoy appears or pops, Frost Lock takes hold, the Love finisher
+  | 'reflect' | 'decoy' | 'freeze' | 'finisher'
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -444,6 +447,38 @@ const CUES: Record<Cue, (v?: number) => void> = {
   ready: () => {
     V(TRI, nf(4) * 4, 0, 0.3, 0.05, 6)
     V(SIN, nf(4) * 8, 0, 0.3, 0.02, 1, 0.02)
+  },
+
+  /* Crystal Ward sends a spell back: a glassy "ting" that flips upward —
+     a mirror, not a wall (the plain block keeps `guard`). */
+  reflect: () => {
+    V(SIN, nf(3) * 4, nf(3) * 8, 0.28, 0.1, 1)
+    V(TRI, nf(5) * 4, nf(1) * 8, 0.32, 0.06, 5, 0.04)
+    V(NOISE, 4200, 9000, 0.25, 0.05, 1, 0, 0.02)
+  },
+
+  /* A decoy shimmers in, or a spell passes through one: a soft wobbling
+     pair a hair apart — two of the same note, like a reflection. */
+  decoy: () => {
+    const f = nf(2) * 4
+    V(SIN, f, f * 0.98, 0.4, 0.06, 1)
+    V(SIN, f * 1.01, f * 1.03, 0.4, 0.05, 1, 0.05)
+    V(NOISE, 2400, 5200, 0.3, 0.03, 1, 0, 0.05)
+  },
+
+  /* Frost Lock takes hold: a crackle of ice and a high, still bell. */
+  freeze: () => {
+    V(NOISE, 5000, 1800, 0.35, 0.1)
+    V(TRI, nf(4) * 8, 0, 0.8, 0.05, 6, 0.05)
+    V(SIN, nf(4) * 16, 0, 0.6, 0.02, 1, 0.08)
+  },
+
+  /* The Love finisher: a warm rising arpeggio, major, and a soft swell. */
+  finisher: () => {
+    mood = mS = cb = 1
+    for (let i = 0; i < 4; i++) V(TRI, nf(i * 2) * 4, 0, 0.6, 0.08, 6, i * 0.08)
+    V(SIN, nf(0) * 2, nf(0) * 2, 1.2, 0.08, 1, 0.1, 0.2)
+    V(NOISE, 2000, 8000, 0.9, 0.04, 1, 0.05, 0.3)
   }
 }
 
@@ -552,6 +587,14 @@ const CHATTER: Readonly<Record<string, readonly [number, number, number]>> = {
   // Pearl sings (a high, rounded voice); Zephyr is quick and breezy.
   pearl: [3, 4, 0.13],
   zephyr: [2, 2, 0.08],
+  // Terra slow and low; Echo quick and high (she repeats herself); Prism
+  // bright; Ember warm and a touch dramatic; Glace cool and even; Nova soft.
+  terra: [0, 1, 0.17],
+  echo: [4, 4, 0.09],
+  prism: [3, 4, 0.1],
+  ember: [1, 2, 0.12],
+  glace: [2, 2, 0.14],
+  nova: [4, 4, 0.14],
   creature: [4, 8, 0.085]
 }
 /**
@@ -609,9 +652,16 @@ export const setAudioLevels = (sound: number, music: number): void => {
  * A restored biome's loop (story-spec §8.8 beat 1): no sustained oscillator,
  * just short voices re-triggered a little irregularly on the amb bus, so it
  * breathes instead of repeating. The bus gain does the fading.
- *   woods  leaf rustle + a distant bird's two-note chirp
- *   bay    a slow lapping swell + a few rising bubbles
- *   clouds an airy wind sweep + now and then a soft high chime
+ *   woods     leaf rustle + a distant bird's two-note chirp
+ *   bay       a slow lapping swell + a few rising bubbles
+ *   clouds    an airy wind sweep + now and then a soft high chime
+ *   caves     crystalline bell partials, one struck at a time, and a drip
+ *   mirrors   an echoing breeze + a chime and its softer echo
+ *   ridge     a bright rising arpeggio shimmer
+ *   sands     a slow dry tick + a warm wind
+ *   tundra    a soft wind-chime + far off, a friendly two-note hoot
+ *   summit    a twinkling high-bell pattern
+ *   festival  warm festival bells + a soft crowd murmur
  */
 const AMBIENCE: readonly ((t: number) => number)[] = [
   () => {
@@ -637,6 +687,53 @@ const AMBIENCE: readonly ((t: number) => number)[] = [
     V(NOISE, 650, 2600, 2.4, 0.032, 1, 0, 1, 2)
     if (rnd() < 0.25) V(TRI, nf(4) * 8, 0, 1.3, 0.012, 5, 0.6, 0.01, 2)
     return 2 + rnd() * 1.2
+  },
+  () => {
+    const f = nf((rnd() * 6) | 0) * 8
+    V(SIN, f, f, 1.6, 0.016, 1, 0, 0.004, 2)
+    V(SIN, f * 2.76, f * 2.76, 0.9, 0.006, 1, 0.01, 0.004, 2)
+    if (rnd() < 0.3) V(SIN, 1800, 900, 0.12, 0.012, 1, 0.5, 0.003, 2)
+    return 1.3 + rnd() * 1.1
+  },
+  () => {
+    V(NOISE, 800, 1400, 2, 0.026, 1, 0, 0.8, 2)
+    if (rnd() < 0.4) {
+      const f = nf((rnd() * 6) | 0) * 8
+      V(TRI, f, 0, 0.8, 0.014, 5, 0.3, 0.006, 2)
+      V(TRI, f, 0, 0.8, 0.006, 5, 0.62, 0.006, 2)
+    }
+    return 1.8 + rnd() * 1
+  },
+  () => {
+    const d0 = (rnd() * 3) | 0
+    for (let i = 0; i < 4; i++) V(TRI, nf(d0 + i) * 8, 0, 0.35, 0.012, 6, i * 0.09, 0.004, 2)
+    return 1.6 + rnd() * 1.2
+  },
+  () => {
+    V(NOISE, 3200, 2800, 0.04, 0.02, 3, 0, 0.002, 2)
+    V(NOISE, 3000, 2600, 0.04, 0.014, 3, 0.5, 0.002, 2)
+    if (rnd() < 0.35) V(NOISE, 400, 900, 2.2, 0.03, 1, 0.2, 0.9, 2)
+    return 1
+  },
+  () => {
+    if (rnd() < 0.6) {
+      for (let i = (2 + rnd() * 2) | 0; i--;) V(SIN, nf((rnd() * 6) | 0) * 16, 0, 0.7, 0.008, 1, i * 0.12, 0.004, 2)
+    }
+    if (rnd() < 0.15) {
+      V(SIN, nf(2) * 2, nf(2) * 2, 0.5, 0.01, 1, 0.3, 0.1, 2)
+      V(SIN, nf(0) * 2, nf(0) * 2, 0.7, 0.01, 1, 0.85, 0.1, 2)
+    }
+    V(NOISE, 900, 1600, 2, 0.02, 1, 0, 0.8, 2)
+    return 2 + rnd() * 1
+  },
+  () => {
+    for (let i = (2 + rnd() * 3) | 0; i--;) V(SIN, nf((rnd() * 6) | 0) * 16, 0, 0.5, 0.008, 1, i * 0.14 + rnd() * 0.05, 0.003, 2)
+    return 1.4 + rnd() * 1
+  },
+  () => {
+    if (rnd() < 0.55) for (let i = 0; i < 3; i++) V(TRI, nf(i * 2) * 8, 0, 0.9, 0.012, 6, i * 0.16, 0.004, 2)
+    V(NOISE, 300, 500, 1.8, 0.02, 1, 0, 0.6, 2)
+    return 1.6 + rnd() * 1.1
   }
 ]
 

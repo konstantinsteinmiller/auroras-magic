@@ -1,5 +1,5 @@
 /**
- * The bubble pictograms (story-spec §10.6): 18 small, bold drawings that
+ * The bubble pictograms (story-spec §10.6): 24 small, bold drawings that
  * carry a dialogue beat on their own, so a child who cannot read yet still
  * follows the story. Cel style — flat fills, one plum outline (art-style
  * §2) — on a 48 × 48 box. Rendered by `Picto.vue`.
@@ -19,6 +19,90 @@ const star5 = (cx: number, cy: number, r: number, ir: number): string => {
 }
 const HEART = 'M24 40 C10 30 6 22 8 15 C10 8 19 7 24 14 C29 7 38 8 40 15 C42 22 38 30 24 40 Z'
 const CLOUD = 'M12 34 C5 34 4 25 11 23 C11 15 21 12 25 18 C28 12 39 13 38 22 C45 22 45 34 37 34 Z'
+
+const pts = (list: readonly (readonly [number, number])[]): string =>
+  list.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') + 'Z'
+
+/** One pointed crystal standing on (bx, by), leaning by `a`: a light and a
+ *  dark facet, so the plum line between them is the ridge. */
+const crystal = (bx: number, by: number, w: number, h: number, a: number, light: string, dark: string): PictoPart[] => {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  const at = (x: number, y: number): [number, number] => [bx + x * c - y * s, by + x * s + y * c]
+  const tip = h * 0.24
+  return [
+    { d: pts([at(-w / 2, 0), at(-w / 2, -h + tip), at(0, -h), at(0, 0)]), fill: light },
+    { d: pts([at(0, 0), at(0, -h), at(w / 2, -h + tip), at(w / 2, 0)]), fill: dark }
+  ]
+}
+
+/** A six-armed snowflake as ONE outline, so the plum line never crosses its
+ *  middle: each arm a bar with one V of branches. */
+const snowflake = (cx: number, cy: number): string => {
+  const w = 2.5 // arm half-width
+  const len = 20 // centre → arm end
+  const b = 9.5 // where the branches leave the arm
+  const lb = 7.5 // branch length
+  const w2 = 2 // branch half-width
+  const s = Math.SQRT1_2
+  const t1 = w / s - w2
+  const t2 = w / s + w2
+  const right: [number, number][] = [
+    [w, -w * Math.sqrt(3)],
+    [w, -b + s * w2 - s * t1],
+    [s * (w2 + lb), -b + s * w2 - s * lb],
+    [s * (w2 + lb), -b - s * (w2 + lb)],
+    [s * (lb - w2), -b - s * (w2 + lb)],
+    [w, -b - s * w2 - s * t2],
+    [w, -len]
+  ]
+  const arm: [number, number][] = [...right, [0, -len - w], ...right.slice(1).reverse().map(([x, y]): [number, number] => [-x, y])]
+  const all: [number, number][] = []
+  for (let k = 0; k < 6; k++) {
+    const t = (-k * Math.PI) / 3
+    const c = Math.cos(t)
+    const sn = Math.sin(t)
+    for (const [x, y] of arm) all.push([cx + x * c - y * sn, cy + x * sn + y * c])
+  }
+  return pts(all)
+}
+
+/** The part of an ellipse between two parallel lines — n·(p − c) in
+ *  [lo, hi], n at angle `a` — as a polygon: a shine band across a mirror's
+ *  glass that stops exactly at its rim. */
+const ellipseBand = (cx: number, cy: number, rx: number, ry: number, a: number, lo: number, hi: number): string => {
+  let poly: [number, number][] = []
+  for (let i = 0; i < 48; i++) {
+    const t = (i / 48) * Math.PI * 2
+    poly.push([cx + Math.cos(t) * rx, cy + Math.sin(t) * ry])
+  }
+  const nx = Math.cos(a)
+  const ny = Math.sin(a)
+  const side = ([x, y]: [number, number]): number => (x - cx) * nx + (y - cy) * ny
+  const clip = (keep: (v: number) => boolean, edge: number): void => {
+    const out: [number, number][] = []
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length]!
+      const sp = side(p)
+      const sq = side(q)
+      if (keep(sp)) out.push(p)
+      if (keep(sp) !== keep(sq)) {
+        const t = (edge - sp) / (sq - sp)
+        out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t])
+      }
+    })
+    poly = out
+  }
+  clip((v) => v >= lo, lo)
+  clip((v) => v <= hi, hi)
+  return pts(poly)
+}
+
+/** A rainbow band: the half-annulus between radii r1 > r2 over (24, 36). */
+const arch = (r1: number, r2: number): string =>
+  `M${24 - r1} 36 A${r1} ${r1} 0 0 1 ${24 + r1} 36 H${24 + r2} A${r2} ${r2} 0 0 0 ${24 - r2} 36 Z`
+const SMALL_CLOUD = 'M4 45 C0 45 0 38.5 4.5 38 C4.5 33 11 31.5 13.5 35 C16 32 22 33.5 21.5 38.5 C25 39 25 45 21 45 Z'
+const mirrorX = (d: string): string => d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, x: string, y: string) => `${48 - Number(x)} ${y}`)
 
 export const PICTOS: Readonly<Record<Picto, readonly PictoPart[]>> = {
   forest: [
@@ -73,5 +157,39 @@ export const PICTOS: Readonly<Record<Picto, readonly PictoPart[]>> = {
   cheer: [
     { d: 'M24 26 L20 44 H28 Z', fill: '#c98a5a' },
     { d: 'M24 4 C30 6 34 10 36 14 C42 16 42 24 36 26 C34 32 26 34 24 30 C22 34 14 32 12 26 C6 24 6 16 12 14 C14 10 18 6 24 4 Z', fill: '#ff8fc4' }
+  ],
+  // Chapters 4–10 (S4).
+  crystal: [
+    ...crystal(14, 43, 11, 26, -0.42, '#dcfbff', '#7fdcf0'),
+    ...crystal(35, 43, 10, 22, 0.45, '#ffe2f3', '#ff9ecf'),
+    ...crystal(24, 43, 16, 40, 0, '#ece2ff', '#b58cff')
+  ],
+  mirror: [
+    { d: 'M21 32 H27 L27.5 41.5 C30 42.5 30 46.5 24 46.5 C18 46.5 18 42.5 20.5 41.5 Z', fill: '#c9a0f5' },
+    { d: 'M24 1.5 A15 17 0 1 1 23.99 1.5 Z', fill: '#c9a0f5' },
+    { d: 'M24 5 A11.5 13.5 0 1 1 23.99 5 Z', fill: '#bfe0ff' },
+    { d: ellipseBand(24, 18.5, 11.5, 13.5, 0.75, -6.5, 0.5), fill: '#ffffff' },
+    { d: 'M42 1 L43.3 4.7 L47 6 L43.3 7.3 L42 11 L40.7 7.3 L37 6 L40.7 4.7 Z', fill: '#fff1a0' }
+  ],
+  rainbow: [
+    { d: arch(23, 17), fill: '#ff8fb8' },
+    { d: arch(17, 11), fill: '#ffe36b' },
+    { d: arch(11, 5), fill: '#6ec8ff' },
+    { d: SMALL_CLOUD, fill: '#ffffff' },
+    { d: mirrorX(SMALL_CLOUD), fill: '#ffffff' }
+  ],
+  hourglass: [
+    { d: 'M13 8 H35 C35 18 27 21 26 24 C27 27 35 30 35 40 H13 C13 30 21 27 22 24 C21 21 13 18 13 8 Z', fill: '#e6f6ff' },
+    { d: 'M16 16 H32 C30 19.5 26.5 21 24 23 C21.5 21 18 19.5 16 16 Z', fill: '#ffd36b' },
+    { d: 'M14.5 39.5 C16 35 20.5 33 23 32.5 V25 H25 V32.5 C27.5 33 32 35 33.5 39.5 Z', fill: '#ffd36b' },
+    { d: 'M10 3.5 H38 A2.75 2.75 0 0 1 38 9 H10 A2.75 2.75 0 0 1 10 3.5 Z', fill: '#c98a5a' },
+    { d: 'M10 39 H38 A2.75 2.75 0 0 1 38 44.5 H10 A2.75 2.75 0 0 1 10 39 Z', fill: '#c98a5a' }
+  ],
+  snowflake: [{ d: snowflake(24, 24), fill: '#cdeeff' }],
+  balloon: [
+    { d: 'M24 40.5 C19 43 29 44.5 24 47.5', fill: 'none', stroke: true },
+    { d: 'M21 41 L24 36.5 L27 41 Z', fill: '#ff7fae' },
+    { d: 'M24 3 C34 3 40 11 40 19.5 C40 29 31.5 36 24 37 C16.5 36 8 29 8 19.5 C8 11 14 3 24 3 Z', fill: '#ff7fae' },
+    { d: 'M13.5 17 C13.5 11.5 17 8 21 7.5 C18.5 10.5 17 13.5 17 18 Z', fill: '#ffffff' }
   ]
 }

@@ -120,7 +120,11 @@ export default {
     'times': 'x{n}',
     'victory': 'VITÓRIA',
     'defeated': 'ZZZ…',
-    'pierced': 'ZÁS!'
+    'pierced': 'ZÁS!',
+    'reflected': 'BOING!',
+    'decoy': 'PUF!',
+    'frozen': 'CONGELADO!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -222,7 +226,29 @@ export default {
     'sunshell': 'Dourado ensolarado',
     'lavender': 'Lavanda',
     'skyblue': 'Azul céu',
-    'sunrise': 'Laranja amanhecer'
+    'sunrise': 'Laranja amanhecer',
+    'amethyst': 'Roxo ametista',
+    'aquamarine': 'Água-marinha',
+    'rosequartz': 'Rosa quartzo',
+    'silverblue': 'Azul prateado',
+    'mintglass': 'Verde menta',
+    'peach': 'Pêssego',
+    'cherry': 'Vermelho cereja',
+    'tangerine': 'Laranja tangerina',
+    'lime': 'Verde limão',
+    'terracotta': 'Terracota',
+    'turquoise': 'Turquesa',
+    'saffron': 'Dourado açafrão',
+    'icicle': 'Azul gelo',
+    'auroragreen': 'Verde aurora',
+    'berry': 'Roxo amora',
+    'stargold': 'Dourado estrelado',
+    'midnight': 'Azul meia-noite',
+    'cosmicpink': 'Rosa cósmico',
+    'candypink': 'Rosa chiclete',
+    'lemon': 'Amarelo limão',
+    'mint': 'Menta',
+    'rainbow': 'Arco-íris'
   },
 
   'tool': {
@@ -291,12 +317,131 @@ export default {
         't2': 'Obrigada, Aurora. Venha voar com a gente logo!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'As Cavernas de Cristal ficaram escuras.',
+        'b2': 'Ainda brilhando, Aurora? O escuro é tão sossegado.',
+        'b3': 'Terra, vamos acender os cristais!'
+      },
+      'n5': {
+        'b1': 'Meus cristais estão quebrados. Deixe-os em paz.',
+        'b2': 'Eu posso ajudá-los a brilhar de novo!',
+        'b3': 'Então me mostre sua luz. Enfrente-me!',
+        't1': 'As cavernas estão brilhando de novo!',
+        't2': 'Obrigada, Aurora. Você é uma amiga de verdade.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Agora os espelhos só fazem truques.',
+        'b2': 'Você sabe ao menos qual delas sou eu?',
+        'b3': 'Vamos descobrir o que é real!'
+      },
+      'n5': {
+        'b1': 'Quem é você? Quem é você?',
+        'b2': 'Eu sou Aurora! E você é Echo, certo?',
+        'b3': 'Certo? Certo! Prove que você é real. Enfrente-me!',
+        't1': 'Só existe uma de mim. Sou eu!',
+        't2': 'Obrigada, Aurora. Obrigada, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'A ponte do arco-íris está perdendo as cores!',
+        'b2': 'O cinza é sossegado... e um pouco triste.',
+        'b3': 'Prism, vamos pintar a serra de novo!'
+      },
+      'n5': {
+        'b1': 'Não olhe para mim! Estou toda desbotada!',
+        'b2': 'Suas cores ainda estão aí dentro, Prism!',
+        'b3': 'Então me faça brilhar de novo. Enfrente-me!',
+        't1': 'Olhe para mim! Todas as cores voltaram!',
+        't2': 'Obrigada, Aurora. Você também é deslumbrante!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'O tempo parou nas cascatas de areia.',
+        'b2': 'Eu gosto quando nada muda.',
+        'b3': 'Ember, vamos fazer a areia correr de novo!'
+      },
+      'n5': {
+        'b1': 'Eu tenho que segurar a ampulheta. Sozinha!',
+        'b2': 'Você não precisa fazer isso sozinha!',
+        'b3': 'Então me mostre seu fogo. Enfrente-me!',
+        't1': 'A areia está correndo de novo. Posso descansar!',
+        't2': 'Obrigada, Aurora. Isso foi tão gentil.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'As auroras estão presas no gelo!',
+        'b2': 'Lugares frios são... um pouco solitários.',
+        'b3': 'Glace, vamos libertar o céu!'
+      },
+      'n5': {
+        'b1': 'Fique longe. Prefiro manter distância.',
+        'b2': 'Amigos podem aquecer uns aos outros!',
+        'b3': 'Hmpf. Então me aqueça. Enfrente-me.',
+        't1': 'As auroras dançam de novo. Que lindo.',
+        't2': 'Obrigada, Aurora. Venha me visitar qualquer dia.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Todas as estrelas se apagaram!',
+        'b2': 'Alguém sentiria falta de uma luz apagada?',
+        'b3': 'Toda luz importa. Vamos acendê-las de novo!'
+      },
+      'n5': {
+        'b1': 'Meu brilho está fraquinho demais.',
+        'b2': 'Eu acredito em você, Nova!',
+        'b3': 'Então me ajude a achar minha faísca. Enfrente-me!',
+        't1': 'Estou brilhando! Todas as estrelas estão brilhando!',
+        't2': 'Obrigada, Aurora. Você iluminou meu caminho.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Todo mundo está fazendo uma festa para Umbra!',
+        'b2': 'Uma festa? Eu não preciso disso.',
+        'b3': 'Todo mundo precisa de amigos. Até você, Umbra!'
+      },
+      'n2': {
+        'b1': 'O bosque mandou flores para a festa!',
+        'b2': 'E as cavernas mandaram lanternas de cristal!'
+      },
+      'n3': {
+        'b1': 'Vamos cantar uma canção de boas-vindas!',
+        'b2': 'Boas-vindas! Boas-vindas!'
+      },
+      'n4': {
+        'b1': 'Vou pintar o céu só para ela!',
+        'b2': 'Todas as estrelas vão brilhar esta noite!'
+      },
+      'n5': {
+        'b1': 'Por que vocês não me deixam em paz?',
+        'b2': 'Porque queremos você com a gente, Umbra!',
+        'b3': 'Tá bom. Mas não vou facilitar!',
+        't1': 'Vocês... querem mesmo que eu vá à festa?',
+        't2': 'Claro! Você é nossa amiga, Umbra!',
+        't3': 'Ninguém nunca me convidou antes.',
+        't4': 'Então vamos! Que comece a festa!'
+      }
+    },
     'tmpl': {
       'curious': '{name} espia com curiosidade!',
       'dusty': 'Ah, {name} está com um pouquinho de poeira.',
       'cheerUp': 'Vamos alegrar {name} juntos!',
       'almost': 'Quase lá — {name} está torcendo por você!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra não está mais sozinha.',
+    'umbra1': 'Oi, Aurora! Obrigada por ser minha amiga.',
+    'umbra2': 'Este lugar está tão bonito agora!',
+    'umbra3': 'Quer duelar só por diversão qualquer dia?'
   },
 
   'gift': {

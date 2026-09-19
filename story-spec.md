@@ -4350,6 +4350,16 @@ only the *casting* of the new magic is gated to node 3+, §6.10); `usesNewMagic 
 
 `[S2]` for the formula itself; `[S3]`/`[S4]` per chapter as tagged in §6.10/§6.11.
 
+> **S4 tuning (2026-09-19) supersedes this table's HP and tiers — see
+> §8.18.** Measured on the REAL duel (`tests/duel/winRate.test.ts`, every
+> chapter mechanic live) against §7.2's core child, the formula above put
+> chapters 7–10 at 22–40 % first-attempt wins. As built:
+> - a standard foe has `100 + (chapter − 1)` HP, or a flat **100** where she
+>   has no weakness (element −1);
+> - a boss has `115 + 2·(chapter − 1)` HP, with no chapter-10 exception;
+> - tiers step every three chapters as above, but one tier gentler for a
+>   foe with no weakness.
+
 ### §6.13 The NPC contract per magic
 
 Per C14 ("every magic ships with a one-line AI contract... no magic ships without one"). USE / 
@@ -4430,6 +4440,12 @@ fight as a blowout.
 
 `[S2]` for the base chain (needed the moment any duel exists); `dreamDust`/`phaseWindup` terms are
 `[S3]`/`[S4]` as their respective content ships.
+
+> **S4 tuning (2026-09-19), superseding `base(aiTier)` above:**
+> `base = 0.40 + 0.03 × aiTier` (0.40 / 0.43 / 0.46 runes/s). Measured on the
+> real duel, not on `duel-sim.mjs`'s abstraction (§8.18). The rest of the
+> chain is unchanged: onboarding, Dream Dust, the slow term and the
+> phase wind-up. The slow term is now `× (1 − eSlowPct)`, per §6.7.7.
 
 ### §6.15 Dream Dust
 
@@ -4815,6 +4831,13 @@ decimals don't need to match to the point):
   three relayed rows; the ≈0.5-point difference from this chapter's own
   earlier `n=2000` figure (88.6%) is exactly the seed/trial noise §7.1
   already flags, not a further change.
+
+> **S4 (2026-09-19): the canonical measurement is now the real duel.**
+> `pnpm test:winrate` (`tests/duel/winRate.test.ts`) runs §7.2's core
+> child against `updateSim` itself, with every chapter mechanic live, and
+> asserts the two-part target per chapter. This table's `duel-sim.mjs`
+> figures were far kinder than the real duel. §8.18 has the retune and the
+> measured table that replaces the one above.
 
 ### §7.3 Duel duration targets `[measured]`
 
@@ -5774,6 +5797,164 @@ against `map/sectorDef.ts`.
 
 
 ---
+
+### §8.18 S4 as built (2026-09-19)
+
+S4 is chapters 4–10 and the finale: 35 more sectors, the last five runes,
+both Signature Spells, and the six remaining keepsakes. Every chapter is now
+`built`. Where it differs from the text above:
+
+**The magic (§6.3, §6.5, §6.7–§6.9).**
+- **Crystal Ward** (Ice, Ice, Earth): a reflect barrier, `guardK 4`, one-shot.
+  - It stops every kind of spell and turns it round at **half** its base
+    damage. §6.5 said the whole base; the owner's child-first ruling halves
+    it, because a child's first big combo bounced back into her own face is
+    the harshest lesson in the game. A pierce, or a short wait, still beats
+    the ward.
+  - A spell already reflected once is only blocked by a second ward (no
+    ping-pong).
+  - Chapter 4's shadows (from node 3) and Terra build it as their defensive
+    default. In Terra's phase 2 it holds 7 s.
+- **Illusion's decoy** (kind 5):
+  - the pair summons a 1-hit mirror-twin for 8 s, the triple a 2-hit one
+    for 10 s;
+  - a decoy swallows a whole spell — no HP, no rider — and a pierce does not
+    get past it (§6.8 rule 3);
+  - Echo's phase 2 holds two at once.
+  - The twin is drawn see-through, composited from an offscreen canvas
+    because the rig sets its own alpha part by part.
+- **Rainbow's wildcard** (§6.20): each other rune in the hand is tried in
+  place of every Rainbow, through the whole generator, and the strongest
+  candidate wins; a tie goes to the rune drawn last. §6.20's shared-tag rule
+  never separates the candidates, since every candidate is one of the other
+  runes. A hand of nothing but Rainbow is its own colourless spell.
+- **Time's two-mode slow** (§6.7.7, fixes F19). On the foe, `eSlowPct`
+  throttles her hand, and base-rune slows are the shipped 45 %. On the
+  player, it shaves her active guard by that share, once. Ember's phase 2
+  doubles the shave, capped at 60 %.
+- **Frost Lock** (Wind, Ice, Ice): an earth-strength wall for 3 s.
+  - The foe is frozen 2.5 s: her hand is discarded, and `think()` does
+    nothing, not even the panic dump.
+  - A 6 s cooldown follows before it can hold her again.
+  - Glace, in her phase 2, shrugs it off in 1.5 s.
+  - No foe can ever cast it (C14).
+- **Moon's lifesteal:** a landed hit heals its caster `dmg × pct`. Nova's
+  phase 2 adds 15 points.
+- **Love:**
+  - the single and the pair heal their caster 10 % / 20 % of her max HP;
+  - the triple is the **finisher**: a 40-damage heavy plus a flat 25 HP;
+  - the finisher is gated: it opens once 4 or more hits have landed between
+    the two, or once the caster is at 30 % HP or less. It can be cast once
+    per duel per side; closed, it softly becomes the pair (§6.8 rule 6);
+  - a minority Love adds +5 HP flat.
+- **Umbra, 10-5:** phase 2 at 50 % is the tell alone (she falters). At 25 %
+  she enters phase 3 and reaches for the finisher once: three hearts form
+  in her slots, telegraphed, and it is answerable like any heavy.
+- **`castSide(e)`** casts either side's hand. It is ready for S5, where
+  player 2 is the right-hand duelist.
+
+**The foe follows its AI contract exactly (§6.13).** Before S4, a foe also
+cast her chapter's magic at random on top of the contract. On the real duel
+that made each chapter's nodes 3–5 far harder than its nodes 1–2.
+- Nature opens only under 60 % HP, at low odds, and the pair goes out at
+  once: she never saves up a Bloom Storm (38 damage plus 20 HP of mending).
+- Water raises a ward only against a shot in flight.
+- Lightning and Time are cast only while the player's guard is up.
+- Moon only under half HP; Illusion only as the low-HP decoy.
+- Briar's phase-2 rider is +1 s of poison, not +2: she is the first boss a
+  child meets.
+
+**Difficulty, re-measured on the real duel (supersedes §6.12, §6.14,
+§7.2).** `pnpm test:winrate` runs §7.2's core child against `updateSim`
+itself: 0.8 attempts a second, 85 % recognised, two-rune combos, the
+counter rune half the time when owned (cast alone if its pair is a ward or
+a decoy), and never a deliberate shield. The spec's tuning, taken from
+`duel-sim.mjs`'s abstraction, measured 22–40 % first-attempt wins at
+chapters 7–10, and even 66–69 % at chapter 1's nodes 3–5. As built:
+- **Tiers:** `0.40 + 0.03 × tier` runes/s. One tier gentler for a foe with
+  no weakness to exploit (Prism, Ember, Umbra and their shadows).
+- **HP:**
+  - a standard foe has `100 + (chapter − 1)`, or a flat 100 with no
+    weakness;
+  - a boss has `115 + 2·(chapter − 1)`.
+
+Measured (n = 360 per cell, seeded):
+
+| Ch | nodes 1–2 | nodes 3–4 | boss | ≤ 3 tries (3–4 / boss) |
+|---|---|---|---|---|
+| 1 | 95.3 % | 91.1 % | 88.1 % | 100 / 100 % |
+| 2 | 99.4 % | 100 % | 98.3 % | 100 / 100 % |
+| 3 | 98.9 % | 99.7 % | 98.9 % | 100 / 100 % |
+| 4 | 95.6 % | 100 % | 99.7 % | 100 / 100 % |
+| 5 | 97.2 % | 97.2 % | 98.1 % | 100 / 100 % |
+| 6 | 96.4 % | 93.6 % | 85.6 % | 100 / 100 % |
+| 7 | 92.5 % | 95.0 % | 88.9 % | 100 / 100 % |
+| 8 | 99.4 % | 99.2 % | 98.9 % | 100 / 100 % |
+| 9 | 93.6 % | 94.4 % | 85.0 % | 100 / 100 % |
+| 10 | 92.2 % | 91.9 % | 83.1 % | 100 / 99.9 % |
+
+Every cell clears §7.2's two-part target: standard ≥ 90 % / ≥ 85 %, boss
+≥ 75 % / ≥ 60 %, and ≥ 95 % within three tries. This makes the shipped v1
+chapters (1–3) a little easier too, per the owner's child-first ruling.
+
+**The chapters.**
+- **Sectors 15–49:** one file per chapter, `map/sectorsC4.ts` …
+  `sectorsC10.ts`, each with its own `kit*.ts`. Each chapter has three
+  pots, an accent and a tap creature per §8.8. Rescues are on each
+  chapter's middle sector (4–9), none in chapter 10.
+- **Chapter 10's tap creature is Sprig,** the chapter-1 moss-sprite, back
+  for the Festival in a party hat, not §8.8's "Umbra, post-finale": Umbra
+  already has her own map beat (below).
+- **Candy palette:** every sector clears the floor.
+- **Signature-Spell chests (4-5, 8-5):** the recipe writes itself, rune by
+  rune, then its emblem blooms under it: a crystal cluster, or a snowflake.
+  It is wordless.
+- **Arena themes and ambient loops** exist for all ten chapters (§9.6,
+  §8.8).
+
+**Dialogue (§10.10 → written).** The openers, bosses and thank-yous of
+chapters 4–10 follow §10.9's pattern and §10.4's Umbra arc: teasing in
+4–6, wistful in 7–9, defensive then won over in 10. There are 64 lines,
+all ≤ 8 words.
+- Chapter 10's nodes 2–4 have no filler creature. They are returning
+  Guardians setting up the Festival, two to a node.
+- The thank-you is the 4-bubble finale.
+- New speakers terra, echo, prism, ember, glace and nova have portraits and
+  babble voices.
+- The creatures Glint, Blink, Rio, Dune, Frosty, Wisp and Sprig (party hat)
+  have portraits.
+- Six pictograms are new: crystal, mirror, rainbow, hourglass, snowflake and
+  balloon.
+
+**The finale (§10.19, §8.11).**
+- **The card:** the first time 10-5's sector is restored, a finale card
+  opens over the map. It shows the whole cast cheering, the chapter title
+  and `finale.line`, with CSS confetti (still under reduced motion). It is
+  shown once, recorded by `am_campaign.finaleSeen`.
+- **Wandering Umbra:** from then on she visits one restored sector each
+  time the map opens: a seeded pick, on the page in view when it has one.
+  She stands at its lower-left corner with a small visiting idle and
+  floating hearts. A tap makes her hop and say one of three lines
+  (`finale.umbra1..3`) in a speech bubble, with her babble.
+- **The chest's gift** is the Love rune plus `versusUnlocked`, the 2P
+  unlock that S5 builds on.
+
+**The map's chrome strip.** The corner buttons (portrait, along the
+bottom) and the tab ribbon (landscape, down the right) cover part of the
+view. The camera may now scroll the last page past them, and a focused node
+is centred in the view that is left. Before this, in portrait, the last
+node's pulsing marker could sit under the buttons, so a tap on it opened
+the leaderboard. S4's portrait playthrough found it.
+
+**Keepsakes (C17, §9.7):** hoof-trail, Umbra Look, Mane Color Palette (8
+swatches, each with a micro-glyph; `am_campaign.maneSwatch`), Pastel Dream,
+winter scarf and Pet Star.
+- **Pastel Dream is a skin** (a pastel palette on Aurora), not C17's
+  "pastel UI theme". The save's slot model already put it in the skin slot,
+  and a whole-UI theme was out of proportion to one keepsake.
+- **Rig hooks:** `PoseState` gains `skin`, `mane` and `afterRig`.
+  `RigAnchors` gains points in the caller's space (hooves, tail, body,
+  head). With nothing worn, Aurora renders pixel-identical to before.
 
 ## §9 Rendering, assets & performance
 

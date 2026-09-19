@@ -314,6 +314,42 @@ export const gatherGlints = (x: number, y: number, k = 1): void => {
 
 /* ------------------------------- public ----------------------------- */
 
+/**
+ * Barrier looks that are no rune (§6.5): Crystal Ward's reflecting facets and
+ * Frost Lock's frost dome. Passed to `barrier()` where a rune id would go;
+ * their debris borrows a rune's colours (Illusion's lilac, Ice's blue).
+ */
+export const BAR_CRYSTAL = 12
+export const BAR_FROST = 13
+const fxRune = (r: number): number => (r === BAR_CRYSTAL ? 7 : r === BAR_FROST ? 2 : r)
+
+/** Illusion's decoy (§6.3) appearing or popping: a shimmer of lilac glints
+ *  and pastel sparkle round a mirror ring — a trick of the light, no debris. */
+export const decoyPoof = (x: number, y: number, k = 1): void => {
+  burst(x, y, 10, 200 * k, 0.55, 10 * k, K_GLINT, 7, C_HI + 7, 0.06)
+  burst(x, y, 6, 120 * k, 0.5, 8 * k, K_GLINT, C_WHITE, C_PASTEL + 4, 0.1)
+  ring(x, y, C_HI + 7, 14, 300 * k, 0.3, K_GLINT)
+  flashAdd(0.08 * k)
+}
+
+/** Frost Lock taking hold (§6.5): ice shards and snow-white glints fly off
+ *  the foe, and a pale shock front. */
+export const frostBurst = (x: number, y: number, k = 1): void => {
+  burst(x, y, 12, 260 * k, 0.7, 14 * k, K_SHARD, 2, C_HI + 2, 0.04)
+  burst(x, y, 10, 150 * k, 0.8, 8 * k, K_GLINT, C_WHITE, C_HI + 2, 0.08)
+  ring(x, y, C_HI + 2, 20, 420 * k, 0.4, K_SHARD)
+  shakeAdd(0.2 * k)
+  flashAdd(0.18 * k)
+}
+
+/** The Love finisher (§6.9): a fountain of pink hearts and gold glints. */
+export const heartBurst = (x: number, y: number, k = 1): void => {
+  burst(x, y, 16, 280 * k, 1.1, 16 * k, K_HEART, 11, C_HI + 11, 0.2)
+  burst(x, y, 12, 200 * k, 0.9, 9 * k, K_GLINT, C_GOLD, C_WHITE, 0.12)
+  ring(x, y, C_HI + 11, 20, 520 * k, 0.5, K_HEART)
+  shakeAdd(0.3 * k)
+}
+
 export const shakeAdd = (v: number): number => (S.shake = min(1, S.shake + v))
 export const flashAdd = (v: number): number => (S.flash = min(1, S.flash + v))
 
@@ -328,6 +364,7 @@ export const trail = (x: number, y: number, hue: number): void =>
  * closes onto the same point, so energy visibly GATHERS instead of exploding.
  */
 const gather = (x: number, y: number, rune: number, _p?: number): void => {
+  rune = fxRune(rune)
   burst(x, y, 7, -240, 0.27, 12, kindOf(rune), rune, C_HI + rune, 0, TAU, 0, 68)
   ring(x, y, rune, 64, -460, 0.24, kindOf(rune))
   burst(x, y, 5, 180, 0.3, 6, K_GLINT, C_WHITE, rune)
@@ -351,6 +388,7 @@ export const castBurst = (x: number, y: number, rune: number): void => {
  * `p` is power 0..1 and scales count, speed, size, wave and shake.
  */
 export const impact = (x: number, y: number, rune: number, p?: number): void => {
+  rune = fxRune(rune)
   p = clamp(+(p ?? 0) || 0, 0, 1)
   const k = kindOf(rune)
   // IMPACT FRAME: a white silhouette of the element, the biggest thing on
@@ -397,6 +435,8 @@ export const fireRain = (x: number, y: number, p: number): void => {
  *  `tt <= 0` tears it down NOW (an ice pillar spends itself on one hit). */
 export const barrier = (x: number, y: number, rune: number, tt: number, cracked = -1): void => {
   const i = x < SW / 2 ? 0 : 4
+  // A torn-down ward keeps its own look (a pillar shatters as a pillar).
+  if (tt <= 0 && BR[i]! > 0) rune = BR[i + 3]!
   // A bubble ward remembers its crack (its first of two hits); -1 keeps it.
   if (cracked >= 0) BRC[i >> 2] = cracked
   // A shield is an EVENT, not a state. Going up, it gathers into place; going
@@ -566,6 +606,14 @@ const drawBar = (g: G2D, i: number): void => {
     drawBubble(g, x + f * 18, y, BRC[i >> 2]! > 0)
     return
   }
+  if (r === BAR_CRYSTAL) {
+    drawCrystalWard(g, x + f * 80, f)
+    return
+  }
+  if (r === BAR_FROST) {
+    drawFrostDome(g, x, y)
+    return
+  }
   g.beginPath()
   if (r === 2) {
     // Body + a second, narrower spindle: the INK LINE where they overlap is the
@@ -649,6 +697,110 @@ const drawBubble = (g: G2D, x: number, y: number, cracked: boolean): void => {
     g.lineWidth = 3.5
     g.strokeStyle = OUT
     g.stroke()
+  }
+  g.restore()
+}
+
+/**
+ * Crystal Ward (§6.5): a standing wall of amethyst prisms in front of the
+ * caster. A light band slides across the facets and a rainbow edge glints —
+ * the one barrier that throws things BACK has to look like a mirror.
+ */
+const drawCrystalWard = (g: G2D, x: number, f: number): void => {
+  g.save()
+  g.lineJoin = 'round'
+  // Three prisms: tall centre, two shoulders, leaning outward a little.
+  const P3: readonly (readonly [number, number, number])[] = [[-22, 70, -0.12], [0, 104, 0], [22, 78, 0.12]]
+  for (const [dx, h, lean] of P3) {
+    const cx = x + dx * f
+    const w = 20
+    g.beginPath()
+    g.moveTo(cx - w, GY - 10)
+    g.lineTo(cx - w + lean * 40 * f, GY - h + 18)
+    g.lineTo(cx + lean * 40 * f, GY - h)
+    g.lineTo(cx + w + lean * 40 * f, GY - h + 18)
+    g.lineTo(cx + w, GY - 10)
+    g.closePath()
+    g.globalAlpha = 0.72
+    g.fillStyle = '#c9a2ff'
+    g.fill()
+    g.globalAlpha = 1
+    g.lineWidth = 4
+    g.strokeStyle = OUT
+    g.stroke()
+    // The facet line down the middle.
+    g.beginPath()
+    g.moveTo(cx + lean * 40 * f, GY - h + 4)
+    g.lineTo(cx, GY - 12)
+    g.lineWidth = 2.5
+    g.stroke()
+  }
+  // A light band sweeping across the facets.
+  const u = (T * 0.8) % 1
+  g.globalAlpha = 0.55 * sin(u * PI)
+  g.fillStyle = '#ffffff'
+  g.beginPath()
+  const bx = x - 40 * f + u * 80 * f
+  g.moveTo(bx, GY - 100)
+  g.lineTo(bx + 12 * f, GY - 100)
+  g.lineTo(bx - 8 * f, GY - 12)
+  g.lineTo(bx - 20 * f, GY - 12)
+  g.closePath()
+  g.fill()
+  // Rainbow glints on the tips.
+  g.globalAlpha = 0.9
+  for (let k = 0; k < 3; k++) {
+    const a = T * 3 + k * 2.1
+    g.fillStyle = PAL[C_RB + ((k * 3 + ((T * 4) | 0)) & 7)]!
+    g.beginPath()
+    g.arc(x + (k - 1) * 22 * f, GY - [70, 104, 78][k]! - 4 + sin(a) * 2, 4, 0, TAU)
+    g.fill()
+  }
+  g.restore()
+}
+
+/**
+ * Frost Lock's wall (§6.5): an earth-strength dome of frost over the caster —
+ * a pale ice shell with frost ferns and a slow glitter. Stops everything.
+ */
+const drawFrostDome = (g: G2D, x: number, y: number): void => {
+  const R = 74
+  g.save()
+  g.beginPath()
+  g.arc(x, y + 8, R, PI, 0)
+  g.lineTo(x + R, GY - 4)
+  g.lineTo(x - R, GY - 4)
+  g.closePath()
+  g.globalAlpha = 0.34
+  g.fillStyle = '#bfe9ff'
+  g.fill()
+  g.globalAlpha = 1
+  g.lineWidth = 4
+  g.strokeStyle = OUT
+  g.stroke()
+  // Frost ferns climbing the shell.
+  g.lineWidth = 2.5
+  g.strokeStyle = '#ffffff'
+  g.globalAlpha = 0.8
+  for (let k = 0; k < 4; k++) {
+    const a = PI + (k + 0.5) * (PI / 4)
+    const px = x + cos(a) * R * 0.92
+    const py = y + 8 + sin(a) * R * 0.92
+    g.beginPath()
+    g.moveTo(px, py)
+    g.lineTo(px + (x - px) * 0.3, py + (y - py) * 0.3 + 10)
+    g.moveTo(px + (x - px) * 0.15, py + (y - py) * 0.15 + 5)
+    g.lineTo(px + (x - px) * 0.15 + 9, py + (y - py) * 0.15 - 4)
+    g.stroke()
+  }
+  // Glitter.
+  for (let k = 0; k < 5; k++) {
+    const a = PI + ((k * 0.63 + T * 0.1) % 1) * PI
+    g.globalAlpha = 0.5 + 0.5 * sin(T * 5 + k * 1.7)
+    g.fillStyle = '#ffffff'
+    g.beginPath()
+    g.arc(x + cos(a) * R * 0.7, y + 8 + sin(a) * R * 0.7, 2.5, 0, TAU)
+    g.fill()
   }
   g.restore()
 }

@@ -37,14 +37,17 @@ export const CHAPTERS: readonly ChapterDef[] = [
   { id: 0, slug: 'c1', newRune: NATURE, signatureSpell: null, creature: 'Twig', built: true },
   { id: 1, slug: 'c2', newRune: 5, signatureSpell: null, creature: 'Shelly', built: true },
   { id: 2, slug: 'c3', newRune: 6, signatureSpell: null, creature: 'Puff', built: true },
-  { id: 3, slug: 'c4', newRune: null, signatureSpell: 0, creature: 'Glint', built: false },
-  { id: 4, slug: 'c5', newRune: 7, signatureSpell: null, creature: 'Blink', built: false },
-  { id: 5, slug: 'c6', newRune: 8, signatureSpell: null, creature: 'Rio', built: false },
-  { id: 6, slug: 'c7', newRune: 9, signatureSpell: null, creature: 'Dune', built: false },
-  { id: 7, slug: 'c8', newRune: null, signatureSpell: 1, creature: 'Frosty', built: false },
-  { id: 8, slug: 'c9', newRune: 10, signatureSpell: null, creature: 'Wisp', built: false },
-  { id: 9, slug: 'c10', newRune: 11, signatureSpell: null, creature: 'Sprig', built: false }
+  { id: 3, slug: 'c4', newRune: null, signatureSpell: 0, creature: 'Glint', built: true },
+  { id: 4, slug: 'c5', newRune: 7, signatureSpell: null, creature: 'Blink', built: true },
+  { id: 5, slug: 'c6', newRune: 8, signatureSpell: null, creature: 'Rio', built: true },
+  { id: 6, slug: 'c7', newRune: 9, signatureSpell: null, creature: 'Dune', built: true },
+  { id: 7, slug: 'c8', newRune: null, signatureSpell: 1, creature: 'Frosty', built: true },
+  { id: 8, slug: 'c9', newRune: 10, signatureSpell: null, creature: 'Wisp', built: true },
+  { id: 9, slug: 'c10', newRune: 11, signatureSpell: null, creature: 'Sprig', built: true }
 ]
+
+/** Umbra's node, 10-5: its sector's restoration is the finale (§10.19). */
+export const FINALE_NODE = CHAPTER_COUNT * NODES_PER_CHAPTER - 1
 
 /** The last node a player can reach in this build. */
 export const LAST_BUILT_NODE = (() => {

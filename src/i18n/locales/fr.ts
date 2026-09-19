@@ -123,7 +123,11 @@ export default {
     'times': 'x{n}',
     'victory': 'VICTOIRE',
     'defeated': 'ZZZ…',
-    'pierced': 'ZAP !'
+    'pierced': 'ZAP !',
+    'reflected': 'BOING !',
+    'decoy': 'POUF !',
+    'frozen': 'GELÉ !',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -225,7 +229,29 @@ export default {
     'sunshell': 'Or soleil',
     'lavender': 'Lavande',
     'skyblue': 'Bleu ciel',
-    'sunrise': 'Orange soleil levant'
+    'sunrise': 'Orange soleil levant',
+    'amethyst': 'Violet améthyste',
+    'aquamarine': 'Aigue-marine',
+    'rosequartz': 'Rose quartz',
+    'silverblue': 'Bleu argenté',
+    'mintglass': 'Vert menthe',
+    'peach': 'Pêche',
+    'cherry': 'Rouge cerise',
+    'tangerine': 'Orange mandarine',
+    'lime': 'Vert citron',
+    'terracotta': 'Terre cuite',
+    'turquoise': 'Turquoise',
+    'saffron': 'Or safran',
+    'icicle': 'Bleu glaçon',
+    'auroragreen': 'Vert aurore',
+    'berry': 'Violet mûre',
+    'stargold': 'Or étoilé',
+    'midnight': 'Bleu nuit',
+    'cosmicpink': 'Rose cosmique',
+    'candypink': 'Rose bonbon',
+    'lemon': 'Jaune citron',
+    'mint': 'Menthe',
+    'rainbow': 'Arc-en-ciel'
   },
 
   'tool': {
@@ -294,12 +320,131 @@ export default {
         't2': 'Merci, Aurora. Reviens vite voler avec nous !'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'Les Grottes de Cristal sont plongées dans le noir.',
+        'b2': 'Tu brilles encore, Aurora ? Le noir, c’est reposant.',
+        'b3': 'Terra, rallumons les cristaux ensemble !'
+      },
+      'n5': {
+        'b1': 'Mes cristaux sont cassés. Laisse-les tranquilles.',
+        'b2': 'Je peux les faire briller à nouveau !',
+        'b3': 'Alors montre-moi ta lumière. En duel !',
+        't1': 'Les grottes brillent de nouveau !',
+        't2': 'Merci, Aurora. Tu es une vraie amie.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Les miroirs ne font plus que des farces.',
+        'b2': 'Tu arrives à deviner laquelle, c’est moi ?',
+        'b3': 'Trouvons ensemble ce qui est vrai !'
+      },
+      'n5': {
+        'b1': 'Qui es-tu ? Qui es-tu ?',
+        'b2': 'Je suis Aurora ! Et tu es Echo, c’est ça ?',
+        'b3': 'C’est ça ? C’est ça ! Prouve que tu es vraie. En duel !',
+        't1': 'Une seule Echo. Et c’est moi !',
+        't2': 'Merci, Aurora. Merci, Aurora !'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Le pont arc-en-ciel perd ses couleurs !',
+        'b2': 'Le gris, c’est reposant... et un peu triste.',
+        'b3': 'Prism, redonnons des couleurs à la crête !'
+      },
+      'n5': {
+        'b1': 'Ne me regarde pas ! Je suis toute délavée !',
+        'b2': 'Tes couleurs sont toujours là, Prism !',
+        'b3': 'Alors fais-moi scintiller encore. En duel !',
+        't1': 'Regarde-moi ! Toutes mes couleurs sont revenues !',
+        't2': 'Merci, Aurora. Toi aussi, tu es éblouissante !'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Le temps s’est arrêté dans les cascades de sable.',
+        'b2': 'J’aime quand rien ne change.',
+        'b3': 'Ember, faisons couler le sable à nouveau !'
+      },
+      'n5': {
+        'b1': 'Je dois tenir le sablier. Toute seule !',
+        'b2': 'Pas besoin de le faire toute seule !',
+        'b3': 'Alors montre-moi ton feu. En duel !',
+        't1': 'Le sable coule de nouveau. Je peux me reposer !',
+        't2': 'Merci, Aurora. C’était si gentil.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Les aurores boréales sont prisonnières de la glace !',
+        'b2': 'Les endroits froids sont... un peu solitaires.',
+        'b3': 'Glace, libérons le ciel !'
+      },
+      'n5': {
+        'b1': 'Reste en arrière. Je préfère garder mes distances.',
+        'b2': 'Les amis peuvent se tenir chaud !',
+        'b3': 'Hmph. Réchauffe-moi, alors. En duel.',
+        't1': 'Les aurores dansent à nouveau. Comme c’est joli.',
+        't2': 'Merci, Aurora. Passe me voir un de ces jours.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Toutes les étoiles se sont éteintes !',
+        'b2': 'Une lumière éteinte, ça manquerait à quelqu’un ?',
+        'b3': 'Chaque lumière compte. Rallumons-les !'
+      },
+      'n5': {
+        'b1': 'Je suis trop pâle pour briller encore.',
+        'b2': 'Je crois en toi, Nova !',
+        'b3': 'Alors aide-moi à trouver mon étincelle. En duel !',
+        't1': 'Je brille ! Toutes les étoiles brillent !',
+        't2': 'Merci, Aurora. Tu as éclairé mon chemin.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Tout le monde prépare une fête pour Umbra !',
+        'b2': 'Une fête ? Je n’en ai pas besoin.',
+        'b3': 'Tout le monde a besoin d’amis. Même toi, Umbra !'
+      },
+      'n2': {
+        'b1': 'Les bois ont envoyé des fleurs pour la fête !',
+        'b2': 'Et les grottes, des lanternes de cristal !'
+      },
+      'n3': {
+        'b1': 'On va chanter une chanson de bienvenue !',
+        'b2': 'Bienvenue ! Bienvenue !'
+      },
+      'n4': {
+        'b1': 'Je vais peindre le ciel rien que pour elle !',
+        'b2': 'Toutes les étoiles brilleront ce soir !'
+      },
+      'n5': {
+        'b1': 'Pourquoi vous ne me laissez pas tranquille ?',
+        'b2': 'Parce qu’on te veut avec nous, Umbra !',
+        'b3': 'D’accord. Mais je ne vais pas me laisser faire !',
+        't1': 'Vous... voulez vraiment de moi à la fête ?',
+        't2': 'Bien sûr ! Tu es notre amie, Umbra !',
+        't3': 'Personne ne m’avait jamais invitée.',
+        't4': 'Alors allons-y ! Que la fête commence !'
+      }
+    },
     'tmpl': {
       'curious': '{name} pointe son nez avec curiosité !',
       'dusty': 'Oh, il y a un peu de poussière sur {name}.',
       'cheerUp': 'Redonnons le sourire à {name} ensemble !',
       'almost': 'Presque fini — {name} t’encourage !'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra n’est plus seule.',
+    'umbra1': 'Salut, Aurora ! Merci d’être mon amie.',
+    'umbra2': 'Cet endroit est si joli maintenant !',
+    'umbra3': 'Un petit duel pour s’amuser, un de ces jours ?'
   },
 
   'gift': {

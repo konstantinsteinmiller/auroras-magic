@@ -39,8 +39,9 @@ import {
 } from '@/game/restore/wipe'
 import {
   drawMap, updateMap, mapResize, mapPointerDown, mapPointerMove, mapPointerUp, focusMap,
-  setMapTapHandler, qaMap, peekCreature, mapAmbience, type MapTarget
+  setMapTapHandler, qaMap, peekCreature, mapAmbience, greetUmbra, type MapTarget
 } from '@/game/map/map'
+import { wanderOnMapOpen } from '@/game/map/wanderer'
 import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDuelHud'
 import { flowHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
@@ -193,6 +194,8 @@ const onMapTap = (t: MapTarget): void => {
     openSector(t.node)
   } else if (t.kind === 'creature') {
     peekCreature(t.node)
+  } else if (t.kind === 'umbra') {
+    greetUmbra()
   } else if (t.kind === 'tent') {
     sfx('ui')
     dipTo(() => gotoScene('wardrobe'), 0.4)
@@ -267,6 +270,8 @@ const onAnyPress = (e: PointerEvent): void => {
 // it away again, quietly — it is never presented as a missed chance (§8.2).
 watch(() => flowHud.scene, (sc) => {
   if (sc !== 'map') withdrawTwinGift()
+  // After the finale, Umbra is visiting somewhere new each time (§8.11).
+  else wanderOnMapOpen()
 })
 
 /* ─────────────────────────── global overlays ─────────────────────────── */
@@ -375,7 +380,10 @@ onMounted(() => {
     } else if (e === 'hurt') haptic('impact')
   }))
   bootScene()
-  if (S.flow.scene === 'map') focusMap(S.flow.node)
+  if (S.flow.scene === 'map') {
+    focusMap(S.flow.node)
+    wanderOnMapOpen()
+  }
 
   window.addEventListener('pointerdown', onAnyPress, { capture: true, passive: true })
   cv.addEventListener('pointerdown', onPointerDown)

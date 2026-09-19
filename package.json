@@ -30,6 +30,7 @@
     "perf:ab": "node scripts/perf-ab.mjs",
     "perf:builds": "node scripts/perf-builds.mjs",
     "qa:portal": "node scripts/portal-qa.mjs",
+    "test:winrate": "node scripts/test-winrate.mjs",
     "leaderboard:snapshot": "node scripts/leaderboard-snapshot.mjs",
     "leaderboard:seed": "node scripts/leaderboard-seed.mjs",
     "rune:spike": "node --import ./tools/ts-resolve.mjs tools/rune-spike/measure.mjs",

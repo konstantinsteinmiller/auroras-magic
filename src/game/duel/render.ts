@@ -19,6 +19,8 @@ import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { traceAssist } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
+import { FOES } from '@/game/duel/foes'
+import { decoyX } from '@/game/duel/sim'
 
 type G2D = CanvasRenderingContext2D
 
@@ -257,6 +259,147 @@ const drawDreamDust = (g: G2D, t: number): void => {
   g.restore()
 }
 
+/* ── Chapter magic on the duelists (S4) ─────────────────────────────── */
+
+/** A decoy's pose: its caster's, without her keepsakes — an illusion. */
+const DST: PoseState = { cast: 0, hurt: 0, hp: 1, win: 0, lose: 0, form: 0 }
+/** The offscreen the decoys are drawn through: the rig sets its own alpha
+ *  part by part, so a see-through twin has to be composited as one image. */
+let ghostCv: HTMLCanvasElement | null = null
+const GW = 300
+const GH = 290
+const GFOOT = 36
+
+/** One see-through mirror-twin standing at stage x, hooves on the ground. */
+const drawGhost = (g: G2D, x: number, side: number, st: PoseState, t: number, alpha: number): void => {
+  const k = S.vs * S.dpr
+  const w = Math.ceil(GW * k)
+  const h = Math.ceil(GH * k)
+  if (!ghostCv || ghostCv.width < w || ghostCv.height < h) {
+    ghostCv = document.createElement('canvas')
+    ghostCv.width = w
+    ghostCv.height = h
+  }
+  const c = ghostCv.getContext('2d')
+  if (!c) return
+  c.setTransform(1, 0, 0, 1, 0, 0)
+  c.clearRect(0, 0, w, h)
+  c.setTransform(k, 0, 0, k, (GW / 2) * k, (GH - GFOOT) * k)
+  drawUnicorn(c, 0, 0, side, st, t)
+  // A lilac mirror sheen over the whole silhouette, and a light band across it.
+  c.setTransform(1, 0, 0, 1, 0, 0)
+  c.globalCompositeOperation = 'source-atop'
+  c.fillStyle = 'rgba(214, 190, 255, 0.42)'
+  c.fillRect(0, 0, w, h)
+  const u = (t * 0.6 + x * 0.01) % 1
+  c.fillStyle = 'rgba(255, 255, 255, 0.5)'
+  c.beginPath()
+  c.moveTo((u * 1.4 - 0.2) * w, 0)
+  c.lineTo((u * 1.4 - 0.1) * w, 0)
+  c.lineTo((u * 1.4 - 0.3) * w, h)
+  c.lineTo((u * 1.4 - 0.4) * w, h)
+  c.closePath()
+  c.fill()
+  c.globalCompositeOperation = 'source-over'
+  g.save()
+  g.globalAlpha = alpha
+  g.drawImage(ghostCv, 0, 0, w, h, x - GW / 2, GY - (GH - GFOOT), GW, GH)
+  g.restore()
+}
+
+/**
+ * Illusion's decoys (§6.3): mirror-twins of their caster copying her pose a
+ * beat late, see-through and shimmering. The first stands in front of her,
+ * Echo's second (her phase 2) behind. Each blinks out over its last second.
+ */
+const drawDecoys = (g: G2D, e: boolean, from: PoseState, t: number, front: boolean): void => {
+  const n = e ? S.eDecoyN : S.decoyN
+  if (!n || S.phase !== PH_DUEL) return
+  DST.cast = from.cast
+  DST.hurt = 0
+  DST.hp = from.hp
+  DST.form = from.form
+  const left = e ? S.eDecoyT : S.decoyT
+  const a = (left < 1 ? left : 1) * (0.62 + 0.08 * Math.sin(t * 6))
+  for (let i = 0; i < n; i++) {
+    if ((i === 0) !== front) continue
+    drawGhost(g, decoyX(e, i), e ? 1 : -1, DST, t - 0.12 - i * 0.1, a)
+  }
+}
+
+/**
+ * Frost Lock (§6.5): the frozen duelist stands in a block of ice — a pale,
+ * faceted shell with a frosty rim and drifting snow. It cracks away in its
+ * last quarter second.
+ */
+const drawIce = (g: G2D, x: number, left: number, t: number): void => {
+  if (left <= 0) return
+  const a = Math.min(1, left * 4)
+  g.save()
+  g.lineJoin = 'round'
+  g.globalAlpha = 0.46 * a
+  g.fillStyle = '#bfe9ff'
+  g.beginPath()
+  g.roundRect(x - 84, GY - 214, 168, 214, 30)
+  g.fill()
+  g.globalAlpha = a
+  g.lineWidth = 5
+  g.strokeStyle = '#150f1c'
+  g.stroke()
+  // Facets: two light planes and a highlight edge.
+  g.globalAlpha = 0.5 * a
+  g.fillStyle = '#ffffff'
+  g.beginPath()
+  g.moveTo(x - 70, GY - 200)
+  g.lineTo(x - 30, GY - 200)
+  g.lineTo(x - 64, GY - 120)
+  g.closePath()
+  g.fill()
+  g.beginPath()
+  g.moveTo(x + 40, GY - 30)
+  g.lineTo(x + 72, GY - 60)
+  g.lineTo(x + 72, GY - 16)
+  g.closePath()
+  g.fill()
+  // Snowflakes drifting down its face.
+  g.globalAlpha = 0.9 * a
+  g.strokeStyle = '#ffffff'
+  g.lineWidth = 2.5
+  for (let k = 0; k < 4; k++) {
+    const sx = x - 50 + k * 34
+    const sy = GY - 190 + (((t * 22 + k * 53) % 170))
+    g.beginPath()
+    for (let j = 0; j < 3; j++) {
+      const b = (j * Math.PI) / 3
+      g.moveTo(sx - Math.cos(b) * 6, sy - Math.sin(b) * 6)
+      g.lineTo(sx + Math.cos(b) * 6, sy + Math.sin(b) * 6)
+    }
+    g.stroke()
+  }
+  g.restore()
+}
+
+/**
+ * Prism's phase 2 (§6.11): cosmetic only — an all-colour glow blazing up
+ * behind her. She is out-played, never counter-picked.
+ */
+const drawPrismGlow = (g: G2D, t: number): void => {
+  const foe = FOES[S.foe]
+  if (!foe || foe.phase2 !== 'prismGlow' || S.ePhase < 2 || S.phase !== PH_DUEL) return
+  g.save()
+  g.lineCap = 'round'
+  for (let i = 0; i < 6; i++) {
+    g.globalAlpha = 0.28
+    g.strokeStyle = RUNES[[0, 6, 4, 5, 2, 7][i]!]![0]
+    g.lineWidth = 9
+    g.beginPath()
+    const r = 118 - i * 11 + Math.sin(t * 2.4 + i) * 3
+    g.arc(UX, GY - 90, r, Math.PI * 1.05 + t * 0.3, Math.PI * 1.95 + t * 0.3)
+    g.stroke()
+  }
+  g.restore()
+}
+
 /** Portrait: clip to the visible duel window (saves; the caller restores). */
 const portraitClip = (g: G2D): void => {
   g.save()
@@ -327,8 +470,15 @@ export const render = (g: G2D): void => {
   // A boss winding up her phase shift glows at the horn (§6.11's tell).
   UST.form = S.eWindup > 0 ? Math.max(S.eForm, 1 - S.eWindup / 1.8) : S.eForm
 
+  drawPrismGlow(g, t)
+  drawDecoys(g, false, AST, t, false)
+  drawDecoys(g, true, UST, t, false)
   drawUnicorn(g, AX, GY, -1, AST, t)
   drawUnicorn(g, UX, GY, 1, UST, t)
+  drawIce(g, AX, S.frozen, t)
+  drawIce(g, UX, S.eFrozen, t)
+  drawDecoys(g, false, AST, t, true)
+  drawDecoys(g, true, UST, t, true)
   drawDreamDust(g, t)
 
   drawShots(g)

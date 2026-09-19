@@ -25,6 +25,8 @@ import { bookHud } from '@/use/useBook'
 import { twinGift } from '@/use/useDuelRewards'
 import { leaderboardLive } from '@/use/useLeaderboard'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import FinaleCard from '@/components/story/FinaleCard.vue'
+import { wanderOnMapOpen } from '@/game/map/wanderer'
 
 const emit = defineEmits<{ board: [] }>()
 const { t } = useI18n()
@@ -82,6 +84,17 @@ watch(() => twinGift.rev, () => {
 })
 onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
+/* The finale card closes onto the map, where Umbra is now visiting (§8.11). */
+const closeFinale = (): void => {
+  mapHud.finale = false
+  wanderOnMapOpen()
+}
+/* Wandering Umbra's line, above her head, following her as the map pans. */
+const sayStyle = computed(() => {
+  const s = mapHud.umbraSay
+  return s ? { left: `${s.x}px`, top: `${s.y}px` } : {}
+})
+
 const twinStyle = computed(() => {
   const w = mapHud.twin
   return w ? { left: `${w.x}px`, top: `${w.y}px`, width: `${w.size}px`, height: `${w.size}px` } : {}
@@ -117,6 +130,9 @@ const twinStyle = computed(() => {
     )
     transition(name="toast")
       div.bloom-toast.story-text(v-if="toast" role="status") {{ t('bloom.claimedToast') }}
+    transition(name="say")
+      div.umbra-say.story-text(v-if="mapHud.umbraSay" :key="mapHud.umbraSay.key" :style="sayStyle" role="status") {{ t(mapHud.umbraSay.key) }}
+    FinaleCard(v-if="mapHud.finale" @close="closeFinale")
     div.corner
       button.duel-plate.icon(:aria-label="t('options.title')" @click.stop="options")
         GameIcon.glyph(name="settings")
@@ -131,6 +147,35 @@ const twinStyle = computed(() => {
   position: absolute
   inset: 0
   pointer-events: none
+
+// Wandering Umbra's line (§8.11): a small speech bubble over her head.
+.umbra-say
+  position: absolute
+  transform: translate(-50%, -100%)
+  width: max-content
+  max-width: min(260px, 70vw)
+  padding: 8px 14px
+  border-radius: 18px
+  background: #fffaf0
+  box-shadow: 0 0 0 3px #3A2340
+  color: #3A2340
+  font-size: 17px
+  text-align: center
+  pointer-events: none
+  &::after
+    content: ''
+    position: absolute
+    left: 50%
+    bottom: -9px
+    width: 14px
+    height: 14px
+    background: #fffaf0
+    box-shadow: 3px 3px 0 0 #3A2340
+    transform: translateX(-50%) rotate(45deg)
+.say-enter-active, .say-leave-active
+  transition: opacity 0.2s, transform 0.2s
+.say-enter-from, .say-leave-to
+  opacity: 0
 
 button
   pointer-events: auto

@@ -121,7 +121,11 @@ export default {
     'times': 'x{n}',
     'victory': 'ZAFER',
     'defeated': 'ZZZ…',
-    'pierced': 'ÇAT!'
+    'pierced': 'ÇAT!',
+    'reflected': 'SEKTİ!',
+    'decoy': 'PUF!',
+    'frozen': 'DONDU!',
+    'heal': '+{n}'
   },
 
   'result': {
@@ -223,7 +227,29 @@ export default {
     'sunshell': 'Güneş altını',
     'lavender': 'Lavanta moru',
     'skyblue': 'Gök mavisi',
-    'sunrise': 'Gün doğumu turuncusu'
+    'sunrise': 'Gün doğumu turuncusu',
+    'amethyst': 'Ametist moru',
+    'aquamarine': 'Akuamarin',
+    'rosequartz': 'Pembe kuvars',
+    'silverblue': 'Gümüş mavisi',
+    'mintglass': 'Nane yeşili',
+    'peach': 'Şeftali rengi',
+    'cherry': 'Kiraz kırmızısı',
+    'tangerine': 'Mandalina turuncusu',
+    'lime': 'Limon yeşili',
+    'terracotta': 'Kiremit rengi',
+    'turquoise': 'Turkuaz',
+    'saffron': 'Safran sarısı',
+    'icicle': 'Buz mavisi',
+    'auroragreen': 'Kutup ışığı yeşili',
+    'berry': 'Böğürtlen moru',
+    'stargold': 'Yıldız altını',
+    'midnight': 'Gece mavisi',
+    'cosmicpink': 'Kozmik pembe',
+    'candypink': 'Şeker pembesi',
+    'lemon': 'Limon sarısı',
+    'mint': 'Nane',
+    'rainbow': 'Gökkuşağı'
   },
 
   'tool': {
@@ -294,12 +320,131 @@ export default {
         't2': 'Teşekkürler, Aurora. Yakında bizimle uçmaya gel!'
       }
     },
+    'c4': {
+      'n1': {
+        'b1': 'Kristal Mağaralar karardı.',
+        'b2': 'Hâlâ parlıyor musun, Aurora? Karanlık çok dinlendirici.',
+        'b3': 'Terra, hadi kristalleri birlikte aydınlatalım!'
+      },
+      'n5': {
+        'b1': 'Kristallerim kırıldı. Onları rahat bırak.',
+        'b2': 'Yeniden parlamalarına yardım edebilirim!',
+        'b3': 'O zaman ışığını göster bakalım. Düello!',
+        't1': 'Mağaralar yine parlıyor!',
+        't2': 'Teşekkürler, Aurora. Sen gerçek bir dostsun.'
+      }
+    },
+    'c5': {
+      'n1': {
+        'b1': 'Aynalar artık sadece oyun oynuyor.',
+        'b2': 'Hangisinin ben olduğunu bilebilir misin ki?',
+        'b3': 'Hadi gerçek olanı birlikte bulalım!'
+      },
+      'n5': {
+        'b1': 'Sen kimsin? Sen kimsin?',
+        'b2': "Ben Aurora! Sen de Echo'sun, doğru mu?",
+        'b3': 'Doğru mu? Doğru! Gerçek olduğunu kanıtla. Düello!',
+        't1': 'Benden yalnızca bir tane var. İşte ben!',
+        't2': 'Teşekkürler, Aurora. Teşekkürler, Aurora!'
+      }
+    },
+    'c6': {
+      'n1': {
+        'b1': 'Gökkuşağı köprüsü renklerini kaybediyor!',
+        'b2': 'Gri huzurlu... ve biraz hüzünlü.',
+        'b3': 'Prism, hadi sırtı yeniden boyayalım!'
+      },
+      'n5': {
+        'b1': 'Bana bakma! Renklerim tamamen soldu!',
+        'b2': 'Renklerin hâlâ içinde, Prism!',
+        'b3': 'O zaman beni yine ışıl ışıl yap. Düello!',
+        't1': 'Bana bak! Bütün renklerim geri geldi!',
+        't2': 'Teşekkürler, Aurora. Sen de göz kamaştırıyorsun!'
+      }
+    },
+    'c7': {
+      'n1': {
+        'b1': 'Kum şelalelerinde zaman durdu.',
+        'b2': 'Hiçbir şey değişmeyince hoşuma gidiyor.',
+        'b3': 'Ember, hadi kumları yeniden akıtalım!'
+      },
+      'n5': {
+        'b1': 'Kum saatini ben tutmalıyım. Tek başıma!',
+        'b2': 'Bunu tek başına yapmak zorunda değilsin!',
+        'b3': 'O zaman ateşini göster bakalım. Düello!',
+        't1': 'Kumlar yine akıyor. Artık dinlenebilirim!',
+        't2': 'Teşekkürler, Aurora. Ne kadar naziksin.'
+      }
+    },
+    'c8': {
+      'n1': {
+        'b1': 'Kutup ışıkları buzda hapsoldu!',
+        'b2': 'Soğuk yerler... biraz yalnız hissettiriyor.',
+        'b3': 'Glace, hadi gökyüzünü özgür bırakalım!'
+      },
+      'n5': {
+        'b1': 'Uzak dur. Mesafemi korumayı severim.',
+        'b2': 'Dostlar birbirini ısıtır!',
+        'b3': 'Hıh. O zaman ısıt beni. Düello.',
+        't1': 'Kutup ışıkları yine dans ediyor. Ne hoş.',
+        't2': 'Teşekkürler, Aurora. Bir ara uğra.'
+      }
+    },
+    'c9': {
+      'n1': {
+        'b1': 'Bütün yıldızlar söndü!',
+        'b2': 'Sönen bir ışığı özleyen olur mu ki?',
+        'b3': 'Her ışık önemli. Hadi onları yeniden yakalım!'
+      },
+      'n5': {
+        'b1': 'Parlayamayacak kadar sönüğüm artık.',
+        'b2': 'Sana inanıyorum, Nova!',
+        'b3': 'O zaman kıvılcımımı bulmama yardım et. Düello!',
+        't1': 'Parlıyorum! Bütün yıldızlar parlıyor!',
+        't2': 'Teşekkürler, Aurora. Yolumu aydınlattın.'
+      }
+    },
+    'c10': {
+      'n1': {
+        'b1': 'Herkes Umbra için bir şenlik hazırlıyor!',
+        'b2': 'Şenlik mi? İhtiyacım yok.',
+        'b3': 'Herkesin dosta ihtiyacı var. Senin bile, Umbra!'
+      },
+      'n2': {
+        'b1': 'Orman şenlik için çiçek yolladı!',
+        'b2': 'Mağaralar da kristal fenerler yolladı!'
+      },
+      'n3': {
+        'b1': 'Bir hoş geldin şarkısı söyleyeceğiz!',
+        'b2': 'Hoş geldin şarkısı! Hoş geldin şarkısı!'
+      },
+      'n4': {
+        'b1': 'Gökyüzünü sırf onun için boyayacağım!',
+        'b2': 'Bu gece her yıldız parlayacak!'
+      },
+      'n5': {
+        'b1': 'Neden hepiniz beni rahat bırakmıyorsunuz?',
+        'b2': 'Çünkü seni aramızda istiyoruz, Umbra!',
+        'b3': 'Peki. Ama işinizi kolaylaştırmayacağım!',
+        't1': 'Siz... beni gerçekten şenlikte mi istiyorsunuz?',
+        't2': 'Elbette! Sen bizim dostumuzsun, Umbra!',
+        't3': 'Beni daha önce hiç kimse davet etmemişti.',
+        't4': 'O zaman hadi! Şenlik başlasın!'
+      }
+    },
     'tmpl': {
       'curious': '{name} merakla dışarı bakıyor!',
       'dusty': 'Ah, {name} biraz tozlanmış.',
       'cheerUp': 'Hadi birlikte, {name} yine gülümsesin!',
       'almost': 'Az kaldı — {name} seni alkışlıyor!'
     }
+  },
+
+  'finale': {
+    'line': 'Umbra artık yalnız değil.',
+    'umbra1': 'Selam, Aurora! Dostum olduğun için teşekkürler.',
+    'umbra2': 'Burası artık çok güzel görünüyor!',
+    'umbra3': 'Bir ara eğlencesine düello yapalım mı?'
   },
 
   'gift': {

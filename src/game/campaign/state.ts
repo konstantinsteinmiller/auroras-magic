@@ -55,6 +55,10 @@ export interface CampaignState {
   /** Dream Dust per node (only non-zero entries), keyed by node index. */
   lossStreaks: Record<string, number>
   versusUnlocked: boolean
+  /** The Mane Color Palette's pick (chapter 6's keepsake, C17): 0..7. */
+  maneSwatch: number
+  /** The Festival's finale card has been shown; Umbra wanders the map (§8.11). */
+  finaleSeen: boolean
 }
 
 export const defaultCampaign = (): CampaignState => ({
@@ -73,7 +77,9 @@ export const defaultCampaign = (): CampaignState => ({
   rescued: 0,
   blooms: emptyBitset(NODE_COUNT),
   lossStreaks: {},
-  versusUnlocked: false
+  versusUnlocked: false,
+  maneSwatch: 0,
+  finaleSeen: false
 })
 
 const int = (v: unknown, lo: number, hi: number, dflt: number): number => {
@@ -119,7 +125,9 @@ export const readCampaign = (raw: unknown): CampaignState => {
     rescued: int(r.rescued, 0, 0x3ff, 0),
     blooms: b64(r.blooms, d.blooms),
     lossStreaks: streaks,
-    versusUnlocked: r.versusUnlocked === true
+    versusUnlocked: r.versusUnlocked === true,
+    maneSwatch: int(r.maneSwatch, 0, 7, 0),
+    finaleSeen: r.finaleSeen === true
   }
 }
 

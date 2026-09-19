@@ -35,7 +35,7 @@
  * limb bounce rim survives every quality level — without it Umbra's four black
  * legs fuse into one unreadable mass.
  */
-import { FOES } from '@/game/duel/foes'
+import { FOES, type FoePalette } from '@/game/duel/foes'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs } from '@/game/duel/util'
 
@@ -64,6 +64,27 @@ export interface RigAnchors {
   /** Seconds, and how excited the rig is (a win hop, a rear) 0..1. */
   t: number
   lift: number
+  /** How far the rig has collapsed on a lost duel, 0..1. */
+  lose: number
+  /** +1 when the rig faces +x in the caller's space (Aurora), −1 mirrored. */
+  facing: number
+  /* The rest are in the CALLER's (stage) space, for `afterRig`, which runs
+   * after the whole rig with the caller's transform back in place — the
+   * same transform chain replayed, so they follow a rear, a hop, a recoil
+   * and a collapse. Filled only when `afterRig` is set. */
+  /** The near fore hoof, where it meets the ground (§9.7's `hoofFront`). */
+  hoofFront: [number, number]
+  /** The near hind hoof. */
+  hoofHind: [number, number]
+  /** The tail's root (`tailBase`, in stage space). */
+  tailStage: [number, number]
+  /** The barrel's centre. */
+  bodyStage: [number, number]
+  /** The skull's centre. */
+  headStage: [number, number]
+  /** A dialogue portrait's single baked frame (the pose carries a `face`):
+   *  no clock runs between frames, so an emitter draws a still instead. */
+  portrait: boolean
 }
 
 /** Pose inputs for one duelist, all 0..1. */
@@ -87,6 +108,18 @@ export interface PoseState {
   afterTorso?: (g: G2D, a: RigAnchors) => void
   /** Neck-slot items (necklace, scarf), after the mane, under the head. */
   afterMane?: (g: G2D, a: RigAnchors) => void
+  /** After the WHOLE rig, with the caller's (stage) transform restored
+   *  (§9.7's `afterRig`): a companion, a hoof-trail emitter. Reads the
+   *  stage-space anchors (`hoofFront`, `tailStage`, …). */
+  afterRig?: (g: G2D, a: RigAnchors) => void
+  /** A skin (§9.7's `skin` split, C31): this palette for coat, mane, horn,
+   *  hooves, eye and blush — on the side's OWN proportions and behaviour.
+   *  The side alone still decides the dread aura, the half-lidded eye and
+   *  the stockier scale, so a skin on Aurora is only ever a recolour. */
+  skin?: FoePalette
+  /** The mane and tail colours `[base, streak]` over the skin's (the Mane
+   *  Color Palette); `'rainbow'` cycles them through the hues. */
+  mane?: readonly [string, string] | 'rainbow'
 }
 
 /** The one hand-inked outline colour. */
@@ -118,6 +151,64 @@ let HF = ''
 let EY = ''
 let GL = ''
 let BL = ''
+
+/**
+ * The anchors handed to the cosmetic hooks: ONE reused object, so a dressed
+ * rig allocates nothing per frame. Valid only for the duration of a hook
+ * call — a hook must copy what it wants to keep.
+ */
+const ANC: RigAnchors = {
+  neckCollar: [0, 0],
+  neckDir: [0, -1],
+  backWithers: [0, 0],
+  tailBase: [0, 0],
+  t: 0,
+  lift: 0,
+  lose: 0,
+  facing: 1,
+  hoofFront: [0, 0],
+  hoofHind: [0, 0],
+  tailStage: [0, 0],
+  bodyStage: [0, 0],
+  headStage: [0, 0],
+  portrait: false
+}
+
+/** The outer transform chain of the rig being drawn, for `toStage`. */
+let XA = 0
+let YA = 0
+let SXA = 1
+let LA = 0
+let HA = 0
+let RA = 0
+
+/**
+ * Replay `drawUnicorn`'s transform chain on one point: from the standing
+ * frame (`rf` false — the hind legs' frame) or the rearing frame (`rf` true —
+ * the body, forelegs and head) out to the caller's space. No drawing.
+ */
+const toStage = (px: number, py: number, rf: boolean, out: [number, number]): void => {
+  if (rf) {
+    // translate(-22, -6) · rotate(R) · translate(22, 6)
+    const c = cos(RA)
+    const s = sin(RA)
+    const ux = px + 22
+    const uy = py + 6
+    px = c * ux - s * uy - 22
+    py = s * ux + c * uy - 6
+  }
+  py += HA // the victory hop / rear lift
+  if (LA) {
+    // collapsed: translate(-45L, -16L) · rotate(1.15L)
+    const c = cos(1.15 * LA)
+    const s = sin(1.15 * LA)
+    const ux = px
+    px = c * ux - s * py - 45 * LA
+    py = s * ux + c * py - 16 * LA
+  }
+  out[0] = XA + SXA * px
+  out[1] = YA + py
+}
 
 /* ------------------------------ helpers ----------------------------- */
 
@@ -331,12 +422,22 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // topology): Umbra's shadow clones wear their chapter's tint, each Guardian
   // her own colours.
   const foe = D ? FOES[st.foe ?? S.foe] : undefined
-  ;[CO, SH, RM, MA, MH, HO, HF, EY, GL, BL] = (foe ? foe.pal : PAL[0]) as [string, string, string, string, string, string, string, string, string, string]
+  // A skin (§9.7) swaps only these colours; D below still decides the rest.
+  ;[CO, SH, RM, MA, MH, HO, HF, EY, GL, BL] = (st.skin ?? (foe ? foe.pal : PAL[0])) as [string, string, string, string, string, string, string, string, string, string]
   // PRISM (ch6) is "every colour at once": her mane, horn and aura cycle.
   if (foe && foe.slug === 'prism') {
     const rb = rainbow(t * 0.14)
     const rl = rainbow(t * 0.14 + 0.12, 80)
     ;[MA, MH, GL, HO] = [rb, rl, rb, rl]
+  }
+  // The Mane Color Palette: the mane, tail and forelock, over the skin's.
+  const mn = st.mane
+  if (mn === 'rainbow') {
+    MA = rainbow(t * 0.12, 70)
+    MH = rainbow(t * 0.12 + 0.18, 86)
+  } else if (mn) {
+    MA = mn[0]
+    MH = mn[1]
   }
   // Hit flash: strobe the whole coat white/red while `hurt` runs down.
   const F = hit && sin(t * 46) > 0 ? (sin(t * 23) > 0 ? '#fff' : '#f55') : ''
@@ -414,19 +515,40 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const hx = 22 + sag * 3 - lose * 14 // the neck folds as it goes down
   const hy = by - 42 + D * 7 + sag * 9 - rear * 3 + fold
   const nk = [11, by - 6, hx - 4, hy + 14]
-  const hooked = st.beforeTorso || st.afterTorso || st.afterMane
+  const hooked = st.beforeTorso || st.afterTorso || st.afterMane || st.afterRig
   let anc: RigAnchors | null = null
   if (hooked) {
     const ndx = nk[2]! - nk[0]!
     const ndy = nk[3]! - nk[1]!
     const nl = Math.hypot(ndx, ndy) || 1
-    anc = {
-      neckCollar: [nk[0]! + ndx * 0.7, nk[1]! + ndy * 0.7],
-      neckDir: [ndx / nl, ndy / nl],
-      backWithers: [8, by - 26],
-      tailBase: [-26, by - 4],
-      t,
-      lift: max(win, rear)
+    anc = ANC
+    anc.neckCollar[0] = nk[0]! + ndx * 0.7
+    anc.neckCollar[1] = nk[1]! + ndy * 0.7
+    anc.neckDir[0] = ndx / nl
+    anc.neckDir[1] = ndy / nl
+    anc.backWithers[0] = 8
+    anc.backWithers[1] = by - 26
+    anc.tailBase[0] = -26
+    anc.tailBase[1] = by - 4
+    anc.t = t
+    anc.lift = max(win, rear)
+    anc.lose = lose
+    anc.facing = -side
+    anc.portrait = !!st.face
+    if (st.afterRig) {
+      // The same chain drawUnicorn ran above, replayed for the stage points.
+      XA = x + hit * 9 * side
+      YA = y - 6
+      SXA = -side
+      LA = lose
+      HA = -rear * 4 - win * abs(sin(t * 3.4)) * 5
+      RA = R
+      // The near foreleg's target, exactly as `fl(25, …)` below aims it.
+      toStage(25 + (win ? 37 : 9) * rear - fold * 0.5, -(win ? 36 : 17) * rr - fold + pad + 4, true, anc.hoofFront)
+      toStage(-27 + fold, -fold + 4, false, anc.hoofHind)
+      toStage(-26, by - 4, true, anc.tailStage)
+      toStage(-2 * K, by, true, anc.bodyStage)
+      toStage(hx, hy, true, anc.headStage)
     }
     if (st.beforeTorso) {
       g.save()
@@ -607,6 +729,13 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // near hind leg, in front of the barrel
   limb(hipx + 4, hipy, -27 + fold, -fold, lose, HIND, CO)
   g.restore()
+
+  // §9.7's `afterRig`: the caller's transform is back, the anchors are in it.
+  if (anc && st.afterRig) {
+    g.save()
+    st.afterRig(g, anc)
+    g.restore()
+  }
 }
 
 /** Big portrait (splash / panels). `size` ~= body height. */
