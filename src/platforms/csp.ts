@@ -6,58 +6,39 @@
 // unit-tested without spinning up Vite.
 //
 // Adding a new platform:
-//   1. If it has its own host whitelist, add an entry under `PLATFORM_HOSTS`.
+//   1. If it has its own host whitelist, add an entry under `PORTAL_HOSTS`.
 //   2. If it needs script-src `'unsafe-inline'` / `'unsafe-eval'` / `https:`,
 //      check `env.VITE_APP_<PLATFORM>` and push into `scriptSrcExtra`.
 //   3. If its bidder waterfall pulls in a long tail of partner CDNs, mirror
 //      the GameDistribution pattern (open the relevant directives to `https:`).
-//   4. Otherwise no change to this file is needed — `'self'` + the BASE_HOSTS
-//      cover the rest.
+//   4. Otherwise no change to this file is needed — `'self'` + its own
+//      `PORTAL_HOSTS` entry cover the rest.
 
-/** Hosts allowed across every build mode (the platform stays itself when
- *  loaded standalone, and the SDK from each portal can reach its API).
- *  Keep this list short — add platform-specific hosts to PLATFORM_HOSTS. */
-const BASE_HOSTS: ReadonlyArray<string> = [
-  'https://*.crazygames.com',
-  'https://sdk.crazygames.com',
-  'https://wavedash.com',
-  'https://*.wavedash.com',
-  'https://itch.io',
-  'https://*.itch.io',
-  'https://glitch.fun',
-  'https://*.glitch.fun',
-  'https://gamedistribution.com',
-  'https://*.gamedistribution.com',
-  'https://playgama.com',
-  'https://*.playgama.com',
-  // (No `bridge.playgama.com`: Bridge v2 is bundled from npm, and the Playgama
-  // build ships no CSP meta tag anyway.)
-  'https://gamepix.com',
-  'https://*.gamepix.com',
-  'https://integration.gamepix.com',
-  'https://gamemonetize.com',
-  'https://*.gamemonetize.com',
-  'https://api.gamemonetize.com',
-  'https://html5.gamemonetize.com',
-  // Yandex Games — telemetry / ads beacon through *.yandex.ru / .com / .net,
-  // and the iframe wrapper itself is on yandex.com/games (yandex.ru/games /
-  // .com.tr for regional TLDs). The SDK is loaded via the RELATIVE `/sdk.js`
-  // path which Yandex's wrapper auto-routes to their backing CDN — we MUST NOT
-  // list explicit `*.s3.yandex.*` hosts here. Yandex's moderation scanner
-  // greps the submitted bundle for hardcoded S3 URLs and rejects the draft
-  // with "Service storage URL detected" if it finds any. The wildcard
-  // `https://*.yandex.net` already covers multi-level subdomains like
-  // `sdk.games.s3.yandex.net` at request time, so connectivity isn't impacted.
-  'https://yandex.ru',
-  'https://*.yandex.ru',
-  'https://yandex.com',
-  'https://*.yandex.com',
-  'https://yandex.net',
-  'https://*.yandex.net',
-  'https://an.yandex.ru',
-  'https://www.clarity.ms',
-  'https://api.jsonbin.io'
-]
+/**
+ * Each portal's OWN hosts. A build lists only the portal it ships to
+ * (story-spec §8.21, S7): the policy is shipped HTML a reviewer reads, and a
+ * GameMonetize build whose meta tag advertises CrazyGames, Yandex and a
+ * storage service reads as a repackaged game from somewhere else — the
+ * survivalist template this came from listed all of them in every build.
+ * The standalone web build (no platform flag) lists none: it has no SDK.
+ *
+ * Gone for good (S7 audit, zero references in `src/`): Microsoft Clarity,
+ * jsonbin, getpantry, PeerJS and Sentry — survivalist's services, never this
+ * game's. Yandex's moderator rejects any "service storage" URL it finds, and
+ * no other portal is better served by them.
+ */
+const PORTAL_HOSTS: Readonly<Record<string, ReadonlyArray<string>>> = {
+  VITE_APP_CRAZY_WEB: ['https://*.crazygames.com', 'https://sdk.crazygames.com'],
+  VITE_APP_WAVEDASH: ['https://wavedash.com', 'https://*.wavedash.com'],
+  VITE_APP_ITCH: ['https://itch.io', 'https://*.itch.io', 'https://*.itch.zone'],
+  VITE_APP_GLITCH: ['https://glitch.fun', 'https://*.glitch.fun'],
+  VITE_APP_GAME_DISTRIBUTION: ['https://gamedistribution.com', 'https://*.gamedistribution.com'],
+  VITE_APP_GAMEPIX: ['https://gamepix.com', 'https://*.gamepix.com', 'https://integration.gamepix.com'],
+  VITE_APP_GAME_MONETIZE: [
+    'https://gamemonetize.com', 'https://*.gamemonetize.com',
+    'https://api.gamemonetize.com', 'https://html5.gamemonetize.com'
+  ]
+}
 
 /** GameDistribution-specific partner ad-tech / analytics CDNs. The GD SDK
  *  loads these at runtime; only ship the long whitelist on GD builds so the
@@ -91,7 +72,7 @@ const GD_PARTNER_HOSTS: ReadonlyArray<string> = [
 ]
 
 /** CrazyGames ad-stack hosts. The portal's `rafvertizing.js` (loaded from
- *  `*.crazygames.com`, already in BASE_HOSTS) injects Google Publisher Tag
+ *  `*.crazygames.com`, in CrazyGames' `PORTAL_HOSTS`) injects Google Publisher Tag
  *  + a header-bidding waterfall into our iframe. Without these hosts the
  *  CG QA dev console fills with `Refused to connect / load script`
  *  violations. The list is grown empirically — when CG QA reports a new
@@ -136,7 +117,7 @@ const CG_PARTNER_HOSTS: ReadonlyArray<string> = [
 /** Yandex Direct / AdFox / Yandex Ad Exchange hosts. Lifted verbatim from
  *  Yandex's official ad-platform CSP example (yandex.com/support/partner/
  *  en/web/adplatform/csp-configuration). The first four are SEPARATE root
- *  domains from yandex.{ru,com,net} (already in BASE_HOSTS), so the existing
+ *  domains from yandex.{ru,com,net} (in the Yandex host list), so the existing
  *  yandex.* wildcards do NOT cover them. Without these hosts the rewarded /
  *  fullscreen ad chain breaks at the IMA-equivalent layer with no SDK error
  *  surfaced — the ad slot just stays empty.
@@ -144,7 +125,7 @@ const CG_PARTNER_HOSTS: ReadonlyArray<string> = [
  *  - *.adfox.ru             : adfox ad server
  *  - *.yandexadexchange.net : Yandex's RTB ad exchange + nested ad frames
  *  - yandexadexchange.net   : root, hit directly by frame-src
- *  - verify.yandex.ru is already covered by `*.yandex.ru` in BASE_HOSTS. */
+ *  - verify.yandex.ru is already covered by `*.yandex.ru`. */
 const YANDEX_PARTNER_HOSTS: ReadonlyArray<string> = [
   'https://yastatic.net',
   'https://*.adfox.ru',
@@ -152,14 +133,6 @@ const YANDEX_PARTNER_HOSTS: ReadonlyArray<string> = [
   'https://*.yandexadexchange.net'
 ]
 
-const CONNECT_BASE_EXTRA: ReadonlyArray<string> = [
-  'https://*.sentry.io',
-  'wss://*.wavedash.com',
-  'wss://0.peerjs.com',
-  'https://0.peerjs.com',
-  'https://getpantry.cloud',
-  'https://*.getpantry.cloud'
-]
 
 /**
  * The leaderboard worker's ORIGIN, or `null` when this build has none.
@@ -205,14 +178,8 @@ export const buildCsp = (env: Record<string, string>): string => {
   // bidder chain on most, Yandex Direct on Yandex) aren't refused.
   const adWaterfallBuild = isGameDistribution || isPlaygama || isGamepix || isGameMonetize || isYandex
 
-  // Yandex's moderator rejects any third-party "service storage" URL it finds
-  // anywhere in the bundle — including the CSP meta tag. `BASE_HOSTS` contains
-  // a number of legacy storage-service entries (api.jsonbin.io, getpantry.cloud,
-  // peerjs, ...) that other portals' integrations once whitelisted but that no
-  // runtime code on this project actually uses. We can't safely delete them
-  // from BASE_HOSTS without auditing every other platform, so on Yandex builds
-  // we substitute a MINIMAL host list of just Yandex-related origins. Other
-  // builds keep the legacy whitelist untouched.
+  // Yandex keeps its own minimal list (its moderator greps the meta tag for
+  // third-party URLs); every other build lists its own portal's hosts only.
   const hosts: string[] = isYandex
     ? [
       'https://yandex.ru',
@@ -225,7 +192,7 @@ export const buildCsp = (env: Record<string, string>): string => {
       ...YANDEX_PARTNER_HOSTS
     ]
     : [
-      ...BASE_HOSTS,
+      ...Object.entries(PORTAL_HOSTS).flatMap(([flag, list]) => (env[flag] === 'true' ? list : [])),
       ...(isGameDistribution ? GD_PARTNER_HOSTS : []),
       ...(isCrazyWeb ? CG_PARTNER_HOSTS : [])
     ]
@@ -246,16 +213,11 @@ export const buildCsp = (env: Record<string, string>): string => {
     // list above plus `data:` for inline beacons.
     'img-src': adWaterfallBuild ? ['data:', 'https:', 'blob:'] : ['data:'],
     'connect-src': [
-      // CONNECT_BASE_EXTRA includes getpantry.cloud / peerjs / sentry — all
-      // third-party services. Yandex's moderator flags every "service storage"
-      // URL it finds, so omit the extras entirely on Yandex builds (the
-      // open `https:` / `wss:` added below for ad-waterfall builds still
-      // covers what's actually needed at runtime).
-      ...(isYandex ? [] : CONNECT_BASE_EXTRA),
-      // The leaderboard worker. Omitted on Yandex for the same reason the rest
-      // of CONNECT_BASE_EXTRA is: their moderator greps the bundle — the CSP
-      // meta tag included — for third-party storage endpoints and rejects the
-      // draft. `.env.yandex.local` also empties the URL, so this is belt AND
+      // Wavedash's SDK talks to its backend over a websocket.
+      ...(env.VITE_APP_WAVEDASH === 'true' ? ['wss://*.wavedash.com'] : []),
+      // The leaderboard worker. Omitted on Yandex: their moderator greps the
+      // bundle — the CSP meta tag included — for third-party storage endpoints
+      // and rejects the draft. `.env.yandex.local` also empties the URL, so this is belt AND
       // braces, and it has to be: the two switches fail independently.
       ...(isYandex ? [] : [leaderboardOrigin(env.VITE_LEADERBOARD_URL)].filter((o): o is string => o !== null)),
       // GD / Playgama partner analytics / ad telemetry beacons.

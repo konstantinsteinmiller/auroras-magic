@@ -13,6 +13,7 @@ import RuneSlot from '@/components/duel/RuneSlot.vue'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import DuelPopups from '@/components/duel/DuelPopups.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import { vFit } from '@/use/vFit'
 
 /**
  * The duel's chrome, as the jam build laid it out.
@@ -173,7 +174,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast')"
         )
           span.cast-glow(v-if="castLive")
-          span.ink-text.cast-label(:style="{ fontSize: '34px', color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+          span.ink-text.cast-label(v-fit="34" :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
 
         button.abs.duel-plate.icon-btn(:style="box(39.5, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear(name="settings")
@@ -197,7 +198,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast')"
         )
           span.cast-glow(v-if="castLive")
-          span.ink-text.cast-label(:style="{ fontSize: '32px', color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+          span.ink-text.cast-label(v-fit="32" :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
         button.abs.duel-plate.cast-btn.p2(
           :style="box(920, 593.5, 330, 85)"
           :class="{ live: cast2Live }"
@@ -205,7 +206,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast2')"
         )
           span.cast-glow(v-if="cast2Live")
-          span.ink-text.cast-label(:style="{ fontSize: '32px', color: cast2Live ? '#fff' : '#7a6f95' }") {{ cast2Label }}
+          span.ink-text.cast-label(v-fit="32" :style="{ color: cast2Live ? '#fff' : '#7a6f95' }") {{ cast2Label }}
         button.abs.duel-plate.icon-btn(:style="box(503, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear(name="settings")
         button.abs.duel-plate.icon-btn(:style="box(682, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
@@ -249,7 +250,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
             @click="emit('cast')"
           )
             span.cast-glow(v-if="castLive")
-            span.ink-text.cast-label(:style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+            span.ink-text.cast-label(v-fit :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
         button.duel-plate.icon-btn.port-icon(v-if="SPELLBOOK" :class="{ 'book-new': bookHud.hasNew }" :aria-label="t('hud.spellbook')" @click="emit('book')")
           GameIcon.gear.small(name="book")
         button.duel-plate.icon-btn.port-icon(:aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")

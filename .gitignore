@@ -94,3 +94,6 @@ __screenshots__/
 
 # Written by `pnpm deploy:poki` (tools/poki-deploy) — one run’s QA evidence.
 /poki-qa-report.json
+
+# S7 release audit: unobfuscated twins of every portal build
+/.release-audit/

@@ -46,6 +46,22 @@
 :lang(ar) .ink-text
   -webkit-text-stroke-width: 0.18em
 
+// …but never back onto an `.ink-none` label. The rule above has the same
+// specificity as `.ink-text.ink-none` and comes later, so it used to restore a
+// dark outline on dark-on-light titles in Arabic only — the spellbook's title
+// set as one illegible blot (S7 locale QA).
+:lang(ar) .ink-text.ink-none
+  -webkit-text-stroke-width: 0
+
+// Italic and letter-spacing are Latin idioms (story-spec §8.21, S7 locale
+// QA). The Options labels, sliders and tabs are italic and tracked-out, which
+// shears Han, kana and hangul, pulls Thai and Devanagari marks off their
+// letters, and breaks Arabic's cursive joins outright. Off, everywhere, for
+// the scripts they damage; `uppercase` is already a no-op for all of them.
+:lang(ar) *, :lang(ja) *, :lang(zh) *, :lang(ko) *, :lang(th) *, :lang(hi) *
+  font-style: normal !important
+  letter-spacing: 0 !important
+
 // Dialogue body text (story-spec §10.15). `.ink-text` is for single shouted
 // words and cannot wrap; a bubble is a sentence, in 21 scripts. Never
 // truncated: a translation that needs a third line gets one.

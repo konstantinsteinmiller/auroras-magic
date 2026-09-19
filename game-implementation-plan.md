@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -117,7 +117,7 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S4 | Chapters 4–10 in pairs (4–5, 6–7, 8–9, 10): Signature Spells, the remaining runes and magics, finale (§6, §10) | Win-rate floors hold from telemetry per pair (§7.2, §12.6) | 26–32 | ✅ 2026-09-19 |
 | S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ✅ 2026-09-19 |
 | S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ✅ 2026-09-19 (pipeline; the paintings are the owner's image-model run) |
-| S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ⬜ |
+| S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ✅ 2026-09-19 |
 | S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ⬜ |
 | S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ⬜ |
 | S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ⬜ |
@@ -598,6 +598,31 @@ lands, resume from the first unticked line):**
     pre-release 22/22 and full release 37/37, web 20/20.
   - `build:all`: 10 archives within budget, 433–642 kB.
   - Neither the dev views nor the prompt text reach any bundle.
+
+**S7 — release prep, all 10 chapters (2026-09-19), as built (story-spec §8.21):**
+- [x] `scripts/release-audit.mjs`: bundle purity per portal, run on
+  unobfuscated twins built into `.release-audit/`.
+- [x] CSP per portal (`PORTAL_HOSTS`); survivalist's five services removed;
+  `csp.test.ts` updated.
+- [x] The language picker shows the live locale; the Arabic `.ink-none`
+  cascade is fixed; no italic or tracking on non-Latin scripts; `v-fit` on
+  the CAST labels; Options uses two columns on short, wide screens.
+- [x] A `__flow.openOverlay` QA hook (overlays can be opened in any locale).
+- [x] `RELEASE-CHECKLIST.md` (the owner's list).
+
+**S7 result (2026-09-19):**
+- **Release audit:** 10/10 clear. One warning: the GameDistribution id is
+  blank, so its SDK is compiled out.
+- **Cross-browser:** Chrome, Edge, Opera, Firefox and WebKit each ran boot →
+  win → unbox → wipe → admire → map, with no console errors.
+- **Viewports and locales:** 320×658 and 764×385 in en, de, ar and ja across
+  9 scenes: no overflow, no console errors, `dir`/`lang` correct. The five
+  fixes above were verified on screenshots.
+- **Tests:** 757 green; `vue-tsc` clean.
+- **Portal QA** (built bundles): GamePix 29/29, GameMonetize 31/31 (dummy
+  QA id, env only), CrazyGames pre-release 22/22 and full release 37/37,
+  web 20/20.
+- `build:all`: 10 archives within budget, 434–642 kB.
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

@@ -1,8 +1,8 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1789781738437,
-  "updatedAt": 1789781738552,
-  "total": 21,
+  "fetchedAt": 1789783976654,
+  "updatedAt": 1789783976675,
+  "total": 26,
   "entries": [
     {
       "rank": 1,
@@ -129,6 +129,36 @@
       "name": "Jolly Kitten 919",
       "score": 1,
       "flair": 1
+    },
+    {
+      "rank": 17,
+      "name": "Merry Acorn 825",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 17,
+      "name": "Misty Pony 968",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 17,
+      "name": "Misty Clover 637",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 17,
+      "name": "Sparkly Panda 618",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 17,
+      "name": "Glowy Kitten 146",
+      "score": 1,
+      "flair": 1
     }
   ],
   "dist": [
@@ -154,7 +184,7 @@
     ],
     [
       1,
-      5
+      10
     ]
   ]
 }

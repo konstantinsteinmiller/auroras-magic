@@ -6132,6 +6132,72 @@ afterwards:
 **Not yet verified:** one real painted return per family. That needs the
 owner's image-model run.
 
+### §8.21 S7 as built (2026-09-19)
+
+S7 is release preparation for the whole game (all 10 chapters are `built`),
+run as the playbook's Phase 7. `RELEASE-CHECKLIST.md` in the project root is
+the owner's copy: what is verified, and what only the owner can do.
+
+**Bundle purity, on unobfuscated twins** (`scripts/release-audit.mjs`). Each
+portal is built once more with the obfuscator off, because a grep of an
+obfuscated bundle proves nothing either way. The script then checks:
+- the build carries its own portal SDK and no other;
+- no source maps and no dev-only art views ship;
+- Poki makes no external request and has no CSP meta;
+- Playgama (the Playables archive) has the `game_api/v1` tag, no CSP meta,
+  and no Page Visibility API, `navigator.language` or leaderboard request in
+  our code. Playgama's vendored Bridge v2 is read separately, since it names
+  every platform it supports;
+- Yandex has no leaderboard request.
+
+The first run found the CSP meta tag advertising EVERY portal in every build
+(a GameMonetize page naming CrazyGames, Yandex and more), plus Microsoft
+Clarity, jsonbin, getpantry, PeerJS and Sentry. Those five are survivalist's
+services, with zero references in `src/`.
+- `buildCsp` now lists each portal's own hosts only (`PORTAL_HOSTS`).
+- The standalone web build names no portal.
+- The five dead services are gone everywhere.
+- `tests/platforms/csp.test.ts` pins all three.
+
+**Cross-browser** (built web bundle, own static server): Chrome, Edge, Opera,
+Firefox and WebKit. Each engine cold-boots, wins a duel, unboxes, wipes to
+the admire beat and returns to the map, with no console errors. WebKit is
+Safari's engine; a real iOS device stays on the owner's list.
+
+**Small viewports and localisation** (320×658 portrait, 764×385 embed; en,
+de, ar, ja; 9 scenes each). Fixes:
+- **The language picker showed "ENGLISH" over an Arabic or German game.** It
+  was bound to the stored player choice, which defaults to `en` until the
+  player picks, not to the language on screen. It now shows the live locale.
+  A pick is applied directly, so picking English over an Arabic screen works
+  even though the stored value does not change. That setter is still the
+  only writer of the player-choice key.
+- **The Arabic spellbook title was an illegible blot.** `:lang(ar) .ink-text`
+  thins the outline for Arabic, but it had the same specificity as
+  `.ink-text.ink-none` and came later, so it put a dark outline back onto a
+  dark-on-light title.
+- **No italic or letter-spacing** under `:lang(ar|ja|zh|ko|th|hi)`. Those
+  Latin idioms (on the Options labels, sliders and tabs) shear CJK, pull Thai
+  and Devanagari marks apart, and break Arabic's joins.
+- **The CAST label shrinks to fit** (`v-fit`, not below 60 %) instead of
+  truncating. German's "[Leertaste] Zaubern" was "[Leertaste] Za…" at every
+  window size, because the HUD scales as one stage.
+- **Options uses two columns on any short, wide screen**, not only touch
+  devices. On a 764×385 Chromebook embed, SAVE & CLOSE lay over the music
+  slider.
+- A locale scan found nothing untranslated except the brand name.
+
+**Images:** already compressed; a further pass would save 1.5 kB for a second
+generation loss, so it was skipped.
+
+**Owner actions** (see `RELEASE-CHECKLIST.md`):
+- the GameDistribution and Yandex game ids, and Poki's `gameId`;
+- CrazyGames: pre-release first, then flip the full-release flag;
+- YouTube's SDK Test Suite on the uploaded Playgama build;
+- store art;
+- the child-directed and privacy-URL decisions;
+- a real iOS device.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

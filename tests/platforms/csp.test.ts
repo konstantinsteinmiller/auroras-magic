@@ -17,7 +17,7 @@ describe('buildCsp', () => {
   // build emits no CSP meta tag at all (`skipCspMeta` in vite.config.ts),
   // because Poki applies a per-game allowlist server-side and injects its own
   // ad stack into our iframe — a self-imposed policy would silently kill every
-  // ad. Adding `game-cdn.poki.com` to BASE_HOSTS would therefore do nothing
+  // ad. Adding `game-cdn.poki.com` to a host list would therefore do nothing
   // except leak a foreign host string into every OTHER platform's bundle, which
   // is exactly what Yandex moderation rejects as "Service storage URL detected".
   describe('poki', () => {
@@ -30,13 +30,11 @@ describe('buildCsp', () => {
   })
 
   describe('default web (no platform flag)', () => {
-    it('contains base host whitelist', () => {
+    it('advertises no portal at all — it has no SDK (S7)', () => {
       const csp = buildCsp(baseEnv())
-      expect(csp).toContain('https://*.crazygames.com')
-      expect(csp).toContain('https://gamedistribution.com')
-      expect(csp).toContain('https://wavedash.com')
-      expect(csp).toContain('https://itch.io')
-      expect(csp).toContain('https://glitch.fun')
+      for (const host of ['crazygames', 'gamedistribution', 'wavedash', 'itch.io', 'glitch.fun', 'gamepix', 'gamemonetize', 'playgama', 'yandex']) {
+        expect(csp, host).not.toContain(host)
+      }
     })
 
     it('does NOT include GameDistribution partner hosts', () => {
@@ -55,14 +53,14 @@ describe('buildCsp', () => {
       expect(styleSrc.split(/\s+/)).not.toContain('https:')
     })
 
-    it('img-src is locked to data: + base hosts', () => {
+    it('img-src is locked to data:', () => {
       const csp = buildCsp(baseEnv())
       const imgSrc = csp.match(/img-src ([^;]+)/)![1]!
       expect(imgSrc).toContain('data:')
       expect(imgSrc.split(/\s+/)).not.toContain('https:')
     })
 
-    it('frame-src is empty (only "self" + base hosts)', () => {
+    it('frame-src is empty (only "self")', () => {
       const csp = buildCsp(baseEnv())
       const frameSrc = csp.match(/frame-src ([^;]+)/)![1]!
       expect(frameSrc.split(/\s+/)).not.toContain('https:')
@@ -74,6 +72,34 @@ describe('buildCsp', () => {
       expect(fontSrc).toContain('data:')
       expect(fontSrc.split(/\s+/)).not.toContain('https:')
     })
+  })
+
+  describe('per-portal host lists (S7 release audit)', () => {
+    const PORTALS: Record<string, [string, string[]]> = {
+      VITE_APP_CRAZY_WEB: ['crazygames.com', ['gamepix', 'gamemonetize', 'yandex', 'gamedistribution']],
+      VITE_APP_GAMEPIX: ['gamepix.com', ['crazygames', 'gamemonetize', 'yandex', 'gamedistribution']],
+      VITE_APP_GAME_MONETIZE: ['gamemonetize.com', ['crazygames', 'gamepix', 'yandex', 'gamedistribution']],
+      VITE_APP_GAME_DISTRIBUTION: ['gamedistribution.com', ['crazygames', 'gamepix', 'gamemonetize', 'yandex']],
+      VITE_APP_ITCH: ['itch.io', ['crazygames', 'gamepix', 'gamemonetize', 'yandex']],
+      VITE_APP_GLITCH: ['glitch.fun', ['crazygames', 'gamepix', 'gamemonetize', 'yandex']],
+      VITE_APP_WAVEDASH: ['wavedash.com', ['crazygames', 'gamepix', 'gamemonetize', 'yandex']]
+    }
+    for (const [flag, [own, others]] of Object.entries(PORTALS)) {
+      it(`${flag} lists its own portal and no other`, () => {
+        const csp = buildCsp({ ...baseEnv(), [flag]: 'true' })
+        expect(csp).toContain(own)
+        for (const o of others) expect(csp, o).not.toContain(o)
+      })
+    }
+
+    it("carries none of survivalist's services anywhere", () => {
+      const flags = [...Object.keys(PORTALS), 'VITE_APP_YANDEX', 'VITE_APP_PLAYGAMA']
+      for (const env of [baseEnv(), ...flags.map((f) => ({ ...baseEnv(), [f]: 'true' }))]) {
+        const csp = buildCsp(env)
+        for (const dead of ['clarity.ms', 'jsonbin', 'getpantry', 'peerjs', 'sentry']) expect(csp, dead).not.toContain(dead)
+      }
+    })
+
   })
 
   describe('GameDistribution build (VITE_APP_GAME_DISTRIBUTION=true)', () => {

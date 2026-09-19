@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import useUser, { isMobileLandscape } from '@/use/useUser'
+import useUser, { isMobileLandscape, isShortViewport, windowWidth, windowHeight } from '@/use/useUser'
 import { setI18nLocale } from '@/i18n'
 import FModal from '@/components/molecules/FModal.vue'
 import FButton from '@/components/atoms/FButton.vue'
@@ -37,13 +37,38 @@ const {
 
 const currentTab = ref('general')
 
-watch(userLanguage, async (newValue: string) => {
+/**
+ * Two columns whenever the screen is short and wide — a landscape phone, AND
+ * a desktop embed like a Chromebook's 764 × 385 portal frame, which is not a
+ * touch device and used to get the one-column list with SAVE & CLOSE lying
+ * over the music slider (S7 viewport QA).
+ */
+const twoColumns = computed(() =>
+  isMobileLandscape.value || (isShortViewport.value && windowWidth.value > windowHeight.value))
+
+const applyLocale = async (value: string): Promise<void> => {
   if (appI18n) {
-    await setI18nLocale(appI18n, newValue)
+    await setI18nLocale(appI18n, value)
   } else {
-    locale.value = newValue
+    locale.value = value
   }
-})
+}
+watch(userLanguage, applyLocale)
+
+/**
+ * The picker shows the language the game is SHOWING, not the stored choice.
+ * A player who never picked one has `userLanguage` at its 'en' default while
+ * the game speaks whatever the portal or the browser asked for, so the
+ * stored value put "English" over an Arabic or German screen (S7 locale
+ * QA). A pick is applied directly as well as stored: picking English there
+ * leaves `userLanguage` unchanged, so its watcher alone would never fire.
+ * This setter stays the only writer of the player-choice key.
+ */
+const shownLanguage = computed<string>(() => locale.value)
+const pickLanguage = (value: string): void => {
+  setSettingValue('language', value)
+  void applyLocale(value)
+}
 
 const isMobile = computed(() => {
   return typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
@@ -120,15 +145,15 @@ const doLeave = (): void => {
       //- Landscape mobile lays the controls out in 2 columns so all of them
       //- (language, the two sliders, vibration) fit the short viewport
       //- without the SAVE & CLOSE footer overlapping them.
-      div(:class="isMobileLandscape ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
+      div(:class="twoColumns ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
         div(class="z-[20] flex flex-col gap-2")
           FSelect(
             :label="t('options.language')"
             :options="languagesList"
-            :model-value="userLanguage"
-            @update:model-value="setSettingValue('language', $event)"
+            :model-value="shownLanguage"
+            @update:model-value="pickLanguage($event)"
           )
-        hr(v-if="!isMobileLandscape" class="border-slate-600 my-1 md:my-2 pt-0")
+        hr(v-if="!twoColumns" class="border-slate-600 my-1 md:my-2 pt-0")
         FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
         FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
         //- The comfort settings (§3.11, §5.13). Each dropdown sits above the

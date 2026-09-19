@@ -489,7 +489,9 @@ onMounted(() => {
       /** What the portals were last told: is gameplay live? */
       live: bracketLive,
       /** Close Options / the spellbook, whatever their buttons are called. */
-      closeOverlay
+      closeOverlay,
+      /** …and open one, in any locale (the buttons' labels are translated). */
+      openOverlay
     }
     w.__versus = { open: openVersus, start: startVersus, state: () => ({ ...versusHud, versus: S.versus }) }
     w.__castSide = castSide

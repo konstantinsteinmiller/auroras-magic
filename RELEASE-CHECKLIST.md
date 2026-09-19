@@ -1,0 +1,67 @@
+# Auroras Magic — release checklist (all 10 chapters)
+
+Written at S7 (2026-09-19, story-spec §8.21) and re-checked at S10.
+Engineering is verified end to end. The items under **Owner actions** need
+accounts, dashboards, legal calls or a real device, so they cannot be done
+from the repo.
+
+## Verified (S7)
+
+| Check | How | Result |
+| --- | --- | --- |
+| Bundle purity, every portal | `node scripts/release-audit.mjs --build`, run on unobfuscated twins | 10/10 clear: own SDK only, no source maps, no dev-only art views, no leftover survivalist services |
+| Poki: no external requests, no CSP meta | release audit | clear (`game-cdn.poki.com` only) |
+| Playgama / YouTube Playables | release audit | `game_api/v1` tag present; no CSP meta; no Page Visibility API or `navigator.language` in our code (the vendored Bridge v2 uses them internally); baked leaderboard |
+| Yandex: no third-party URLs | release audit | clear |
+| CSP names only its own portal | `tests/platforms/csp.test.ts` | Each build lists only its own portal. Clarity, jsonbin, getpantry, PeerJS and Sentry are gone |
+| Cross-browser | Chrome, Edge, Opera, Firefox, WebKit on the built web bundle | 5/5: cold boot < 2 s → duel won → unbox → wipe → admire → map, zero console errors |
+| Small viewports | 320×658 portrait and 764×385 embed, 9 scenes each | no horizontal overflow, no console errors; Options uses two columns on short, wide screens |
+| Localisation | en / de / ar / ja at both sizes; key parity (21 locales) | `dir`/`lang` correct; Arabic joined and legible; the language picker shows the language on screen; no italics or tracking on non-Latin scripts; no untranslated strings |
+| Portal QA batteries | `pnpm qa:portal` | see `game-implementation-plan.md` (S7 result) |
+| Archives | `pnpm build:all` | all 10 within budget |
+| Images | `compress-images` dry run | already compressed (a further pass would save 1.5 kB) |
+
+## Owner actions — blocking, per portal
+
+- [ ] **GameDistribution:** set `VITE_GAME_DISTRIBUTION_GAME_ID` in
+  `.env.game-distribution`. While it is blank, the SDK loader is compiled out
+  and that build shows no ads (the release audit warns).
+- [ ] **Yandex:** set `VITE_GAME_ID` in `.env.yandex.local`.
+- [ ] **Poki:**
+  - set `gameId` in `tools/poki-deploy/poki.config.mjs` (it is blank; `team`
+    is `hyperg8`, so confirm that is right for this game), then run
+    `pnpm deploy:poki`;
+  - run the Inspector on the uploaded version;
+  - add a 628×628 thumbnail, full-bleed, with no text.
+- [ ] **Glitch:** the install ids and token in `.env.glitch`, if that
+  portal is used.
+- [ ] **CrazyGames:**
+  - submit the pre-release build first;
+  - after acceptance, set `VITE_APP_CRAZY_GAMES_FULL_RELEASE=true` and
+    resubmit. The full-release behaviour is already QA'd (37/37).
+- [ ] **Playgama / YouTube Playables:**
+  - run YouTube's SDK Test Suite on the uploaded build;
+  - a Playgama-hosted leaderboard (`VITE_PLAYGAMA_LEADERBOARD_ID`) is
+    optional. The build ships our baked board, so leave it blank unless the
+    board exists on the Playgama dashboard.
+- [ ] **Store art:** every portal wants cover and thumbnail images. The
+  painted-art pipeline (S6) can make them once paintings exist; otherwise,
+  capture them from the game.
+
+## Owner actions — decisions
+
+- [ ] **Child-directed:** `VITE_CHILD_DIRECTED` is unset, so the build is
+  treated as general audience (D1: all ages, cozy). Setting it adds the
+  non-personalised-ads note under "For Parents". Whether this is a
+  child-directed service is a legal call for the owner.
+- [ ] **Privacy policy:** `VITE_PRIVACY_URL` is unset, so "For Parents" shows
+  no link. Some portals ask for one; on Poki and Playgama the link never shows
+  (outbound links are not allowed there).
+- [ ] **Real iOS device:** WebKit passed on Windows, but a real iPhone or iPad
+  is the final Safari check (audio unlock, safe areas, touch).
+
+## Optional
+
+- [ ] Painted art: run the image model from `art-sheets/PROMPTS-*.md`,
+  `pnpm slice-sheets`, check `/#/playground`, then set
+  `VITE_ENABLE_ART_OVERRIDES=true` (story-spec §8.20).
