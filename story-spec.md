@@ -6198,6 +6198,31 @@ generation loss, so it was skipped.
 - the child-directed and privacy-URL decisions;
 - a real iOS device.
 
+### §8.22 S8 as built (2026-09-19)
+
+S8 is the performance pass (`web-game-performance-optimize`: set a budget,
+measure, and only A/B a measured candidate). **Verdict: already fast
+enough, so nothing was changed.** The numbers and null results are in
+`PERF-LEDGER.md`.
+
+- **Budget:** a 2021 mid-range Android, proxied as CPU ×4 at DPR 2
+  (915×412 landscape and 412×915 portrait); 60 fps, so 16.7 ms per frame;
+  metric: p95 work per frame.
+- **Harness:** `scripts/perf-scenes.mjs` runs the built bundle behind a
+  gzipping server in headed Chrome with the in-game probe. Scenes: the
+  10-5 boss duel for 60 s with both sides casting, the map at full
+  progress, the boss wipe, versus, and the wardrobe.
+- **Result:**
+  - The worst p95 across all scenes and both orientations is 4.2 ms, about a
+    quarter of the budget.
+  - No long tasks, flat heap.
+  - Boot is 4.1 s on Fast 3G at CPU ×4.
+- **Painted-art census:** 59 vs 126 canvases per session. They are one-time
+  bakes, not an invalidation storm, and frame time is unchanged. Re-run it
+  with real paintings.
+- **Closed:** precompiling vue-i18n's messages. The gain is under 2 % of boot
+  and would mean converting 21 locale files.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

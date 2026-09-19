@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 ✅ · S9 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -118,7 +118,7 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ✅ 2026-09-19 |
 | S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ✅ 2026-09-19 (pipeline; the paintings are the owner's image-model run) |
 | S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ✅ 2026-09-19 |
-| S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ⬜ |
+| S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ✅ 2026-09-19 (already fast enough) |
 | S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ⬜ |
 | S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ⬜ |
 
@@ -623,6 +623,16 @@ lands, resume from the first unticked line):**
   QA id, env only), CrazyGames pre-release 22/22 and full release 37/37,
   web 20/20.
 - `build:all`: 10 archives within budget, 434–642 kB.
+
+**S8 — performance pass (2026-09-19), as built (story-spec §8.22):**
+- [x] Budget set: CPU ×4, DPR 2, 60 fps, p95 work per frame.
+- [x] Baseline of every scene in both orientations (`scripts/perf-scenes.mjs`).
+- [x] Painted-art canvas census, art off vs on.
+- [x] The ledger's open vue-i18n experiment, closed as not worth it.
+
+**S8 result:** worst p95 4.2 ms (boss duel, versus, map), zero long tasks,
+boot 4.1 s. No optimisation was warranted, so none was made
+(`PERF-LEDGER.md`).
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their
