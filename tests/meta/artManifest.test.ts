@@ -9,7 +9,10 @@
 // from `artTarget` is a painting nobody ever sees.
 
 import { describe, expect, it } from 'vitest'
-import { promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, manifestTargets, NEUTRAL_HEX, sheetRows } from '@/game/artSheet'
+import {
+  promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, STORY_SHEETS,
+  manifestTargets, NEUTRAL_HEX, sheetRows
+} from '@/game/artSheet'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
 import { ITEM_ART, SECTOR_SLUGS, sectorArtId, sectorNodeOf, RUNE_SLUGS, runeArtId } from '@/game/artIds'
 import { SECTORS } from '@/game/map/sectors'
@@ -43,7 +46,10 @@ describe('the art manifest', () => {
   })
 
   it('never lets two drawables share a file or a reference', () => {
-    const targets = [...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...ITEM_SHEETS.map((s) => s.target), ...RUNE_SHEETS.map((s) => s.target)]
+    const keyed = [...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS]
+    const targets = [
+      ...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...STORY_SHEETS.map((s) => s.target), ...keyed.map((s) => s.target)
+    ]
     expect(new Set(targets).size).toBe(targets.length)
     expect(manifestTargets().size).toBe(targets.length)
     const refs = sheetRows().map((r) => r.file)
@@ -60,7 +66,11 @@ describe('the prompt documents', () => {
   const docs = promptDocs()
 
   it('hold one fenced block per drawable, with no stray fence inside one', () => {
-    const want: Record<string, number> = { 'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 8, 'PROMPTS-RUNES.md': 12 }
+    const want: Record<string, number> = {
+      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 15, 'PROMPTS-RUNES.md': 12,
+      'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4
+    }
+    expect(Object.keys(docs).sort()).toEqual(Object.keys(want).sort())
     for (const [name, text] of Object.entries(docs)) {
       const lines = text.split('\n')
       expect(lines.filter((l) => l.startsWith('## ')).length, name).toBe(want[name])
@@ -85,7 +95,7 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(70)
+    expect(jobs).toHaveLength(111)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

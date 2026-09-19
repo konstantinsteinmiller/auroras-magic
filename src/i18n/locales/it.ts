@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Avanti',
+    'skip': 'Salta',
     'replay': 'Riprova',
     'back': 'Indietro',
     'play': 'Gioca',
@@ -156,6 +157,7 @@ export default {
     'close': 'Salva e chiudi',
     'traceAssist': 'Mostra le guide delle rune',
     'reducedMotion': 'Movimento ridotto',
+    'watchIntro': 'Guarda l’intro',
     'leaveDuel': {
       'label': 'Esci dal duello',
       'title': 'Vuoi uscire da questo duello?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Pennello di polvere di stelle',
+    'stardustSponge': 'Spugna di polvere di stelle',
     'magicEraser': 'Gomma magica',
     'sunbeam': 'Raggio di sole'
   },

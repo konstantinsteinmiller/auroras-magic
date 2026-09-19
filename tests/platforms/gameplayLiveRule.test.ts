@@ -41,7 +41,7 @@ describe('isGameplayLive', () => {
   // ─── The story scenes (story-spec §4.9.1, §11.2) ─────────────────────────
 
   it('is live in exactly two scenes: a duel being fought, and a wipe', () => {
-    const scenes = ['boot', 'map', 'dialogue', 'duel', 'unbox', 'wipe', 'wardrobe', 'versusSetup'] as const
+    const scenes = ['boot', 'intro', 'map', 'dialogue', 'duel', 'unbox', 'wipe', 'wardrobe', 'versusSetup'] as const
     for (const scene of scenes) {
       for (const duelPhaseIsLive of [true, false]) {
         const want = (scene === 'duel' && duelPhaseIsLive) || scene === 'wipe'

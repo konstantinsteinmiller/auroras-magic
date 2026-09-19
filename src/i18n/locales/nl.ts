@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Volgende',
+    'skip': 'Overslaan',
     'replay': 'Opnieuw',
     'back': 'Terug',
     'play': 'Spelen',
@@ -157,6 +158,7 @@ export default {
     'close': 'Opslaan en sluiten',
     'traceAssist': 'Runehulplijnen tonen',
     'reducedMotion': 'Minder beweging',
+    'watchIntro': 'Intro bekijken',
     'leaveDuel': {
       'label': 'Duel verlaten',
       'title': 'Dit duel verlaten?',
@@ -253,7 +255,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Sterrenstofpenseel',
+    'stardustSponge': 'Sterrenstofspons',
     'magicEraser': 'Tovergum',
     'sunbeam': 'Zonnestraal'
   },

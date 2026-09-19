@@ -43,7 +43,7 @@ import { pokiGameplayStart, pokiGameplayStop } from '@/utils/pokiPlugin'
 // purpose: a platform-contract module must not drag the simulation into
 // anything that imports it.
 export type LiveScene =
-  | 'boot' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe' | 'wardrobe' | 'versusSetup'
+  | 'boot' | 'intro' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe' | 'wardrobe' | 'versusSetup'
 
 export interface GameplayLiveInputs {
   /** Which scene the one canvas is showing (story-spec §4.1.1). */

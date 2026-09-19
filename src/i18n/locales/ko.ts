@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': '다음',
+    'skip': '건너뛰기',
     'replay': '다시하기',
     'back': '뒤로',
     'play': '플레이',
@@ -156,6 +157,7 @@ export default {
     'close': '저장 후 닫기',
     'traceAssist': '룬 안내선 표시',
     'reducedMotion': '동작 줄이기',
+    'watchIntro': '인트로 보기',
     'leaveDuel': {
       'label': '대결 나가기',
       'title': '이 대결에서 나갈까요?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': '별가루 붓',
+    'stardustSponge': '별가루 스펀지',
     'magicEraser': '마법 지우개',
     'sunbeam': '햇살'
   },

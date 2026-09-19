@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'التالي',
+    'skip': 'تخطي',
     'replay': 'إعادة',
     'back': 'رجوع',
     'play': 'تشغيل',
@@ -156,6 +157,7 @@ export default {
     'close': 'حفظ وإغلاق',
     'traceAssist': 'إظهار مسارات الرموز',
     'reducedMotion': 'تقليل الحركة',
+    'watchIntro': 'شاهد المقدمة',
     'leaveDuel': {
       'label': 'مغادرة المبارزة',
       'title': 'هل تريد مغادرة هذه المبارزة؟',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'فرشاة غبار النجوم',
+    'stardustSponge': 'إسفنجة غبار النجوم',
     'magicEraser': 'ممحاة سحرية',
     'sunbeam': 'شعاع الشمس'
   },

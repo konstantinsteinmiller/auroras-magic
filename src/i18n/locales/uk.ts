@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Далі',
+    'skip': 'Пропустити',
     'replay': 'Заново',
     'back': 'Назад',
     'play': 'Грати',
@@ -157,6 +158,7 @@ export default {
     'close': 'Зберегти й закрити',
     'traceAssist': 'Показувати підказки рун',
     'reducedMotion': 'Менше анімації',
+    'watchIntro': 'Переглянути вступ',
     'leaveDuel': {
       'label': 'Покинути дуель',
       'title': 'Покинути цю дуель?',
@@ -253,7 +255,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Пензлик зоряного пилу',
+    'stardustSponge': 'Губка зоряного пилу',
     'magicEraser': 'Чарівна гумка',
     'sunbeam': 'Сонячний промінчик'
   },

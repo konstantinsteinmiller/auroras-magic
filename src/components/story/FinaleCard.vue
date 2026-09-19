@@ -12,7 +12,7 @@
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { portraitUrl } from '@/game/story/portrait'
-import type { SpeakerId, Emote } from '@/game/story/story'
+import { FINALE_CAST } from '@/game/story/story'
 import { sfx, chatter } from '@/game/duel/audio'
 import { haptic } from '@/use/useHaptics'
 import { reducedMotion } from '@/use/useAccessibility'
@@ -21,12 +21,7 @@ import GameIcon from '@/components/icons/GameIcon.vue'
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 
-const CAST: readonly (readonly [SpeakerId, Emote])[] = [
-  ['briar', 'happy'], ['pearl', 'happy'], ['zephyr', 'cheering'], ['terra', 'happy'], ['echo', 'cheering'],
-  ['aurora', 'cheering'], ['umbra', 'warmBlush'],
-  ['prism', 'cheering'], ['ember', 'happy'], ['glace', 'happy'], ['nova', 'cheering']
-]
-const faces = computed(() => CAST.map(([s, e]) => ({ id: s, url: portraitUrl(s, e), star: s === 'aurora' || s === 'umbra' })))
+const faces = computed(() => FINALE_CAST.map(([s, e]) => ({ id: s, url: portraitUrl(s, e), star: s === 'aurora' || s === 'umbra' })))
 const confetti = Array.from({ length: 28 }, (_, i) => ({
   left: `${(i * 37) % 100}%`,
   delay: `${((i * 0.29) % 2.4).toFixed(2)}s`,

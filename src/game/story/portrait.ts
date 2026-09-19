@@ -14,10 +14,23 @@
  * glowworm (4), Blink the mirror moth (5), Rio the rainbow finch (6), Dune the
  * sand-fox pup (7), Frosty the snow hare (8), Wisp the firefly (9) and Sprig,
  * chapter 1's sprite back in a party hat for the Festival (10).
+ *
+ * PAINTED (§8.27): each speaker's expressions are one painted strip
+ * (`PORTRAIT_SETS`, `images/portraits/portrait-<who>.webp`). When it has
+ * decoded, the badge draws that panel inside its ring instead of the rig; the
+ * ring and the badge colour stay drawn. Aurora's painting is her bare self,
+ * so it stands in only while she wears nothing a portrait shows (a crown, a
+ * necklace or scarf, a skin, a mane colour) — otherwise the rig draws her,
+ * dressed.
  */
+import { ref } from 'vue'
 import { drawUnicorn, type Face } from '@/game/duel/chars'
 import { FOES, guardianOf } from '@/game/duel/foes'
 import { equippedHooks, equippedKey } from '@/game/cosmetics/rig-cosmetics'
+import { COSMETIC_SLOTS } from '@/game/campaign/tables'
+import { onArtChanged, spriteFor } from '@/game/art'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { PORTRAIT_SETS, portraitArtId, portraitSetOf, type PortraitEmote } from '@/game/artIds'
 import type { Emote, SpeakerId } from '@/game/story/story'
 
 /** §10.6's emote table, as the rig's three numbers plus blush. */
@@ -146,8 +159,9 @@ const rimFace = (face: Face, light: string) => (g: CanvasRenderingContext2D): vo
   }
 }
 
-/** Draw the head of a unicorn speaker, cropped into a PX × PX badge. */
-const drawRigHead = (g: CanvasRenderingContext2D, speaker: SpeakerId, face: Face): void => {
+/** Draw the head of a unicorn speaker, cropped into a PX × PX badge. `bare`:
+ *  Aurora as herself, wearing nothing (the painted strip's reference). */
+const drawRigHead = (g: CanvasRenderingContext2D, speaker: SpeakerId, face: Face, bare = false): void => {
   const foeSide = speaker !== 'aurora'
   const side = foeSide ? 1 : -1
   // The head sits ~(±22, -120) above the hooves; frame it, with room for the horn.
@@ -157,7 +171,7 @@ const drawRigHead = (g: CanvasRenderingContext2D, speaker: SpeakerId, face: Face
   g.scale(s, s)
   const foe = SPEAKER_FOE[speaker] ?? guardianOf(0)
   const streak = FOES[foe]?.pal[4]
-  const worn = speaker === 'aurora' ? equippedHooks() : RIM_LIT.has(speaker) && streak ? { afterHead: rimFace(face, streak) } : {}
+  const worn = speaker === 'aurora' ? (bare ? {} : equippedHooks()) : RIM_LIT.has(speaker) && streak ? { afterHead: rimFace(face, streak) } : {}
   drawUnicorn(g, 0, 0, side, { face, foe, ...worn }, 1.3)
   g.restore()
 }
@@ -858,10 +872,71 @@ const CREATURE_DRAW: Readonly<Record<string, (g: G, face: Face, pose: CreaturePo
   Sprig: (g, face) => drawSprite(g, face, true)
 }
 
+/**
+ * What sits inside the badge's ring, in badge pixels: the speaker's head, or
+ * the chapter creature in its emote's pose. The caller has clipped to the
+ * badge's circle.
+ */
+const paintBadge = (g: G, speaker: SpeakerId, emote: Emote, creature: string, bare = false): void => {
+  const face = EMOTE_FACE[emote]
+  if (speaker === 'creature') {
+    // §10.6's pose: lean about the chin, and a little hop for a cheer.
+    const pose = EMOTE_POSE[emote]
+    g.translate(PX / 2, PX * 0.8)
+    g.rotate(pose.tilt)
+    g.translate(-PX / 2, -PX * 0.8 - pose.hop)
+    ;(CREATURE_DRAW[creature] ?? CREATURE_DRAW.Twig!)(g, face, pose)
+  }
+  else drawRigHead(g, speaker, face, bare)
+}
+
+/**
+ * Each speaker's painted strip (§8.27): panel `f` is `PORTRAIT_SETS[…].emotes[f]`,
+ * the badge's inside at scale `s` = the badge's width, centred on the origin
+ * and cut to its circle. The reference the bench renders, the box the
+ * painting is blitted into, and the fallback — all this one drawing.
+ */
+export const PORTRAIT_ART: Readonly<Record<string, ItemSpec>> = Object.fromEntries(PORTRAIT_SETS.map((p) => [p.who, {
+  kind: 'portrait' as const,
+  id: portraitArtId(p.who),
+  frames: p.emotes.length,
+  draw: (g: G, s: number, f: number) => {
+    g.save()
+    g.scale(s / PX, s / PX)
+    g.translate(-PX / 2, -PX / 2)
+    g.beginPath()
+    g.arc(PX / 2, PX / 2, PX / 2 - 4, 0, TAU)
+    g.clip()
+    paintBadge(g, (p.creature ? 'creature' : p.who) as SpeakerId, p.emotes[f] ?? p.emotes[0]!, p.who, true)
+    g.restore()
+  }
+}]))
+
+/** The slots a portrait shows: wearing any of them, Aurora is drawn, dressed. */
+const PORTRAIT_SLOTS: ReadonlySet<string> = new Set(['head', 'neck', 'skin', 'mane'])
+const auroraBare = (): boolean => {
+  const worn = equippedKey().split('#')[0]!.split('|')
+  return COSMETIC_SLOTS.every((slot, i) => !PORTRAIT_SLOTS.has(slot) || (worn[i] ?? '-') === '-')
+}
+
+/**
+ * Bumped when a portrait painting decodes (or the art layer flips): the
+ * bubbles' `computed`s read it through `portraitUrl`, so a face that arrives
+ * mid-line swaps in at once.
+ */
+const portraitArtRev = ref(0)
+onArtChanged((c) => {
+  if (!c || c.kind === 'portrait') portraitArtRev.value++
+})
+
 /** A portrait as a data URL, baked on first use. `creature` names which
  *  chapter's filler creature a `creature` bubble shows. */
 export const portraitUrl = (speaker: SpeakerId, emote: Emote, creature = 'Twig'): string => {
-  const key = `${speaker}:${emote}:${speaker === 'aurora' ? equippedHeadKey() : speaker === 'creature' ? creature : ''}`
+  void portraitArtRev.value
+  const set = portraitSetOf(speaker, creature)
+  const f = set ? set.emotes.indexOf(emote as PortraitEmote) : -1
+  const art = set && f >= 0 && (speaker !== 'aurora' || auroraBare()) ? spriteFor('portrait', portraitArtId(set.who)) : null
+  const key = `${speaker}:${emote}:${speaker === 'aurora' ? equippedHeadKey() : speaker === 'creature' ? creature : ''}${art ? ':painted' : ''}`
   const hit = cache.get(key)
   if (hit) return hit
   if (typeof document === 'undefined') return ''
@@ -879,16 +954,14 @@ export const portraitUrl = (speaker: SpeakerId, emote: Emote, creature = 'Twig')
   g.fillStyle = gr
   g.fill()
   g.clip()
-  const face = EMOTE_FACE[emote]
-  if (speaker === 'creature') {
-    // §10.6's pose: lean about the chin, and a little hop for a cheer.
-    const pose = EMOTE_POSE[emote]
-    g.translate(PX / 2, PX * 0.8)
-    g.rotate(pose.tilt)
-    g.translate(-PX / 2, -PX * 0.8 - pose.hop)
-    ;(CREATURE_DRAW[creature] ?? CREATURE_DRAW.Twig!)(g, face, pose)
+  let painted = false
+  if (art && set) {
+    g.save()
+    g.translate(PX / 2, PX / 2)
+    painted = drawItem(g, PORTRAIT_ART[set.who]!, PX, f)
+    g.restore()
   }
-  else drawRigHead(g, speaker, face)
+  if (!painted) paintBadge(g, speaker, emote, creature)
   g.restore()
   g.beginPath()
   g.arc(PX / 2, PX / 2, PX / 2 - 4, 0, Math.PI * 2)

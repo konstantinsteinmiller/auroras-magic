@@ -19,9 +19,11 @@
 //
 // Exits non-zero on the first failed check, so CI can gate on it.
 //
-// THE STORY BUILD (story-spec §11.15). A fresh profile boots into chapter 1's
-// dialogue, not a duel, so the battery enters a duel through the QA hook
-// `__gotoNode(0)` (dialogue skipped). After the shared mute/pause/menu checks
+// THE STORY BUILD (story-spec §11.15). A fresh profile boots into the
+// first-launch intro (§8.26) and then chapter 1's dialogue, not a duel: the
+// battery checks the intro holds silent under the first-load ad, skips it the
+// way a player would, and enters a duel through the QA hook `__gotoNode(0)`
+// (dialogue skipped). After the shared mute/pause/menu checks
 // it tours every scene of §11.2's table and asserts the bracket per scene
 // (`__flow.live()`): live in the duel and the wipe only. Then happytime's
 // placement (at the boss chest's unbox, never at a win) and the Twin Gift's
@@ -321,6 +323,10 @@ var runAd = function (kind) {
       audioAtOpen: qa.audioState(),
       // C30 (§11.7): the very first dialogue bubble must wait for this ad.
       bubbleAtOpen: !!document.querySelector('.dialogue .beat'),
+      // …and so must the intro that comes before it (§8.26): on its first
+      // frame, its clock not started, not one whinny.
+      introAtOpen: window.__intro ? window.__intro.state() : null,
+      introPastCap: null,
       musicPastCap: null,
       audioPastCap: null,
       railPastCap: null
@@ -332,6 +338,7 @@ var runAd = function (kind) {
       qa.adAudit.voicesPastCap = qa.voices;
       qa.adAudit.audioPastCap = qa.audioState();
       qa.adAudit.railPastCap = qa.progress();
+      qa.adAudit.introPastCap = window.__intro ? window.__intro.state() : null;
     }, 8000);
     setTimeout(function () {
       qa.adOpen = false;
@@ -593,6 +600,7 @@ try {
   }
   check('game booted (a fresh save opens on the story)', booted,
     booted ? `scene=${await ev('window.__campaignPhase ? window.__campaignPhase() : "?"')}` : '')
+  if (booted) check('a fresh save opens on the intro (§8.26)', await ev('window.__campaignPhase()') === 'intro')
   if (!booted) {
     console.log('  body    : ' + await ev('document.body.innerText.slice(0,300)'))
     console.log('  hooks   : ' + await ev('JSON.stringify({ S: typeof window.__S, cheat: (function(){ try { return localStorage.getItem("cheat") } catch (e) { return String(e) } })(), canvas: !!document.querySelector("canvas.duel-canvas"), globals: Object.keys(window).filter(function (k) { return k.indexOf("__") === 0 }), lsIsNative: (function(){ try { return Object.prototype.toString.call(window.localStorage) } catch (e) { return String(e) } })(), keys: (function(){ try { var o=[]; for (var i=0;i<localStorage.length;i++) o.push(localStorage.key(i)); return o } catch (e) { return String(e) } })() })'))
@@ -632,6 +640,18 @@ try {
     }
     return false
   }
+  // The intro plays once the loader and any first-load ad are done; a player
+  // who skips it lands on chapter 1's dialogue, and it counts as seen.
+  const intro = JSON.parse(await ev('JSON.stringify(window.__intro ? window.__intro.state() : null)'))
+  if (intro?.running) {
+    await sleep(600)
+    const later = JSON.parse(await ev('JSON.stringify(window.__intro.state())'))
+    check('the intro is playing once the ad and the splash are gone', !later.held && later.t > intro.t,
+      `t ${intro.t.toFixed(2)} -> ${later.t.toFixed(2)}, held ${later.held}`)
+    await ev('(() => { const b = document.querySelector(".intro-scene .skip"); b && b.click() })()')
+    check('Skip leaves the intro for chapter 1\'s dialogue', await waitScene('dialogue'))
+    check('the intro counts as seen', await ev('window.__campaign.state().introSeen') === true)
+  }
   await ev('window.__gotoNode(0)')
   check('entered chapter 1\'s first duel', await waitScene('duel'))
 
@@ -652,6 +672,9 @@ try {
         audit.progressAtOpen === null || parseFloat(audit.progressAtOpen) === 0,
         `duel clock at open = ${audit.progressAtOpen}`)
       check('no dialogue bubble under the first-load ad (C30)', audit.bubbleAtOpen === false)
+      check('the intro holds on its first frame under the first-load ad (C30)',
+        !audit.introAtOpen?.running || (audit.introAtOpen.held && audit.introAtOpen.t === 0 && audit.introPastCap?.t === 0),
+        `at open ${JSON.stringify(audit.introAtOpen)}, past the cap ${JSON.stringify(audit.introPastCap)}`)
       // SILENT: not one synth voice was scheduled while the ad was open, and
       // any context that exists is held out of 'running'. The control that
       // stops this passing vacuously is the music check after the ad closes.
@@ -877,7 +900,7 @@ try {
   await sleep(300)
   await ev('window.__toInvite(1)')
   await scene('at the gift (unbox)', false)
-  check('reached the wipe through the gift and the pots', await ev('window.__toWipe(1)') === true)
+  check('reached the wipe through the gift', await ev('window.__toWipe(1)') === true)
   await scene('in the wipe', true)
   check('the wipe reached its reveal', await ev('window.__finishWipe()') === true)
   await scene('admiring the restored sector', false)

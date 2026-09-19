@@ -5,7 +5,8 @@
  * It owns the ONE `<canvas>`, the one `getContext`, the one RAF and every
  * pointer/keyboard listener, for every scene. It runs `load()` (and with it
  * the schema-2 migration) BEFORE the first scene is chosen, then boots
- * straight into the story: a fresh save meets node 1's dialogue, a pending
+ * straight into the story: a fresh save meets the picture-book intro and
+ * then node 1's dialogue, a pending
  * gift boots onto the map — never a menu.
  *
  * Each frame dispatches on `S.flow.scene`: the duel steps its fixed-timestep
@@ -31,12 +32,16 @@ import { installGameplayBracket, bracketLive } from '@/game/flow/bracket'
 import { dipTo, stepTransition, drawTransition, fading, __flushTransition } from '@/game/flow/transition'
 import { installDuelFlow, retry, leaveDuel, startDuel, openVersus, startVersus } from '@/game/flow/duelFlow'
 import { versusHud, updateVersusWide } from '@/use/useVersus'
-import { bootScene, playNode } from '@/game/flow/nodes'
+import { bootScene, playNode, playIntro } from '@/game/flow/nodes'
+import {
+  updateIntro, drawIntro, introResize, introPointerDown, skipIntro, playFromIntro, introState, INTRO_LEN
+} from '@/game/story/intro'
+import { introHud } from '@/use/useIntroHud'
 import { installCampaignController } from '@/game/campaign/controller'
 import { pendingSectorNode } from '@/game/campaign/state'
 import {
   beginRestore, updateRestore, drawRestore, restoreResize, restorePointerDown, restorePointerMove,
-  restorePointerUp, openGiftFromUi, pickPot, leaveRestore, continueRestore, qaWipe, restoreAmbience, type RestoreEnd
+  restorePointerUp, restoreHover, openGiftFromUi, pickPot, leaveRestore, continueRestore, qaWipe, restoreAmbience, type RestoreEnd
 } from '@/game/restore/wipe'
 import {
   drawMap, updateMap, mapResize, mapPointerDown, mapPointerMove, mapPointerUp, focusMap,
@@ -66,6 +71,7 @@ import UnboxScene from '@/views/UnboxScene.vue'
 import WipeScene from '@/views/WipeScene.vue'
 import WardrobeScene from '@/views/WardrobeScene.vue'
 import VersusSetup from '@/views/VersusSetup.vue'
+import IntroScene from '@/views/IntroScene.vue'
 import SpellBook from '@/components/duel/SpellBook.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
@@ -103,6 +109,7 @@ const resize = (): void => {
   restoreResize()
   mapResize(w, h)
   wardrobeResize()
+  if (S.flow.scene === 'intro') introResize()
 }
 const onOrientation = (): void => { window.setTimeout(resize, 250) }
 
@@ -162,6 +169,7 @@ const onPointerDown = (e: PointerEvent): void => {
     } else strokeStart(x, y)
   } else if (sc === 'unbox' || sc === 'wipe') restorePointerDown(e.clientX, e.clientY, e.timeStamp)
   else if (sc === 'map') mapPointerDown(e.clientX, e.clientY, e.timeStamp)
+  else if (sc === 'intro') introPointerDown(e.clientX, e.clientY)
 }
 
 const onPointerMove = (e: PointerEvent): void => {
@@ -199,9 +207,11 @@ const onPointerMove = (e: PointerEvent): void => {
     })
   } else if (sc === 'unbox' || sc === 'wipe') {
     // A release that went missing, or a pause that landed mid-stroke: lift the
-    // brush rather than let a finger under an ad keep wiping (§3.10).
+    // sponge rather than let a finger under an ad keep wiping (§3.10).
     if (e.buttons === 0 || isGamePaused.value) {
       restorePointerUp()
+      // A mouse hovering with no button: the tool rides the cursor.
+      if (e.buttons === 0 && e.pointerType === 'mouse' && !isGamePaused.value) restoreHover(e.clientX, e.clientY)
       return
     }
     each((ev) => restorePointerMove(ev.clientX, ev.clientY, ev.timeStamp))
@@ -283,6 +293,13 @@ const onKeyDown = (e: KeyboardEvent): void => {
       if (restoreHud.phase === 'invite') openGiftFromUi()
       else if (restoreHud.showContinue) continueRestore()
     } else if (k === 'Escape') leaveRestore()
+  } else if (sc === 'intro') {
+    // Enter or Space on the last page plays; Escape skips at any point.
+    if (k === 'Escape') skipIntro()
+    else if ((k === ' ' || k === 'Enter') && introHud.play) {
+      e.preventDefault()
+      playFromIntro()
+    }
   } else if (sc === 'map') {
     if (k === ' ' || k === 'Enter') {
       e.preventDefault()
@@ -377,6 +394,7 @@ const frame = (now: number): void => {
     } else if (sc === 'unbox' || sc === 'wipe') updateRestore(dt, now)
     else if (sc === 'map' || sc === 'dialogue') updateMap(dt)
     else if (sc === 'wardrobe') updateWardrobe(dt)
+    else if (sc === 'intro') updateIntro(dt)
     updateFx(dt)
     agePops(dt)
     // The restored biome's loop, while it is in view (§8.8 beat 1).
@@ -393,6 +411,7 @@ const frame = (now: number): void => {
     else if (sc === 'unbox' || sc === 'wipe') drawRestore(g)
     else if (sc === 'map' || sc === 'dialogue') drawMap(g)
     else if (sc === 'wardrobe') drawWardrobe(g)
+    else if (sc === 'intro') drawIntro(g)
     else {
       g.setTransform(1, 0, 0, 1, 0, 0)
       g.fillStyle = '#2b2048'
@@ -542,20 +561,19 @@ onMounted(() => {
       openSector(n)
       return until(() => ['invite', 'zoom', 'wipe'].includes(restoreHud.phase))
     }
-    /** …then click through the gift and the pots into the wipe. Opens the
-     *  sector first unless `__toInvite` already did. */
+    /** …then open the gift into the wipe (the pots come after the cleaning
+     *  since 2026-09-19). Opens the sector first unless `__toInvite` did. */
     w.__toWipe = async (n: number) => {
       if (restoreHud.phase === 'idle') await (w.__toInvite as (k: number) => Promise<boolean>)(n)
-      if (restoreHud.phase === 'invite') {
-        openGiftFromUi()
-        await until(() => restoreHud.phase === 'pots')
-        pickPot(0)
-      }
+      if (restoreHud.phase === 'invite') openGiftFromUi()
       return until(() => restoreHud.phase === 'wipe')
     }
-    /** Clear the sector in the wipe and wait for its admire beat. */
+    /** Clear the sector in the wipe, pick the first pot when they rise, and
+     *  wait for the admire beat. */
     w.__finishWipe = async () => {
       qaWipe.complete()
+      await until(() => restoreHud.phase === 'pots' || restoreHud.phase === 'admire')
+      if (restoreHud.phase === 'pots') pickPot(0)
       return until(() => restoreHud.phase === 'admire')
     }
     /** The Twin Gift's press-and-hold, `ms` long: under 1200 ms it pays nothing (§11.5). */
@@ -568,6 +586,22 @@ onMounted(() => {
       return true
     }
     w.__campaignPhase = () => S.flow.scene
+    /** The first-launch intro (§8.26): its clock, skip, and a replay. */
+    w.__intro = {
+      state: introState,
+      len: INTRO_LEN,
+      skip: skipIntro,
+      play: () => playIntro(true),
+      /** Run the clock `s` seconds on, as frames would (a harness's fast-forward). */
+      step: (s: number) => {
+        for (let k = 0; k < s; k += 1 / 30) updateIntro(1 / 30)
+      },
+      /** Skip it if it is up, and wait for the scene after it. */
+      pass: async () => {
+        if (S.flow.scene === 'intro') skipIntro()
+        return until(() => S.flow.scene !== 'intro' && !fading())
+      }
+    }
     w.__twin = {
       offer: offerTwinGift,
       state: () => ({ node: twinGift.node, ...__twinState() }),
@@ -602,12 +636,14 @@ onUnmounted(() => {
   //- dir="ltr": the world is spatial — Aurora stands on the left and chapter 1
   //- comes first in every locale. Text inside still runs right-to-left.
   div.app-scene(dir="ltr")
-    canvas.world(ref="canvas")
+    //- While cleaning, the sponge IS the cursor: the system arrow is hidden.
+    canvas.world(ref="canvas" :class="{ 'tool-cursor': restoreHud.phase === 'wipe' }")
     GameScene(v-if="flowHud.scene === 'duel'" :keyboard="keyboard")
     MapScene(v-else-if="flowHud.scene === 'map'" @board="boardOpen = true")
     DialogueScene(v-else-if="flowHud.scene === 'dialogue'")
     WardrobeScene(v-else-if="flowHud.scene === 'wardrobe'")
     VersusSetup(v-else-if="flowHud.scene === 'versusSetup'")
+    IntroScene(v-else-if="flowHud.scene === 'intro'")
     template(v-if="flowHud.scene === 'unbox' || flowHud.scene === 'wipe'")
       UnboxScene(v-if="flowHud.scene === 'unbox'" @open="openGiftFromUi" @pick="pickPot")
       WipeScene(@back="leaveRestore" @continue="continueRestore")
@@ -629,6 +665,8 @@ onUnmounted(() => {
   position: absolute
   left: 0
   top: 0
+  &.tool-cursor
+    cursor: none
   display: block
   touch-action: none
   user-select: none

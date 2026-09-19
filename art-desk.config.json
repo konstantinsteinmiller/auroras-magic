@@ -10,5 +10,5 @@
     "--only",
     "{files}"
   ],
-  "alsoHint": null
+  "alsoHint": "The intro's pages are painted from the character models: paint and save Aurora's and Umbra's portrait strips first (PROMPTS-PORTRAITS.md), under their reference names in painted/."
 }

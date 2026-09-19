@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Siguiente',
+    'skip': 'Saltar',
     'replay': 'Repetir',
     'back': 'Atrás',
     'play': 'Jugar',
@@ -156,6 +157,7 @@ export default {
     'close': 'Guardar y cerrar',
     'traceAssist': 'Mostrar guías de runas',
     'reducedMotion': 'Movimiento reducido',
+    'watchIntro': 'Ver la introducción',
     'leaveDuel': {
       'label': 'Salir del duelo',
       'title': '¿Salir de este duelo?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Pincel de polvo de estrellas',
+    'stardustSponge': 'Esponja de polvo de estrellas',
     'magicEraser': 'Goma mágica',
     'sunbeam': 'Rayo de sol'
   },

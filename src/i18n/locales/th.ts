@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'ถัดไป',
+    'skip': 'ข้าม',
     'replay': 'เล่นใหม่',
     'back': 'ย้อนกลับ',
     'play': 'เล่น',
@@ -156,6 +157,7 @@ export default {
     'close': 'บันทึกและปิด',
     'traceAssist': 'แสดงเส้นนำวาดรูน',
     'reducedMotion': 'ลดการเคลื่อนไหว',
+    'watchIntro': 'ดูบทนำ',
     'leaveDuel': {
       'label': 'ออกจากการดวล',
       'title': 'ออกจากการดวลนี้ไหม?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'แปรงละอองดาว',
+    'stardustSponge': 'ฟองน้ำละอองดาว',
     'magicEraser': 'ยางลบวิเศษ',
     'sunbeam': 'แสงตะวัน'
   },

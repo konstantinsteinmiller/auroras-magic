@@ -24,6 +24,7 @@ export default {
   // (see `components/icons/iconLabels.ts`).
   'ui': {
     'next': 'Next',
+    'skip': 'Skip',
     'replay': 'Replay',
     'back': 'Back',
     'play': 'Play',
@@ -203,6 +204,8 @@ export default {
     // Comfort settings (story-spec §3.11, §5.13).
     'traceAssist': 'Show rune guides',
     'reducedMotion': 'Reduced motion',
+    // Replays the first-launch intro (§8.26); on the map and in a dialogue.
+    'watchIntro': 'Watch the intro',
     // Leaving a duel mid-fight, with one gentle confirm (§10.13.G).
     'leaveDuel': {
       'label': 'Leave Duel',
@@ -306,7 +309,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Stardust Brush',
+    'stardustSponge': 'Stardust Sponge',
     'magicEraser': 'Magic Eraser',
     'sunbeam': 'Sunbeam'
   },

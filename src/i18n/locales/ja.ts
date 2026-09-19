@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': '次へ',
+    'skip': 'スキップ',
     'replay': 'もう一度',
     'back': '戻る',
     'play': 'プレイ',
@@ -156,6 +157,7 @@ export default {
     'close': '保存して閉じる',
     'traceAssist': 'ルーンのお手本を表示',
     'reducedMotion': '動きを減らす',
+    'watchIntro': 'オープニングを見る',
     'leaveDuel': {
       'label': '対戦をやめる',
       'title': 'この対戦をやめる？',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': '星くずのブラシ',
+    'stardustSponge': '星くずのスポンジ',
     'magicEraser': '魔法の消しゴム',
     'sunbeam': 'お日さまの光'
   },

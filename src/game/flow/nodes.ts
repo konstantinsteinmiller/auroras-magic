@@ -3,6 +3,7 @@
  * (story-spec §3.2.1, §3.2.5, §4.4).
  *
  * BOOT, from the save alone (no main menu, ever):
+ *   • a brand-new player                       → the intro (§8.26), then on;
  *   • a gift is waiting (won, not yet wiped)   → the map, focused on it;
  *   • otherwise, a next node exists             → that node's dialogue;
  *   • everything built is done                  → the map, all restored.
@@ -15,7 +16,7 @@
  * shut: at most one sector may be in progress (C9), and a second pending
  * sector would never be reachable again.
  */
-import { S } from '@/game/duel/state'
+import { S, save } from '@/game/duel/state'
 import { pendingSectorNode, nextDuelNode } from '@/game/campaign/state'
 import { LAST_BUILT_NODE } from '@/game/campaign/tables'
 import { isReplay, markDialogueSeen } from '@/game/campaign/controller'
@@ -23,9 +24,39 @@ import { dialogueFor } from '@/game/story/story'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, fading, DIP_PUSH } from '@/game/flow/transition'
 import { startDuel } from '@/game/flow/duelFlow'
+import { beginIntro } from '@/game/story/intro'
+import { track } from '@/use/useAnalytics'
 
 /** Where this session starts. Called once, after `load()`. */
 export const bootScene = (): void => {
+  if (!S.campaign.introSeen) playIntro()
+  else startFromSave()
+}
+
+/**
+ * The picture-book intro (§8.26). The first launch plays it, then carries on
+ * exactly as a boot would; a replay from Options comes back to the scene it
+ * was opened from. Watching it to the end and skipping it both count as seen.
+ */
+export const playIntro = (replay = false): void => {
+  const from = { scene: S.flow.scene, node: S.flow.node }
+  gotoScene('intro')
+  track('intro_start', { replay })
+  beginIntro((skipped, beat) => {
+    track('intro_end', { skipped, beat, replay })
+    if (!S.campaign.introSeen) {
+      S.campaign.introSeen = true
+      save()
+    }
+    dipTo(() => {
+      if (replay && from.scene !== 'intro' && from.scene !== 'boot') gotoScene(from.scene, from.node)
+      else startFromSave()
+    }, DIP_PUSH)
+  })
+}
+
+/** Where the save says to start: a waiting gift, the next dialogue, or the map. */
+const startFromSave = (): void => {
   const cs = S.campaign
   const pending = pendingSectorNode(cs)
   if (pending !== null) {

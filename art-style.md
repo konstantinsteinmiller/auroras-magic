@@ -9,12 +9,90 @@ quietly become the style.
 drawn with one confident, soft outline and flat cel colour, in a pastel world
 that glows. Hand-drawn, not sketchy.
 
-Audience: all ages, cozy and family-friendly. The owner decided this on
-2026-09-18; see `story-spec.md` §2 and §13. The youngest players are about 3,
-and everything must still be safe for them. Everything must read as friendly,
-safe and magical at a glance, including on a phone held upright.
+Audience: a cozy unicorn fantasy for everyone, made especially appealing to
+girls aged 3–12. It is not a "kids only" game, and it must never look babyish.
+The youngest players are about 3, so everything must still be safe for them.
+The owner decided this on 2026-09-18 (D1, `story-spec.md` §2 and §13) and
+sharpened it on 2026-09-19 (§0 below). Everything must read as friendly, safe
+and magical at a glance, including on a phone held upright.
 
 ---
+
+## 0. The art-style decision
+
+**Current style: `cozy-chibi-v1` — "Cozy chibi picture-book".** Decided by the
+owner on 2026-09-19.
+
+> Cute, cozy chibi anime-style picture-book illustration: big heads, huge
+> sparkly eyes, rounded friendly shapes, soft pastel colours and warm magical
+> glows.
+
+Why: this is a unicorn fantasy, made especially appealing to girls aged 3–12
+while charming for everyone. Chibi proportions and big expressive anime eyes
+make every character lovable and readable at thumbnail size. The pastel,
+cozy palette keeps even the gloomy parts (Umbra's dust) safe for a 3-year-old.
+It is the look the procedural art already has (§1–§8), so the painted art
+upgrades the game instead of replacing its identity.
+
+**What it pins down** (the details are in §1–§9):
+
+| | |
+| --- | --- |
+| Proportions | Chibi: the head as wide as the body, compact body, short sturdy legs (§3) |
+| Faces | Huge glossy eyes with two catch-lights, tiny mouth, blush dots; big anime expressions (§3) |
+| Line | One soft, confident plum outline (`#3A2340`), never black, about 1 % of the subject's height (§2) |
+| Colour | Flat cel colour, one base tone and one violet-shifted shadow, one highlight; pastel things, saturated magic (§4) |
+| Mood | Cozy, warm, magical; gloomy is allowed, scary never (§1, §5) |
+| Never | Sketch lines, hatching, texture brushes, realistic horse anatomy, a western-cartoon or 3D-render look |
+
+**Where it lives in the code.** `src/game/artStyle.ts` holds this decision as
+a named, versioned profile (`ART_STYLES['cozy-chibi-v1']`, selected by
+`ACTIVE_STYLE_ID`). Every prompt the art pipeline writes
+(`src/game/artSheet.ts`) builds its style blocks from that profile and nowhere
+else, and every painting is stamped with the style id it was made in (the
+slicer's receipt).
+
+**What it is applied to.** Everything the game draws that can be painted
+(story-spec §8.20, §8.26, §8.27):
+- the 50 sectors;
+- the gifts, tools, tent and keepsakes;
+- the 12 runes;
+- the 7 keepsake badges on the wardrobe shelf;
+- the 20 dialogue-portrait strips (one per speaker, every expression);
+- the 10 duel islands;
+- the intro's 4 picture-book pages.
+
+The pieces with a character in them (the portraits and the intro pages) also
+get the profile's CHARACTER rules. The intro pages are painted from the
+painted Aurora and Umbra portrait strips, so the cast looks the same
+everywhere. What stays drawn for now is the animated duel rig, the
+map's and the wardrobe's backdrops and the effects. They move every frame,
+and painting them needs a part-by-part layer split first.
+
+**To change the style later:**
+
+1. Add a new profile to `ART_STYLES` with a NEW id, e.g. `watercolour-v1`.
+   Never edit a shipped profile: its id is stamped on the paintings made
+   under it.
+2. Point `ACTIVE_STYLE_ID` at it, and record the new decision here: move this
+   section to a dated "Previous decisions" list and write the new one in its
+   place.
+3. Run `pnpm art:prompts`. The prompts are rewritten, and `PAINT-STATUS.md`
+   and the Art Desk mark every painting made under the old id as "REPAINT —
+   the art style changed".
+4. Repaint. Until each file is redone, the old painting (or the procedural
+   drawing) stands in, so the game never breaks mid-change.
+
+**What a style change does not touch:**
+- the magenta ground and the sheet layouts;
+- the neutral colour-me regions;
+- the "no text in a picture" rule;
+- the sizes the game blits into.
+
+Those are the pipeline's contracts (`LAYERS.md`, `SLICER.md`), not the look.
+
+**Previous decisions:** none. `cozy-chibi-v1` is the first style the painted
+art is made in.
 
 ## 1. Pillars
 
@@ -199,7 +277,12 @@ Only the lightness is softened for the painted art:
 
 ### 9.1 Master prompt style block
 
-Paste this at the top of every image-model prompt, then describe the subject:
+> **Since 2026-09-19 this block is generated, not pasted.** Every prompt is
+> built from the active style profile in `src/game/artStyle.ts` (§0). The
+> text below is the original hand-written block, kept for history. To change
+> the look, change the profile, not this paragraph.
+
+The original block, pasted at the top of every image-model prompt:
 
 > Cute chibi picture-book illustration for a cozy, family-friendly magical
 > unicorn game for all ages. Big head, huge sparkly eyes with two white
@@ -230,6 +313,24 @@ Paste this at the top of every image-model prompt, then describe the subject:
   - sectors 1152 × 672, plus a 384 × 224 map thumbnail;
   - item frames at most 256 px tall (the pipeline's cap);
   - runes 256 × 256.
+
+### 9.3 Amendment 2026-09-19 — the characters and the intro (story-spec §8.26–§8.27)
+
+- **Portraits are strips.** Each speaker's expressions are painted side by
+  side in ONE picture, so a face stays the same face across its moods. The
+  game draws the round ring and the coloured backdrop itself; a painted
+  portrait is only the head (or the creature), cut off by the circle as the
+  reference shows. Unicorns keep the reference's three-quarter view: Aurora
+  faces right, everyone else faces left.
+- **The intro's pages are scenes WITH characters.** Like sectors they are
+  full-bleed 16:9 with no magenta. Unlike sectors, the painter gets the
+  character models first (Aurora's and Umbra's painted portrait strips), and
+  the page's layout last. Paint the portraits first.
+- **Islands are stages.** An island's flat mossy top is where the duelists
+  stand, so it keeps the reference's width, flatness and height exactly. The
+  slicer anchors an island by its top, not its middle.
+- **Sizes shipped:** portrait panels at most 256 px tall (the badge shows
+  them at 192), islands at most 256 px tall, intro pages 1152 × 672.
 
 ## 10. From the jam build to here
 

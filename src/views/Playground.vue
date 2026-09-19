@@ -2,7 +2,7 @@
 /**
  * /#/playground — painted vs drawn, in motion (DEV ONLY; art-generation-
  * pipeline Phase 4). Everything here is drawn by the GAME'S OWN painters —
- * `paintSectorArt`/`sec.paint`, `drawGift`, `drawChest`, `drawBrush`,
+ * `paintSectorArt`/`sec.paint`, `drawGift`, `drawChest`, `drawSponge`,
  * `drawUnicorn` with the real keepsake hooks, `RuneGlyph` — so what is on
  * screen is what the game will show. The art layer flips live (session only,
  * nothing remembered), because a painting is only ever wrong RELATIVE to the
@@ -16,7 +16,7 @@ import { SECTOR_SHEETS } from '@/game/artSheet'
 import { sectorOf } from '@/game/map/sectors'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
-import { drawGift, drawBoxGift, drawChest, drawBrush, drawEraser, giftShake, chestRattle } from '@/game/restore/gift'
+import { drawGift, drawBoxGift, drawChest, drawSponge, drawEraser, giftShake, chestRattle } from '@/game/restore/gift'
 import { TENT_ART, tentShape } from '@/game/map/tent'
 import { drawItem } from '@/game/artItem'
 import { drawFlowerCrown, drawPetStar, drawStarBody } from '@/game/cosmetics/rig-cosmetics'
@@ -97,11 +97,10 @@ const drawItems = (t: number): void => {
   drawGift(g, 110, 300, 130, { rot: u ? 0 : giftShake(t), untie: u, squash: 1 + u * 0.05, ribbon: rb, ribbonShade: rb })
   drawBoxGift(g, 270, 300, 130, { rot: u ? 0 : giftShake(t + 0.4), untie: u, squash: 1, ribbon: rb, ribbonShade: rb })
   drawChest(g, 460, 300, 130, { rot: u ? 0 : chestRattle(t), open: u, gleam: u ? 1 : 0.35 + 0.65 * Math.max(0, Math.sin(t * 5)) }, rb)
-  // The brush paints a figure of eight, turned along its heading.
+  // The sponge scrubs a figure of eight, pressed down and squishing.
   const bx = 690 + Math.sin(t * 1.4) * 70
   const by = 170 + Math.sin(t * 2.8) * 40
-  const ang = Math.atan2(Math.cos(t * 2.8) * 2.8 * 40, Math.cos(t * 1.4) * 1.4 * 70)
-  drawBrush(g, bx, by, 110, ang, t)
+  drawSponge(g, bx, by, 110, Math.max(-0.3, Math.min(0.3, Math.cos(t * 1.4) * 0.3)), t, 1, t * 9)
   drawEraser(g, 870, 230 + Math.sin(t * 6) * 6, 110, Math.sin(t * 3) * 0.4)
   // The tent, as the map draws it.
   g.save()

@@ -23,8 +23,15 @@
  *   cosmetic     keepsakes painted as stills on Aurora's rig (the crown, the
  *                pet star). The others follow the rig's own deformation and
  *                stay drawn (§9.7).
- *   portrait     a dialogue portrait override, `{speaker}-{emote}` — [later]
- *                per §9.12; the probe exists so one can simply be dropped in.
+ *   portrait     a dialogue portrait, `{speaker}-{emote}` (the whole round
+ *                badge's face; the ring is still drawn), §8.27.
+ *   story        the first-launch intro's five picture-book panels,
+ *                `intro-1` … `intro-5` (§8.26): each beat's meadow and
+ *                characters; the rune trace, the sponge and the sparkles stay
+ *                live on top.
+ *   island       a duel arena's floating island, one per chapter theme
+ *                (§8.27): the rock, its rim and its grass; the tufts, the
+ *                mood tint and the clouds stay drawn.
  *   ui           a HUD button's glyph (`FButton`/`FHudButton`'s `art` prop,
  *                through `ArtIcon`). Not in the manifest: the shared glyph set
  *                is the look, and no button asks for a painting today.
@@ -38,6 +45,8 @@ export const ART_FOLDERS = {
   worldUi: 'images/world-ui',
   cosmetic: 'images/cosmetics',
   portrait: 'images/portraits',
+  story: 'images/story',
+  island: 'images/islands',
   ui: 'images/ui'
 } as const
 

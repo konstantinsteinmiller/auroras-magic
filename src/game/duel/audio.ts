@@ -250,6 +250,9 @@ export type Cue =
   // chapter magic (story-spec §6.5–§6.9): Crystal Ward bounces a spell, a
   // decoy appears or pops, Frost Lock takes hold, the Love finisher
   | 'reflect' | 'decoy' | 'freeze' | 'finisher'
+  // the first-launch intro (story-spec §8.26): the unicorns' own voices —
+  // sounds, never words (D6)
+  | 'neigh' | 'sigh' | 'giggle'
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -441,6 +444,45 @@ const CUES: Record<Cue, (v?: number) => void> = {
     V(SIN, nf(2) * 4, nf(2) * 4, 1.1, 0.06, 1, 0.3, 0.08)
     V(SIN, nf(4) * 4, nf(4) * 4, 1.1, 0.045, 1, 0.3, 0.08)
     V(NOISE, 3000, 9000, 0.6, 0.03, 1, 0, 0.1)
+  },
+
+  /* A cute unicorn whinny (the intro, §8.26): "nee-hee-hee" — a quick, high,
+     sing-song trill built from alternating short blips (a vibrato the one
+     voice cannot do on its own), rising for a moment and then tumbling down,
+     with a little breathy snort at the end. `v` = 1 is Aurora's, 0.5 an
+     older, lower unicorn. Always on the music's scale, so it never clashes. */
+  neigh: (v) => {
+    const oct = (v ?? 1) >= 1 ? 4 : 2
+    const base = nf(4) * oct
+    const n = 12
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1)
+      // Up for the first quarter, then a tumbling fall of about a fifth.
+      const contour = k < 0.25 ? 1 + k * 0.6 : 1.15 - (k - 0.25) * 0.55
+      const f = base * contour * (i & 1 ? 1.12 : 0.93)
+      V(i & 1 ? TRI : SIN, f, f * (i & 1 ? 0.94 : 1.06), 0.07, 0.05 * (1 - k * 0.4), 3, i * 0.045, 0.006)
+    }
+    V(NOISE, 1400, 500, 0.2, 0.045, 1, n * 0.045 + 0.03, 0.02)
+  },
+
+  /* Aurora's little "oh no": a soft falling "aww", wobbling as it droops. */
+  sigh: () => {
+    const f0 = nf(3) * 4
+    for (let i = 0; i < 6; i++) {
+      const f = f0 * (1 - i * 0.07) * (i & 1 ? 1.05 : 0.97)
+      V(SIN, f, f * 0.95, 0.12, 0.05, 1, i * 0.09, 0.02)
+    }
+    V(NOISE, 900, 300, 0.4, 0.025, 1, 0.1, 0.1)
+  },
+
+  /* Umbra's cheeky giggle: three quick "hee!"s, low for a unicorn, each one
+     bouncing up — mischief, not menace (art-style: rivals are cheeky). */
+  giggle: () => {
+    for (let i = 0; i < 3; i++) {
+      const f = nf(2 + (i & 1)) * 2
+      V(TRI, f, f * 1.35, 0.1, 0.06, 3, i * 0.12, 0.008)
+      V(SIN, f * 2, f * 2.5, 0.08, 0.025, 1, i * 0.12 + 0.01, 0.008)
+    }
   },
 
   /* The Sunbeam has gathered its light again: one small bell. */

@@ -10,14 +10,16 @@
  *   pnpm slice-sheets -- --no-fit          # cut panels where they landed (see SLICER §4)
  *   pnpm slice-sheets -- --size 192        # this run's frame cap (items only)
  *
- *   painting → identify → receipt → aspect guard → (sector) resize ×2 → WebP
- *                                             └→ (item/rune) key → unmix → fit → cut the box → WebP
+ *   painting → identify → receipt → aspect guard → (opaque) resize → WebP
+ *                                             └→ (keyed) key → unmix → fit → cut the box → WebP
  *
  * Reads `art-sheets/sheet-index.json` (written by the bench, `/#/art-sheets`):
- *   • a SECTOR sheet is opaque and full-bleed. No key, no fit: the return is
- *     resampled onto the sector's 1152 × 672 (a 16:9 return is 2 % wider —
- *     invisible) and a 384 × 224 map thumb is cut from the same pixels.
- *   • an ITEM or RUNE sheet is magenta-keyed: `frames` panels side by side,
+ *   • an OPAQUE sheet (`bg: 'opaque'`: a sector, an intro page) is
+ *     full-bleed. No key, no fit: the return is resampled onto the reference's
+ *     1152 × 672 (a 16:9 return is 2 % wider — invisible), plus any extra size
+ *     it lists (a sector's 384 × 224 map thumb), all from the same pixels.
+ *   • a KEYED sheet (an item, a rune, a keepsake badge, a portrait strip, an
+ *     island) is magenta-keyed: `frames` panels side by side,
  *     each holding the drawing's BOX at `crop`. The return is keyed, registered
  *     onto the reference's measured `fit` (ONE correction for the whole strip,
  *     so a cycle never jitters), and each panel's box is cut out and written
@@ -309,13 +311,13 @@ for (const file of paintings) {
 
   try {
     const out = []
-    if (sheet.kind === 'sector') {
-      // ── 2a. a sector: opaque, full-bleed ──
+    if (sheet.bg === 'opaque') {
+      // ── 2a. an opaque sheet (a sector, an intro page): full-bleed ──
       const want = sheet.size.w / sheet.size.h
       const got = meta.width / meta.height
       const drift = got / want - 1
-      if (Math.abs(drift) > 0.12) throw new Error(`it is ${got.toFixed(2)}:1 and a sector is ${want.toFixed(2)}:1 — a re-framed scene cannot be registered. Ask for 16:9.`)
-      if (Math.abs(drift) > 0.05) log(`  · proportion ${(drift * 100).toFixed(1)}% off the sector's; resampled onto it anyway.`)
+      if (Math.abs(drift) > 0.12) throw new Error(`it is ${got.toFixed(2)}:1 and the scene is ${want.toFixed(2)}:1 — a re-framed scene cannot be registered. Ask for 16:9.`)
+      if (Math.abs(drift) > 0.05) log(`  · proportion ${(drift * 100).toFixed(1)}% off the scene's; resampled onto it anyway.`)
       for (const c of sheet.cells) {
         for (const t of [{ target: c.target, w: c.w, h: c.h }, ...(c.extra ?? [])]) {
           const buf = await sharp(file).removeAlpha().resize(t.w, t.h, { fit: 'fill', kernel: 'lanczos3' })
@@ -328,7 +330,7 @@ for (const file of paintings) {
         }
       }
     } else {
-      // ── 2b. an item or a rune: keyed strip ──
+      // ── 2b. a keyed sheet: an item, a rune, a badge, a portrait, an island ──
       const refW = sheet.size.w
       const refH = sheet.size.h
       const panelW = sheet.panel.w
@@ -399,6 +401,7 @@ for (const file of paintings) {
       const gotH = (y1 - y0) / panelH
       const gotCx = (x0 + x1) / 2 / panelW
       const gotBottom = y1 / panelH
+      const gotTop = y0 / panelH
       const gotCy = (y0 + y1) / 2 / panelH
       let k = 1
       let dx = 0
@@ -413,14 +416,17 @@ for (const file of paintings) {
         } else {
           // Panel-fraction offsets after scaling about the content's anchor.
           dx = fit.cx - gotCx
-          dy = sheet.anchor === 'feet' ? fit.bottom - gotBottom : (fit.bottom - fit.h / 2) - gotCy
+          // An island is stood ON: its top edge is what must not move.
+          dy = sheet.anchor === 'feet' ? fit.bottom - gotBottom
+            : sheet.anchor === 'top' ? (fit.bottom - fit.h) - gotTop
+              : (fit.bottom - fit.h / 2) - gotCy
           if (Math.abs(k - 1) > 0.03 || Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02) {
             log(`  · normalised onto the reference: scaled to ${(k * 100).toFixed(0)}%, moved ${(dx * 100).toFixed(0)}% / ${(dy * 100).toFixed(0)}% of a panel.`)
           }
         }
       }
       const ancX = gotCx * panelW
-      const ancY = (sheet.anchor === 'feet' ? gotBottom : gotCy) * panelH
+      const ancY = (sheet.anchor === 'feet' ? gotBottom : sheet.anchor === 'top' ? gotTop : gotCy) * panelH
 
       // Cut each panel's box out, at most `cap` px tall, never upsampled.
       const crop = sheet.crop
@@ -451,7 +457,9 @@ for (const file of paintings) {
     }
     for (const l of out) log(l)
     written += out.length
-    if (!DRY) receipt.files[name] = { sheet: sheet.id, rev, painting: own, at: new Date().toISOString() }
+    // The art style it was painted in (art-style.md §0): a later style change
+    // marks this painting for repainting.
+    if (!DRY) receipt.files[name] = { sheet: sheet.id, rev, painting: own, style: index.style ?? null, at: new Date().toISOString() }
   } catch (e) {
     console.error(`  ✗ ${name}: ${e.message}`)
     failures++

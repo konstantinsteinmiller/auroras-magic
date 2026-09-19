@@ -13,7 +13,7 @@ import { flowHud } from '@/use/useFlow'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
 
 export type SceneId =
-  | 'boot' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe'
+  | 'boot' | 'intro' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe'
   | 'wardrobe' | 'versusSetup'
 
 /** Modal overlays: they stack on whatever scene is current. */

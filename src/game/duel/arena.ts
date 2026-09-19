@@ -23,11 +23,20 @@
  * mossy cap, one seeded walk shapes the rock, and the tufts borrow the weather
  * particles as their jitter table. Flat colour, thick dark outline, hard cel
  * edges, no gradients.
+ *
+ * PAINTED (§8.27): each chapter's island is one painting
+ * (`images/islands/island-<n>-<chapter>.webp`), registered onto this drawing's
+ * own box (`islandArt`). When it has decoded it replaces the baked island and
+ * the live tufts; the sky's mood still tints it, through the painting's own
+ * silhouette.
  */
 import { SW, SH } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, sin, cos, abs, sign, clamp, seeded } from '@/game/duel/util'
 import { arenaTheme, type ArenaTheme } from '@/game/duel/arenaThemes'
+import { spriteFor } from '@/game/art'
+import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
+import { islandArtId } from '@/game/artIds'
 
 type G2D = CanvasRenderingContext2D
 /** Anything a path can be traced into: a context or a Path2D. */
@@ -155,16 +164,9 @@ const buildSil = (): void => {
   sil = p
 }
 
-const bake = (): void => {
-  bk = qs()
-  bt = S.theme
-  TH = arenaTheme(bt)
-  buildSil()
-  const s = sil!
-
-  /* ---- island: flat fills, thick dark outline, faceted rock ---- */
-  isle = cv(IW, IH)
-  D.translate(-IX, -IY)
+/** The island itself, in stage units, into `D` in theme `TH`: the rock, its
+ *  cel planes, the roots, the mossy cap and the little stones. */
+const paintIsle = (s: Path2D): void => {
   D.lineJoin = D.lineCap = 'round'
   D.lineWidth = 6
   D.fillStyle = TH.rock
@@ -224,6 +226,18 @@ const bake = (): void => {
     FL(i & 1 ? TH.dotA : TH.dotB)
     SK()
   }
+}
+
+const bake = (): void => {
+  bk = qs()
+  bt = S.theme
+  TH = arenaTheme(bt)
+  buildSil()
+
+  /* ---- island: flat fills, thick dark outline, faceted rock ---- */
+  isle = cv(IW, IH)
+  D.translate(-IX, -IY)
+  paintIsle(sil!)
 
   /* ---- cloud band: one silhouette, tileable, re-tinted at draw time ---- */
   clds = cv(SW, CH)
@@ -354,9 +368,84 @@ const grass = (): void => {
   FL(L > 0.4 ? TH.tuftDark : TH.tuft)
 }
 
+/* ------------------------------ painted ----------------------------- */
+
+const islandSpecs = new Map<number, ItemSpec>()
+
+/**
+ * Chapter theme `theme`'s island as a painted drawable (§8.27): the island
+ * alone — no clouds, no tufts — centred on the origin at scale `s` = its
+ * blit box's width. The bench renders the reference from it, and the
+ * painting is blitted back into the box measured from it.
+ */
+export const islandArt = (theme: number): ItemSpec => {
+  const hit = islandSpecs.get(theme)
+  if (hit) return hit
+  const spec: ItemSpec = {
+    kind: 'island',
+    id: islandArtId(theme),
+    frames: 1,
+    draw: (g, s) => {
+      if (!sil) buildSil()
+      const keepD = D
+      const keepTH = TH
+      D = g
+      TH = arenaTheme(theme)
+      g.save()
+      g.scale(s / IW, s / IW)
+      g.translate(-IX - IW / 2, -IY - IH / 2)
+      paintIsle(sil!)
+      g.restore()
+      D = keepD
+      TH = keepTH
+    }
+  }
+  islandSpecs.set(theme, spec)
+  return spec
+}
+
+/** The painting's silhouette in one flat colour, for the sky's mood tint. */
+const moods = new Map<string, HTMLCanvasElement>()
+const moodOf = (img: HTMLImageElement, colour: string): HTMLCanvasElement => {
+  const key = `${img.src}|${colour}`
+  const hit = moods.get(key)
+  if (hit) return hit
+  const c = document.createElement('canvas')
+  c.width = img.naturalWidth
+  c.height = img.naturalHeight
+  const m = c.getContext('2d')!
+  m.drawImage(img, 0, 0)
+  m.globalCompositeOperation = 'source-in'
+  m.fillStyle = colour
+  m.fillRect(0, 0, c.width, c.height)
+  if (moods.size > 8) moods.clear()
+  moods.set(key, c)
+  return c
+}
+
+/** The painted island, if its painting has decoded: true when it drew. */
+const drawPaintedIsland = (g: G2D): boolean => {
+  const img = spriteFor('island', islandArtId(S.theme))
+  if (!img) return false
+  const spec = islandArt(S.theme)
+  g.save()
+  g.translate(IX + IW / 2, IY + IH / 2)
+  const drew = drawItem(g, spec, IW)
+  const a = abs(K * 2 - 1)
+  if (drew && a > 0.02) {
+    const box = itemBox(spec)
+    g.globalAlpha = a * (L ? 0.5 : 0.22)
+    g.drawImage(moodOf(img, L ? '#012' : '#fea'), box.x * IW, box.y * IW, box.w * IW, box.h * IW)
+    g.globalAlpha = 1
+  }
+  g.restore()
+  return drew
+}
+
 /** The floating island: one blit, the live tufts, one mask-fill of tint. */
 export const drawIsland = (g: G2D): void => {
   sync(g)
+  if (drawPaintedIsland(g)) return
   if (isle) g.drawImage(isle, IX, IY, IW, IH)
   grass()
   /* the silhouette doubles as a mask, so the ground picks up the sky's mood

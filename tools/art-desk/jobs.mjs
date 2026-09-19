@@ -182,6 +182,8 @@ export const scanJobs = (cfg) => {
         ;[mark, state] = old ? ['!', 'repaint — the old one is parked in painted/stale/'] : ['·', 'not painted yet']
       } else if (seenBy?.rev && ref?.rev && seenBy.rev !== ref.rev) {
         ;[mark, state] = ['!', `repaint — the reference changed (${seenBy.rev} → ${ref.rev})`]
+      } else if (seenBy?.style && index?.style && seenBy.style !== index.style) {
+        ;[mark, state] = ['!', `repaint — the art style changed (${seenBy.style} → ${index.style})`]
       } else if (!seenBy) {
         ;[mark, state] = ['?', 'painted, not sliced since receipts began']
       } else {

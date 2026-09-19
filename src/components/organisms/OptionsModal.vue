@@ -13,6 +13,8 @@ import { traceAssist, setTraceAssist, reducedMotion, setReducedMotion } from '@/
 import { flowHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
 import { leaveDuel } from '@/game/flow/duelFlow'
+import { playIntro } from '@/game/flow/nodes'
+import { dipTo, DIP_PUSH } from '@/game/flow/transition'
 import { leaderboardLive } from '@/use/useLeaderboard'
 
 defineProps<{
@@ -130,6 +132,17 @@ const doLeave = (): void => {
   emit('close')
   leaveDuel()
 }
+
+// ─── Watch the intro again (story-spec §8.26) ───────────────────────────────
+//
+// From the map and from a dialogue only: a duel, a gift or a wipe in progress
+// is not something to walk away from for a picture book. It comes back to
+// the scene it was opened from.
+const canWatchIntro = computed(() => flowHud.scene === 'map' || flowHud.scene === 'dialogue')
+const watchIntro = (): void => {
+  emit('close')
+  dipTo(() => playIntro(true), DIP_PUSH)
+}
 </script>
 
 <template lang="pug">
@@ -185,6 +198,8 @@ const doLeave = (): void => {
             :model-value="hapticsEnabled ? 'on' : 'off'"
             @update:model-value="setHapticsEnabled($event === 'on')"
           )
+        div(v-if="canWatchIntro" class="flex flex-col items-center gap-2 pt-2")
+          FButton(class="px-6" @click="watchIntro") {{ t('options.watchIntro') }}
         //- Leave the duel: one gentle confirm, then the map.
         div(v-if="inDuel" class="flex flex-col items-center gap-2 pt-2")
           FButton(v-if="!confirmLeave" class="px-6" @click="confirmLeave = true") {{ t('options.leaveDuel.label') }}

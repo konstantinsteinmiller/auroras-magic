@@ -37,7 +37,7 @@ describe('the FSM bracket', () => {
     expect(b.bracketLive()).toBe(false) // nobody has touched the game yet
     b.arm()
     expect(b.bracketLive()).toBe(true)
-    for (const sc of ['map', 'dialogue', 'unbox', 'wardrobe'] as const) {
+    for (const sc of ['intro', 'map', 'dialogue', 'unbox', 'wardrobe'] as const) {
       b.gotoScene(sc, 0)
       expect(b.bracketLive(), sc).toBe(false)
     }

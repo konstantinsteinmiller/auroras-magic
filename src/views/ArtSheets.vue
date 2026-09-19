@@ -6,9 +6,12 @@
  * `/__art/save-sheet`, into `art-sheets/`:
  *
  *   sector-<id>.png   one per sector, opaque, 1152 × 672
- *   item-<id>.png     one per item, magenta, its panels side by side
- *                     (+ item-<id>-key.png, the captions, for strips)
+ *   story-intro-<n>.png  the intro's pages, opaque, 1152 × 672, WITH the cast
+ *   item-<id>.png     one per item (and keepsake badge), magenta, its panels
+ *                     side by side (+ item-<id>-key.png, the captions, for strips)
  *   rune-<name>.png   one per rune, magenta, the RuneGlyph box
+ *   portrait-<who>.png  one per speaker, magenta, a panel per expression
+ *   island-<n>-<chapter>.png  one per chapter, magenta, the duel's island
  *   sheet-index.json  every rect, target, crop and measured fit
  *   PROMPTS-*.md      the prompts, with the measured fits in their SIZE clauses
  *
@@ -17,13 +20,17 @@
  * copy is English on purpose.
  */
 import { onMounted, ref } from 'vue'
-import { SECTOR_SHEETS, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, promptDocs, type Fit, type ItemSheet, type SectorSheet } from '@/game/artSheet'
-import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderItemSheet, renderKeySheet, renderSectorSheet } from '@/game/artDraw'
+import {
+  SECTOR_SHEETS, STORY_SHEETS, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, ART_STYLE_ID, promptDocs,
+  type Fit, type ItemSheet, type SectorSheet, type StorySheet
+} from '@/game/artSheet'
+import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderItemSheet, renderKeySheet, renderSectorSheet, renderStorySheet } from '@/game/artDraw'
 
 const busy = ref(false)
 const status = ref('idle')
 const only = ref<Set<string> | null>(null)
 const sectorPreviews = ref<HTMLCanvasElement[]>([])
+const storyPreviews = ref<HTMLCanvasElement[]>([])
 const itemPreviews = ref<HTMLCanvasElement[]>([])
 
 const save = async (name: string, body: { dataUrl?: string; text?: string }): Promise<void> => {
@@ -48,11 +55,22 @@ const sectorEntry = (s: SectorSheet) => ({
   }]
 })
 
+/** An intro page: opaque like a sector, painted WITH its characters. */
+const storyEntry = (s: StorySheet) => ({
+  id: s.file,
+  kind: 'story',
+  title: `Intro ${s.panel} ${s.title}`,
+  files: { clean: `${s.file}.png` },
+  bg: 'opaque',
+  size: { w: SECTOR_REF.w, h: SECTOR_REF.h },
+  cells: [{ id: s.id, label: s.title, target: s.target, w: SECTOR_REF.w, h: SECTOR_REF.h }]
+})
+
 const itemEntry = (s: ItemSheet, fit: Fit) => {
   const L = layoutOf(s)
   return {
     id: s.file,
-    kind: s.kind === 'rune' ? 'rune' : 'item',
+    kind: s.kind === 'rune' || s.kind === 'portrait' || s.kind === 'island' ? s.kind : 'item',
     title: s.title,
     files: { clean: `${s.file}.png`, ...(s.frames > 1 ? { key: `${s.file}-key.png` } : {}) },
     bg: 'magenta',
@@ -84,6 +102,13 @@ const exportAll = async (): Promise<void> => {
       }
       sheets.push(sectorEntry(s))
     }
+    for (const s of STORY_SHEETS) {
+      if (wanted(s.file)) {
+        status.value = `page ${++n}: ${s.file}`
+        await save(`${s.file}.png`, { dataUrl: renderStorySheet(s).toDataURL('image/png') })
+      }
+      sheets.push(storyEntry(s))
+    }
     for (const s of ALL_ITEM_SHEETS) {
       const fit = measureFit(s)
       fits[s.file] = fit
@@ -96,7 +121,7 @@ const exportAll = async (): Promise<void> => {
     }
     status.value = 'index and prompts'
     await save('sheet-index.json', {
-      text: `${JSON.stringify({ version: 1, sheets }, null, 2)}\n`
+      text: `${JSON.stringify({ version: 1, style: ART_STYLE_ID, sheets }, null, 2)}\n`
     })
     for (const [name, text] of Object.entries(promptDocs(fits))) await save(name, { text })
     status.value = `done: ${n} references, ${sheets.length} in the index, ${((performance.now() - t0) / 1000).toFixed(1)} s`
@@ -115,6 +140,7 @@ onMounted(() => {
   } catch { /* no filter */ }
   // Previews: every sector small, every item and rune at half size.
   sectorPreviews.value = SECTOR_SHEETS.map((s) => renderSectorSheet(s))
+  storyPreviews.value = STORY_SHEETS.map((s) => renderStorySheet(s))
   itemPreviews.value = ALL_ITEM_SHEETS.map((s) => renderItemSheet(s))
 })
 
@@ -135,7 +161,12 @@ const mount = (cv: HTMLCanvasElement) => (el: unknown): void => {
       figure(v-for="(s, i) in SECTOR_SHEETS" :key="s.file")
         .cv(:ref="sectorPreviews[i] ? mount(sectorPreviews[i]) : undefined")
         figcaption {{ s.chapter }}-{{ (s.node % 5) + 1 }} {{ s.title }} · {{ s.landmark }}
-    h2 Items and runes ({{ ALL_ITEM_SHEETS.length }}) — magenta, box = {{ Math.round(0.72 * 100) }} % of a panel
+    h2 The intro's pages ({{ STORY_SHEETS.length }}) — opaque, 1152 × 672, painted from the character models
+    .grid.sectors
+      figure(v-for="(s, i) in STORY_SHEETS" :key="s.file")
+        .cv(:ref="storyPreviews[i] ? mount(storyPreviews[i]) : undefined")
+        figcaption Intro {{ s.panel }} {{ s.title }} · models: {{ s.also.join(', ') }}
+    h2 Items, keepsakes, runes, portraits and islands ({{ ALL_ITEM_SHEETS.length }}) — magenta, box = {{ Math.round(0.72 * 100) }} % of a panel
     .grid.items
       figure(v-for="(s, i) in ALL_ITEM_SHEETS" :key="s.file" :class="{ wide: s.frames > 1 }")
         .cv(:ref="itemPreviews[i] ? mount(itemPreviews[i]) : undefined")

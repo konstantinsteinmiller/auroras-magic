@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'İleri',
+    'skip': 'Atla',
     'replay': 'Tekrar',
     'back': 'Geri',
     'play': 'Oyna',
@@ -157,6 +158,7 @@ export default {
     'close': 'Kaydet ve Kapat',
     'traceAssist': 'Rün ipuçlarını göster',
     'reducedMotion': 'Hareketi azalt',
+    'watchIntro': 'Girişi izle',
     'leaveDuel': {
       'label': 'Düellodan Çık',
       'title': 'Düellodan çıkmak istiyor musun?',
@@ -253,7 +255,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Yıldız Tozu Fırçası',
+    'stardustSponge': 'Yıldız Tozu Süngeri',
     'magicEraser': 'Sihirli Silgi',
     'sunbeam': 'Güneş Işını'
   },

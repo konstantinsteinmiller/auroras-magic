@@ -178,6 +178,9 @@ export const K_HEART = 13
 export const K_RING = 14
 /** A soft dust puff, kicked up along a wipe's erase boundary (§8.5, §9.8). */
 export const K_PUFF = 15
+/** A soap bubble off the Stardust Sponge while it scrubs (owner, 2026-09-19):
+ *  floats up, wobbles, and pops at the end of its life. */
+export const K_BUBBLE = 16
 /**
  * The kind a rune throws (§9.8, M25). A lookup, not the jam build's
  * `(rune & 3) + 1`, which sent Nature (4) to the fire-rain BLOCK — whose
@@ -189,10 +192,10 @@ const kindOf = (rune: number): number => KIND_OF_RUNE[rune] ?? K_GLINT
 /** Gravity per kind: fire climbs away, wind barely knows gravity exists, ice
  *  drops hard, rock drops harder; leaves drift, bubbles float, hearts rise,
  *  and dust barely rises at all. */
-const G = [0, -380, -40, 760, 1050, 800, -60, -120, 200, -20, 400, 700, -80, -100, 0, -30]
+const G = [0, -380, -40, 760, 1050, 800, -60, -120, 200, -20, 400, 700, -80, -100, 0, -30, -70]
 /** Drag per kind: wind hangs in the air, rock ploughs through it, and a
  *  puff of dust hangs longest of all. */
-const DR = [3.2, 2, 2.4, 0.7, 0.7, 0, 1.4, 1.8, 1, 2, 0.9, 0.6, 1.6, 1.5, 0, 2.8]
+const DR = [3.2, 2, 2.4, 0.7, 0.7, 0, 1.4, 1.8, 1, 2, 0.9, 0.6, 1.6, 1.5, 0, 2.8, 2.2]
 
 /** Screen-shake offset. REUSED array — shakeOffset() never allocates. */
 const SO: [number, number] = [0, 0]
@@ -268,6 +271,10 @@ const ring = (x: number, y: number, c: number, r0: number, grow: number, life: n
  *  does not pop (§8.5). */
 export const puff = (x: number, y: number, vx: number, vy: number, r: number): void =>
   sp(x, y, vx, vy, 0.6 + rnd() * 0.3, r, K_PUFF, C_DUST + (rnd() < 0.5 ? 0 : 1), 0, 0)
+
+/** One soap bubble drifting up off the sponge. Drawn in its own pass. */
+export const bubble = (x: number, y: number, vx: number, vy: number, r: number): void =>
+  sp(x, y, vx, vy, 0.55 + rnd() * 0.45, r, K_BUBBLE, C_WHITE, 0, 0)
 
 /** A pastel glint, HELD for `dl` seconds before it appears — the reveal wave
  *  uses the hold to stagger its sparkles along the wave front. */
@@ -568,7 +575,7 @@ const pass = (g: G2D, dot: boolean): void => {
     let n = 0
     for (let i = 0; i < P.length; i += ST) {
       const k = P[i + 9]!
-      if (P[i + 4]! <= 0 || P[i + 10] !== b || k === K_RING || k === K_PUFF || (dot ? k : !k)) continue
+      if (P[i + 4]! <= 0 || P[i + 10] !== b || k === K_RING || k === K_PUFF || k === K_BUBBLE || (dot ? k : !k)) continue
       n = 1
       const t = P[i + 5]!
       const q = P[i + 4]! / t
@@ -865,9 +872,46 @@ const puffPass = (g: G2D): void => {
   g.globalAlpha = 1
 }
 
+/**
+ * Soap bubbles: a thin white ring with a catch-light, swelling slightly as
+ * they rise, and a quick pop — out to 1.4× and gone — over their last tenth.
+ */
+const bubblePass = (g: G2D): void => {
+  let any = false
+  for (let i = 0; i < P.length; i += ST) {
+    if (P[i + 4]! <= 0 || P[i + 9] !== K_BUBBLE) continue
+    const t = P[i + 5]!
+    const l = P[i + 4]!
+    if (l > t) continue
+    const q = l / t
+    const pop = q < 0.1 ? 1 + (0.1 - q) * 4 : 1
+    const r = P[i + 6]! * (1.1 - 0.2 * q) * pop
+    const x = P[i]! + sin((t - l) * 9 + i) * 1.5
+    const y = P[i + 1]!
+    if (!any) {
+      any = true
+      g.lineWidth = 1.6
+      g.strokeStyle = 'rgba(255,255,255,0.9)'
+      g.fillStyle = 'rgba(214,230,255,0.28)'
+    }
+    g.globalAlpha = q < 0.1 ? q * 10 : min(1, (1 - q) * 10)
+    g.beginPath()
+    g.arc(x, y, r, 0, TAU)
+    g.fill()
+    g.stroke()
+    g.beginPath()
+    g.arc(x - r * 0.35, y - r * 0.35, r * 0.22, 0, TAU)
+    g.fillStyle = 'rgba(255,255,255,0.95)'
+    g.fill()
+    g.fillStyle = 'rgba(214,230,255,0.28)'
+  }
+  g.globalAlpha = 1
+}
+
 /** STAGE space, in front of the duelists: debris, blocks, glints, barriers. */
 export const drawFxOver = (g: G2D): void => {
   puffPass(g)
+  bubblePass(g)
   g.lineJoin = 'round'
   g.lineWidth = 4
   g.strokeStyle = OUT

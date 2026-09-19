@@ -1,204 +1,250 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1789786026095,
-  "updatedAt": 1789786026063,
-  "total": 31,
+  "fetchedAt": 1789859386586,
+  "updatedAt": 1789859386578,
+  "total": 38,
   "entries": [
     {
       "rank": 1,
+      "name": "Frosty Bunny 615",
+      "score": 61,
+      "flair": 41
+    },
+    {
+      "rank": 2,
       "name": "Fluffy Firefly 630",
       "score": 51,
       "flair": 46
     },
     {
-      "rank": 1,
+      "rank": 2,
       "name": "Bubbly Maple 751",
       "score": 51,
       "flair": 46
     },
     {
-      "rank": 3,
+      "rank": 4,
       "name": "Rosy Wren 725",
       "score": 21,
       "flair": 46
     },
     {
-      "rank": 3,
+      "rank": 4,
       "name": "Happy Pixie 253",
       "score": 21,
       "flair": 46
     },
     {
-      "rank": 3,
+      "rank": 4,
       "name": "Snowy Sprite 511",
       "score": 21,
       "flair": 46
     },
     {
-      "rank": 6,
+      "rank": 4,
+      "name": "Glowy Sprite 791",
+      "score": 21,
+      "flair": 46
+    },
+    {
+      "rank": 8,
       "name": "Rosy Pebble 712",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 6,
+      "rank": 8,
       "name": "Twinkly Acorn 436",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 8,
+      "rank": 10,
       "name": "Fluffy Star 192",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 8,
+      "rank": 10,
       "name": "Dreamy Star 569",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 8,
+      "rank": 10,
       "name": "Frosty Cloud 795",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 8,
+      "rank": 10,
       "name": "Sparkly Otter 196",
       "score": 5,
       "flair": 1
     },
     {
-      "rank": 12,
+      "rank": 14,
       "name": "Sparkly Firefly 220",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 12,
+      "rank": 14,
       "name": "Gentle Otter 450",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 12,
+      "rank": 14,
       "name": "Golden Fawn 854",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 12,
+      "rank": 14,
       "name": "Shiny Pony 884",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 12,
+      "rank": 14,
       "name": "Starry Rainbow 122",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Breezy Maple 361",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Gentle Maple 668",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Cozy Moon 870",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Fluffy Fawn 736",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Jolly Kitten 919",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Merry Acorn 825",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Misty Pony 968",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Misty Clover 637",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Sparkly Panda 618",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Glowy Kitten 146",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Shiny Comet 571",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Happy Pebble 750",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Happy Petal 331",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Frosty Unicorn 336",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 17,
+      "rank": 19,
       "name": "Sparkly Petal 544",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Cozy Cloud 131",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Fluffy Panda 850",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Breezy Maple 820",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Minty Otter 579",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Lucky Otter 102",
       "score": 1,
       "flair": 1
     }
   ],
   "dist": [
     [
+      61,
+      1
+    ],
+    [
       51,
       2
     ],
     [
       21,
-      3
+      4
     ],
     [
       11,
@@ -214,7 +260,7 @@
     ],
     [
       1,
-      15
+      20
     ]
   ]
 }

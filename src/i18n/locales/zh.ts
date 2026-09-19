@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': '下一个',
+    'skip': '跳过',
     'replay': '重玩',
     'back': '返回',
     'play': '开始',
@@ -156,6 +157,7 @@ export default {
     'close': '保存并关闭',
     'traceAssist': '显示符文描画指引',
     'reducedMotion': '减弱动态效果',
+    'watchIntro': '观看开场动画',
     'leaveDuel': {
       'label': '离开对决',
       'title': '要离开这场对决吗？',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': '星尘画笔',
+    'stardustSponge': '星尘海绵',
     'magicEraser': '魔法橡皮擦',
     'sunbeam': '阳光'
   },

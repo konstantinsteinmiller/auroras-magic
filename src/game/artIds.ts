@@ -44,7 +44,7 @@ export const ITEM_ART = {
   gift: { kind: 'gift', id: 'standard-gift' },
   boxGift: { kind: 'gift', id: 'box-gift' },
   chest: { kind: 'gift', id: 'boss-chest' },
-  brush: { kind: 'tool', id: 'stardust-brush' },
+  sponge: { kind: 'tool', id: 'stardust-sponge' },
   eraser: { kind: 'tool', id: 'magic-eraser' },
   tent: { kind: 'worldUi', id: 'wardrobe-tent' },
   crown: { kind: 'cosmetic', id: 'flower-crown' },
@@ -52,3 +52,78 @@ export const ITEM_ART = {
 } as const
 
 export type ItemName = keyof typeof ITEM_ART
+
+/**
+ * The intro's painted panels (§8.26): one per picture-book page. The last two
+ * beats (the colour back, then Play) share the fourth — the same restored
+ * meadow — so the page does not jump between them.
+ */
+export const STORY_PANELS = ['hello', 'dust', 'magic', 'colour'] as const
+export const storyPanelId = (panel: number): string => `intro-${panel + 1}`
+/** The panel beat `beat` (0-based) shows. */
+export const storyPanelOf = (beat: number): number => Math.min(beat, STORY_PANELS.length - 1)
+export const storyArtId = (beat: number): string => storyPanelId(storyPanelOf(beat))
+
+/**
+ * The dialogue portraits (§8.27), one strip per speaker: every expression the
+ * script gives them, in the `Emote` union's order, painted side by side in
+ * ONE generation so a face stays the same face across its moods. Pure data,
+ * kept in step with the script by `tests/artFamilies.test.ts`.
+ */
+export const EMOTE_ORDER = ['happy', 'sleepy', 'worriedMild', 'determined', 'stern', 'warmBlush', 'cheering'] as const
+export type PortraitEmote = (typeof EMOTE_ORDER)[number]
+
+export interface PortraitSet {
+  /** A speaker id, or a chapter creature's name (`creature` speakers). */
+  who: string
+  creature: boolean
+  emotes: readonly PortraitEmote[]
+}
+
+const CREATURE_EMOTES: readonly PortraitEmote[] = ['happy', 'worriedMild', 'cheering']
+
+export const PORTRAIT_SETS: readonly PortraitSet[] = [
+  { who: 'aurora', creature: false, emotes: ['happy', 'worriedMild', 'determined', 'cheering'] },
+  { who: 'umbra', creature: false, emotes: ['sleepy', 'worriedMild', 'stern', 'warmBlush', 'cheering'] },
+  { who: 'briar', creature: false, emotes: ['happy', 'stern', 'warmBlush'] },
+  { who: 'pearl', creature: false, emotes: ['happy', 'stern', 'warmBlush'] },
+  { who: 'zephyr', creature: false, emotes: ['happy', 'stern', 'warmBlush', 'cheering'] },
+  { who: 'terra', creature: false, emotes: ['happy', 'stern', 'warmBlush'] },
+  { who: 'echo', creature: false, emotes: ['happy', 'worriedMild', 'stern', 'warmBlush', 'cheering'] },
+  { who: 'prism', creature: false, emotes: ['stern', 'warmBlush', 'cheering'] },
+  { who: 'ember', creature: false, emotes: ['happy', 'stern', 'warmBlush'] },
+  { who: 'glace', creature: false, emotes: ['happy', 'stern', 'warmBlush'] },
+  { who: 'nova', creature: false, emotes: ['happy', 'worriedMild', 'determined', 'warmBlush', 'cheering'] },
+  ...['Twig', 'Shelly', 'Puff', 'Glint', 'Blink', 'Rio', 'Dune', 'Frosty', 'Wisp'].map(
+    (who): PortraitSet => ({ who, creature: true, emotes: CREATURE_EMOTES })
+  )
+]
+
+/** `portrait-aurora`, `portrait-twig`, … */
+export const portraitArtId = (who: string): string => `portrait-${who.toLowerCase()}`
+
+/** The strip a speaker's portrait is painted in, if the script gave them one. */
+export const portraitSetOf = (speaker: string, creature?: string): PortraitSet | undefined =>
+  PORTRAIT_SETS.find((p) => (p.creature ? speaker === 'creature' && p.who === creature : p.who === speaker))
+
+/** The duel's floating island, one per chapter theme (§8.27, arenaThemes.ts). */
+export const ISLAND_SLUGS = [
+  'whispering-woods', 'bubble-bay', 'cloud-kingdom', 'crystal-caves', 'mirror-mountains',
+  'rainbow-ridge', 'sunken-sands', 'twilight-tundra', 'starlight-summit', 'friendship-festival'
+] as const
+
+export const islandArtId = (theme: number): string => `island-${theme + 1}-${ISLAND_SLUGS[theme] ?? 'unknown'}`
+
+/**
+ * The wardrobe's keepsake badges (§8.27) that are drawn for the shelf alone.
+ * The Flower Crown's and the Pet Star's badges already draw their S6 item
+ * paintings, so they are not here.
+ */
+export const KEEPSAKE_ICON_SLUGS = [
+  'seashellNecklace', 'pegasusWings', 'hoofTrailVfx', 'umbraSkin', 'colorPicker', 'pastelTheme', 'winterScarf'
+] as const
+export type KeepsakeIconSlug = (typeof KEEPSAKE_ICON_SLUGS)[number]
+
+/** `keepsake-seashell-necklace`, … */
+export const keepsakeArtId = (slug: string): string =>
+  `keepsake-${slug.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`

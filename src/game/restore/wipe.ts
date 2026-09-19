@@ -50,10 +50,10 @@ import { Sunbeam, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
 import { computeFrame } from '@/game/restore/frame'
 import { makeCanvas, bakeStamp, bakeDust, eraseStamp, eraseCells, clearDust, sectorPx, bakePaddle, erasePaddle } from '@/game/restore/dust'
 import { sectorOf, type SectorDef } from '@/game/map/sectors'
-import { drawGift, drawBoxGift, drawBrush, drawEraser, giftShake, drawChest, chestRattle, drawSunbeam } from '@/game/restore/gift'
+import { drawGift, drawBoxGift, drawSponge, drawEraser, giftShake, drawChest, chestRattle, drawSunbeam } from '@/game/restore/gift'
 import { drawGlyph, glyphPoints } from '@/game/duel/glyph'
 import {
-  drawFxUnder, drawFxOver, resetFx, puff, glint, brushTrail, gatherGlints, sparkleBurst
+  drawFxUnder, drawFxOver, resetFx, puff, glint, brushTrail, gatherGlints, sparkleBurst, bubble
 } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { readInsets } from '@/game/duel/layout'
@@ -67,6 +67,8 @@ import { onUnboxed } from '@/game/flow/restoreFlow'
 import { forgetArt, onArtChanged } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { NEUTRAL } from '@/game/artTint'
+import type { Pot } from '@/game/map/kit'
 
 type G2D = CanvasRenderingContext2D
 
@@ -78,6 +80,23 @@ export const T_BURST = 0.25
 export const T_TOOL = 0.7
 export const T_AUTOPICK = 4
 export const T_PAINT = 0.6
+/** After the paint lands, its colour spreads out over the landmark. */
+export const T_SPREAD = 0.55
+/**
+ * The show-how (owner, 2026-09-19): with no words anywhere, the tool itself
+ * shows the job — it glides onto the dust and really scrubs a patch clean.
+ * First a moment into the wipe (unless the child already started), then
+ * again after a stretch of stillness, at most `DEMO_MAX` times a visit.
+ */
+export const DEMO_FIRST = 0.7
+export const DEMO_AGAIN = 6
+export const DEMO_MAX = 3
+const DEMO_GLIDE = 0.35
+const DEMO_SCRUB = 1.5
+const DEMO_PULL = 0.7
+/** A mouse that moved within this long is the child's own cursor: the tool
+ *  rides it, and the show-how waits. */
+const HOVER_HOLD_MS = 1200
 export const T_ZOOM = 0.4
 export const T_IDLE_GRACE = 1.5
 export const T_FREEZE = 0.55
@@ -132,7 +151,39 @@ const hand = (): Brush | Eraser | null => (tool === 'eraser' ? eraser : brush)
 let base: Box = { x: 0, y: 0, w: 1, h: 1 }
 let zoom = 1
 
-let pot = 0
+/** The picked pot, or -1 while the landmark is still uncoloured: since the
+ *  owner's 2026-09-19 ruling the sector is cleaned FIRST and coloured after,
+ *  so the reveal shows the landmark blank (`NEUTRAL_POT`) until a pot is
+ *  tapped. */
+let pot = -1
+const NEUTRAL_POT: Pot = { id: 'neutral', ...NEUTRAL }
+/** The colour layer with the new pot, spreading over the neutral one. */
+let paintedCv: HTMLCanvasElement | null = null
+let paintLanded = false
+/** Desktop: where the mouse hovers, and when it last moved (ms). */
+let hoverX = 0
+let hoverY = 0
+let hoverAt = -1e9
+/** How long the child has done nothing at all in the wipe, s. */
+let stillT = 0
+/** Has the child pressed in the wipe this visit? The first show-how is for
+ *  a child who has not started yet. */
+let touched = false
+/** The show-how: seconds in (−1 = none), how many so far, where it scrubs,
+ *  where the tool came from, and the strokes it made (kept out of analytics). */
+let demoT = -1
+let demoN = 0
+let demoCx = 0
+let demoCy = 0
+let demoFromX = 0
+let demoFromY = 0
+let demoStrokes = 0
+/** The sponge's press (0 lifted … 1 down) and its scrub phase. */
+let pressK = 0
+let scrubPh = 0
+let lastToolX = 0
+let lastToolY = 0
+let bubbleT = 0
 let coverage = 0
 let checkT = 0
 let idleT = 0
@@ -225,10 +276,14 @@ const bakeColour = (): void => {
   const g = colourCv.getContext('2d')
   if (!g) return
   g.setTransform(res, 0, 0, res, 0, 0)
-  bakedPainted = paintSectorArt(g, node, sec, sec.pots[pot]!, false)
-  if (!bakedPainted) sec.paint(g, sec.pots[pot]!)
+  const p = potDef()
+  bakedPainted = paintSectorArt(g, node, sec, p, false)
+  if (!bakedPainted) sec.paint(g, p)
   g.setTransform(1, 0, 0, 1, 0, 0)
 }
+
+/** The pot the landmark is baked in: the pick, or blank until there is one. */
+const potDef = (): Pot => (pot >= 0 ? sec.pots[pot] ?? NEUTRAL_POT : NEUTRAL_POT)
 
 /** The colour layer, the dust baked from it, and the cells a resumed visit
  *  had already cleared. */
@@ -256,7 +311,7 @@ const bakeLayers = (): void => {
  * begun, this visit keeps what it started with: re-baking would put back
  * dust the child already cleared.
  */
-const UNTOUCHED: ReadonlySet<RestorePhase> = new Set(['invite', 'open', 'pots', 'paint', 'zoom'])
+const UNTOUCHED: ReadonlySet<RestorePhase> = new Set(['invite', 'open', 'zoom'])
 onArtChanged((c) => {
   if (phase === 'idle' || !UNTOUCHED.has(phase)) return
   if (c && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
@@ -306,7 +361,11 @@ const publishLayout = (): void => {
     : { x: gx - gs * 0.6, y: gy - gs * 1.1, w: gs * 1.2, h: gs * 1.3 }
   const size = 64
   const gap = 22
-  const cy = portrait ? base.y + base.h + 70 : base.y + base.h - size / 2 - 22
+  // The pots rise after the reveal, so they must not sit on the landmark
+  // they colour: along the bottom edge, unless the landmark is down there,
+  // then along the top. Portrait has room under the sector for them.
+  const low = sec.landmark.y > SEC_H * 0.5
+  const cy = portrait ? base.y + base.h + 70 : low ? base.y + size / 2 + 22 : base.y + base.h - size / 2 - 22
   const cx = base.x + base.w / 2
   restoreHud.potSize = size
   restoreHud.pots = [-1, 0, 1].map((k) => ({ x: cx + k * (size + gap), y: cy }))
@@ -366,8 +425,19 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   onEnd = done
   resetFx()
   const pick = getPaintPick(S.campaign.paintPicks, n)
-  const opened = pick !== 0
-  pot = opened ? pick - 1 : 0
+  // Opened = the gift was unwrapped. Since the pots moved after the reveal,
+  // that is marked by the wipe's own save (`wipeCoverage`, written the moment
+  // the gift opens — only the pending sector ever has one); a save from
+  // before, which picked first, still says it with its pick.
+  const opened = pick !== 0 || S.campaign.wipeCoverage !== null
+  pot = pick !== 0 ? pick - 1 : -1
+  paintedCv = null
+  paintLanded = false
+  demoT = -1
+  demoN = demoStrokes = 0
+  stillT = pressK = scrubPh = bubbleT = 0
+  touched = false
+  hoverAt = -1e9
   phase = 'invite' // so restoreResize lays out
   restoreResize()
   // Resolution: no finer than the sector is drawn, never below half (§9.2).
@@ -393,7 +463,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   coverage = coverage01(cov)
   chimeStep = Math.floor(coverage * 10)
   restoreHud.coverage = coverage
-  restoreHud.picked = opened ? pot : -1
+  restoreHud.picked = pot
   restoreHud.potDefs = sec.pots.map((p) => ({ ...p }))
   restoreHud.boss = sec.rvu > 1
   restoreHud.tool = tool
@@ -403,8 +473,9 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   manual100 = forcedReveal = false
   giftOpenAt = -1
   const [gx, gy] = toCss(sec.giftSpot.x, sec.giftSpot.y - 60)
-  touchX = toolX = gx
-  touchY = toolY = gy
+  touchX = toolX = lastToolX = gx
+  touchY = toolY = lastToolY = gy
+  toolAng = 0
   if (opened) {
     zoom = ZOOM_UNBOX
     setPhase('zoom')
@@ -426,7 +497,7 @@ const end = (why: RestoreEnd): void => {
   // Release the two sector-sized canvases; the stamp and noise are tiny and
   // kept for the next sector. The full-size painting goes too: fifty of
   // them decoded for the session would be ~150 MB (the map keeps its thumb).
-  colourCv = dustCv = null
+  colourCv = dustCv = paintedCv = null
   forgetArt('sector', sectorArtId(node))
   resetFx()
   cb?.(why)
@@ -434,7 +505,7 @@ const end = (why: RestoreEnd): void => {
 
 /** The player backed out mid-wipe (§3.3.5): keep what they cleared. */
 export const leaveRestore = (): void => {
-  if (phase === 'idle' || phase === 'freeze' || phase === 'wave' || phase === 'admire') return
+  if (phase === 'idle' || phase === 'freeze' || phase === 'wave' || phase === 'pots' || phase === 'paint' || phase === 'admire') return
   if (phase === 'wipe' || phase === 'zoom') {
     persistCoverage()
     track('wipe_interrupted', { sectorId: node, pctAtInterrupt: Math.round(coverage * 100), reason: 'left' })
@@ -477,6 +548,10 @@ export const restorePointerDown = (cx: number, cy: number, t: number): void => {
     return
   }
   if (phase !== 'wipe') return
+  stillT = 0
+  touched = true
+  // The child takes over from any show-how in progress.
+  stopDemo()
   const [x, y] = toSU(cx, cy)
   if (beam) {
     // The Sunbeam: the press sets where the light starts (§8.4). A press
@@ -498,8 +573,8 @@ export const restorePointerMove = (cx: number, cy: number, t: number): void => {
     return
   }
   const h = hand()
-  if (!h?.down) return
-  if (Math.abs(cx - touchX) + Math.abs(cy - touchY) > 1) idleT = 0
+  if (!h?.down || demoT >= 0) return
+  if (Math.abs(cx - touchX) + Math.abs(cy - touchY) > 1) idleT = stillT = 0
   touchX = cx
   touchY = cy
   const [x, y] = toSU(cx, cy)
@@ -507,11 +582,30 @@ export const restorePointerMove = (cx: number, cy: number, t: number): void => {
 }
 
 export const restorePointerUp = (): void => {
+  // The show-how's own stroke is not the child's to lift (a hovering mouse
+  // reports "no button" on every move).
+  if (demoT >= 0) return
   if (beam) {
     if (beam.release()) fireBeam()
     return
   }
   hand()?.release()
+}
+
+/**
+ * A mouse moving with no button down (desktop): the tool rides the cursor —
+ * the system cursor is hidden over the wipe — so the sponge is visibly the
+ * thing in the player's hand before they ever press.
+ */
+export const restoreHover = (cx: number, cy: number): void => {
+  hoverX = cx
+  hoverY = cy
+  hoverAt = performance.now()
+  if (phase !== 'wipe') return
+  stillT = 0
+  // The child's own hand is back on the mouse: the show-how steps aside and
+  // the tool comes back to the cursor.
+  stopDemo()
 }
 
 /** The slingshot let go: the light is on its way. */
@@ -544,9 +638,16 @@ export const pickPot = (i: number): void => {
   save()
   sfx('paint', pot)
   haptic('reward')
-  // The roof is under the dust, so the re-bake is invisible. The player
-  // sees the paint land, and finds their colour as they wipe.
-  bakeColour()
+  // The sector is clean and the landmark blank: bake the coloured version
+  // aside, and let it spread out from the landmark when the paint lands.
+  if (colourCv) {
+    const keep = colourCv
+    paintedCv = makeCanvas(keep.width, keep.height)
+    colourCv = paintedCv
+    bakeColour()
+    colourCv = keep
+  }
+  paintLanded = false
   const p = restoreHud.pots[pot]
   paintFrom = p ? [p.x, p.y] : [touchX, touchY]
   setPhase('paint')
@@ -618,7 +719,7 @@ const stepWipe = (dt: number, now: number): void => {
       trailT = 0.055
       brushTrail(touchX, touchY, sp > 250 ? 2 : 1)
     }
-    if (sp > 20 && buzzT <= 0) {
+    if (sp > 20 && buzzT <= 0 && demoT < 0) {
       const k = clamp(sp / 400, 0, 1)
       haptic('scrub', 10 + 20 * (1 - k))
       buzzT = (70 + 50 * (1 - k)) / 1000
@@ -667,7 +768,7 @@ const stepEraser = (dt: number, now: number): void => {
       brushTrail(touchX, touchY, 2)
     }
     // Haptics at the formulas' midpoint: 20 ms every 95 ms (§8.5).
-    if (sp > 20 && buzzT <= 0) {
+    if (sp > 20 && buzzT <= 0 && demoT < 0) {
       haptic('scrub', 20)
       buzzT = 0.095
     }
@@ -764,6 +865,7 @@ const stepBeam = (dt: number, now: number): void => {
 }
 
 const startReveal = (): void => {
+  demoT = -1
   hand()?.release()
   beam?.stop()
   const [sx, sy] = toSU(touchX, touchY)
@@ -859,15 +961,17 @@ const finishWave = (): void => {
     sectorId: node,
     chapter: Math.floor(node / 5),
     isBoss: boss,
-    tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustBrush',
+    tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustSponge',
     durationMs: Math.round(wipeT * 1000),
     coverage85AtMs: reached85 >= 0 ? Math.round(reached85 * 1000) : -1,
     coveragePct: Math.round((forcedReveal ? 100 : coverageAtReveal * 100)),
-    strokeOrSweepCount: beam ? beam.sweeps : hand()?.strokes ?? 0,
+    // The show-how's own strokes are not the child's.
+    strokeOrSweepCount: Math.max(0, (beam ? beam.sweeps : hand()?.strokes ?? 0) - demoStrokes),
     manualTo100: manual100,
     rescueFound: rescueByHand
   })
-  setPhase('admire')
+  // Clean first, then colour it in (owner, 2026-09-19): the pots rise now.
+  setPhase(pot >= 0 ? 'admire' : 'pots')
 }
 let coverageAtReveal = 0
 
@@ -969,6 +1073,9 @@ export const updateRestore = (dt: number, now: number): void => {
         // The unbox beat's payload: a boss chest's rune and keepsake are
         // granted HERE, riding the burst (R-1b, §8.3) — not at the win.
         const grant = onUnboxed(node)
+        // Mark it opened (see `beginRestore`): leaving from here on comes back
+        // to the wipe, not to a second unwrapping.
+        persistCoverage()
         if (grant.rune !== null) beginRuneReveal(grant.rune)
         else if (grant.signature !== null) beginSignatureReveal(grant.signature)
         toolFromX = toolX = gx
@@ -981,23 +1088,41 @@ export const updateRestore = (dt: number, now: number): void => {
         const e = 1 - (1 - k) ** 3 // ease-out cubic (§8.3)
         toolX = lerp(toolFromX, touchX, e)
         toolY = lerp(toolFromY, touchY, e)
-        // The pots wait for the new rune to finish being read.
-        if (k >= 1 && !revealing()) setPhase('pots')
+        // The wipe waits for the new rune to finish being read. The pots come
+        // AFTER the cleaning now: clean first, then colour it in.
+        if (k >= 1 && !revealing()) setPhase('zoom')
       }
       break
     }
-    case 'pots':
+    case 'pots': {
+      // The clean sector plays on while the child chooses; the blank
+      // landmark twinkles, so it is plain what the paint is for.
+      lifeT += dt
       if (phaseT >= T_AUTOPICK) pickPot(0)
+      else if (rnd() < dt * 5) {
+        const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
+        const a = rnd() * TAU
+        const d = rnd() * view().w * 0.1
+        glint(lx + cos(a) * d, ly + sin(a) * d * 0.7, 7 + rnd() * 6, 0, 0, -30)
+      }
       break
+    }
     case 'paint':
-      if (phaseT >= T_PAINT) {
+      lifeT += dt
+      if (phaseT >= T_PAINT && !paintLanded) {
+        paintLanded = true
         const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
         for (let i = 0; i < 14; i++) {
           const a = rnd() * TAU
           glint(lx, ly, 8 + rnd() * 6, 0, cos(a) * 120, sin(a) * 120)
         }
-        sparkleBurst(lx, ly, 0.35)
-        setPhase('zoom')
+        sparkleBurst(lx, ly, 0.5)
+        sfx('chime', 6)
+      }
+      if (phaseT >= T_PAINT + T_SPREAD) {
+        if (paintedCv) colourCv = paintedCv
+        paintedCv = null
+        setPhase('admire')
       }
       break
     case 'zoom':
@@ -1009,7 +1134,7 @@ export const updateRestore = (dt: number, now: number): void => {
           sectorId: node,
           chapter: Math.floor(node / 5),
           isBoss: boss,
-          tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustBrush',
+          tool: boss ? 'sunbeam' : tool === 'eraser' ? 'magicEraser' : 'stardustSponge',
           // §7.5: the constant standard area, and the boss's 4×.
           sectorAreaRvu2: boss ? 1270600 : 317650
         })
@@ -1017,6 +1142,7 @@ export const updateRestore = (dt: number, now: number): void => {
       }
       break
     case 'wipe':
+      stepDemo(dt, now)
       stepWipe(dt, now)
       break
     case 'freeze':
@@ -1051,16 +1177,159 @@ export const updateRestore = (dt: number, now: number): void => {
     toolX += (ox - toolX) * k
     toolY += (oy - toolY) * k
   }
-  // The tool follows the finger with a little lag, and tilts with its travel.
-  if (phase === 'wipe' && hand()?.down && !beam) {
+  // A hovering mouse carries the tool (desktop), when nothing else does.
+  const hovering = phase === 'wipe' && demoT < 0 && !hand()?.down &&
+    (!beam || beam.state === 'ready') && performance.now() - hoverAt < 4000
+  if (hovering) {
+    const v = view()
+    touchX = clamp(hoverX, v.x - 20, v.x + v.w + 20)
+    touchY = clamp(hoverY, v.y - 20, v.y + v.h + 20)
+  }
+  // The tool follows the finger with a little lag, and leans with its travel.
+  if ((phase === 'wipe' && hand()?.down && !beam) || hovering) {
     const k = 1 - Math.exp(-dt * 28)
     const vx = touchX - toolX
     toolX += vx * k
     toolY += (touchY - toolY) * k
-    // The brush tilts with its travel; the eraser's paddle points along it.
+    // The sponge leans into its travel; the eraser's paddle points along it.
     toolAng = eraser
-      ? eraser.ang
-      : lerp(toolAng, PI * 0.75 - clamp(vx * 0.01, -0.35, 0.35), 1 - Math.exp(-dt * 10))
+      ? (eraser.down ? eraser.ang : lerp(toolAng, -0.3, 1 - Math.exp(-dt * 8)))
+      : lerp(toolAng, clamp(vx * 0.006, -0.35, 0.35), 1 - Math.exp(-dt * 10))
+  } else if (!eraser && !beam) toolAng = lerp(toolAng, 0, 1 - Math.exp(-dt * 6))
+  // The squish: pressed down while it scrubs, pumping with the distance.
+  const down = phase === 'wipe' && !!hand()?.down && !beam
+  pressK = lerp(pressK, down ? 1 : 0, 1 - Math.exp(-dt * 16))
+  const moved = Math.hypot(toolX - lastToolX, toolY - lastToolY)
+  lastToolX = toolX
+  lastToolY = toolY
+  if (down) {
+    scrubPh += moved / 12
+    // Soap bubbles off a moving sponge (the eraser leaves its crumbs instead).
+    bubbleT -= dt
+    if (!eraser && moved > 0.5 && bubbleT <= 0) {
+      bubbleT = 0.07
+      const s = toolSize()
+      for (let i = rnd() < 0.5 ? 1 : 2; i--;) {
+        bubble(toolX + (rnd() - 0.5) * s * 0.8, toolY - s * 0.12 + (rnd() - 0.5) * s * 0.25,
+          (rnd() - 0.5) * 50, -40 - rnd() * 50, s * (0.035 + rnd() * 0.06))
+      }
+    }
+  }
+}
+
+/** The tool's on-screen size, CSS px. */
+const toolSize = (): number => clamp(base.h * 0.2, 64, 110)
+
+/* --------------------------------------------------------- the show-how */
+
+/** Where the show-how scrubs at fraction `u` of its stroke: a zigzag
+ *  across a patch of dust, top to bottom. */
+const demoAt = (u: number): [number, number] => {
+  const v = view()
+  const a = clamp(v.w * 0.13, 50, 140)
+  const b = clamp(v.h * 0.26, 40, 120)
+  return [demoCx + a * sin(u * TAU * 2.5), demoCy - b / 2 + b * u]
+}
+
+const startDemo = (): void => {
+  const v = view()
+  // Where the child's cursor rests if there is one, else the sector's middle.
+  const near = performance.now() - hoverAt < 10000
+  demoCx = clamp(near ? hoverX : v.x + v.w * 0.5, v.x + v.w * 0.2, v.x + v.w * 0.8)
+  demoCy = clamp(near ? hoverY : v.y + v.h * 0.55, v.y + v.h * 0.25, v.y + v.h * 0.75)
+  demoFromX = toolX
+  demoFromY = toolY
+  demoT = 0
+}
+
+/** The child pressed: whatever the show-how was doing, it lets go. */
+const stopDemo = (): void => {
+  if (demoT < 0) return
+  if (beam) {
+    // An aimed-but-unreleased demo shot goes back to ready, unfired.
+    if (beam.state === 'aiming') {
+      beam.pull = 0
+      beam.release()
+    }
+  } else if (hand()?.down) hand()!.release()
+  demoT = -1
+  demoN++
+  stillT = 0
+}
+
+const stepDemo = (dt: number, now: number): void => {
+  if (demoT < 0) {
+    stillT += dt
+    const due = stillT >= (demoN === 0 && !touched ? DEMO_FIRST : DEMO_AGAIN)
+    if (due && demoN < DEMO_MAX && coverage < COMPLETE_AT && !hand()?.down &&
+      (!beam || beam.state === 'ready') && performance.now() - hoverAt > HOVER_HOLD_MS) startDemo()
+    return
+  }
+  demoT += dt
+  if (beam) {
+    // The Sunbeam's show-how: take hold of the sun, pull it back like a
+    // slingshot, and let go — a real shot, with the guide line showing.
+    const [sx, sy] = toSU(demoFromX, demoFromY)
+    if (beam.state === 'ready' && demoT < DEMO_PULL) {
+      beam.aim(clamp(sx, 0, SEC_W), clamp(sy, 0, SEC_H))
+      demoStrokes++
+    }
+    if (beam.state === 'aiming') {
+      const k = ease(clamp(demoT / DEMO_PULL, 0, 1))
+      const pull = beam.maxPull * 0.85 * k
+      beam.drag(beam.ox - 0.55 * pull, beam.oy + 0.83 * pull)
+      ;[touchX, touchY] = toCss(beam.ox - 0.55 * pull, beam.oy + 0.83 * pull)
+      if (demoT >= DEMO_PULL) {
+        if (beam.release()) fireBeam()
+        demoT = -1
+        demoN++
+        stillT = 0
+      }
+    } else {
+      demoT = -1
+      demoN++
+    }
+    return
+  }
+  const h = hand()
+  if (!h) { demoT = -1; return }
+  if (demoT < DEMO_GLIDE) {
+    // Glide onto the dust.
+    const [x0, y0] = demoAt(0)
+    const k = ease(demoT / DEMO_GLIDE)
+    toolX = lerp(demoFromX, x0, k)
+    toolY = lerp(demoFromY, y0, k)
+    touchX = toolX
+    touchY = toolY
+    return
+  }
+  const u = (demoT - DEMO_GLIDE) / DEMO_SCRUB
+  if (u < 1) {
+    // Scrub: a real stroke, so the dust really goes.
+    const [cx, cy] = demoAt(u)
+    const [x, y] = toSU(cx, cy)
+    touchX = cx
+    touchY = cy
+    if (!h.down) {
+      h.press(x, y, cx, cy, now)
+      demoStrokes++
+    } else h.move(x, y, cx, cy, now)
+    return
+  }
+  if (h.down) h.release()
+  // Glide back to where it came from (or the cursor, if there is one).
+  const k = ease(clamp((demoT - DEMO_GLIDE - DEMO_SCRUB) / DEMO_GLIDE, 0, 1))
+  const [x1, y1] = demoAt(1)
+  const rx = performance.now() - hoverAt < 4000 ? hoverX : demoFromX
+  const ry = performance.now() - hoverAt < 4000 ? hoverY : demoFromY
+  toolX = lerp(x1, rx, k)
+  toolY = lerp(y1, ry, k)
+  touchX = toolX
+  touchY = toolY
+  if (k >= 1) {
+    demoT = -1
+    demoN++
+    stillT = 0
   }
 }
 
@@ -1154,7 +1423,19 @@ export const drawRestore = (g: G2D): void => {
     g.drawImage(dustCv, v.x, v.y, v.w, v.h)
     g.restore()
     drawWaveFront(g, v, k)
-  } else if (phase !== 'admire') g.drawImage(dustCv, v.x, v.y, v.w, v.h)
+  } else if (phase !== 'admire' && phase !== 'pots' && phase !== 'paint') g.drawImage(dustCv, v.x, v.y, v.w, v.h)
+  if (phase === 'paint' && paintedCv && paintLanded) {
+    // The new colour spreads out from where the paint landed; only the
+    // landmark differs between the two layers, so only it changes.
+    const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
+    const r = ease(clamp((phaseT - T_PAINT) / T_SPREAD, 0, 1)) * Math.hypot(v.w, v.h)
+    g.save()
+    g.beginPath()
+    g.arc(lx, ly, Math.max(1, r), 0, TAU)
+    g.clip()
+    g.drawImage(paintedCv, v.x, v.y, v.w, v.h)
+    g.restore()
+  }
   if (phase === 'wipe' && beam) drawBeam(g, k)
   g.restore()
   sample(performance.now() - t0 + stampMs)
@@ -1162,11 +1443,12 @@ export const drawRestore = (g: G2D): void => {
 
   const chestUp = boss && phase === 'open' && giftOpenAt < tUntie + tBurst + 0.5
   if (phase === 'invite' || chestUp || (phase === 'open' && giftOpenAt < tUntie + 0.05)) drawOpeningGift(g)
-  if (phase === 'paint') drawPaintFlight(g)
+  if (phase === 'paint' && !paintLanded) drawPaintFlight(g)
+  if (phase === 'pots') drawLandmarkCue(g)
   drawRuneReveal(g)
-  const showTool = phase === 'open' ? giftOpenAt >= tUntie : phase === 'pots' || phase === 'paint' || phase === 'zoom' || phase === 'wipe'
+  const showTool = phase === 'open' ? giftOpenAt >= tUntie : phase === 'zoom' || phase === 'wipe'
   if (showTool) {
-    const s = clamp(base.h * 0.2, 64, 110)
+    const s = toolSize()
     if (beam) {
       const aiming = phase === 'wipe' && beam.state === 'aiming'
       if (aiming) drawSling(g)
@@ -1178,7 +1460,7 @@ export const drawRestore = (g: G2D): void => {
     } else {
       const bob = brush?.down ? 0 : sin(S.t * 3) * 3
       if (phase === 'wipe' && brush?.down) drawCursor(g)
-      drawBrush(g, toolX, toolY + bob, s, toolAng, S.t)
+      drawSponge(g, toolX, toolY + bob, s, toolAng, S.t, pressK, scrubPh)
     }
   }
   drawFxUnder(g)
@@ -1444,7 +1726,25 @@ const drawPaintFlight = (g: G2D): void => {
   g.fill()
 }
 
-/** The brush's footprint while it touches: a soft ring at its core radius. */
+/** While the pots wait: a soft, breathing ring round the blank landmark —
+ *  "this is what gets coloured". */
+const drawLandmarkCue = (g: G2D): void => {
+  const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
+  const v = view()
+  const r = v.w * (0.09 + 0.012 * sin(S.t * 4))
+  g.save()
+  g.globalAlpha = clamp(phaseT / 0.4, 0, 1) * (0.55 + 0.25 * sin(S.t * 4))
+  g.beginPath()
+  g.arc(lx, ly, r, 0, TAU)
+  g.lineWidth = Math.max(3, v.w * 0.006)
+  g.strokeStyle = '#fff6c8'
+  g.setLineDash([10, 9])
+  g.lineDashOffset = -S.t * 30
+  g.stroke()
+  g.restore()
+}
+
+/** The sponge's footprint while it touches: a soft ring at its core radius. */
 const drawCursor = (g: G2D): void => {
   if (!brush) return
   g.beginPath()

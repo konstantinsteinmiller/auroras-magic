@@ -657,6 +657,46 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
 **Next:** the owner's steps in `RELEASE-CHECKLIST.md`, then
 `retention-roadmap.md` item 1.
 
+**After the RC — owner ruling (2026-09-19), story-spec §8.25:**
+- [x] **Clean first, colour after:** no pots before the wipe; pots rise after
+  the reveal, away from the landmark; the paint spreads from where it lands.
+- [x] **The Stardust Sponge** replaces the brush: it squishes, rocks and
+  sheds bubbles, and the chip, locales and art manifest were updated.
+- [x] **The tool rides the mouse** (the system cursor is hidden during the
+  wipe).
+- [x] **The show-how:** the tool demonstrates the job without text. The
+  sponge and Eraser scrub; the Sunbeam slingshots.
+- [x] Verified in a real browser, 757 tests, portal QA web 20/20 and GamePix
+  29/29.
+
+**After the RC — owner requests (2026-09-19), story-spec §8.26–§8.27:**
+- [x] **The first-launch intro:** five wordless picture-book beats (about
+  19 s). Aurora says hello; Umbra blows dust across the meadow; a rune draws
+  itself; the Stardust Sponge scrubs the colour back; Play.
+  - New cute unicorn sounds: `neigh`, `sigh`, `giggle`.
+  - A fresh save sees it once; old saves with progress never do. It can be
+    skipped from the first frame and replayed from Options.
+  - It holds silent under the first-load ad (C30).
+  - Phones held upright get a tall page with a panning camera.
+- [x] **The art style pinned as data:** `artStyle.ts` profile
+  `cozy-chibi-v1` (`art-style.md` §0). Paintings are stamped with the style
+  id, and a style change marks them for repainting.
+- [x] **Every drawing paint-ready:** 111 references and 161 targets.
+  - New families: 4 intro pages, 20 portrait strips (68 faces), 10 duel
+    islands and 7 keepsake badges, each with a runtime hook and a fallback to
+    the drawing.
+  - Aurora and Umbra's strips are the character models for the intro pages.
+  - The slicer now handles opaque scenes and a `top` anchor.
+- [x] Verified:
+  - 776 tests;
+  - a browser run of the intro (desktop and phones);
+  - synthetic paintings through every hook;
+  - portal QA: web 24/24, GamePix 33/33, CrazyGames pre-release 26/26 and
+    full 41/41, GameMonetize 36/36.
+- [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
+  the intro pages, then islands and badges. Then run `pnpm slice-sheets` and
+  compress.
+
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their
 reasoning inline.

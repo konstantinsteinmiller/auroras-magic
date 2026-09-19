@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Дальше',
+    'skip': 'Пропустить',
     'replay': 'Заново',
     'back': 'Назад',
     'play': 'Играть',
@@ -157,6 +158,7 @@ export default {
     'close': 'Сохранить и закрыть',
     'traceAssist': 'Показывать подсказки рун',
     'reducedMotion': 'Меньше анимации',
+    'watchIntro': 'Смотреть вступление',
     'leaveDuel': {
       'label': 'Покинуть дуэль',
       'title': 'Покинуть эту дуэль?',
@@ -253,7 +255,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Кисть звёздной пыли',
+    'stardustSponge': 'Губка звёздной пыли',
     'magicEraser': 'Волшебный ластик',
     'sunbeam': 'Солнечный лучик'
   },

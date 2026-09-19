@@ -10,17 +10,24 @@
  * and the renderer blits the painting into exactly that box. A rune panel IS
  * the `RuneGlyph` 100-unit box.
  */
-import { ITEM_SHEETS, RUNE_SHEETS, ITEM_FILL, itemSheetSize, SECTOR_REF, type Fit, type ItemSheet, type SectorSheet } from '@/game/artSheet'
+import {
+  ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, ITEM_FILL, itemSheetSize, SECTOR_REF,
+  type Fit, type ItemSheet, type SectorSheet, type StorySheet
+} from '@/game/artSheet'
 import type { ItemName } from '@/game/artIds'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
 import { NEUTRAL } from '@/game/artTint'
-import { GIFT_ART, BOX_GIFT_ART, CHEST_ART, BRUSH_ART, ERASER_ART } from '@/game/restore/gift'
+import { GIFT_ART, BOX_GIFT_ART, CHEST_ART, SPONGE_ART, ERASER_ART } from '@/game/restore/gift'
 import { TENT_ART } from '@/game/map/tent'
 import { CROWN_ART, PET_STAR_ART } from '@/game/cosmetics/rig-cosmetics'
 import { sectorOf } from '@/game/map/sectors'
 import { drawGlyph } from '@/game/duel/glyph'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
+import { PORTRAIT_ART } from '@/game/story/portrait'
+import { islandArt } from '@/game/duel/arena'
+import { KEEPSAKE_ART } from '@/game/cosmetics/icons'
+import { renderIntroPanel } from '@/game/story/intro'
 
 type G2D = CanvasRenderingContext2D
 
@@ -28,7 +35,7 @@ export const ITEM_SPECS: Readonly<Record<ItemName, ItemSpec>> = {
   gift: GIFT_ART,
   boxGift: BOX_GIFT_ART,
   chest: CHEST_ART,
-  brush: BRUSH_ART,
+  sponge: SPONGE_ART,
   eraser: ERASER_ART,
   tent: TENT_ART,
   crown: CROWN_ART,
@@ -40,11 +47,16 @@ const RUNE_BOX: ArtBox = { x: -50 / 30, y: -50 / 30, w: 100 / 30, h: 100 / 30 }
 
 const runeOf = (sheet: ItemSheet): number => Number(String(sheet.name).split(':')[1])
 
-/** The spec behind any item or rune sheet. */
-export const specOf = (sheet: ItemSheet): ItemSpec =>
-  sheet.kind === 'rune'
-    ? { kind: 'rune', id: sheet.id, frames: 1, draw: (g, s) => drawGlyph(g, runeOf(sheet), 0, 0, s, 1, 1) }
-    : ITEM_SPECS[sheet.name as ItemName]
+/** The spec behind any keyed sheet: an item, a rune, a keepsake badge, a
+ *  portrait strip or an island — each the game's own drawing of it. */
+export const specOf = (sheet: ItemSheet): ItemSpec => {
+  if (sheet.kind === 'rune') return { kind: 'rune', id: sheet.id, frames: 1, draw: (g, s) => drawGlyph(g, runeOf(sheet), 0, 0, s, 1, 1) }
+  const [family, key] = String(sheet.name).split(':') as [string, string | undefined]
+  if (family === 'portrait') return PORTRAIT_ART[key!]!
+  if (family === 'island') return islandArt(Number(key))
+  if (family === 'keepsake') return KEEPSAKE_ART[key!]!
+  return ITEM_SPECS[sheet.name as ItemName]
+}
 
 export interface Layout {
   w: number
@@ -177,4 +189,9 @@ export const renderSectorSheet = (s: SectorSheet): HTMLCanvasElement => {
   return cv
 }
 
-export const ALL_ITEM_SHEETS: readonly ItemSheet[] = [...ITEM_SHEETS, ...RUNE_SHEETS]
+/** An intro page's reference: its beat at the key moment, 1:1, no live layer. */
+export const renderStorySheet = (s: StorySheet): HTMLCanvasElement => renderIntroPanel(s.panel - 1, SECTOR_REF.w)
+
+export const ALL_ITEM_SHEETS: readonly ItemSheet[] = [
+  ...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS
+]

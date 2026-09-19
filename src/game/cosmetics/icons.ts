@@ -5,7 +5,15 @@
  * keepsakes still to find, and the Mane Color Palette's eight swatches —
  * each a colour disc WITH its own micro-glyph, so no swatch is told apart
  * by hue alone (§3.11).
+ *
+ * PAINTED (§8.27): the seven badges drawn for the shelf alone
+ * (`KEEPSAKE_ICON_SLUGS`) each have a painting,
+ * `images/cosmetics/keepsake-<slug>.webp`, blitted into the badge's own box
+ * (`KEEPSAKE_ART`). The ghost of one still to find is cut from the painting
+ * the same way as from the drawing. The crown's and the star's badges draw
+ * their S6 item paintings already.
  */
+import { ref } from 'vue'
 import {
   drawFlowerCrown, drawSeashellNecklace, drawWingsFar, drawWingsNear, drawScarfAt, drawStarBody,
   sparklePath, MANE_SWATCHES, UMBRA_LOOK, PASTEL_DREAM, type SwatchGlyph
@@ -13,6 +21,9 @@ import {
 import { drawUnicorn, type Face, type RigAnchors } from '@/game/duel/chars'
 import type { FoePalette } from '@/game/duel/foes'
 import { TAU, PI, sin, cos } from '@/game/duel/util'
+import { onArtChanged } from '@/game/art'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { KEEPSAKE_ICON_SLUGS, keepsakeArtId } from '@/game/artIds'
 
 type G2D = CanvasRenderingContext2D
 
@@ -41,9 +52,21 @@ const NECK_UP: RigAnchors = { ...BADGE_ANCHORS, neckDir: [0, -1] }
 
 const HAPPY: Face = { brow: 0.25, eye: 1, mouth: 1, blush: 0.3 }
 
+/**
+ * The badge's own pixel space (128 × 128), wherever the badge is being drawn:
+ * the shelf's 128 px canvas, or the bench's big reference. The painters below
+ * that work in badge pixels return to it through here rather than to the
+ * identity, so the same drawing can be drawn at any size.
+ */
+let badgeBase: DOMMatrix | null = null
+const badgeSpace = (g: G2D): void => {
+  if (badgeBase) g.setTransform(badgeBase)
+  else g.setTransform(1, 0, 0, 1, 0, 0)
+}
+
 /** Aurora's head in a skin, on a round badge of its own (badge pixels). */
 const headIn = (g: G2D, skin: FoePalette, back: string): void => {
-  g.setTransform(1, 0, 0, 1, 0, 0)
+  badgeSpace(g)
   g.save()
   g.beginPath()
   g.arc(64, 64, 56, 0, TAU)
@@ -90,7 +113,7 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
   },
   // The rest draw in badge pixels (128 × 128).
   hoofTrailVfx: (g) => {
-    g.setTransform(1, 0, 0, 1, 0, 0)
+    badgeSpace(g)
     g.lineJoin = g.lineCap = 'round'
     // A chunky little leg with a fluffy fetlock and its hoof, bottom right…
     g.beginPath()
@@ -134,7 +157,7 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
   },
   colorPicker: (g) => {
     // An artist's palette with a thumb hole and five dabs of paint.
-    g.setTransform(1, 0, 0, 1, 0, 0)
+    badgeSpace(g)
     g.lineJoin = g.lineCap = 'round'
     g.save()
     g.translate(64, 66)
@@ -175,13 +198,13 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
     g.restore()
   },
   winterScarf: (g) => {
-    g.setTransform(1, 0, 0, 1, 0, 0)
+    badgeSpace(g)
     g.translate(54, 30)
     g.scale(1.8, 1.8)
     drawScarfAt(g, 0, 0, 1, 0, 0.35, 0)
   },
   petStar: (g) => {
-    g.setTransform(1, 0, 0, 1, 0, 0)
+    badgeSpace(g)
     sparkles(g, [[20, 100, 9], [108, 22, 7]], '#fff4b8')
     g.translate(62, 68)
     g.rotate(-0.12)
@@ -191,20 +214,63 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
 
 const cache = new Map<string, string>()
 
-/** Bake `draw` onto a fresh 128 px badge (head space by default). */
-const bake = (draw: (g: G2D) => void, ghost: boolean): string => {
-  const cv = document.createElement('canvas')
-  cv.width = cv.height = 128
-  const g = cv.getContext('2d')
-  if (!g) return ''
+/** Draw `draw` as a badge, in the current transform's badge pixels. */
+const drawBadge = (g: G2D, draw: (g: G2D) => void): void => {
+  badgeBase = g.getTransform()
+  g.save()
   // Items are authored in the rig's head space; the crown's middle sits near
   // (1, -19) and spans ~50 units. Centre it on the badge.
   g.translate(64 - 2.4, 64 + 19 * 2.4)
   g.scale(2.4, 2.4)
   draw(g)
+  g.restore()
+  badgeBase = null
+}
+
+/**
+ * The seven shelf badges as painted drawables (§8.27): the whole badge,
+ * centred on the origin at scale `s` = the badge's width. What the bench
+ * renders the reference from, and the box the painting is blitted into.
+ */
+export const KEEPSAKE_ART: Readonly<Record<string, ItemSpec>> = Object.fromEntries(KEEPSAKE_ICON_SLUGS.map((slug) => [slug, {
+  kind: 'cosmetic' as const,
+  id: keepsakeArtId(slug),
+  frames: 1,
+  draw: (g: G2D, s: number) => {
+    g.save()
+    g.scale(s / 128, s / 128)
+    g.translate(-64, -64)
+    drawBadge(g, DRAW[slug]!)
+    g.restore()
+  }
+}]))
+
+/** Bumped when a keepsake painting decodes: the shelf re-reads its badges. */
+export const iconArtRev = ref(0)
+onArtChanged((c) => {
+  if (c && c.kind !== 'cosmetic') return
+  cache.clear()
+  iconArtRev.value++
+})
+
+/** Bake `slug`'s badge onto a fresh 128 px canvas: its painting, or its drawing. */
+const bake = (slug: string, draw: (g: G2D) => void, ghost: boolean): string => {
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 128
+  const g = cv.getContext('2d')
+  if (!g) return ''
+  const spec = KEEPSAKE_ART[slug]
+  let painted = false
+  if (spec) {
+    g.save()
+    g.translate(64, 64)
+    painted = drawItem(g, spec, 128)
+    g.restore()
+  }
+  if (!painted) drawBadge(g, draw)
   if (ghost) {
     // The keepsake still to find: its silhouette only (the ghost outline).
-    g.setTransform(1, 0, 0, 1, 0, 0)
+    badgeSpace(g)
     g.globalCompositeOperation = 'source-in'
     g.fillStyle = INK
     g.fillRect(0, 0, 128, 128)
@@ -213,13 +279,14 @@ const bake = (draw: (g: G2D) => void, ghost: boolean): string => {
 }
 
 export const itemIconUrl = (slug: string, ghost = false): string => {
+  void iconArtRev.value
   const key = ghost ? `ghost:${slug}` : slug
   const hit = cache.get(key)
   if (hit) return hit
   if (typeof document === 'undefined') return ''
   const draw = DRAW[slug]
   if (!draw) return ''
-  const url = bake(draw, ghost)
+  const url = bake(slug, draw, ghost)
   if (url) cache.set(key, url)
   return url
 }

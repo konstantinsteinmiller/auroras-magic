@@ -1,14 +1,14 @@
 /**
- * gift.ts — the Standard Gift and the Stardust Brush, as small named shape
+ * gift.ts — the Standard Gift and the Stardust Sponge, as small named shape
  * functions (story-spec §8.2–§8.4, §9.14), in the cel style of everything
  * else: flat fills, one plum outline, a light cap.
  *
  * The wrapping says what is inside before it opens (§8.2): a ROUND parcel
- * with a soft bow holds the Stardust Brush. The ribbon is the chapter's
+ * with a soft bow holds the Stardust Sponge. The ribbon is the chapter's
  * accent (Whispering Woods: moss green), never a rune colour.
  *
  * Both draw around their own origin, in whatever space the caller has set
- * up; `s` is the gift's height / the brush's length in that space.
+ * up; `s` is the gift's height / the sponge's long side in that space.
  */
 import { TAU, PI, sin, cos, clamp, ease } from '@/game/duel/util'
 import { drawItem, type ItemSpec } from '@/game/artItem'
@@ -390,23 +390,35 @@ export const giftShake = (t: number): number => {
 }
 
 /**
- * The Stardust Brush: a wooden handle, a gold ferrule, and a soft tuft
- * tipped with a star. The TIP is at the origin, pointing along `angle`, with
- * the handle trailing behind it, so the brush always paints from where the
- * finger is.
+ * The Stardust Sponge: a chunky butter-yellow bath sponge with a mint
+ * scrubbing layer on top, a few round pores and a little gold star printed
+ * on its side. Centred at (x, y), tilted by `angle`.
+ *
+ * It replaced a paintbrush (owner, 2026-09-19): a brush on a dusty picture
+ * reads as "paint this", and the job is CLEANING. A sponge says so without a
+ * word, and a squish says it louder:
+ *   `press`  0 lifted … 1 pressed down: the sponge flattens and widens;
+ *   `scrub`  a phase advanced by the distance scrubbed: while pressed, the
+ *            sponge wobbles and rocks with it, so fast scrubbing LOOKS fast.
  */
-export const drawBrush = (g: G2D, x: number, y: number, s: number, angle: number, t: number): void => {
+export const drawSponge = (
+  g: G2D, x: number, y: number, s: number, angle: number, t: number, press = 0, scrub = 0
+): void => {
   const lw = Math.max(1.5, s * 0.035)
+  const wob = press * sin(scrub * 2)
   g.save()
   g.translate(x, y)
-  g.rotate(angle)
-  if (!drawItem(g, BRUSH_ART, s)) brushShape(g, s)
+  g.rotate(angle + press * 0.1 * sin(scrub))
+  // Pressed: flatter and wider, the squish pumping with the scrub.
+  const sq = press * (0.14 + 0.06 * wob)
+  g.scale(1 + sq * 0.8, 1 - sq)
+  if (!drawItem(g, SPONGE_ART, s)) spongeShape(g, s)
   g.restore()
-  // A little four-point star twinkling at the tip — live, painted or not.
+  // A little four-point star twinkling at the corner — live, painted or not.
   const k = 0.75 + 0.25 * sin(t * 9)
-  const r = s * 0.12 * k
+  const r = s * 0.1 * k
   g.save()
-  g.translate(x, y)
+  g.translate(x + cos(angle) * s * 0.42, y - s * 0.3)
   g.rotate(t * 1.5)
   g.beginPath()
   for (let i = 0; i < 8; i++) {
@@ -422,45 +434,77 @@ export const drawBrush = (g: G2D, x: number, y: number, s: number, angle: number
   g.restore()
 }
 
-/** The brush's drawing, tip at the origin pointing +x: handle, ferrule, tuft. */
-const brushShape = (g: G2D, s: number): void => {
+/** The sponge's drawing, centred at the origin, `s` across its long side. */
+const spongeShape = (g: G2D, s: number): void => {
   const lw = Math.max(1.5, s * 0.035)
-  // Handle, trailing behind the tip along −x.
+  const w = s * 0.9
+  const h = s * 0.56
+  const top = s * 0.16
+  const body = (): void => {
+    g.beginPath()
+    g.roundRect(-w / 2, -h / 2, w, h, s * 0.14)
+  }
+  // The body, with its cel shadow along the lower right.
+  body()
+  g.fillStyle = '#ffe07a'
+  g.fill()
+  g.save()
+  body()
+  g.clip()
   g.beginPath()
-  g.moveTo(-s * 0.36, -s * 0.05)
-  g.lineTo(-s * 1.0, -s * 0.035)
-  g.quadraticCurveTo(-s * 1.06, 0, -s * 1.0, s * 0.035)
-  g.lineTo(-s * 0.36, s * 0.05)
+  g.ellipse(w * 0.2, h * 0.55, w * 0.62, h * 0.55, -0.2, 0, TAU)
+  g.fillStyle = '#f2c14e'
+  g.fill()
+  // The mint scrubbing layer along the top.
+  g.beginPath()
+  g.rect(-w / 2, -h / 2, w, top)
+  g.fillStyle = '#9ff0cf'
+  g.fill()
+  g.beginPath()
+  g.rect(-w / 2, -h / 2 + top * 0.62, w, top * 0.38)
+  g.fillStyle = '#6fd6b0'
+  g.fill()
+  // Pores: a few soft round holes.
+  g.fillStyle = '#e3aa3c'
+  for (const [px, py, pr] of [[-0.3, 0.12, 0.045], [-0.08, 0.3, 0.035], [0.14, 0.08, 0.04], [0.32, 0.28, 0.03], [-0.36, 0.34, 0.03], [0.04, 0.42, 0.028]] as const) {
+    g.beginPath()
+    g.ellipse(w * px, h * py, s * pr, s * pr * 0.8, 0, 0, TAU)
+    g.fill()
+  }
+  g.restore()
+  body()
+  line(g, lw)
+  // The scrub layer's seam.
+  g.beginPath()
+  g.moveTo(-w / 2 + lw, -h / 2 + top)
+  g.lineTo(w / 2 - lw, -h / 2 + top)
+  g.lineWidth = lw * 0.7
+  g.strokeStyle = INK
+  g.stroke()
+  // A small gold star printed on the side.
+  g.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a2 = -PI / 2 + (i * PI) / 5
+    const rr = i & 1 ? s * 0.035 : s * 0.08
+    if (i) g.lineTo(-w * 0.18 + cos(a2) * rr, h * 0.16 + sin(a2) * rr)
+    else g.moveTo(-w * 0.18 + cos(a2) * rr, h * 0.16 + sin(a2) * rr)
+  }
   g.closePath()
-  g.fillStyle = '#c98a5a'
+  g.fillStyle = '#fff3b0'
   g.fill()
-  line(g, lw)
-  // Ferrule.
+  line(g, lw * 0.6)
+  // A highlight along the top-left.
   g.beginPath()
-  g.roundRect(-s * 0.4, -s * 0.075, s * 0.14, s * 0.15, s * 0.03)
-  g.fillStyle = '#ffd36b'
-  g.fill()
-  line(g, lw)
-  // Tuft.
-  g.beginPath()
-  g.moveTo(-s * 0.27, -s * 0.08)
-  g.bezierCurveTo(-s * 0.14, -s * 0.2, -s * 0.02, -s * 0.1, 0, 0)
-  g.bezierCurveTo(-s * 0.02, s * 0.1, -s * 0.14, s * 0.2, -s * 0.27, s * 0.08)
-  g.closePath()
-  g.fillStyle = '#e7d6ff'
-  g.fill()
-  line(g, lw)
-  g.beginPath()
-  g.moveTo(-s * 0.22, -s * 0.05)
-  g.quadraticCurveTo(-s * 0.1, -s * 0.06, -s * 0.03, 0)
-  g.strokeStyle = '#ffffff'
+  g.moveTo(-w * 0.4, -h / 2 + top + lw * 1.6)
+  g.lineTo(-w * 0.16, -h / 2 + top + lw * 1.6)
   g.lineWidth = lw
+  g.strokeStyle = 'rgba(255,255,255,0.75)'
   g.stroke()
 }
 
-/** The Stardust Brush as a painted still, level, tip to the right. Its
- *  twinkling star is not in it: that stays drawn. */
-export const BRUSH_ART: ItemSpec = { ...ITEM_ART.brush, frames: 1, draw: (g, s) => brushShape(g, s) }
+/** The Stardust Sponge as a painted still, level. Its twinkling star is not
+ *  in it (that stays drawn), and neither is its squish (a transform). */
+export const SPONGE_ART: ItemSpec = { ...ITEM_ART.sponge, frames: 1, draw: (g, s) => spongeShape(g, s) }
 
 /**
  * The Twin Gift (§8.2): a SQUARE box in lilac, a gold ribbon cross and bow,

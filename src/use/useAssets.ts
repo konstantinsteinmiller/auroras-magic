@@ -217,11 +217,16 @@ export default () => {
     // eager chunk.
     const art = (async () => {
       try {
-        const [{ preloadFirstArt }, { S }] = await Promise.all([
+        // Read from the save itself: the scene may not have loaded it yet, and
+        // a first-time player's intro pages are the very first paintings drawn.
+        const [{ preloadFirstArt }, { readCampaign }, { getState }, { CAMPAIGN_KEY }] = await Promise.all([
           import('@/game/artPreload'),
-          import('@/game/duel/state')
+          import('@/game/campaign/state'),
+          import('@/use/useGameState'),
+          import('@/keys')
         ])
-        await preloadFirstArt(S.campaign.furthestNode)
+        const cs = readCampaign(getState<unknown>(CAMPAIGN_KEY, null))
+        await preloadFirstArt(cs.furthestNode, cs.introSeen)
       } catch (e) {
         console.warn('[assets] painted-art preload failed; the drawings stand in', e)
       }

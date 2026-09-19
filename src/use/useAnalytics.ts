@@ -68,6 +68,9 @@ export type AnalyticsEvent =
   | 'spell_discovered'
   | 'duel_abandon'
   | 'ad_interstitial_shown'
+  // The first-launch intro (§8.26): one start, one end (watched or skipped).
+  | 'intro_start'
+  | 'intro_end'
 
 export type AnalyticsValue = string | number | boolean
 export type AnalyticsProps = Record<string, AnalyticsValue | undefined>

@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Dalej',
+    'skip': 'Pomiń',
     'replay': 'Powtórz',
     'back': 'Wstecz',
     'play': 'Graj',
@@ -157,6 +158,7 @@ export default {
     'close': 'Zapisz i zamknij',
     'traceAssist': 'Pokazuj podpowiedzi run',
     'reducedMotion': 'Mniej animacji',
+    'watchIntro': 'Obejrzyj intro',
     'leaveDuel': {
       'label': 'Opuść pojedynek',
       'title': 'Opuścić ten pojedynek?',
@@ -253,7 +255,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Pędzel gwiezdnego pyłu',
+    'stardustSponge': 'Gąbka gwiezdnego pyłu',
     'magicEraser': 'Magiczna gumka',
     'sunbeam': 'Promyk słońca'
   },

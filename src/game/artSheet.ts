@@ -10,17 +10,33 @@
  * references (it needs the game's painters); this module decides what exists
  * and what the painter is told.
  *
- * Three families:
+ * The families:
  *   • SECTORS (50) — opaque, full-bleed scenes: each sector's static painting,
  *     with its colour-me landmark left a neutral lilac-grey for the game to
  *     tint. One reference each, at the sector's own 1152 × 672.
- *   • ITEMS (8) — magenta-keyed strips: one panel per state the drawing moves
- *     between (tied / untied, shut / open, eyes open / blink / grin).
+ *   • ITEMS (8 + 7 keepsake badges) — magenta-keyed strips: one panel per
+ *     state the drawing moves between (tied / untied, shut / open, eyes open /
+ *     blink / grin).
  *   • RUNES (12) — magenta-keyed squares: the glyph as a painted emblem, in
  *     the 100-unit box `RuneGlyph.vue` draws it in.
+ *   • STORY (4) — the first-launch intro's picture-book panels (§8.26):
+ *     opaque scenes WITH the characters, painted from the character models.
+ *   • PORTRAITS (20) — magenta-keyed strips, one per speaker: every
+ *     expression the script gives them, side by side (§8.27).
+ *   • ISLANDS (10) — magenta-keyed: the duel's floating island in each
+ *     chapter's colours (§8.27).
  */
 import { artTarget, type ArtKind } from '@/game/artFolders'
-import { SECTOR_SLUGS, sectorArtId, RUNE_SLUGS, runeArtId, ITEM_ART, type ItemName } from '@/game/artIds'
+import {
+  SECTOR_SLUGS, sectorArtId, RUNE_SLUGS, runeArtId, ITEM_ART, type ItemName,
+  STORY_PANELS, storyPanelId, PORTRAIT_SETS, portraitArtId, ISLAND_SLUGS, islandArtId,
+  KEEPSAKE_ICON_SLUGS, keepsakeArtId, type PortraitEmote
+} from '@/game/artIds'
+import { ACTIVE_STYLE } from '@/game/artStyle'
+
+/** The art style every prompt is written in (`artStyle.ts`, art-style.md §0).
+ *  Stamped on the sheet index, and by the slicer on every painting it cuts. */
+export const ART_STYLE_ID = ACTIVE_STYLE.id
 
 /* ─────────────────────────────────────────────────────────── geometry ── */
 
@@ -148,7 +164,7 @@ export const SECTOR_SHEETS: readonly SectorSheet[] = SECTOR_SLUGS.map((_, n) => 
 /* ───────────────────────────────────────────────────── items and runes ── */
 
 export interface ItemSheet {
-  name: ItemName | `rune:${number}`
+  name: ItemName | `rune:${number}` | `portrait:${string}` | `island:${number}` | `keepsake:${string}`
   kind: ArtKind
   id: string
   title: string
@@ -162,12 +178,24 @@ export interface ItemSheet {
   /** A region the game colours in: the phrase for it, or none. */
   tinted?: string
   /** What its outline hangs from: a gift stands on the ground, a brush is
-   *  held by its tip. The slicer anchors a return by it. */
-  anchor: 'feet' | 'centre'
+   *  held by its tip, an island is stood ON. The slicer anchors a return by
+   *  it. */
+  anchor: 'feet' | 'centre' | 'top'
   /** Its facing, when it has one. */
   facing?: string
   file: string
   target: string
+  /** What it is called in the prompt's consistency lines: 'object' unless
+   *  it is a character or a place. */
+  noun?: string
+  /** Replaces the default WHAT IT IS NOT bullets. */
+  not?: readonly string[]
+  /** Replaces the default flat, square-on THE VIEW clause. */
+  view?: string
+  /** A character: the style block carries the character rules too. */
+  character?: boolean
+  /** A rule of its own, after the colour identity (an island's stage top). */
+  keep?: string
 }
 
 const item = (
@@ -203,10 +231,10 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       'Panel 2: the lid has swung open, exactly as the reference draws it, the seam glowing bright. The body, the straps and the clasp are exactly the same as in panel 1.'
     ],
     { tinted: 'the clasp gem' }),
-  item('brush', 'Stardust Brush', 1, 'centre',
-    'A paintbrush lying level: a warm wooden handle on the LEFT, a gold ferrule, and a soft, rounded lilac tuft whose tip points to the RIGHT.',
-    'Warm wood-brown handle, butter-gold ferrule, pale lilac tuft with a white highlight.',
-    [], { facing: 'The tip points RIGHT and the brush lies level, exactly as the reference draws it: the game turns it to follow the finger.' }),
+  item('sponge', 'Stardust Sponge', 1, 'centre',
+    'A chunky, soft bath sponge lying flat: a butter-yellow rounded-block body with a few round pores, a pastel mint scrubbing layer along its top, and a small gold star printed on its front side. A cleaning sponge, not a brush.',
+    'Butter-yellow sponge with a warm golden shadow side, pastel mint top layer, a pale gold star.',
+    [], { facing: 'It lies level, exactly as the reference draws it: the game tilts and squishes it as it scrubs.' }),
   item('eraser', 'Magic Eraser', 1, 'centre',
     'A chunky rounded eraser block lying level, in soft pink rubber, with a white paper sleeve wrapped around its right half and a small gold star printed on the sleeve.',
     'Candy-pink rubber, a white sleeve with a soft lilac shadow, a butter-gold star.',
@@ -261,6 +289,202 @@ export const RUNE_SHEETS: readonly ItemSheet[] = RUNE_SLUGS.map((_, k) => {
   }
 })
 
+/* ─────────────────────────────────────────── keepsake badges (§8.27) ── */
+
+const KEEPSAKE_INFO: Readonly<Record<string, readonly [string, string, string]>> = {
+  seashellNecklace: ['Seashell Necklace',
+    'A seashell necklace laid out on its own: a gently curved string of small pearls with little seashells hanging from its middle — a spiral shell and a scallop among them.',
+    'Pearly whites and creams, soft coral-pink and peach shells.'],
+  pegasusWings: ['Pegasus Wings',
+    'A pair of soft, feathered pegasus wings, spread open, their feathers layered in rounded rows.',
+    'White feathers with a pale lilac shadow side and soft pastel tips.'],
+  hoofTrailVfx: ['Hoof Trail',
+    'A unicorn\'s chunky little lower leg with a fluffy fetlock and a golden hoof, and a comet\'s tail of chubby four-point sparkles streaming up and away from it.',
+    'A cream leg, a honey-gold hoof; butter-yellow, candy-pink and sky-blue sparkles.'],
+  umbraSkin: ['Umbra Skin',
+    'A round badge: Aurora\'s smiling head in Umbra\'s night colours — a night-purple coat, a lilac-and-aqua mane — on a pale lilac disc inside a plum ring.',
+    'Night purple and lilac with aqua streaks, on a pale lilac disc.'],
+  colorPicker: ['Mane Color Palette',
+    'An artist\'s paint palette, tilted a little: a rounded cream board with a thumb hole and five round dabs of paint, each with a small glossy highlight.',
+    'Warm cream wood; lilac, mint, sky-blue, candy-pink and coral paint.'],
+  pastelTheme: ['Pastel Dream',
+    'A round badge: Aurora\'s smiling head in soft pastel colours — a pastel coat and a pastel mane — on a pale sky-blue disc inside a plum ring, with three little sparkles around it.',
+    'Soft pastel pinks, mints and lilacs on a pale sky-blue disc.'],
+  winterScarf: ['Winter Scarf',
+    'A cosy knitted winter scarf, loosely looped, with chunky stripes and fringed ends.',
+    'Keep the reference\'s warm knitted colours.']
+}
+
+export const KEEPSAKE_SHEETS: readonly ItemSheet[] = KEEPSAKE_ICON_SLUGS.map((slug) => {
+  const [title, blurb, colour] = KEEPSAKE_INFO[slug]!
+  const id = keepsakeArtId(slug)
+  return {
+    name: `keepsake:${slug}` as const,
+    kind: 'cosmetic' as const,
+    id, title: `${title} (wardrobe badge)`, frames: 1, anchor: 'centre' as const, panels: [],
+    blurb: `${blurb} It is the keepsake's picture on the wardrobe shelf, shown small, so it must read at a glance.`,
+    colour,
+    file: `item-${id}`,
+    target: artTarget('cosmetic', id)
+  }
+})
+
+/* ─────────────────────────────────────────────── portraits (§8.27) ── */
+
+/** Who each speaker is, for the painter: [name, look, colour identity]. */
+const CAST_INFO: Readonly<Record<string, readonly [string, string, string]>> = {
+  aurora: ['Aurora', 'Aurora, the heroine: a small, sweet unicorn filly with a round head, huge sparkly violet eyes, rosy blush, a golden spiral horn and a big fluffy mane.',
+    'A warm cream-white coat; a golden mane with candy-pink, lilac, mint and sky-blue streaks; a golden horn with deeper gold bands; violet eyes.'],
+  umbra: ['Umbra', 'Umbra, Aurora\'s cheeky rival: a small night-purple unicorn with sleepy, half-lidded eyes, a smug little grin, a lilac horn and a soft mane. Mischievous and funny, never scary.',
+    'A night-purple coat with a deeper purple shadow side; a lilac mane with aqua streaks; a softly glowing lilac horn.'],
+  briar: ['Briar', 'Briar, the Guardian of the Whispering Woods: a gentle forest unicorn with a leafy mane dotted with blossoms and a horn of smooth polished wood.',
+    'A warm bark-brown coat; a leaf-green mane with candy-pink blossom streaks; a honey-wood horn.'],
+  pearl: ['Pearl', 'Pearl, the Guardian of Bubble Bay: a pearly seaside unicorn with a wavy mane and a shining pearl-white horn.',
+    'A pearly white-blue coat; a turquoise mane with soft pink streaks; a pearl-white horn.'],
+  zephyr: ['Zephyr', 'Zephyr, the Guardian of the Cloud Kingdom: a breezy sky unicorn with a windswept, curling mane.',
+    'A slate-blue night coat; a mint-aqua mane with near-white streaks; a mint-aqua horn.'],
+  terra: ['Terra', 'Terra, the Guardian of the Crystal Caves: a calm, sturdy cave unicorn with a thick mane.',
+    'A dusky purple-grey coat; a warm caramel mane with pale sand streaks; a caramel horn.'],
+  echo: ['Echo', 'Echo, the Guardian of the Mirror Mountains: a shy, shimmering silver unicorn with a flowing mane.',
+    'A pale silver-lilac coat; a lilac mane with white streaks; a white horn.'],
+  prism: ['Prism', 'Prism, the Guardian of Rainbow Ridge: a proud unicorn whose mane is a whole rainbow.',
+    'A deep indigo coat; a rainbow mane in candy pink, butter yellow, mint, sky blue and lilac; a pink horn.'],
+  ember: ['Ember', 'Ember, the Guardian of the Sunken Sands: a warm desert unicorn with a flame-like mane.',
+    'A plum coat; a coral-orange mane with apricot streaks; a coral horn.'],
+  glace: ['Glace', 'Glace, the Guardian of the Twilight Tundra: a cool, graceful snow unicorn with a frosty mane.',
+    'A deep blue coat; an icy sky-blue mane with near-white streaks; an icy horn.'],
+  nova: ['Nova', 'Nova, the Guardian of Starlight Summit: a dreamy night unicorn with a starry mane and a horn of starlight.',
+    'A midnight-indigo coat; a periwinkle mane with pale starlight-gold streaks; a starlight-gold horn.'],
+  Twig: ['Twig', 'Twig, a tiny wood sprite from the Whispering Woods: a round moss-green body, two leaf ears and a little sprout on top.',
+    'Moss and leaf greens, a pale green belly.'],
+  Shelly: ['Shelly', 'Shelly, a tiny hermit crab from Bubble Bay: a coral spiral shell, a round friendly face and two little claws.',
+    'A coral-pink spiral shell, a warm peach body.'],
+  Puff: ['Puff', 'Puff, a little cloud from the Cloud Kingdom: a fluffy lavender cloud with a face and two tiny wings.',
+    'Soft lavender and white.'],
+  Glint: ['Glint', 'Glint, a glowworm from the Crystal Caves: a round lilac cave critter with crystal speckles, crystal-tipped antennae and a tail curled up to a glowing tip.',
+    'Lilac with teal and pink crystal speckles, a warm glowing tail tip.'],
+  Blink: ['Blink', 'Blink, a mirror moth from the Mirror Mountains: a round ball of fluff between two big, shiny, mirror-glass wings, with feathery antennae.',
+    'Soft white-mint fluff, silvery mirror wings with pastel glints.'],
+  Rio: ['Rio', 'Rio, a rainbow finch from Rainbow Ridge: a round sky-blue bird with a rainbow crest, rainbow-striped wings and a little orange beak.',
+    'Sky blue, a rainbow crest and wing stripes, an orange beak.'],
+  Dune: ['Dune', 'Dune, a sand-fox pup from the Sunken Sands: big ears, a sandy coat, a cream face mask and a fluffy cream-tipped tail.',
+    'Warm sandy apricot, cream mask and tail tip.'],
+  Frosty: ['Frosty', 'Frosty, a snow hare from the Twilight Tundra: white-lilac fluff, long pink-lined ears and a pink nose.',
+    'White and pale lilac, pink ear linings and nose.'],
+  Wisp: ['Wisp', 'Wisp, a firefly from Starlight Summit: a round, warmly glowing body, two tiny wings and star-tipped antennae, in a soft halo of light.',
+    'A warm golden glow on an indigo-lilac body.']
+}
+
+const EMOTE_PANEL: Readonly<Record<PortraitEmote, string>> = {
+  happy: 'happy — a warm, open smile, eyes big and bright.',
+  sleepy: 'sleepy — heavy half-closed eyelids and a drowsy little smile.',
+  worriedMild: 'a little worried — brows tilted up in the middle, a small wobbly frown. Gentle, never frightened.',
+  determined: 'determined — brave, focused brows and a firm little smile.',
+  stern: 'stern — a serious frown with lowered brows. Strict, not angry, and never scary.',
+  warmBlush: 'touched — rosy blushing cheeks and a soft, shy smile.',
+  cheering: 'cheering — eyes squeezed shut into happy upturned crescents, a big open grin.'
+}
+
+export const PORTRAIT_SHEETS: readonly ItemSheet[] = PORTRAIT_SETS.map((p) => {
+  const [name, look, colour] = CAST_INFO[p.who]!
+  const id = portraitArtId(p.who)
+  const n = p.emotes.length
+  const unicorn = !p.creature
+  return {
+    name: `portrait:${p.who}` as const,
+    kind: 'portrait' as const,
+    id,
+    title: `${name} portrait`,
+    frames: n,
+    anchor: 'centre' as const,
+    panels: [
+      ...p.emotes.map((e, i) => `Panel ${i + 1}: ${EMOTE_PANEL[e]}`),
+      p.creature
+        ? `${name}'s whole body leans and perks with the mood — ears, antennae or wings up when happy, drooping when worried, a little hop when cheering — exactly as each panel of the reference shows. Everything else about ${name} is IDENTICAL in all ${n}.`
+        : `Only the FACE changes: the eyes, the brows, the mouth and the blush. The head's shape, its angle, the horn, the mane and the size are IDENTICAL in all ${n}.`
+    ],
+    blurb: `A dialogue portrait of ${look} ${unicorn ? 'Her head and the top of her neck' : `${name}`}, framed in a ROUND window: at the bottom the picture is cut off by the circle, exactly as the reference shows. The game draws the round frame and the coloured backdrop itself.`,
+    colour,
+    noun: 'character',
+    character: true,
+    not: [
+      `Draw ONLY ${name}${unicorn ? '\'s head and the top of the neck' : ''}, as the reference shows — no second character, no scenery, no backdrop, no badge, no ring, no frame, no border.`,
+      '· No text, letters or numbers.'
+    ],
+    view: unicorn
+      ? `THE VIEW: the same three-quarter head-and-neck view as the reference, facing ${p.who === 'aurora' ? 'to the RIGHT' : 'to the LEFT'} exactly as it does. The same angle in every panel.`
+      : 'THE VIEW: the same front-facing view as the reference, in every panel.',
+    file: id,
+    target: artTarget('portrait', id)
+  }
+})
+
+/* ─────────────────────────────────────────────── islands (§8.27) ── */
+
+export const ISLAND_SHEETS: readonly ItemSheet[] = ISLAND_SLUGS.map((_, c) => {
+  const ch = CHAPTERS[c]!
+  const id = islandArtId(c)
+  return {
+    name: `island:${c}` as const,
+    kind: 'island' as const,
+    id,
+    title: `${ch.name} duel island`,
+    frames: 1,
+    anchor: 'top' as const,
+    panels: [],
+    blurb: `A small floating island — the stage two unicorns duel on, in ${ch.name}: a chunky rock hanging down to a jagged point, with a thick, rounded mossy cap on top whose soft edge spills over the rim, a few roots trailing from under the cap and a scatter of little stones and blossoms on the top.`,
+    colour: `The chapter's colours, as the reference has them — ${ch.mood}. The rock is darker than the cap, and the cap has one bright lip along its top edge. Softer and less saturated than the spells the duel throws over it.`,
+    noun: 'island',
+    keep: 'KEEP THE TOP — it is a stage: two duelists stand on it. The mossy top stays as wide, as flat and as level as the reference draws it, at exactly the same height, with nothing standing on it.',
+    not: [
+      'Draw ONLY the floating island, as the reference shows it — no sky, no clouds, no water, no characters, no trees or buildings on it, nothing hanging from it.',
+      '· No text, letters or numbers.'
+    ],
+    view: 'THE VIEW: flat and side-on, exactly as the reference: the flat top seen almost edge-on, the rock hanging below it. No tilt, no view from above.',
+    file: id,
+    target: artTarget('island', id)
+  }
+})
+
+/* ──────────────────────────────────────────── the intro's panels (§8.26) ── */
+
+export interface StorySheet {
+  /** 1-based panel number. */
+  panel: number
+  id: string
+  title: string
+  /** What happens in it, for the painter. */
+  scene: string
+  /** The painted character models attached ahead of the reference. */
+  also: readonly string[]
+  file: string
+  target: string
+}
+
+const AURORA_MODEL = 'painted/portrait-aurora.png'
+const UMBRA_MODEL = 'painted/portrait-umbra.png'
+
+const STORY_INFO: readonly (readonly [string, string, readonly string[]])[] = [
+  ['Hello!',
+    'Cottage Meadow on a bright, sunny morning, in full colour. Aurora stands on the path in the middle of the picture, smiling happily, as if she has just trotted in to say hello.',
+    [AURORA_MODEL]],
+  ['The dust',
+    'The same meadow, but a soft grey dust has settled over everything and drained its colours (the reference shows exactly how grey). Up to the right, Umbra floats on a little dark lilac cloud, eyes closed, giggling cheekily — she blew the dust. Aurora stands on the path, a little worried, looking up at her. The two unicorns keep their full colours: only the meadow is grey.',
+    [AURORA_MODEL, UMBRA_MODEL]],
+  ['The magic',
+    'The grey, dusty meadow (Aurora keeps her full colours). She stands on the path, brave and determined, and the tip of her horn glows with a warm golden light. The space up to the right is left open: the game draws the magic rune there.',
+    [AURORA_MODEL]],
+  ['Colour again!',
+    'The meadow in full, bright colour again, sparkling clean. Aurora stands on the path, cheering, her eyes squeezed shut with joy.',
+    [AURORA_MODEL]]
+]
+
+export const STORY_SHEETS: readonly StorySheet[] = STORY_PANELS.map((_, i) => {
+  const id = storyPanelId(i)
+  const [title, scene, also] = STORY_INFO[i]!
+  return { panel: i + 1, id, title, scene, also, file: `story-${id}`, target: artTarget('story', id) }
+})
+
 /** Every file a painting can land in — the catalogue `art:status` checks. */
 export const manifestTargets = (): Map<string, { kind: ArtKind; id: string }> => {
   const out = new Map<string, { kind: ArtKind; id: string }>()
@@ -268,7 +492,10 @@ export const manifestTargets = (): Map<string, { kind: ArtKind; id: string }> =>
     out.set(s.target, { kind: 'sector', id: s.id })
     out.set(s.thumb, { kind: 'sectorThumb', id: s.id })
   }
-  for (const s of [...ITEM_SHEETS, ...RUNE_SHEETS]) out.set(s.target, { kind: s.kind, id: s.id })
+  for (const s of STORY_SHEETS) out.set(s.target, { kind: 'story', id: s.id })
+  for (const s of [...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS]) {
+    out.set(s.target, { kind: s.kind, id: s.id })
+  }
   return out
 }
 
@@ -292,25 +519,24 @@ export interface Fit {
 const pct = (x: number): string => `${Math.round(x * 100)}%`
 
 /**
- * The style block (art-style.md §9.1, audited against faceless objects per
- * the pipeline's PROMPT-ANATOMY §8): the shared bullets once, then the one
- * bullet the two variants differ in.
+ * The style blocks, built from THE style decision (`artStyle.ts`, art-style.md
+ * §0) and audited against faceless objects per the pipeline's PROMPT-ANATOMY
+ * §8: the shared rules once, then the one bullet each variant adds. Nothing
+ * about the look is written anywhere else.
  */
 const STYLE_CORE = [
-  'STYLE — cute picture-book illustration for a cozy, family-friendly magical unicorn game for all ages (the youngest players are 3).',
-  '· ONE clean, confident, soft outline around every shape, in warm deep plum (#3A2340), never black. At its heaviest it is about 1% of the subject\'s height — the weight of a soft brush pen, not of a technical pen — slightly heavier on the shadow side, round at every end. Hold the finished picture at thumbnail size: if the outline has thinned to a hairline there, it is several times too thin.',
-  '· Flat cel colour: one base tone and ONE soft shadow tone per shape (15–20% darker, shifted a little toward violet), laid in as a clean shape that follows the form. One small soft near-white highlight on round forms, top left. Key light from the top left.',
-  '· Rounded, friendly shapes and soft corners. Nothing sharp, spiky, scary or broken. Pastel colours for things, saturated colour only for magic and glows.',
-  '· AVOID — this is exactly how earlier attempts went wrong: sketch lines, doubled or broken outlines, crosshatching, texture brushes, photographic texture, airbrushed gradients across a whole object, lens flare, a thin pale hairline outline, clip-art flatness with no shadow tone.',
-  '· AN OBJECT WITH NO FACE IS NOT AN EXCEPTION TO ANY OF THIS. A tent, a brush, a box or a bridge is painted to exactly the same standard as a character: the same plum ink, the same cel shadow, the same highlight.'
+  `STYLE — ${ACTIVE_STYLE.headline} For ${ACTIVE_STYLE.audience}.`,
+  ...ACTIVE_STYLE.core,
+  `· AVOID — this is exactly how earlier attempts went wrong: ${ACTIVE_STYLE.avoid.join(', ')}.`
 ].join('\n')
 
 const STYLE_ITEM = `${STYLE_CORE}
 · It sits in its panel at the size the reference draws it, with the empty space around it left empty. It does NOT fill its panel edge to edge.`
 
-const STYLE_SCENE = `${STYLE_CORE}
-· Painterly soft gradients are allowed in the SKY and in distant layers only; mid-ground and foreground things follow the outline-and-cel rules. Far layers are lighter and bluer, with no outline or a very light one.
-· The picture fills the whole image, edge to edge.`
+const STYLE_SCENE = [STYLE_CORE, ...ACTIVE_STYLE.scene, '· The picture fills the whole image, edge to edge.'].join('\n')
+
+/** Characters: the item or scene block plus the character rules. */
+const withCharacter = (block: string): string => [block, ...ACTIVE_STYLE.character].join('\n')
 
 const REFERENCE_CLAUSE =
   'THE ATTACHED REFERENCE is a flat computer drawing of exactly what to paint. FOLLOW ITS SHAPES, ITS LAYOUT AND ITS PROPORTIONS, and take nothing else from it: not its line weight, not its flat colours, not its lack of shading. It is a stand-in for a painting that does not exist yet.'
@@ -344,10 +570,13 @@ const fenceFor = (body: string): string => {
   return '`'.repeat(Math.max(3, longest + 1))
 }
 
-/** One `## heading  (reference.png → target)` and its fenced prompt. */
-const block = (title: string, ref: string, target: string, body: string): string => {
+/** One `## heading  ([also.png + …]reference.png → target)` and its fenced
+ *  prompt. The images are listed in the order they are attached; the
+ *  reference, which the return is cut against, is always last. */
+const block = (title: string, ref: string, target: string, body: string, also: readonly string[] = []): string => {
   const fence = fenceFor(body)
-  return [`## ${title}  (${ref}.png → ${target})`, '', `${fence}text`, body, fence].join('\n')
+  const images = [...also, `${ref}.png`].join(' + ')
+  return [`## ${title}  (${images} → ${target})`, '', `${fence}text`, body, fence].join('\n')
 }
 
 /** The prompt for one sector. */
@@ -398,7 +627,9 @@ const sizeClause = (s: ItemSheet, fit: Fit | undefined): string => {
   }
   const where = s.anchor === 'feet'
     ? 'It stands on the same invisible ground line as the reference: its bottom edge exactly where the reference\'s is.'
-    : 'Its middle is exactly where the reference\'s middle is.'
+    : s.anchor === 'top'
+      ? 'Its top edge is exactly where the reference\'s top edge is.'
+      : 'Its middle is exactly where the reference\'s middle is.'
   const measured = fit
     ? `In the reference it spans ${pct(fit.w)} of the panel's width and ${pct(fit.h)} of its height${s.frames > 1 ? ' (in its largest panel)' : ''}. If yours reaches much past that it is too big; bigger is not clearer here.`
     : 'In the reference it fills a little under three quarters of its panel on its longer side. If yours fills its panel it is too big; bigger is not clearer here.'
@@ -415,13 +646,15 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   const many = s.frames > 1
   const shape = many
     ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS, NOT ONE PICTURE.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings of the same ${s.title.toLowerCase()} side by side, left to right, each in its own equal share of the width — on the same layout as the attached reference.\n· Exactly ${s.frames} panels. Not 1, not ${s.frames + 1}, not ${s.frames * 2}. One row.\n· ONE big drawing filling the canvas is the wrong answer however well it is painted.`
-    : `WHAT COMES BACK IS ONE OBJECT ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding the single ${s.kind === 'rune' ? 'rune' : 'object'} the attached reference shows, in the middle, at the reference's size.`
+    : `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding the single ${s.kind === 'rune' ? 'rune' : s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size.`
   const lines = [
     shape,
     '',
     'WHAT IT IS NOT:',
-    '· Draw ONLY what the reference shows, and nothing else. No ground, no shadow on the ground, no scenery, no characters, no hands holding it, no second object.',
-    '· No text, letters or numbers.',
+    ...(s.not ?? [
+      '· Draw ONLY what the reference shows, and nothing else. No ground, no shadow on the ground, no scenery, no characters, no hands holding it, no second object.',
+      '· No text, letters or numbers.'
+    ]).map((l) => (l.startsWith('·') ? l : `· ${l}`)),
     '',
     `WHAT IT IS: ${s.blurb}`,
     ''
@@ -430,19 +663,21 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   lines.push(REFERENCE_CLAUSE, '')
   lines.push(`COLOUR IDENTITY (keep the hues; the exact shades are yours): ${s.colour}`, '')
   if (s.tinted) lines.push(neutralClause(`${s.tinted}. The game gives it a different colour for every chapter`), '')
-  lines.push('THE VIEW: flat and square-on, exactly as the reference shows it. No three-quarter view, no perspective, no tilt, nothing turned toward the viewer.')
+  if (s.keep) lines.push(s.keep, '')
+  lines.push(s.view ?? 'THE VIEW: flat and square-on, exactly as the reference shows it. No three-quarter view, no perspective, no tilt, nothing turned toward the viewer.')
   if (s.facing) lines.push(`· ${s.facing}`)
   lines.push('')
   if (many) {
+    const noun = s.noun ?? 'object'
     lines.push(
-      `ONE ${s.title.toUpperCase()}: ${s.frames === 2 ? 'both panels are' : `all ${s.frames} panels are`} the same object at a different moment. Identical shape, identical colours, identical outline weight and identical size in every panel — only what READ THE PANELS names changes. Several different-looking objects side by side are unusable.`,
+      `ONE ${s.title.toUpperCase()}: ${s.frames === 2 ? 'both panels are' : `all ${s.frames} panels are`} the same ${noun} at a different moment. Identical shape, identical colours, identical outline weight and identical size in every panel — only what READ THE PANELS names changes. Several different-looking ${noun}s side by side are unusable.`,
       ''
     )
   }
-  lines.push(STYLE_ITEM, '', sizeClause(s, fit), '', MAGENTA, '')
+  lines.push(s.character ? withCharacter(STYLE_ITEM) : STYLE_ITEM, '', sizeClause(s, fit), '', MAGENTA, '')
   lines.push(
     'BEFORE YOU CALL IT FINISHED, count and check:',
-    many ? `· ${s.frames} panels, one row, left to right; the canvas is 16:9 landscape.` : '· One object, in the middle of a square canvas.',
+    many ? `· ${s.frames} panels, one row, left to right; the canvas is 16:9 landscape.` : `· One ${s.noun ?? 'object'}, in the middle of a square canvas.`,
     '· Nothing in any panel is anywhere near filling it.',
     s.tinted ? `· ${s.tinted[0]!.toUpperCase()}${s.tinted.slice(1)}: pale neutral lilac-grey, no hue.` : '· A soft plum outline all the way round.',
     '· Every pixel that is not the object is flat, vivid #FF00FF — hold it against a pure magenta swatch, not against your memory of one.',
@@ -450,6 +685,51 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
     `OUTPUT: one image, ${many ? '16:9 landscape' : '1:1 square'} (the reference is ${w} x ${h} pixels), PNG — not JPEG. If your tool has an aspect-ratio control, set it to ${many ? '16:9' : '1:1'}${many ? ' — a square return crushes the panels and cannot be cut' : ''}. No labels, captions, numbers or watermarks.`
   )
   return lines.join('\n')
+}
+
+/** Who a character model image shows. */
+const MODEL_NAME: Readonly<Record<string, string>> = {
+  [AURORA_MODEL]: 'Aurora',
+  [UMBRA_MODEL]: 'Umbra'
+}
+
+/** The prompt for one of the intro's picture-book pages (§8.26). */
+export const storyPrompt = (s: StorySheet): string => {
+  const names = s.also.map((a) => MODEL_NAME[a] ?? a)
+  const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]!
+  return [
+    'WHAT COMES BACK IS ONE LANDSCAPE PICTURE — one page of a picture book, repainted from the LAST attached image. Not a sheet, not panels, not several pictures, not a close-up.',
+    'One wide landscape image, 16:9, holding the WHOLE scene the last image shows, framed exactly as it frames it.',
+    '',
+    `THE ATTACHED IMAGES, in order: ${names.map((n, i) => `image ${i + 1} is the model for ${n} — a strip of her face in several moods`).join('; ')}; the LAST image is the page to paint. Paint ${who} to look exactly like ${names.length > 1 ? 'their models' : 'her model'}: the same face, the same eyes, the same colours, the same mane and horn. Take only the LOOK from a model — the page's layout, poses and sizes come from the last image.`,
+    '',
+    'WHAT IT IS NOT:',
+    '· No text, letters, numbers or writing anywhere.',
+    '· No characters, creatures or people other than the ones the last image shows.',
+    '· No magic effects, runes, sparkles or bubbles that the last image does not show: the game animates those over your picture.',
+    '',
+    `WHAT IT IS: page ${s.panel} of the game's opening picture book, "${s.title}". ${s.scene}`,
+    '',
+    REFERENCE_CLAUSE,
+    '',
+    'KEEP THE LAYOUT — the game animates things over this picture by their place in it:',
+    '· The meadow, the cottage, the windmill, the pond and the path stay exactly where the reference puts them, at the same size.',
+    '· Each character stands exactly where the reference puts her, at the same size, in the same pose, facing the same way.',
+    '· Do not zoom, crop or re-frame. Open space in the reference stays open.',
+    '',
+    'THE VIEW: the same flat, storybook, side-on view as the reference. No camera move, no new perspective, no tilt.',
+    '',
+    withCharacter(STYLE_SCENE),
+    '',
+    FULL_BLEED,
+    '',
+    'BEFORE YOU CALL IT FINISHED, check:',
+    '· One landscape picture, 16:9, the whole scene, framed like the reference.',
+    `· ${who} ${names.length > 1 ? 'look' : 'looks'} exactly like ${names.length > 1 ? 'their models' : 'her model'}, where the reference puts ${names.length > 1 ? 'them' : 'her'}, the same size.`,
+    '· No text, no frame, no extra effects.',
+    '',
+    'OUTPUT: one image, 16:9 landscape (for example 1344 x 768 pixels), PNG. If your tool has an aspect-ratio control, set it to 16:9. No labels, captions, numbers or watermarks.'
+  ].join('\n')
 }
 
 const DOC_HEAD = (what: string): string => [
@@ -472,17 +752,38 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
   ].join('\n\n') + '\n',
   'PROMPTS-ITEMS.md': [
     DOC_HEAD('Items'),
-    ...ITEM_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+    ...[...ITEM_SHEETS, ...KEEPSAKE_SHEETS].map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
   ].join('\n\n') + '\n',
   'PROMPTS-RUNES.md': [
     DOC_HEAD('Runes'),
     ...RUNE_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+  ].join('\n\n') + '\n',
+  'PROMPTS-PORTRAITS.md': [
+    DOC_HEAD('Portraits'),
+    'Paint Aurora\'s and Umbra\'s strips FIRST: the intro\'s pages (`PROMPTS-STORY.md`) are painted from them, as character models.',
+    '',
+    ...PORTRAIT_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+  ].join('\n\n') + '\n',
+  'PROMPTS-ISLANDS.md': [
+    DOC_HEAD('Duel islands'),
+    ...ISLAND_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+  ].join('\n\n') + '\n',
+  'PROMPTS-STORY.md': [
+    DOC_HEAD('The intro\'s pages'),
+    'Each page is painted from its character models — the painted portrait strips in `painted/` — attached BEFORE the reference, in the order the heading lists them. Paint `PROMPTS-PORTRAITS.md`\'s Aurora and Umbra first.',
+    '',
+    ...STORY_SHEETS.map((s) => block(`Intro ${s.panel} · ${s.title}`, s.file, s.target, storyPrompt(s), s.also))
   ].join('\n\n') + '\n'
 })
 
+export type SheetFamily = 'sector' | 'story' | 'item' | 'rune' | 'portrait' | 'island'
+
 /** Every reference the bench exports, in export order. */
-export const sheetRows = (): { file: string; family: 'sector' | 'item' | 'rune'; title: string; target: string }[] => [
+export const sheetRows = (): { file: string; family: SheetFamily; title: string; target: string }[] => [
   ...SECTOR_SHEETS.map((s) => ({ file: s.file, family: 'sector' as const, title: s.title, target: s.target })),
-  ...ITEM_SHEETS.map((s) => ({ file: s.file, family: 'item' as const, title: s.title, target: s.target })),
-  ...RUNE_SHEETS.map((s) => ({ file: s.file, family: 'rune' as const, title: s.title, target: s.target }))
+  ...STORY_SHEETS.map((s) => ({ file: s.file, family: 'story' as const, title: s.title, target: s.target })),
+  ...[...ITEM_SHEETS, ...KEEPSAKE_SHEETS].map((s) => ({ file: s.file, family: 'item' as const, title: s.title, target: s.target })),
+  ...RUNE_SHEETS.map((s) => ({ file: s.file, family: 'rune' as const, title: s.title, target: s.target })),
+  ...PORTRAIT_SHEETS.map((s) => ({ file: s.file, family: 'portrait' as const, title: s.title, target: s.target })),
+  ...ISLAND_SHEETS.map((s) => ({ file: s.file, family: 'island' as const, title: s.title, target: s.target }))
 ]

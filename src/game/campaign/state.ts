@@ -9,7 +9,7 @@
  * Enumerable sets are base64 bitsets (`bitset.ts`); a hot-checked set of at
  * most 16 members is a plain int bitmask (§4.5.1's rule).
  */
-import { emptyBitset, hasBit } from '@/game/campaign/bitset'
+import { emptyBitset, hasBit, countBits } from '@/game/campaign/bitset'
 
 export const NODE_COUNT = 50
 /** 24 × 14 coverage cells per sector (C9). */
@@ -59,6 +59,10 @@ export interface CampaignState {
   maneSwatch: number
   /** The Festival's finale card has been shown; Umbra wanders the map (§8.11). */
   finaleSeen: boolean
+  /** The first-launch intro has played, or was skipped (§8.26). A save from
+   *  before the intro existed counts as seen once it has any progress — a
+   *  returning player is never sent back through the picture book. */
+  introSeen: boolean
 }
 
 export const defaultCampaign = (): CampaignState => ({
@@ -79,7 +83,8 @@ export const defaultCampaign = (): CampaignState => ({
   lossStreaks: {},
   versusUnlocked: false,
   maneSwatch: 0,
-  finaleSeen: false
+  finaleSeen: false,
+  introSeen: false
 })
 
 const int = (v: unknown, lo: number, hi: number, dflt: number): number => {
@@ -109,8 +114,10 @@ export const readCampaign = (raw: unknown): CampaignState => {
       if (node >= 0 && node < NODE_COUNT && n > 0) streaks[String(node)] = n
     }
   }
+  const furthestNode = int(r.furthestNode, -1, NODE_COUNT - 1, -1)
+  const dialoguesSeen = b64(r.dialoguesSeen, d.dialoguesSeen)
   return {
-    furthestNode: int(r.furthestNode, -1, NODE_COUNT - 1, -1),
+    furthestNode,
     sectorsDone: b64(r.sectorsDone, d.sectorsDone),
     wipeCoverage: r.wipeCoverage === null || r.wipeCoverage === undefined ? null : b64(r.wipeCoverage, '') || null,
     wipeHalf: r.wipeHalf === null || r.wipeHalf === undefined ? null : b64(r.wipeHalf, '') || null,
@@ -118,7 +125,7 @@ export const readCampaign = (raw: unknown): CampaignState => {
     signaturesUnlocked: int(r.signaturesUnlocked, 0, 0b11, 0),
     combosSeen: b64(r.combosSeen, d.combosSeen),
     combosViewed: b64(r.combosViewed, d.combosViewed),
-    dialoguesSeen: b64(r.dialoguesSeen, d.dialoguesSeen),
+    dialoguesSeen,
     giftsOwned: int(r.giftsOwned, 0, 0x7fffffff, 0),
     giftsEquipped: eq,
     paintPicks: b64(r.paintPicks, d.paintPicks),
@@ -127,7 +134,10 @@ export const readCampaign = (raw: unknown): CampaignState => {
     lossStreaks: streaks,
     versusUnlocked: r.versusUnlocked === true,
     maneSwatch: int(r.maneSwatch, 0, 7, 0),
-    finaleSeen: r.finaleSeen === true
+    finaleSeen: r.finaleSeen === true,
+    introSeen: typeof r.introSeen === 'boolean'
+      ? r.introSeen
+      : furthestNode >= 0 || countBits(dialoguesSeen) > 0
   }
 }
 

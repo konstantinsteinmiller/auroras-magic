@@ -5359,6 +5359,10 @@ All three opens are tap/hold-only (no drag), skippable after their first beat on
 - Press-and-hold **1.2 s**: a progress ring draws clockwise around the gift in sync with the hold, and the ribbon visibly loosens at the 25/50/75/100 % keyframes. Releasing early re-tightens the ribbon over 200 ms and resets the ring to 0 — this teaches the "don't let go" rule to a pre-reader without any text, and is the deliberate friction against an accidental toddler tap.
 - On completing the hold: an immediate 250 ms burst in silver/gold (distinct from every tool burst, so it never reads as "a tool is coming"), then the Bloom activates on the just-restored sector beside it (§8.8.5) — no float-to-finger beat, because there is no tool and nothing travels to a HUD; the reward is the world itself quietly becoming a little more alive.
 
+> **Superseded in part by §8.25 (owner, 2026-09-19):** the Stardust Brush is
+> drawn as the Stardust Sponge (same mechanics). Every tool follows a mouse
+> without a press, and shows itself working when the child is idle.
+
 ### §8.4 The three tools — exact parameters
 
 Tools are deterministic by node type and chapter (never random), per the ruling. All radii are CSS px against the restore view's own on-screen short side (`shortSide`); the restore view is the camera-locked, zoomed map canvas framed in §3.5.2, with pan/pinch detached per §3.3.2.
@@ -5430,6 +5434,10 @@ Speed response and sparkle density are specified per tool in §8.4. This section
   - **Total duration: ≈1,500 ms** (650 ms freeze + 850 ms wave sweep) — §3 may cite this figure directly.
 - **The chapter's rescue collectible must never be silently skipped by the pop.** If the collectible's hidden cell has not yet been personally uncovered when 85 % triggers, the reveal wave's path is biased (invisibly to the player — it still reads as one continuous sweep) to cross that cell early, and the moment it does, the creature's tap-reveal animation (§8.8) plays automatically inline, in full, as part of the pop. A player who lets the auto-complete fire is therefore GUARANTEED to see and "rescue" that chapter's collectible at least once, exactly as a player who found it by hand would.
 - **`[later]`, not shipped now:** seeding a sector's STARTING dust opacity from the duel's final `S.sky` value at victory (a dominant win starting a slightly thinner layer). The mechanism (`S.sky` is already readable at victory) is free and worth revisiting once the base loop is proven, but is not required for the loop to feel complete and is deferred to keep §8.4's clear-time numbers from having a second variable at ship.
+
+> **Superseded in part by §8.25 (owner, 2026-09-19):** the pots now rise
+> AFTER the reveal, not before the wipe, and the landmark is cleaned blank
+> and coloured last.
 
 ### §8.7 Colour-me pots
 
@@ -6269,6 +6277,234 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
 released: `RELEASE-CHECKLIST.md` holds the owner's remaining steps (portal
 ids, uploads, store art, the child-directed and privacy decisions, a real
 iOS device).
+
+### §8.25 Owner ruling, 2026-09-19 — clean first, colour after; the Stardust Sponge
+
+The owner found the restore too complex: *"why do I have to put paint onto it
+beforehand?"* They also asked for a cleaning tool at the player's pointer, and
+a cleaning animation that makes the action clear to everyone without text.
+As built:
+
+- **Clean first, colour after** (supersedes §8.7's timing):
+  - The gift opens straight into the wipe; there are no pots before it.
+  - The landmark sits under the dust uncoloured (the neutral lilac-grey).
+  - After the reveal, the landmark twinkles inside a breathing dashed ring
+    and the three pots rise along the edge away from it (the top when the
+    landmark is low, the bottom otherwise; below the sector in portrait).
+  - Tapping a pot (or waiting 4 s, which picks pot 1) throws a paint blob
+    onto the landmark, and the colour spreads out from where it lands.
+  - The sector's props play on meanwhile. There is no Back button during the
+    pots, since the sector is already restored.
+- **The save:**
+  - "Opened" no longer means "a pot was picked". The pending sector's
+    `wipeCoverage` is written the moment the gift opens, so leaving afterwards
+    resumes in the wipe instead of unwrapping the gift again.
+  - Saves from before the ruling (a pick, not yet cleaned) still resume, and
+    skip the pots.
+  - A sector restored but never coloured (the game closed during the pots)
+    shows pot 1 on the map.
+- **The Stardust Sponge replaces the Stardust Brush** (supersedes §8.4's
+  brush look; its mechanics — radius, dwell, speed response — are
+  unchanged):
+  - A brush on a dusty picture reads as "paint this". The sponge is a
+    butter-yellow block with a mint scrubbing layer and a gold star, drawn in
+    `gift.ts` (`drawSponge`).
+  - While scrubbing it presses flat, squishes and rocks with the distance
+    scrubbed, and sheds soap bubbles (a new particle kind, `K_BUBBLE`,
+    alongside the dust puffs and glints).
+  - The tool chip shows a small sponge, and its name reads "Stardust Sponge"
+    in all 21 locales. The painted-art manifest's item is now
+    `stardust-sponge`.
+- **At the pointer:** on a mouse, the tool rides the cursor even without a
+  press, and the system cursor is hidden over the wipe. On touch it waits
+  where the gift was, as before.
+- **The show-how**, the no-text demonstration:
+  - A moment into the wipe (if the child has not started), and again after
+    6 s of stillness (at most 3 times a visit), the tool itself glides onto
+    the dust and does the job.
+  - The sponge and the Magic Eraser scrub a zigzag, a real stroke that
+    clears real dust (about 7–10 % of a sector). The Sunbeam is taken hold
+    of, pulled back like a slingshot, and let go for a real shot.
+  - Any press, or the mouse moving, hands control back at once.
+  - The show-how never buzzes, and its strokes are left out of the
+    `wipe_complete` stroke count.
+- **Verified:**
+  - in a real browser: gift → wipe with no pots, the show-how cleaning
+    0 → 7 % on its own, the sponge riding the mouse, a real scrub with
+    squish and bubbles, then reveal → pots off the landmark → paint → spread
+    → admire;
+  - the Eraser and Sunbeam show-hows;
+  - resume mid-wipe;
+  - portrait touch;
+  - no console errors;
+  - 757 tests; portal QA web 20/20 and GamePix 29/29.
+
+### §8.26 Owner request, 2026-09-19 — the first-launch intro
+
+The owner asked for *"an Intro cutscene … that introduces the game to
+first-time players, preferably mostly text free, with cute unicorn sounds"*.
+As built:
+
+- **Who sees it.**
+  - A brand-new save boots into it (`bootScene` → `playIntro`), then carries
+    on exactly as a boot would: into chapter 1's first dialogue.
+  - Watching it to the end, pressing Play, and skipping it all count as seen
+    (`S.campaign.introSeen`, saved at once).
+  - A save from before the intro existed counts as seen as soon as it has any
+    progress (`furthestNode ≥ 0`, or any dialogue seen). A returning player is
+    never sent back through it. An explicit `introSeen` always wins.
+  - Options → "Watch the intro" replays it from the map or a dialogue (never
+    mid-duel, mid-gift or mid-wipe). It comes back to the scene it was opened
+    from.
+- **What it shows.** Five picture-book pages, about 19.4 s, with no words but
+  the game's name:
+  - **Hello!** A bright Cottage Meadow. Aurora trots in, hops, and whinnies
+    hello; the game's name floats over the sky.
+  - **The dust.** Umbra floats in on a little dark cloud and giggles. Grey
+    dust rolls across the meadow from her side, with a billowing front and
+    tumbling dust puffs. Aurora droops and sighs. Umbra floats off, still
+    giggling.
+  - **The magic.** Aurora looks determined and her horn glows. The Fire rune
+    draws itself in the air, with a fingertip riding its tip: *you draw
+    these*.
+  - **Colour again!** She casts, and her magic pops out the Stardust Sponge.
+    The sponge scrubs the page in five long passes, and the colour comes back
+    exactly where it passes, as under a player's finger. Bubbles and a
+    climbing chime follow each pass. A last wave finishes, and she whinnies
+    for joy.
+  - **Play.** Aurora cheers and a big Play button pulses (on a phone held
+    upright, below the page). It plays on by itself after its beat: the
+    intro never waits on a button.
+- **Sounds, never words (D6).** Three new synth cues in `audio.ts`:
+  - `neigh`: a quick sing-song "nee-hee-hee", with a little snort;
+  - `sigh`: Aurora's falling "aww";
+  - `giggle`: Umbra's three cheeky "hee"s.
+
+  With the existing whoosh, draw, snap, cast, scrub, chime and reveal cues,
+  that is the whole soundtrack. As everywhere in the game, audio unlocks on
+  the first trusted gesture: a child who taps the page (tapping gives
+  sparkles, and a whinny and a hop when they tap Aurora) hears it from then
+  on. Nothing plays unbidden.
+- **The rules it keeps.**
+  - The first-load interstitial comes first (C30). The intro holds silent on
+    its opening frame until `firstLoadAdSettled()`. GameMonetize portal QA
+    proves it: clock at 0 when the ad opens and still 0 past the 6 s cap, no
+    synth voice, no sound.
+  - It is not gameplay. The bracket stays closed (scene `intro`, not live),
+    so no portal is told gameplay started.
+  - Skip sits top-right from the first frame, where the dialogue keeps its
+    own. Escape skips too; Enter or Space plays on the last page.
+- **How it is drawn.** It uses the game's own painters, so it can never drift
+  from the game it introduces:
+  - the 1-1 sector with its live props, and its dust from `bakeDust`;
+  - the duel rig, with the dialogue's emote faces;
+  - the rune glyph, the Stardust Sponge, and the fx pool (`K_BUBBLE`, puffs,
+    glints).
+
+  The page is the sector's own frame (`computeFrame`) in landscape. On a
+  phone held upright it is a tall page showing the scene's full height, and a
+  slow camera pans to keep the action in view. Unlike the wipe, nothing here
+  has to stay reachable.
+- **Paint-ready (§8.27).** Every page can be a painting:
+  - `images/story/intro-1…4.webp` (kind `story`), with the last two beats
+    sharing the restored meadow;
+  - a painted page stands in for the page's meadow AND its characters;
+  - the transitions (the dust's rolling front, the sponge's trail, the last
+    wave) clip between two paintings exactly as they clip between the two
+    drawings;
+  - a slow storybook zoom runs continuously across a page;
+  - the rune trace, the sponge, the bubbles and the sparkles stay live on top.
+- **Code:**
+  - scene id `intro`: `game/story/intro.ts` (timeline, painters, input), and
+    `views/IntroScene.vue` (the title, Skip and Play; aria-labels only);
+  - `use/useIntroHud.ts`;
+  - `flow/nodes.ts` (`bootScene`, `playIntro`);
+  - the `introSeen` save field;
+  - analytics `intro_start {replay}` and `intro_end {skipped, beat, replay}`;
+  - i18n `ui.skip` and `options.watchIntro` in all 21 locales;
+  - QA hooks `__intro.{state, len, skip, play, step, pass}`.
+- **Verified:**
+  - `tests/campaign/intro.test.ts`: who sees it, the migration, the ad hold,
+    the beat order, a single end, Skip, and a tap on the last page;
+  - in a real browser:
+    - desktop: every beat, Play → dialogue, reload → no intro, Skip,
+      Options → replay → Escape → back on the map;
+    - phone portrait and landscape;
+    - no console errors;
+  - portal QA:
+    - web 24/24;
+    - GamePix 33/33;
+    - CrazyGames pre-release 26/26 and full 41/41;
+    - GameMonetize (dummy id, env only) 36/36.
+
+### §8.27 Owner request, 2026-09-19 — every drawing paint-ready, in one pinned style
+
+*"Prepare all art assets to be painted with our art-generation-pipeline … keep
+the art style cozy and cute … pinpoint the new art style decision in
+art-style.md to stick with it and be able to adjust if we choose another art
+style later."* As built:
+
+- **The style is data.** `src/game/artStyle.ts` holds the decision as a
+  named, versioned profile: `cozy-chibi-v1`, "Cozy chibi picture-book",
+  made especially appealing to girls aged 3–12 without looking babyish.
+  - Every prompt's style block is built from it, and nowhere else. Characters
+    get its character rules on top: chibi proportions, the eyes, the muzzle,
+    horn and mane, the expressions.
+  - The bench stamps the id into `sheet-index.json`, and the slicer into its
+    receipt for every painting it cuts.
+  - Change the profile, and `PAINT-STATUS.md` and the Art Desk mark every
+    painting made in the old style "REPAINT — the art style changed". The
+    old painting (or the drawing) stands in until each is redone.
+  - The decision and its change procedure are `art-style.md` §0.
+- **Four new families**, 111 references and 161 target files in all:
+
+  | Family | Sheets | Kind → folder | Painted from | In the game |
+  | --- | --- | --- | --- | --- |
+  | The intro's pages | 4, opaque 1152 × 672, WITH the characters | `story` → `images/story` | the drawn page + the painted Aurora (and Umbra) portrait strips as character models, attached first | §8.26 |
+  | Dialogue portraits | 20 keyed strips, one per speaker (11 unicorns, 9 creatures), a panel per scripted expression — 68 faces | `portrait` → `images/portraits` | the badge's inside, drawn by the rig or the creature painter | `portraitUrl`: the panel inside the drawn ring and badge colour |
+  | Duel islands | 10 keyed, one per chapter theme, anchored by their TOP | `island` → `images/islands` | `islandArt(theme)` (the baked island's own painter) | `drawIsland`: replaces the island and its tufts; the sky's mood tints it through the painting's own silhouette |
+  | Keepsake badges | 7 keyed (the crown's and the star's badges already draw their S6 paintings) | `cosmetic` → `images/cosmetics/keepsake-*` | `KEEPSAKE_ART` (the shelf's badge, drawn at any size) | the wardrobe shelf; the ghost of one still to find is cut from the painting |
+
+- **Consistency by construction:**
+  - A speaker's expressions are one strip, painted in ONE generation, so a
+    face stays the same face across its moods (the pipeline's multi-panel
+    rule).
+  - The intro's pages attach the painted portrait strips as character
+    models, before the page (the Art Desk's `also` images).
+    `PROMPTS-PORTRAITS.md` says to paint Aurora and Umbra first. The desk
+    refuses a page whose model is not on disk yet, and `alsoHint` says how
+    to make it.
+  - `tests/meta/artFamilies.test.ts` pins the rest:
+    - every face the script shows (dialogue, thanks, the finale card) has a
+      panel, and no panel is a face nobody sees;
+    - every keepsake has a badge, and every chapter theme an island;
+    - the models come before the reference.
+- **Pipeline changes:**
+  - The slicer cuts any `bg: 'opaque'` sheet as a full-bleed scene (a sector
+    or an intro page). Its keyed path gains a `top` anchor, so an island's
+    stage top never moves, whatever its painter did with its rocky tip.
+  - `itemPrompt` takes per-sheet overrides: what it is NOT, the view, a noun,
+    a keep rule, the character block.
+  - The preload holds the splash for a first-time player's intro pages, and
+    for Aurora's, Umbra's and the chapter creature's portraits.
+- **Known limits:**
+  - Aurora's painted portrait is her bare self. While she wears anything a
+    portrait shows (a crown, a necklace or scarf, a skin, a mane colour), the
+    rig draws her, dressed. Painting dressed variants is a possible
+    follow-up.
+  - The animated duel rig, the map's and the wardrobe's backdrops, and the
+    fx stay procedural. They move or re-tint every frame, and painting them
+    needs a part-by-part layer split (`LAYERS.md`), which is a stage of its
+    own.
+- **Verified:**
+  - references exported headlessly (111);
+  - `art:prompts --check` clean;
+  - 41 synthetic paintings (hue-rotated, rescaled, one JPEG) sliced with
+    none refused. With the art layer on, each hook drew its painting: the
+    intro's pages (sweep and scrub transitions included), Aurora's and
+    Briar's portraits, the chapter 1 island (duelists still on its top), and
+    the wardrobe badges. The fakes were then deleted;
+  - 776 tests.
 
 ## §9 Rendering, assets & performance
 

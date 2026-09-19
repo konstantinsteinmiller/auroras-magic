@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Lanjut',
+    'skip': 'Lewati',
     'replay': 'Ulangi',
     'back': 'Kembali',
     'play': 'Main',
@@ -156,6 +157,7 @@ export default {
     'close': 'Simpan & Tutup',
     'traceAssist': 'Tampilkan panduan rune',
     'reducedMotion': 'Kurangi gerakan',
+    'watchIntro': 'Tonton intro',
     'leaveDuel': {
       'label': 'Keluar dari Duel',
       'title': 'Keluar dari duel ini?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Kuas Debu Bintang',
+    'stardustSponge': 'Spons Debu Bintang',
     'magicEraser': 'Penghapus Ajaib',
     'sunbeam': 'Sinar Matahari'
   },

@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Weiter',
+    'skip': 'Überspringen',
     'replay': 'Wiederholen',
     'back': 'Zurück',
     'play': 'Spielen',
@@ -156,6 +157,7 @@ export default {
     'close': 'Speichern & Schließen',
     'traceAssist': 'Runen-Hilfslinien anzeigen',
     'reducedMotion': 'Weniger Bewegung',
+    'watchIntro': 'Intro ansehen',
     'leaveDuel': {
       'label': 'Duell verlassen',
       'title': 'Dieses Duell verlassen?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Sternenstaub-Pinsel',
+    'stardustSponge': 'Sternenstaub-Schwamm',
     'magicEraser': 'Zauber-Radiergummi',
     'sunbeam': 'Sonnenstrahl'
   },

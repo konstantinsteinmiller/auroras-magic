@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Suivant',
+    'skip': 'Passer',
     'replay': 'Rejouer',
     'back': 'Retour',
     'play': 'Jouer',
@@ -159,6 +160,7 @@ export default {
     'close': 'Enregistrer et fermer',
     'traceAssist': 'Afficher les guides des runes',
     'reducedMotion': 'Animations réduites',
+    'watchIntro': 'Revoir l’intro',
     'leaveDuel': {
       'label': 'Quitter le duel',
       'title': 'Quitter ce duel ?',
@@ -255,7 +257,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Pinceau de poussière d\'étoiles',
+    'stardustSponge': 'Éponge de poussière d\'étoiles',
     'magicEraser': 'Gomme magique',
     'sunbeam': 'Rayon de soleil'
   },

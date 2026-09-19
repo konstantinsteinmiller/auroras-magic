@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'आगे',
+    'skip': 'छोड़ें',
     'replay': 'दोबारा',
     'back': 'पीछे',
     'play': 'खेलें',
@@ -156,6 +157,7 @@ export default {
     'close': 'सहेजें और बंद करें',
     'traceAssist': 'रून की रूपरेखा दिखाएँ',
     'reducedMotion': 'कम हलचल',
+    'watchIntro': 'परिचय देखें',
     'leaveDuel': {
       'label': 'मुक़ाबला छोड़ें',
       'title': 'यह मुक़ाबला छोड़ना है?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'तारों की धूल वाला ब्रश',
+    'stardustSponge': 'तारों की धूल वाला स्पंज',
     'magicEraser': 'जादुई रबर',
     'sunbeam': 'सूरज की किरण'
   },

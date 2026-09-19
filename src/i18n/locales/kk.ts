@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Келесі',
+    'skip': 'Өткізу',
     'replay': 'Қайта',
     'back': 'Артқа',
     'play': 'Ойнау',
@@ -156,6 +157,7 @@ export default {
     'close': 'Сақтап жабу',
     'traceAssist': 'Руна сызбаларын көрсету',
     'reducedMotion': 'Қозғалысты азайту',
+    'watchIntro': 'Кіріспені көру',
     'leaveDuel': {
       'label': 'Жекпе-жектен шығу',
       'title': 'Бұл жекпе-жектен шығасыз ба?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Жұлдыз шаңы қылқаламы',
+    'stardustSponge': 'Жұлдыз шаңы губкасы',
     'magicEraser': 'Сиқырлы өшіргіш',
     'sunbeam': 'Күн сәулесі'
   },

@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Tiếp',
+    'skip': 'Bỏ qua',
     'replay': 'Chơi lại',
     'back': 'Quay lại',
     'play': 'Chơi',
@@ -156,6 +157,7 @@ export default {
     'close': 'Lưu & Đóng',
     'traceAssist': 'Hiện hướng dẫn vẽ phù văn',
     'reducedMotion': 'Giảm chuyển động',
+    'watchIntro': 'Xem phần mở đầu',
     'leaveDuel': {
       'label': 'Rời trận đấu',
       'title': 'Rời trận đấu này?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Cọ Bụi Sao',
+    'stardustSponge': 'Bọt Biển Bụi Sao',
     'magicEraser': 'Cục Tẩy Thần Kỳ',
     'sunbeam': 'Tia Nắng'
   },

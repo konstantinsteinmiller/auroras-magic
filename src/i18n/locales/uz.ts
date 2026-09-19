@@ -13,6 +13,7 @@ export default {
 
   'ui': {
     'next': 'Keyingi',
+    'skip': 'Oʻtkazib yuborish',
     'replay': 'Qayta',
     'back': 'Orqaga',
     'play': 'Oʻynash',
@@ -156,6 +157,7 @@ export default {
     'close': 'Saqlash va yopish',
     'traceAssist': 'Runa chizmalarini ko‘rsatish',
     'reducedMotion': 'Harakatni kamaytirish',
+    'watchIntro': 'Kirishni koʻrish',
     'leaveDuel': {
       'label': 'Dueldan chiqish',
       'title': 'Bu dueldan chiqasizmi?',
@@ -252,7 +254,7 @@ export default {
   },
 
   'tool': {
-    'stardustBrush': 'Yulduz changi mo‘yqalami',
+    'stardustSponge': 'Yulduz changi gubkasi',
     'magicEraser': 'Sehrli o‘chirg‘ich',
     'sunbeam': 'Quyosh nuri'
   },

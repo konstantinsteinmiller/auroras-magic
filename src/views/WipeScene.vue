@@ -17,7 +17,9 @@ import { COMPLETE_AT } from '@/game/restore/mask'
 const emit = defineEmits<{ back: []; continue: [] }>()
 const { t } = useI18n()
 
-const canLeave = computed(() => !['freeze', 'wave', 'admire', 'idle'].includes(restoreHud.phase))
+// Not once the dust is gone: the pots and the paint come after the reveal
+// (the sector is already restored), and leaving there would skip the colour.
+const canLeave = computed(() => !['freeze', 'wave', 'pots', 'paint', 'admire', 'idle'].includes(restoreHud.phase))
 const wiping = computed(() => restoreHud.phase === 'wipe' || restoreHud.phase === 'zoom')
 /** The ring fills to the auto-complete line, then glows: "you can stop now". */
 const ring = computed(() => Math.min(1, restoreHud.coverage / COMPLETE_AT))
@@ -45,7 +47,7 @@ const chipStyle = computed(() => {
       :style="chipStyle"
       :class="{ ready: ring >= 1 }"
       role="progressbar"
-      :aria-label="t(restoreHud.tool === 'sunbeam' ? 'tool.sunbeam' : restoreHud.tool === 'eraser' ? 'tool.magicEraser' : 'tool.stardustBrush')"
+      :aria-label="t(restoreHud.tool === 'sunbeam' ? 'tool.sunbeam' : restoreHud.tool === 'eraser' ? 'tool.magicEraser' : 'tool.stardustSponge')"
       aria-valuemin="0"
       aria-valuemax="100"
       :aria-valuenow="pct"
@@ -70,11 +72,14 @@ const chipStyle = computed(() => {
           rect(x="16" y="26" width="40" height="22" rx="6" fill="#ff9ecf" stroke="#3A2340" stroke-width="2.5")
           rect(x="31" y="25" width="17" height="24" rx="3" fill="#fff6fb" stroke="#3A2340" stroke-width="2.5")
           path(d="M39.5 31 L41 35 L45 35.5 L42 38 L43 42 L39.5 40 L36 42 L37 38 L34 35.5 L38 35 Z" fill="#ffd36b" stroke="#3A2340" stroke-width="1.2")
-        //- The Stardust Brush, small: handle, ferrule, tuft, star.
-        g(v-else transform="rotate(-45 36 36)")
-          rect(x="18" y="33" width="24" height="6" rx="3" fill="#c98a5a" stroke="#3A2340" stroke-width="2")
-          rect(x="41" y="31" width="6" height="10" rx="2" fill="#ffd36b" stroke="#3A2340" stroke-width="2")
-          path(d="M47 30 Q56 30 58 36 Q56 42 47 42 Z" fill="#e7d6ff" stroke="#3A2340" stroke-width="2")
+        //- The Stardust Sponge, small: the yellow block, its mint top, a star.
+        g(v-else transform="rotate(-12 36 36)")
+          rect(x="15" y="24" width="42" height="26" rx="7" fill="#ffe07a" stroke="#3A2340" stroke-width="2.5")
+          path(d="M16.5 30.5 L55.5 30.5" stroke="#3A2340" stroke-width="1.6")
+          path(d="M16.3 30 L16.3 28 Q16.3 25.3 22 25.3 L50 25.3 Q55.7 25.3 55.7 28 L55.7 30 Z" fill="#9ff0cf")
+          circle(cx="24" cy="42" r="2" fill="#e3aa3c")
+          circle(cx="48" cy="44" r="1.6" fill="#e3aa3c")
+          path(d="M36 34 L37.3 37.3 L40.8 37.6 L38.1 39.8 L39 43.2 L36 41.3 L33 43.2 L33.9 39.8 L31.2 37.6 L34.7 37.3 Z" fill="#fff3b0" stroke="#3A2340" stroke-width="1.2")
         path(v-if="restoreHud.tool === 'brush'" d="M52 14 L54 19 L59 21 L54 23 L52 28 L50 23 L45 21 L50 19 Z" fill="#fff6b0" stroke="#3A2340" stroke-width="1.5")
     SceneCorner
     button.duel-plate.continue-btn(

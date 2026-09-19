@@ -239,6 +239,14 @@ export const dialogueFor = (n: number): readonly Bubble[] => {
 /** A boss's thank-you, played in the arena after she is befriended (§3.2.3). */
 export const thanksLines = (n: number): readonly Bubble[] => (nodeIsBoss(n) ? THANKS[nodeChapter(n)] ?? [] : [])
 
+/** The Festival's finale card (§10.19): the whole cast together, and the face
+ *  each of them wears there. */
+export const FINALE_CAST: readonly (readonly [SpeakerId, Emote])[] = [
+  ['briar', 'happy'], ['pearl', 'happy'], ['zephyr', 'cheering'], ['terra', 'happy'], ['echo', 'cheering'],
+  ['aurora', 'cheering'], ['umbra', 'warmBlush'],
+  ['prism', 'cheering'], ['ember', 'happy'], ['glace', 'happy'], ['nova', 'cheering']
+]
+
 /** Every story text key this build uses — the i18n parity test's list. */
 export const STORY_KEYS: readonly string[] = [
   ...Object.values(OPENERS).flat(),
