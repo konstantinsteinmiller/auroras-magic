@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 ✅ · S9 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 ✅ · S9 ✅ · S10 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -119,7 +119,7 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ✅ 2026-09-19 (pipeline; the paintings are the owner's image-model run) |
 | S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ✅ 2026-09-19 |
 | S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ✅ 2026-09-19 (already fast enough) |
-| S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ⬜ |
+| S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ✅ 2026-09-19 |
 | S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ⬜ |
 
 **Totals:** S0–S4 (the full 10-chapter game) ≈ 60–77 agent-days; everything
@@ -633,6 +633,12 @@ lands, resume from the first unticked line):**
 **S8 result:** worst p95 4.2 ms (boss duel, versus, map), zero long tasks,
 boot 4.1 s. No optimisation was warranted, so none was made
 (`PERF-LEDGER.md`).
+
+**S9 — retention roadmap (2026-09-19), story-spec §8.23:**
+`retention-roadmap.md`. It has 18 items sorted by impact, then performance
+cost, then game feel, each naming the code it touches and the event that
+measures it, under the D1/D3/portal guardrails. Start with item 1 (the
+funnel analytics). Item 12 needs the owner.
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

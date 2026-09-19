@@ -6223,6 +6223,30 @@ enough, so nothing was changed.** The numbers and null results are in
 - **Closed:** precompiling vue-i18n's messages. The gain is under 2 % of boot
   and would mean converting 21 locale files.
 
+### §8.23 S9 as built (2026-09-19)
+
+S9 is the post-launch retention roadmap (the playbook's Phase 8):
+`retention-roadmap.md` in the project root, 18 items sorted by impact, then
+performance cost, then game feel.
+
+- **Guardrails first:** all ages and cozy (D1), with no punishing streaks,
+  no FOMO and no reading required; no currency (D3); portal rules; babble
+  voice only; no pass-and-play; any spend of S8's frame headroom goes
+  through the A/B loop.
+- **Top of the list:**
+  1. first-session funnel analytics (new `lastPlayedDay`/`sessions` fields,
+     ten funnel events), which every later item is judged by;
+  2. a faster first stroke on a cold boot;
+  3. a creature sticker album built from the 50 tap creatures and 10 rescues
+     that already exist;
+  4. one replay star per node;
+  5. a daily gift that is never a streak.
+- **Needs the owner:** item 12 (the Friendship Duo unlocked after chapter 3)
+  changes the 10-5 chest's ruling.
+
+Nothing in S9 changes the game. Each item is a separately scoped
+update.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary
