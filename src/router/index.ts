@@ -2,9 +2,16 @@ import { createRouter, createWebHashHistory, createMemoryHistory, type RouteReco
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'main', component: () => import('@/views/AppScene.vue') },
-  // The art pipeline's two screens (the reference-sheet bench and the
-  // painted-vs-drawn playground) mount here, DEV ONLY, when the painted-art
-  // step re-instantiates them for this cast — see `art-style.md`.
+  // The art pipeline's two screens (story-spec §9.11, S6), DEV ONLY: the
+  // reference-sheet bench and the painted-vs-drawn playground. In a build
+  // `import.meta.env.DEV` is a literal false, so both records — and both
+  // views' chunks — are dropped.
+  ...(import.meta.env.DEV
+    ? [
+        { path: '/art-sheets', name: 'art-sheets', component: () => import('@/views/ArtSheets.vue') },
+        { path: '/playground', name: 'playground', component: () => import('@/views/Playground.vue') }
+      ]
+    : []),
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 

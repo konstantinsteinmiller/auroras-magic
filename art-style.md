@@ -212,6 +212,25 @@ Paste this at the top of every image-model prompt, then describe the subject:
 > Nothing scary, sharp or violent. Plain flat magenta (#FF00FF) background,
 > the subject fully inside the frame with generous padding.
 
+### 9.2 Amendment 2026-09-19 — the pipeline as built (story-spec §8.20)
+
+- **The prompts are generated, never hand-written.** `src/game/artSheet.ts`
+  builds every block from §9.1's rules, extended for objects with no face:
+  the same plum ink, the same cel shadow, and a measured outline weight
+  (about 1 % of the subject's height). Run `pnpm art:prompts`, then copy
+  from `art-sheets/PROMPTS-*.md`.
+- **Sectors are the exception to the magenta rule.** They are full-bleed
+  scenes at 16:9, returned with NO magenta anywhere, and they keep the
+  reference's layout exactly, because the game places moving things on them.
+- **Colour-me regions** (a sector's landmark, a gift's ribbon, the chest's
+  clasp gem) are painted pale neutral lilac-grey (`#e8e4ee`), shaded only in
+  lighter and darker greys. The game multiplies the chosen colour through
+  them.
+- **Sizes shipped:**
+  - sectors 1152 × 672, plus a 384 × 224 map thumbnail;
+  - item frames at most 256 px tall (the pipeline's cap);
+  - runes 256 × 256.
+
 ## 10. From the jam build to here
 
 The jam build (Rune-icorn: Duels) drew everything procedurally in a

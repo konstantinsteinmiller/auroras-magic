@@ -3,17 +3,18 @@ import { prependBaseUrl } from '@/utils/function'
 /**
  * ─── Art contract ───────────────────────────────────────────────────────────
  *
- * Auroras Magic ships with ZERO gameplay bitmaps of its own making: the cast is
- * hand-inked vector art baked to frame strips at runtime, and the road, the
- * gates, the crates and every effect are Canvas 2D. That keeps the download
- * tiny, makes the art crisp at any DPR, and means the game is playable the
- * instant the JS parses.
+ * Auroras Magic draws itself: the duelists are a procedural rig, the fifty
+ * sectors are canvas painters, the gifts and tools are small shape functions.
+ * That keeps the download tiny, makes the art crisp at any DPR, and means the
+ * game is playable the instant the JS parses.
  *
- * When painted art arrives it drops in with NO renderer change: `spriteFor()`
- * probes `public/images/<folder>/<id>.webp` and, if the image decodes, the
- * renderer blits it instead of drawing. A missing file simply means "keep
- * drawing it". Every path is catalogued by the manifest in `artSheet.ts`,
- * which is also what exports the reference sheets the paintings are made from.
+ * Painted art (story-spec §9.11–§9.12, S6) drops in with NO renderer change
+ * beyond one probe per seam: `spriteFor()` looks for
+ * `public/<ART_FOLDERS[kind]>/<id>.webp` and, if it decodes, the renderer
+ * blits it instead of drawing. A missing file simply means "keep drawing it".
+ * Every path is catalogued by the manifest in `artSheet.ts`, which is also
+ * what exports the reference sheets and the prompts the paintings are made
+ * from. The folders are `artFolders.ts` — pure data, shared with the tools.
  *
  * ─── The feature flag ───────────────────────────────────────────────────────
  *
@@ -26,58 +27,19 @@ import { prependBaseUrl } from '@/utils/function'
  *      portal ever sees.
  *
  * The build default has to stay the floor because a miss is only free for the
- * GAME. CrazyGames' QA console reports every 404 as `Missing resource detected:
- * …/images/monsters/grumpling.webp`, one line per drawable, which reads as a
- * broken build to a reviewer. So art is shipped off until it is ready, while a
- * URL param still lets it be switched on and — the point of the flag — straight
- * back OFF, live, with no rebuild, when the new art turns out worse than the
- * drawn version.
+ * GAME. CrazyGames' QA console reports every 404 as `Missing resource
+ * detected: …/images/sectors/s12.webp`, one line per drawable, which reads as
+ * a broken build to a reviewer. So art is shipped off until it is ready, while
+ * a URL param still lets it be switched on and — the point of the flag —
+ * straight back OFF, live, with no rebuild, when the new art turns out worse
+ * than the drawn version.
  *
  * Read as a plain boolean rather than a `ref`: `spriteFor` runs per drawable
- * per frame, and a reactive read in that loop costs dependency tracking on every
- * body on the road for a value that changes when a human clicks something.
+ * per frame, and a reactive read in that loop costs dependency tracking for a
+ * value that changes when a human clicks something.
  */
-
-/** Folder layout the art pipeline targets, one per drawable kind. */
-export const ART_FOLDERS = {
-  /**
-   * Painted WALK CYCLES, one horizontal strip per monster design.
-   *
-   * Keyed on the DESIGN (the thing that has a gait), sliced back into frames at
-   * runtime by `spriteStrip`, and played from the same clock that drives the
-   * procedural bake — so a design can swap from the drawing to the painting
-   * mid-stride without a pop.
-   */
-  monster: 'images/monsters',
-  /** The squad's RUN CYCLES, one strip per outfit, on the same terms. */
-  hero: 'images/heroes',
-  /**
-   * Painted DEATHS, one strip per BOSS design: eight panels from the killing
-   * blow to the body lying still, played once and held on the last panel as
-   * the corpse the next stage opens beside. Wider panels than a walk's (see
-   * `DEATH_FRAME_ASPECT`). Fetched late on purpose — when the stage is 80 %
-   * run, never on the splash (`deathArtWant`) — and a miss is the drawn topple.
-   */
-  death: 'images/deaths',
-  /** Road props: the two crates, the barricade tile, boulders, the powder keg,
-   *  the divider pillar, the coin. One still each. */
-  prop: 'images/props',
-  /** Gate frames, one per op, nine-sliced across the leaf's own width. */
-  gate: 'images/gates',
-  /** Projectiles in flight, authored at rest and turned by the renderer. */
-  round: 'images/rounds',
-  /** Effects: the muzzle flash, the smoke puff, scorch, rings, the shield dome,
-   *  the boss guard and both crests. */
-  fx: 'images/fx',
-  /** Backdrop: the two ridge silhouettes. (The road tile stays drawn — a
-   *  painted one was tried, and cobbles read as objects under the crowd.) */
-  bg: 'images/bg',
-  /** The HUD's own art — the elite crown (shared with the field), the result
-   *  banner, the shop chest, the two skill icons — and the logo. */
-  ui: 'images/ui'
-} as const
-
-export type ArtKind = keyof typeof ART_FOLDERS
+import { ART_FOLDERS, type ArtKind } from '@/game/artFolders'
+export { ART_FOLDERS, artTarget, type ArtKind } from '@/game/artFolders'
 
 const BUILD_DEFAULT = import.meta.env.VITE_ENABLE_ART_OVERRIDES === 'true'
 const STORAGE_KEY = 'artOverrides'
@@ -321,6 +283,16 @@ export const preloadArtOverrides = async (
   const total = jobs.length
   onProgress?.(0, total)
   await Promise.allSettled(jobs.map((j) => j.then(() => { onProgress?.(++done, total) })))
+}
+
+/**
+ * Drop one probe, so its decoded bitmap can be collected. For the full-size
+ * sector paintings: the restore view shows one at a time, and fifty decoded
+ * 1152 × 672 bitmaps held for the session would be 150 MB. The next ask
+ * re-fetches it (from the HTTP cache).
+ */
+export const forgetArt = (kind: ArtKind, id: string): void => {
+  probes.delete(`${kind}/${id}`)
 }
 
 /** How many probes have been created — a test seam and a status number. */

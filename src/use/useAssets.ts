@@ -210,7 +210,23 @@ export default () => {
         console.warn('[assets] arena bake failed; the scene will bake on its first frame', e)
       }
     })()
-    await Promise.race([bake, new Promise<void>((r) => setTimeout(r, PRELOAD_CAP_MS))])
+    // ── The paintings the first screens draw (S6), when the art layer is on ──
+    //
+    // A no-op on every build until paintings exist (the layer is off by
+    // default). Dynamic, like the bake, so the art modules stay out of the
+    // eager chunk.
+    const art = (async () => {
+      try {
+        const [{ preloadFirstArt }, { S }] = await Promise.all([
+          import('@/game/artPreload'),
+          import('@/game/duel/state')
+        ])
+        await preloadFirstArt(S.campaign.furthestNode)
+      } catch (e) {
+        console.warn('[assets] painted-art preload failed; the drawings stand in', e)
+      }
+    })()
+    await Promise.race([Promise.all([bake, art]), new Promise<void>((r) => setTimeout(r, PRELOAD_CAP_MS))])
 
     loadingProgress.value = 100
     areAllAssetsLoaded.value = true

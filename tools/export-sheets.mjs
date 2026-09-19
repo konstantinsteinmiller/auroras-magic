@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Drive the art bench's "Export all sheets" in a private headless Chrome.
+ * Drive the art bench's "Export all" (`/#/art-sheets`) in a private headless
+ * Chrome (story-spec §9.11, S6).
  *
- *   pnpm dev                       # in one terminal, on port 2050
+ *   pnpm dev                       # in one terminal (port 2061)
  *   pnpm art:export                # in another; writes art-sheets/
- *   pnpm art:export http://localhost:2050/#/art-sheets
- *   pnpm art:export -- --deaths    # the boss deaths only (+ the whole index)
- *   pnpm art:export -- --only still-prop-cage,still-prop-cage-sealed
- *                                  # just those references (+ the index, the
- *                                  # stills key and the prompt documents)
+ *   pnpm art:export http://localhost:2061/#/art-sheets
+ *   pnpm art:export -- --only item-standard-gift,rune-fire
+ *                                  # just those references (+ the index and
+ *                                  # the prompt documents, always whole)
  *
  * Own profile, own port — never the shared debugging profile, which belongs to
  * whatever the user has open, and two clients on one profile deadlock with no
@@ -19,19 +19,14 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { requireArtCatalogue } from './art-guard.mjs'
-
-requireArtCatalogue('art:export')
-
 const ARGS = process.argv.slice(2)
-const DEATHS_ONLY = ARGS.includes('--deaths')
 const ONLY_AT = ARGS.indexOf('--only')
 const ONLY = ONLY_AT >= 0 ? (ARGS[ONLY_AT + 1] ?? '') : ''
 if (ONLY_AT >= 0 && !ONLY) { console.error('--only needs a comma-separated list of reference stems'); process.exit(1) }
-const BASE = ARGS.find((a, i) => !a.startsWith('--') && i !== ONLY_AT + 1) ?? 'http://localhost:2050/#/art-sheets'
+const BASE = ARGS.find((a, i) => !a.startsWith('--') && i !== ONLY_AT + 1) ?? 'http://localhost:2061/#/art-sheets'
 const APP = ONLY ? `${BASE}?only=${encodeURIComponent(ONLY)}` : BASE
 const PORT = 9700 + Math.floor(Math.random() * 200)
-const PROFILE = mkdtempSync(join(tmpdir(), 'sv-art-'))
+const PROFILE = mkdtempSync(join(tmpdir(), 'am-art-'))
 
 const CHROME = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -122,7 +117,7 @@ try {
   // ── Press export ──
   const label = await evaluate(`(() => {
     const b = [...document.querySelectorAll('.art-sheets .bar button')]
-      .find((x) => ${DEATHS_ONLY ? '/Export boss deaths/i' : '/Export all/i'}.test(x.textContent));
+      .find((x) => /Export all/i.test(x.textContent));
     if (!b) return null;
     b.click();
     return b.textContent.trim();
@@ -149,7 +144,7 @@ try {
     })()`)
     const { status, busy } = JSON.parse(st)
     if (status && status !== last) { console.log('  ·', status); last = status }
-    if (!busy && /wrote|FAILED/.test(status)) { console.log('DONE:', status); break }
+    if (!busy && /^done:|FAILED/.test(status)) { console.log('DONE:', status); break }
     if (!busy && status === 'idle' && Date.now() - started > 8000) {
       throw new Error('export never started (page reloaded?)')
     }

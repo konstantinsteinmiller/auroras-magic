@@ -20,7 +20,9 @@ slicer already normalised the return onto that box, so a big number here means
 the normalisation was refused (a wild return) or switched off.
 
 (From the art-generation-pipeline skill's template; `cells` is adapted to
-Survivalist's index, which is `{ walks: [...] }` with one fit per sheet.)
+Auroras Magic's index: `{ sheets: [...] }`, each magenta sheet with its
+`fit` as fractions of one PANEL and the `crop` the slicer cut out of it — so
+the fit is converted into the crop's frame before comparing.)
 
 Requires Pillow. No other dependency.
 """
@@ -132,22 +134,26 @@ def cmd_cells(args):
     with open(index_file, encoding='utf-8') as f:
         index = json.load(f)
     rows = []
-    for sheet in index.get('walks', []):
+    for sheet in index.get('sheets', []):
         if args.sheet and sheet['id'] != args.sheet:
             continue
-        target, fit = sheet.get('target'), sheet.get('fit')
-        if not target or not fit or sheet.get('fill'):
+        fit, crop, panel = sheet.get('fit'), sheet.get('crop'), sheet.get('panel')
+        if sheet.get('bg') != 'magenta' or not fit or not crop or not panel:
             continue
+        target = sheet['cells'][0]['target']
         out = os.path.join(ROOT, 'public', target)
         if not os.path.exists(out):
             continue
-        # A creature's box (walks, deaths) is the union of its panels; a still's
-        # is its first panel — `tight` is the index's own word for which.
-        p = strip_box(out, sheet.get('frames', 1), union=not sheet.get('tight', False))
+        # The fit is the union of every panel; so is the strip's measure.
+        p = strip_box(out, sheet.get('frames', 1), union=True)
         if not p:
             rows.append((sheet['id'], None, None, 'empty'))
             continue
-        r = (fit['w'], fit['h'], fit['cx'], fit['bottom'] - fit['h'] / 2)
+        # Panel fractions → fractions of the cropped box the frame holds.
+        pw, ph = panel['w'], panel['h']
+        r = (fit['w'] * pw / crop['w'], fit['h'] * ph / crop['h'],
+             (fit['cx'] * pw - crop['x']) / crop['w'],
+             ((fit['bottom'] - fit['h'] / 2) * ph - crop['y']) / crop['h'])
         worst, _off, note = judge(r, p)
         rows.append((sheet['id'], (r, p), worst, note))
     if not rows:

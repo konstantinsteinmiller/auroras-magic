@@ -24,6 +24,8 @@ import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
 import { offerTwinGift } from '@/use/useDuelRewards'
 import { beginRestore, type RestoreEnd } from '@/game/restore/wipe'
 import { mapHud } from '@/use/useMapHud'
+import { artSettled } from '@/game/art'
+import { sectorArtId } from '@/game/artIds'
 
 let lastGrant: ChestGrant = { rune: null, signature: null, cosmetic: null }
 let lastNode = -1
@@ -33,6 +35,10 @@ let admiringKeepsake = false
 /** Open node `n`'s waiting gift: zoom in to its sector (§3.2.2 steps 6–9). */
 export const openSector = (n: number): void => {
   lastNode = n
+  // Its full-size painting starts on the wire now, under the zoom, so it has
+  // usually decoded by the time the gift is on screen (a no-op, and no
+  // request, with the art layer off).
+  void artSettled('sector', sectorArtId(n), 'high')
   dipTo(() => beginRestore(n, onRestoreFinished), DIP_ZOOM)
 }
 

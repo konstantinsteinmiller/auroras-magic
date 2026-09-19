@@ -64,6 +64,9 @@ import { track } from '@/use/useAnalytics'
 import { flushSaveNow } from '@/use/useSaveStatus'
 import { gotoScene, type SceneId } from '@/game/flow/scene'
 import { onUnboxed } from '@/game/flow/restoreFlow'
+import { forgetArt, onArtChanged } from '@/game/art'
+import { sectorArtId } from '@/game/artIds'
+import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 
 type G2D = CanvasRenderingContext2D
 
@@ -214,14 +217,51 @@ const toCss = (sx: number, sy: number): [number, number] => {
 
 /* -------------------------------------------------------------- baking */
 
+/** Whether the colour layer was baked from the painting (S6). */
+let bakedPainted = false
+
 const bakeColour = (): void => {
   if (!colourCv) return
   const g = colourCv.getContext('2d')
   if (!g) return
   g.setTransform(res, 0, 0, res, 0, 0)
-  sec.paint(g, sec.pots[pot]!)
+  bakedPainted = paintSectorArt(g, node, sec, sec.pots[pot]!, false)
+  if (!bakedPainted) sec.paint(g, sec.pots[pot]!)
   g.setTransform(1, 0, 0, 1, 0, 0)
 }
+
+/** The colour layer, the dust baked from it, and the cells a resumed visit
+ *  had already cleared. */
+const bakeLayers = (): void => {
+  if (!colourCv || !dustCv) return
+  bakeColour()
+  bakeDust(dustCv, colourCv, res, node + 1, (g) => {
+    sec.props(g, 0, 0)
+    sec.tap?.draw(g, 0, 0)
+    sec.rescue?.draw(g, 0, 0)
+  })
+  const cells = unpackCoverage(cov, S.campaign.wipeCoverage)
+  const half = unpackHalf(cov, S.campaign.wipeHalf)
+  if (stampCv) {
+    eraseCells(dustCv, stampCv, res, cells)
+    eraseCells(dustCv, stampCv, res, half, FIRST_PASS_CLEAR)
+  }
+}
+
+/**
+ * The sector's painting can land after the sector opened: it is fetched when
+ * the node is tapped, and a slow line may still be decoding it at the gift.
+ * Until the first wipe stroke the dust is untouched, so both layers simply
+ * re-bake from it — the player sees the gift, not the swap. Once wiping has
+ * begun, this visit keeps what it started with: re-baking would put back
+ * dust the child already cleared.
+ */
+const UNTOUCHED: ReadonlySet<RestorePhase> = new Set(['invite', 'open', 'pots', 'paint', 'zoom'])
+onArtChanged((c) => {
+  if (phase === 'idle' || !UNTOUCHED.has(phase)) return
+  if (c && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
+  if (sectorPainted(node, false) !== bakedPainted) bakeLayers()
+})
 
 const ensureStamp = (): void => {
   if (!brush) return
@@ -336,12 +376,6 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   const [pw, ph] = sectorPx(res)
   colourCv = makeCanvas(pw, ph)
   dustCv = makeCanvas(pw, ph)
-  bakeColour()
-  bakeDust(dustCv, colourCv, res, n + 1, (g) => {
-    sec.props(g, 0, 0)
-    sec.tap?.draw(g, 0, 0)
-    sec.rescue?.draw(g, 0, 0)
-  })
   // The chapter's rescue (§8.8 beat 3): which coverage cells its silhouette
   // covers, so the wipe can tell when a third of it is showing.
   rescueCells.length = 0
@@ -355,12 +389,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
       if (Math.hypot(cx + CELL / 2 - rs.x, cy + CELL / 2 - rs.y) <= rs.r) rescueCells.push(c)
     }
   }
-  const cells = unpackCoverage(cov, S.campaign.wipeCoverage)
-  const half = unpackHalf(cov, S.campaign.wipeHalf)
-  if (stampCv) {
-    eraseCells(dustCv, stampCv, res, cells)
-    eraseCells(dustCv, stampCv, res, half, FIRST_PASS_CLEAR)
-  }
+  bakeLayers()
   coverage = coverage01(cov)
   chimeStep = Math.floor(coverage * 10)
   restoreHud.coverage = coverage
@@ -395,8 +424,10 @@ const end = (why: RestoreEnd): void => {
   setPhase('idle')
   restoreHud.showContinue = false
   // Release the two sector-sized canvases; the stamp and noise are tiny and
-  // kept for the next sector.
+  // kept for the next sector. The full-size painting goes too: fifty of
+  // them decoded for the session would be ~150 MB (the map keeps its thumb).
   colourCv = dustCv = null
+  forgetArt('sector', sectorArtId(node))
   resetFx()
   cb?.(why)
 }

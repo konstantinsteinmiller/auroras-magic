@@ -28,6 +28,9 @@ import { sectorOf } from '@/game/map/sectors'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
+import { drawItem } from '@/game/artItem'
+import { TENT_ART, tentShape } from '@/game/map/tent'
+import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { readInsets } from '@/game/duel/layout'
 import { clamp, lerp, sin, TAU, PI } from '@/game/duel/util'
 import { mapHud } from '@/use/useMapHud'
@@ -115,7 +118,9 @@ const thumbs = new Map<number, { key: string; cv: HTMLCanvasElement }>()
 const thumbOf = (n: number): HTMLCanvasElement => {
   const done = hasBit(S.campaign.sectorsDone, n)
   const pick = getPaintPick(S.campaign.paintPicks, n)
-  const key = `${done ? 1 : 0}:${pick}`
+  // Whether its painting has decoded is part of the key: the thumb re-bakes
+  // once when it lands (or when the art layer flips), and never again.
+  const key = `${done ? 1 : 0}:${pick}:${sectorPainted(n, true) ? 1 : 0}`
   const hit = thumbs.get(n)
   if (hit && hit.key === key) return hit.cv
   const sec = sectorOf(n)
@@ -123,7 +128,8 @@ const thumbOf = (n: number): HTMLCanvasElement => {
   const g = colour.getContext('2d')
   if (g) {
     g.setTransform(TW / SEC_W, 0, 0, TH / SEC_H, 0, 0)
-    sec.paint(g, sec.pots[Math.max(0, pick - 1)]!)
+    const pot = sec.pots[Math.max(0, pick - 1)]!
+    if (!paintSectorArt(g, n, sec, pot, true)) sec.paint(g, pot)
     g.setTransform(1, 0, 0, 1, 0, 0)
   }
   let cv = colour
@@ -657,56 +663,11 @@ const drawTent = (g: G2D): void => {
   if (x < -s || x > vw + s || y < -s * 1.4 || y > vh + s) return
   g.save()
   g.translate(x, y)
-  const k = s / 150
-  g.scale(k, k)
-  g.lineJoin = g.lineCap = 'round'
-  const body = (): void => {
-    g.beginPath()
-    g.moveTo(-80, 0)
-    g.quadraticCurveTo(-60, -60, 0, -120)
-    g.quadraticCurveTo(60, -60, 80, 0)
-    g.closePath()
+  if (!drawItem(g, TENT_ART, s)) {
+    const k = s / 150
+    g.scale(k, k)
+    tentShape(g, sin(Td * 3) * 4)
   }
-  body()
-  g.fillStyle = '#ffd1ea'
-  g.fill()
-  g.save()
-  body()
-  g.clip()
-  g.fillStyle = '#ff8fc4'
-  for (let i = -3; i <= 3; i += 2) {
-    g.beginPath()
-    g.moveTo(0, -120)
-    g.lineTo(i * 20 - 10, 0)
-    g.lineTo(i * 20 + 10, 0)
-    g.closePath()
-    g.fill()
-  }
-  g.restore()
-  body()
-  g.lineWidth = 5
-  g.strokeStyle = '#3A2340'
-  g.stroke()
-  // The door flap and the pennant.
-  g.beginPath()
-  g.moveTo(-18, 0)
-  g.quadraticCurveTo(0, -60, 18, 0)
-  g.fillStyle = '#7a4fb8'
-  g.fill()
-  g.lineWidth = 4
-  g.stroke()
-  g.beginPath()
-  g.moveTo(0, -120)
-  g.lineTo(0, -160)
-  g.stroke()
-  g.beginPath()
-  g.moveTo(0, -160)
-  g.lineTo(34 + sin(Td * 3) * 4, -150)
-  g.lineTo(0, -140)
-  g.closePath()
-  g.fillStyle = '#ffd34d'
-  g.fill()
-  g.stroke()
   g.restore()
 }
 

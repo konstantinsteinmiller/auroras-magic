@@ -26,6 +26,8 @@ import { COSMETICS, COSMETIC_SLOTS } from '@/game/campaign/tables'
 import { FOES, guardianOf, type FoePalette } from '@/game/duel/foes'
 import { TAU, PI, sin, cos, min, clamp, ease } from '@/game/duel/util'
 import type { PoseState, RigAnchors } from '@/game/duel/chars'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { ITEM_ART } from '@/game/artIds'
 
 type G2D = CanvasRenderingContext2D
 
@@ -59,6 +61,13 @@ const blossom = (g: G2D, x: number, y: number, r: number, petal: string, rot: nu
  * (head-local (1, -21)) with four blossoms and two leaves. Head space.
  */
 export const drawFlowerCrown = (g: G2D): void => {
+  if (!drawItem(g, CROWN_ART, CROWN_UNIT)) crownShape(g)
+}
+
+/** Head units per unit of the crown's painted box. */
+const CROWN_UNIT = 20
+
+const crownShape = (g: G2D): void => {
   g.lineJoin = g.lineCap = 'round'
   // The vine band, riding the top of the skull between the ears.
   g.beginPath()
@@ -84,6 +93,18 @@ export const drawFlowerCrown = (g: G2D): void => {
   blossom(g, -3, -24, 6.2, '#fff6fb', 0.9)
   blossom(g, 9, -24, 5.6, '#ffd34d', 0.4)
   blossom(g, 19, -17, 5, '#b58cff', 1.1)
+}
+
+/** The Flower Crown as a painted still, in head space (§9.7: a still on the
+ *  rig — it rides the head's own transform, like the drawing did). */
+export const CROWN_ART: ItemSpec = {
+  ...ITEM_ART.crown, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / CROWN_UNIT, s / CROWN_UNIT)
+    crownShape(g)
+    g.restore()
+  }
 }
 
 /** One little scallop shell, hinge at (x, y), opening toward `a`. */
@@ -438,6 +459,10 @@ const starY = (y: number, t: number): number => y - 50 + sin(t * 2.3) * 5
 
 /** The star itself at the origin: the chubby body, a highlight, a face. */
 export const drawStarBody = (g: G2D, r: number, blink: boolean, happy: boolean): void => {
+  if (!drawItem(g, PET_STAR_ART, r, happy ? 2 : blink ? 1 : 0)) starShape(g, r, blink, happy)
+}
+
+const starShape = (g: G2D, r: number, blink: boolean, happy: boolean): void => {
   g.lineJoin = g.lineCap = 'round'
   g.beginPath()
   for (let i = 0; i < 10; i++) {
@@ -501,6 +526,13 @@ export const drawStarBody = (g: G2D, r: number, blink: boolean, happy: boolean):
   g.arc(0, r * 0.12, r * 0.13, 0.25, PI - 0.25)
   g.lineWidth = r * 0.085
   g.stroke()
+}
+
+/** The Pet Star as a painted strip, one panel per face: eyes open, the
+ *  blink, the happy grin of its spin. */
+export const PET_STAR_ART: ItemSpec = {
+  ...ITEM_ART.petStar, frames: 3,
+  draw: (g, s, f) => starShape(g, s, f === 1, f === 2)
 }
 
 export const drawPetStar = (g: G2D, a: RigAnchors): void => {

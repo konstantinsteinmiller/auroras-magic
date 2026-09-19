@@ -11,6 +11,8 @@
  * up; `s` is the gift's height / the brush's length in that space.
  */
 import { TAU, PI, sin, cos, clamp, ease } from '@/game/duel/util'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { ITEM_ART } from '@/game/artIds'
 
 type G2D = CanvasRenderingContext2D
 
@@ -48,17 +50,29 @@ const loop = (g: G2D, dir: number, s: number, lift: number, droop: number): void
   g.closePath()
 }
 
+/**
+ * A painted item's panel for an opening beat: the tied (or shut) panel until
+ * 30 % of the way, the open one after 70 %, a cross-fade between — so the
+ * painting "opens" over the frames the drawing spends opening.
+ */
+const openFrame = (u: number): number => clamp((u - 0.3) / 0.4, 0, 1)
+
 /** The Standard Gift, base at the origin, `s` tall. */
 export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): void => {
-  const w = s * 0.92
-  const h = s * 0.72
-  const lw = Math.max(1.5, s * 0.045)
   const RB = p.ribbon ?? RIBBON
-  const RBS = p.ribbonShade ?? RIBBON_SHADE
   g.save()
   g.translate(x, y)
   g.rotate(p.rot)
   g.scale(1 / Math.sqrt(p.squash), p.squash)
+  if (!drawItem(g, GIFT_ART, s, openFrame(p.untie), RB)) giftShape(g, s, p.untie, RB, p.ribbonShade ?? RIBBON_SHADE)
+  g.restore()
+}
+
+/** The gift's drawing at the origin: parcel, ribbon cross, bow (`u` = untie). */
+const giftShape = (g: G2D, s: number, untie: number, RB: string, RBS: string): void => {
+  const w = s * 0.92
+  const h = s * 0.72
+  const lw = Math.max(1.5, s * 0.045)
   // Parcel: a round-shouldered bundle.
   const body = (): void => {
     g.beginPath()
@@ -96,7 +110,7 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
   body()
   line(g, lw)
   // Bow: two loops and two tails that slump as it unties.
-  const u = clamp(p.untie, 0, 1)
+  const u = clamp(untie, 0, 1)
   g.save()
   g.translate(0, -h)
   const droop = u * s * 0.3
@@ -118,7 +132,12 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
   g.fill()
   line(g, lw)
   g.restore()
-  g.restore()
+}
+
+/** The Standard Gift as a painted strip: tied, then untied (§9.11). */
+export const GIFT_ART: ItemSpec = {
+  ...ITEM_ART.gift, frames: 2, tinted: true,
+  draw: (g, s, f, a) => giftShape(g, s, f, a.base, a.shade)
 }
 
 /**
@@ -128,16 +147,21 @@ export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): 
  * the folded corner flap.
  */
 export const drawBoxGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): void => {
-  const w = s * 0.82
-  const h = s * 0.78
-  const lw = Math.max(1.5, s * 0.045)
   const RB = p.ribbon ?? RIBBON
-  const RBS = p.ribbonShade ?? RIBBON_SHADE
-  const u = clamp(p.untie, 0, 1)
   g.save()
   g.translate(x, y)
   g.rotate(p.rot)
   g.scale(1 / Math.sqrt(p.squash), p.squash)
+  if (!drawItem(g, BOX_GIFT_ART, s, openFrame(p.untie), RB)) boxGiftShape(g, s, p.untie, RB, p.ribbonShade ?? RIBBON_SHADE)
+  g.restore()
+}
+
+/** The box gift's drawing at the origin (`untie` lifts the corner flap). */
+const boxGiftShape = (g: G2D, s: number, untie: number, RB: string, RBS: string): void => {
+  const w = s * 0.82
+  const h = s * 0.78
+  const lw = Math.max(1.5, s * 0.045)
+  const u = clamp(untie, 0, 1)
   g.beginPath()
   g.roundRect(-w / 2, -h, w, h, s * 0.05)
   g.fillStyle = '#fff1d6'
@@ -187,7 +211,12 @@ export const drawBoxGift = (g: G2D, x: number, y: number, s: number, p: GiftPose
   g.fillStyle = '#ffd36b'
   g.fill()
   line(g, lw * 0.7)
-  g.restore()
+}
+
+/** The Magic Eraser's box gift as a painted strip: shut, then flap lifted. */
+export const BOX_GIFT_ART: ItemSpec = {
+  ...ITEM_ART.boxGift, frames: 2, tinted: true,
+  draw: (g, s, f, a) => boxGiftShape(g, s, f, a.base, a.shade)
 }
 
 /**
@@ -195,12 +224,17 @@ export const drawBoxGift = (g: G2D, x: number, y: number, s: number, p: GiftPose
  * sleeve with a star — turned along its heading. Centred at (x, y).
  */
 export const drawEraser = (g: G2D, x: number, y: number, s: number, angle: number): void => {
-  const L = s * 0.62
-  const W = s * 0.4
-  const lw = Math.max(1.5, s * 0.035)
   g.save()
   g.translate(x, y)
   g.rotate(angle)
+  if (!drawItem(g, ERASER_ART, s)) eraserShape(g, s)
+  g.restore()
+}
+
+const eraserShape = (g: G2D, s: number): void => {
+  const L = s * 0.62
+  const W = s * 0.4
+  const lw = Math.max(1.5, s * 0.035)
   g.beginPath()
   g.roundRect(-L / 2, -W / 2, L, W, W * 0.3)
   g.fillStyle = '#ff9ecf'
@@ -229,8 +263,10 @@ export const drawEraser = (g: G2D, x: number, y: number, s: number, angle: numbe
   g.lineWidth = lw
   g.strokeStyle = 'rgba(255,255,255,0.8)'
   g.stroke()
-  g.restore()
 }
+
+/** The Magic Eraser as a painted still, level, sleeve to the right. */
+export const ERASER_ART: ItemSpec = { ...ITEM_ART.eraser, frames: 1, draw: (g, s) => eraserShape(g, s) }
 
 export interface ChestPose {
   /** Rotation, radians (the idle rattle). */
@@ -247,12 +283,27 @@ export interface ChestPose {
  * gem). Base at the origin, `s` tall.
  */
 export const drawChest = (g: G2D, x: number, y: number, s: number, p: ChestPose, gem = '#5ce05a'): void => {
-  const w = s * 1.3
-  const h = s * 0.62
-  const lw = Math.max(1.5, s * 0.04)
   g.save()
   g.translate(x, y)
   g.rotate(p.rot)
+  if (drawItem(g, CHEST_ART, s, openFrame(p.open), gem)) {
+    // The painting holds the chest; the clasp's flicker is a moment, not a
+    // picture, so it stays drawn over it.
+    if (p.gleam > 0.02) {
+      g.beginPath()
+      g.arc(-s * 0.02, -s * 0.64, s * 0.03, 0, TAU)
+      g.globalAlpha *= p.gleam
+      g.fillStyle = '#ffffff'
+      g.fill()
+    }
+  } else chestShape(g, s, p, gem)
+  g.restore()
+}
+
+const chestShape = (g: G2D, s: number, p: ChestPose, gem: string): void => {
+  const w = s * 1.3
+  const h = s * 0.62
+  const lw = Math.max(1.5, s * 0.04)
   // Body.
   g.beginPath()
   g.roundRect(-w / 2, -h, w, h, s * 0.08)
@@ -316,7 +367,13 @@ export const drawChest = (g: G2D, x: number, y: number, s: number, p: ChestPose,
     g.fill()
     g.globalAlpha = 1
   }
-  g.restore()
+}
+
+/** The Boss Chest as a painted strip: shut, then lid thrown open. The clasp
+ *  gem is the chapter's element colour, so it is tinted. */
+export const CHEST_ART: ItemSpec = {
+  ...ITEM_ART.chest, frames: 2, tinted: true,
+  draw: (g, s, f, a) => chestShape(g, s, { rot: 0, open: f, gleam: 0 }, a.base)
 }
 
 /** The chest's idle rattle (§8.3): bigger and slower than the gift's shake. */
@@ -343,6 +400,31 @@ export const drawBrush = (g: G2D, x: number, y: number, s: number, angle: number
   g.save()
   g.translate(x, y)
   g.rotate(angle)
+  if (!drawItem(g, BRUSH_ART, s)) brushShape(g, s)
+  g.restore()
+  // A little four-point star twinkling at the tip — live, painted or not.
+  const k = 0.75 + 0.25 * sin(t * 9)
+  const r = s * 0.12 * k
+  g.save()
+  g.translate(x, y)
+  g.rotate(t * 1.5)
+  g.beginPath()
+  for (let i = 0; i < 8; i++) {
+    const a = (i * PI) / 4
+    const rr = i & 1 ? r * 0.38 : r
+    if (i) g.lineTo(cos(a) * rr, sin(a) * rr)
+    else g.moveTo(rr, 0)
+  }
+  g.closePath()
+  g.fillStyle = '#fff6b0'
+  g.fill()
+  line(g, lw * 0.8)
+  g.restore()
+}
+
+/** The brush's drawing, tip at the origin pointing +x: handle, ferrule, tuft. */
+const brushShape = (g: G2D, s: number): void => {
+  const lw = Math.max(1.5, s * 0.035)
   // Handle, trailing behind the tip along −x.
   g.beginPath()
   g.moveTo(-s * 0.36, -s * 0.05)
@@ -374,26 +456,11 @@ export const drawBrush = (g: G2D, x: number, y: number, s: number, angle: number
   g.strokeStyle = '#ffffff'
   g.lineWidth = lw
   g.stroke()
-  g.restore()
-  // A little four-point star twinkling at the tip.
-  const k = 0.75 + 0.25 * sin(t * 9)
-  const r = s * 0.12 * k
-  g.save()
-  g.translate(x, y)
-  g.rotate(t * 1.5)
-  g.beginPath()
-  for (let i = 0; i < 8; i++) {
-    const a = (i * PI) / 4
-    const rr = i & 1 ? r * 0.38 : r
-    if (i) g.lineTo(cos(a) * rr, sin(a) * rr)
-    else g.moveTo(rr, 0)
-  }
-  g.closePath()
-  g.fillStyle = '#fff6b0'
-  g.fill()
-  line(g, lw * 0.8)
-  g.restore()
 }
+
+/** The Stardust Brush as a painted still, level, tip to the right. Its
+ *  twinkling star is not in it: that stays drawn. */
+export const BRUSH_ART: ItemSpec = { ...ITEM_ART.brush, frames: 1, draw: (g, s) => brushShape(g, s) }
 
 /**
  * The Twin Gift (§8.2): a SQUARE box in lilac, a gold ribbon cross and bow,

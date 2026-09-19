@@ -1,8 +1,8 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1789777241676,
-  "updatedAt": 1789777241731,
-  "total": 19,
+  "fetchedAt": 1789781738437,
+  "updatedAt": 1789781738552,
+  "total": 21,
   "entries": [
     {
       "rank": 1,
@@ -29,91 +29,103 @@
       "flair": 46
     },
     {
-      "rank": 5,
+      "rank": 3,
+      "name": "Snowy Sprite 511",
+      "score": 21,
+      "flair": 46
+    },
+    {
+      "rank": 6,
       "name": "Rosy Pebble 712",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 5,
+      "rank": 6,
       "name": "Twinkly Acorn 436",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 7,
+      "rank": 8,
       "name": "Fluffy Star 192",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 7,
+      "rank": 8,
       "name": "Dreamy Star 569",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 7,
+      "rank": 8,
       "name": "Frosty Cloud 795",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 10,
+      "rank": 8,
+      "name": "Sparkly Otter 196",
+      "score": 5,
+      "flair": 1
+    },
+    {
+      "rank": 12,
       "name": "Sparkly Firefly 220",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 10,
+      "rank": 12,
       "name": "Gentle Otter 450",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 10,
+      "rank": 12,
       "name": "Golden Fawn 854",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 10,
+      "rank": 12,
       "name": "Shiny Pony 884",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 10,
+      "rank": 12,
       "name": "Starry Rainbow 122",
       "score": 3,
       "flair": 3
     },
     {
-      "rank": 15,
+      "rank": 17,
       "name": "Breezy Maple 361",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 15,
+      "rank": 17,
       "name": "Gentle Maple 668",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 15,
+      "rank": 17,
       "name": "Cozy Moon 870",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 15,
+      "rank": 17,
       "name": "Fluffy Fawn 736",
       "score": 1,
       "flair": 1
     },
     {
-      "rank": 15,
+      "rank": 17,
       "name": "Jolly Kitten 919",
       "score": 1,
       "flair": 1
@@ -126,7 +138,7 @@
     ],
     [
       21,
-      2
+      3
     ],
     [
       11,
@@ -134,7 +146,7 @@
     ],
     [
       5,
-      3
+      4
     ],
     [
       3,

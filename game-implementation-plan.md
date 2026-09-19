@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -116,7 +116,11 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S3 | Chapters 1–3 = **the v1 release** (D2): water / lightning magics, Eraser, spellbook, wardrobe tent, Twin Gift (bloom), i18n for 21 locales (§6, §8, §10, §11) | §12.2.4 gate, kid playtest, portal QA on every target | 9–13 | ✅ 2026-09-19 (engineering gate) |
 | S4 | Chapters 4–10 in pairs (4–5, 6–7, 8–9, 10): Signature Spells, the remaining runes and magics, finale (§6, §10) | Win-rate floors hold from telemetry per pair (§7.2, §12.6) | 26–32 | ✅ 2026-09-19 |
 | S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ✅ 2026-09-19 |
-| S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ⬜ |
+| S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ✅ 2026-09-19 (pipeline; the paintings are the owner's image-model run) |
+| S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ⬜ |
+| S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ⬜ |
+| S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ⬜ |
+| S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ⬜ |
 
 **Totals:** S0–S4 (the full 10-chapter game) ≈ 60–77 agent-days; everything
 through S6 ≈ 88–117 (§1.1). Removing the currency (D3) trims these slightly;
@@ -544,6 +548,56 @@ lands, resume from the first unticked line):**
 - **Campaign regression:** chapter 10 and the finale replayed clean on a
   production build (finale card, wandering Umbra, no bracket violations, no
   console errors).
+
+**S6 — painted-art pipeline (2026-09-19), as built (story-spec §8.20):**
+- [x] **Manifest:** `artSheet.ts` (pure; 50 sectors, 8 items, 12 runes, the
+  prompt builders); `artIds.ts` and `artFolders.ts` hold the names and
+  folders shared with the tools.
+- [x] **Renderer seams**, each a probe that falls back to the drawing:
+  - map thumbnails and the restore colour layer (`sectorArt.ts`, with the
+    pot tinted over a neutral landmark by `artTint.ts`);
+  - gifts, chest, brush and eraser (`gift.ts`); the tent (`tent.ts`);
+  - the crown and pet star (`rig-cosmetics.ts`); `RuneGlyph.vue`.
+- [x] **Contracts:**
+  - the box (`artBox.ts`), measured from the drawing;
+  - strips cross-fade between their states (`artItem.ts`);
+  - a late painting re-bakes the restore view only before the first stroke;
+  - the full-size painting is fetched on open and released on close;
+  - with the layer on, the splash preloads the first screen (`artPreload.ts`).
+- [x] **Tools:**
+  - the dev bench `/#/art-sheets` (driven by `pnpm art:export`) and
+    `/#/playground`;
+  - `art:prompts` (with `--check`) and `art:status`;
+  - a sharp-based `slice-sheets`: receipt and stale parking, aspect guard,
+    magenta key and unmix, area-matched fit, 256 px frames, sector thumbnails;
+  - `measure-art.py cells` adapted.
+  - Retired: the survivalist-only `art-models` and `art-guard`.
+- [x] **Tests:** `tests/meta/artManifest.test.ts` (manifest consistency;
+  fenced prompt docs that the Art Desk parses into all 70 jobs) and
+  `tests/meta/artTint.test.ts` (the mask arithmetic).
+
+**S6 result (2026-09-19):**
+- **The bench** exports 70 references in 1.8 s. `art:prompts --check` agrees
+  with it byte for byte, and the Art Desk scans all 70 jobs.
+- **Synthetic returns** (references hue-turned, drifted 10 px, rescaled
+  112 %, one JPEG) all sliced, and `measure-art cells` put 20/20 within
+  tolerance. Finds along the way:
+  - a slicer argv bug that dropped the first named file;
+  - a mask that tinted a cream wall and a patch of pale sky, fixed by
+    measuring the painter's own grey and a round falloff.
+  - The synthetic files were deleted; nothing painted ships.
+- **In the browser** (own headless Chrome, dev server):
+  - the playground A/B;
+  - the map thumbnails, a restore with the landmark tinted to the pot, the
+    painted gift, chest and brush (with its live star), and the duel HUD;
+  - no console errors.
+  - With the layer off: zero `/images/` requests.
+- **Unit tests:** 749 green; `vue-tsc` clean.
+- **Portal QA** (built bundles, art layer off):
+- GamePix 29/29, GameMonetize 31/31 (dummy QA id, env only), CrazyGames
+    pre-release 22/22 and full release 37/37, web 20/20.
+  - `build:all`: 10 archives within budget, 433–642 kB.
+  - Neither the dev views nor the prompt text reach any bundle.
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

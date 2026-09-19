@@ -6006,6 +6006,132 @@ chest (`versusUnlocked`).
   every duel. Before, the last duel's foe's pick carried into the next
   duel's first rune.
 
+### §8.20 S6 as built (2026-09-19)
+
+S6 is the painted-art PIPELINE (the `art-generation-pipeline` skill): every
+drawable that should be painted has a reference sheet, a master prompt, a
+slicer path and a probe in the renderer. The paintings themselves come from
+an image model the owner runs; each one then drops in with no code change.
+Until they exist, the art layer is off in every build
+(`VITE_ENABLE_ART_OVERRIDES`) and the game requests no image files.
+
+**What is painted, and what stays drawn (§9.7's layer rule):**
+- **Sectors (50).** Each is one opaque, full-bleed painting of the sector's
+  `paint()` layer, at 1152 × 672. The slicer also cuts a 384 × 224 map
+  thumbnail from the same painting.
+  - `props()` stays drawn on top: butterflies, water, the tap creatures and
+    the rescue.
+  - The colour-me landmark is painted neutral lilac-grey.
+- **Items (8):**
+  - painted strips, one panel per state the drawing moves between:
+    - the Standard Gift and the Eraser's box: tied, then untied;
+    - the Boss Chest: shut, then open;
+    - the Pet Star: open eyes, blink, happy;
+  - painted stills: the Stardust Brush, the Magic Eraser, the wardrobe tent
+    and the Flower Crown.
+  - The motion around those states is still the drawing's own transform:
+    the shake, squash, rattle, float and cross-fade.
+- **Runes (12).** Painted in `RuneGlyph.vue`'s 100-unit box, for the HUD
+  slots, the weakness badge and the spellbook. The canvas traces (snap,
+  reveal, onboarding) stay drawn: a trace is motion, not a picture.
+- **Stays drawn, deliberately:**
+  - Things that follow the rig's deformation: the necklace, wings and scarf
+    (§9.7).
+  - Things with continuous state: the Twin Gift's bow opens with the hold;
+    the Sunbeam has a halo, rays and a charge.
+  - The brush's twinkling star (drawn over the painted brush), the chest
+    clasp's glint (drawn over the painted chest), and every burst and puff.
+  - Dialogue portraits: the probe (`portrait`) exists, but it is [later],
+    per §9.12.
+
+**How the painting and the drawing agree:**
+- **The box contract** (`artBox.ts`). An item's box is MEASURED from its
+  own drawing. The bench renders the reference into that box, the slicer
+  cuts it back out, and the renderer draws the painting into it. So a
+  painting lands at the drawing's size at any scale, with no constant kept
+  by hand.
+- **Colour-me without painted masks** (`artTint.ts`). §9.12's `LMK` masks
+  are not needed:
+  - The drawing is rendered twice, with two contrasting accents; the pixels
+    that change are the landmark.
+  - That region fades out over a search band (about 2 % of the width). Inside
+    the band, only paint as grey as the painter's own landmark is tinted,
+    with the pot's colour multiplied through it.
+  - So a painter's small drift is followed, and a cream wall or a pale sky
+    next to the landmark is left alone.
+  - A landmark the painter coloured anyway (median chroma above 0.16) is not
+    tinted at all.
+  - The same mechanism tints the gift ribbons (per chapter) and the chest's
+    clasp gem.
+- **A painting that arrives late:** on the restore view it re-bakes the
+  colour and dust layers, but only before the first wipe stroke. Once wiping
+  has begun, that visit keeps the art it started with.
+- **Loading:**
+  - The map draws thumbnails (the key includes whether the painting has
+    decoded).
+  - A sector's full painting is fetched when its gift is tapped and released
+    when the sector closes.
+  - With the layer on, the splash holds only for the first screen's
+    paintings (`artPreload.ts`): that chapter's 5 thumbnails, the tent,
+    gifts and brush, and the 12 runes.
+
+**Tooling:**
+- The manifest is `artSheet.ts`: pure data plus the prompt builders.
+- File names live in `artIds.ts`, folders in `artFolders.ts`.
+- The dev-only bench `/#/art-sheets` exports every reference,
+  `sheet-index.json` and `PROMPTS-{SECTORS,ITEMS,RUNES}.md`.
+  - `pnpm art:export` drives the bench headlessly.
+  - `pnpm art:prompts` writes the same prompt documents without a browser,
+    plus `PAINT-STATUS.md`; `--check` confirms both routes agree byte for
+    byte.
+- `pnpm slice-sheets` is a focused rewrite on sharp. Per painting it:
+  1. identifies the sheet strictly;
+  2. checks its receipt, and parks a stale painting (with its cut WebPs) in
+     `painted/stale/`;
+  3. applies the aspect guard;
+  4. keys magenta and unmixes the soft edge;
+  5. fits the strip onto the measured reference with one area-matched
+     correction, then cuts each box, at most 256 px per frame.
+
+  For a sector it instead resamples the painting to 1152 × 672 and cuts the
+  thumbnail.
+- `/#/playground` draws everything with the game's own painters and flips
+  the art layer live.
+- The Art Desk runs unchanged against these files.
+
+**Deviations from §9.11–§9.13, and why:**
+- **No `LMK` mask files:** they are derived at runtime (above).
+- **Boss sectors at 1152 × 672, not 2304 × 1344.** The restore canvas never
+  exceeds 1152 × 672, and a model returns about 1344 × 768, so a 2304-wide
+  file would be an upscale.
+- **No `PRP` prop strips.** The props are procedural animation drawn live
+  over the painting; painting them is [later].
+- **No `FX-NOISE`.** The dust noise stays procedural.
+- **2 of §9.12's 5 painted cosmetics:** the crown and the pet star. The rest
+  follow the rig (above).
+- **Gifts:** 2-panel strips, not 4 × 160. The burst stays drawn.
+- **No `chapterArtManifest`.** Thumbnails load lazily by visible page, the
+  full painting on open, and the splash preloads only the first screen.
+- **§9.12's ~9.7 MB estimate is superseded by measurement.** Synthetic
+  returns run through the slicer came to 40–80 kB per sector and 15–25 kB
+  per thumbnail, before `compress-images` — about 3.5–5 MB for everything.
+  Real paintings carry more texture and will weigh more. Re-measure with
+  `pnpm art:status` after the first chapter is painted.
+
+**Verified with SYNTHETIC returns** (filtered copies of the references,
+hue-turned, drifted 10 px, rescaled 112 %, one returned as JPEG), all deleted
+afterwards:
+- all 70 sliced;
+- the stale-painting path parked its painting;
+- the Art Desk scanned the 70 jobs;
+- in the browser, the playground A/B, the map, a restore with a tinted
+  landmark, the gift and chest, and the duel HUD all rendered with no
+  console errors;
+- with the layer off, zero `/images/` requests.
+
+**Not yet verified:** one real painted return per family. That needs the
+owner's image-model run.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary
@@ -6913,6 +7039,11 @@ code.
 
 ---
 
+> **Superseded in part by §8.20 (S6 as built):** the folders are
+> `artFolders.ts` (`sector`, `sectorThumb`, `rune`, `gift`, `tool`,
+> `worldUi`, `cosmetic`, `portrait`, `ui`); there is no `landmark` or `prop`
+> folder, because masks are derived and props stay drawn.
+
 ### §9.11 `ART_FOLDERS`, rewritten in this game's nouns (closes Round-1's "runner-game vocabulary" finding)
 
 `src/game/art.ts`'s `ART_FOLDERS` today is `monster | hero | death | prop |
@@ -6939,6 +7070,10 @@ duelist/boss art (if ever pursued) is **[later]** and gets its own folder
 then — not committed here (§9.12).
 
 ---
+
+> **Superseded in part by §8.20 (S6 as built):** the slot list as built is
+> 50 sectors (+ thumbnails), 8 items and 12 runes. See §8.20's deviations
+> for `LMK`, `PRP`, `FX-NOISE`, the boss size and the byte estimate.
 
 ### §9.12 Step-3 art-slot list
 
@@ -6987,6 +7122,10 @@ Per-combination cosmetic strips — combinatorially unaffordable (§9.7),
 never built.
 
 ---
+
+> **Superseded in part by §8.20 (S6 as built):** no per-chapter manifest.
+> Thumbnails load per visible map page, the full painting when a sector
+> opens, and the splash holds only for the first screen (`artPreload.ts`).
 
 ### §9.13 Staged loading per chapter
 
