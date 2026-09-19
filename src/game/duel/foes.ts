@@ -147,11 +147,20 @@ for (let c = 0; c < 10; c++) {
   })
 }
 
+// Local 2P versus (§6.19): player 2 plays Umbra, befriended — 100 HP, no
+// weakness either side could know about, no AI. Appended: position is the id.
+roster.push({
+  slug: 'umbra', element: -1, hpMax: 100, aiTier: 0, magic: -1, boss: false, phase2: null, sigs: 0, pal: UMBRA
+})
+
 /**
  * The roster: index `c` (0..9) is chapter c's shadow clone, index `10 + c` is
- * its Guardian. Position is the id — never reordered.
+ * its Guardian, index 20 the versus Umbra. Position is the id — never
+ * reordered.
  */
 export const FOES: readonly FoeDef[] = roster
+/** Player 2's duelist in local versus. */
+export const VERSUS_FOE = 20
 export const shadowOf = (chapter: number): number => chapter
 export const guardianOf = (chapter: number): number => 10 + chapter
 

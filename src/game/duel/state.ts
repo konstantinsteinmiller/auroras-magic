@@ -184,6 +184,13 @@ export interface DuelState {
   /** The finisher is once per duel, per side (§6.9). */
   usedFinisher: boolean
   eUsedFinisher: boolean
+  /** Local 2P versus (§6.19, C18): the right-hand duelist is player 2 — no
+   *  AI, her runes come from her own stroke buffer. Never persisted. */
+  versus: boolean
+  /** Player 2's stroke buffer, drawing flag and snap flash (versus only). */
+  epts: number[]
+  edraw: 0 | 1
+  esnap: Snap | null
 
   /* scoring / meta */
   /** Index into `FOES` (`duel/foes.ts`) for the CURRENT duel. Not persisted. */
@@ -294,6 +301,10 @@ export const auroras_magic_state: DuelState = {
   hitsLanded: 0,
   usedFinisher: false,
   eUsedFinisher: false,
+  versus: false,
+  epts: [],
+  edraw: 0,
+  esnap: null,
 
   foe: 0,
   wins: 0,

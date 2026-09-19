@@ -443,6 +443,15 @@ export default {
     'umbra2': 'Questo posto ora è così bello!',
     'umbra3': 'Ti va un duello per gioco, qualche volta?'
   },
+  'versus': {
+    'play': 'Gioca insieme',
+    'player1': 'Giocatore 1',
+    'player2': 'Giocatore 2',
+    'ready': 'Pronto!',
+    'turnSideways': 'Gira il dispositivo in orizzontale per giocare insieme!',
+    'greatDuel': 'Che duello!',
+    'castKey2': '[Invio] Lancia'
+  },
 
   'gift': {
     'flowerCrown': 'Corona di fiori',

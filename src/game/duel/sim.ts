@@ -78,34 +78,43 @@ const emit = (e: DuelEvent, won?: boolean, info?: StrokeInfo): void => {
 }
 
 /* ------------------------------ drawing ----------------------------- */
-/** Pointer went down (anywhere that is not a button). */
-export const strokeStart = (x: number, y: number): void => {
-  S.draw = 1
-  S.pts.length = 0
-  S.pts.push(x, y)
+/**
+ * Pointer went down (anywhere that is not a button). `e` = player 2's hand,
+ * in local versus (§6.19): she draws into her own buffer, so two fingers on
+ * one canvas never corrupt each other's strokes. A frozen hand cannot draw.
+ */
+export const strokeStart = (x: number, y: number, e = false): void => {
+  if (e ? S.eFrozen > 0 : S.frozen > 0) return
+  const p = e ? S.epts : S.pts
+  if (e) S.edraw = 1
+  else S.draw = 1
+  p.length = 0
+  p.push(x, y)
 }
 
 /** Pointer moved while drawing. Trails are the only per-move cost. */
-export const strokeMove = (x: number, y: number): void => {
-  if (!S.draw) return
-  const n = S.pts.length
+export const strokeMove = (x: number, y: number, e = false): void => {
+  if (!(e ? S.edraw : S.draw)) return
+  const p = e ? S.epts : S.pts
+  const n = p.length
   // Keep a fine sample so the ink hugs the real path; 2.5 units is below what
   // the eye resolves but still throws away jitter while the pointer is still.
-  if (n && hypot(x - S.pts[n - 2]!, y - S.pts[n - 1]!) < 2.5) return
+  if (n && hypot(x - p[n - 2]!, y - p[n - 1]!) < 2.5) return
   // Bound the buffer. The recogniser resamples to 32 points regardless.
-  if (n < 1024) S.pts.push(x, y)
-  trail(x, y, (S.pts.length * 0.013) % 1)
+  if (n < 1024) p.push(x, y)
+  trail(x, y, (p.length * 0.013) % 1)
   sfx('draw', clamp((y - BOX.y) / BOX.h, 0, 1))
 }
 
 /** Pointer released: classify, then store or nudge. `calloutY` is where a
  *  refusal callout goes (the top of the drawing zone). */
-export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
-  if (!S.draw) return
-  S.draw = 0
+export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): void => {
+  if (!(e ? S.edraw : S.draw)) return
+  if (e) S.edraw = 0
+  else S.draw = 0
   // A tap or a twitch is not a FAILED rune, it is not an attempt at all.
   // Without this every stray click would buzz and shake at the player.
-  const p = S.pts
+  const p = e ? S.epts : S.pts
   let x0 = 1e9
   let y0 = 1e9
   let x1 = -1e9
@@ -122,20 +131,23 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
   }
   // The runes this player can draw: the frozen four plus every rune a boss
   // chest has granted (§4.4, §5.7.2).
+  // (In versus both players share the save, so both hold the full kit.)
   const active = (S.campaign.runesUnlocked | FROZEN_MASK) >>> 0
-  const r = recognise(S.pts, active)
+  const r = recognise(p, active)
   // Telemetry: what the stroke was, even when it was not a rune. Two more
   // passes over a 32-point stroke, once per pointer release.
-  const f = strokeFeatures(S.pts)
-  const [best, sc] = rawScore(S.pts, active)
-  emit('stroke', undefined, {
-    success: r >= 0,
-    rune: r >= 0 ? r : best,
-    ec: f?.ec ?? 0,
-    turn: f?.turn ?? 0,
-    margin: sc - 0.78
-  })
-  S.pts.length = 0
+  const f = strokeFeatures(p)
+  const [best, sc] = rawScore(p, active)
+  if (!e) {
+    emit('stroke', undefined, {
+      success: r >= 0,
+      rune: r >= 0 ? r : best,
+      ec: f?.ec ?? 0,
+      turn: f?.turn ?? 0,
+      margin: sc - 0.78
+    })
+  }
+  p.length = 0
   if (r < 0) {
     // The ONLY visual sign a stroke was rejected — muted players need it.
     // A stroke that was plausibly reaching for a rune the player HAS names it
@@ -147,16 +159,24 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46): void => {
     sfx('bad')
     return
   }
-  if (S.queue.length >= MAX_RUNES) {
+  const queue = e ? S.equeue : S.queue
+  if (queue.length >= MAX_RUNES) {
     // Full: refuse rather than silently drop the rune they just drew.
     sfx('bad')
     pop('noSlots', '#ffd76a', calloutX, calloutY)
     return
   }
   const rune = r as Rune
-  S.queue.push(rune)
+  queue.push(rune)
+  // The clean glyph flashes, then it is stored (GDD 2.2).
+  if (e) {
+    S.esnap = { r: rune, t: 0 }
+    sfx('snap', rune)
+    emit('rune')
+    return
+  }
   S.landed++
-  S.snap = { r: rune, t: 0 } // the clean glyph flashes, then it is stored (GDD 2.2)
+  S.snap = { r: rune, t: 0 }
   sfx('snap', rune)
   emit('rune')
   if (S.intro && S.introStep < 1) {
@@ -320,7 +340,8 @@ export const spellPopParams = (sp: ResolvedSpell): Record<string, string | numbe
 
 /** Fire a spell. `e` = cast by the foe. */
 const launch = (q: Rune[], e: boolean): void => {
-  let sp = e ? foeSpellOf(q) : spellOf(q)
+  // Player 2 in versus casts from the shared save's kit, like player 1.
+  let sp = e && !S.versus ? foeSpellOf(q) : spellOf(q)
   // The Love finisher (§6.9): open, it is spent; closed, it softly becomes
   // the double — never a refusal (§6.8 rule 6).
   if (sp.finisher) {
@@ -527,10 +548,16 @@ const strike = (s: Shot, e: boolean): void => {
     S.eHurt = 0.3
     if (s.dot) S.eBurn = max(S.eBurn, s.dot)
     if (s.slow) {
-      // On the foe a slow throttles her hand (§6.7.7): the stronger one wins.
       const pct = s.sp || SLOW_BASE
-      S.eSlowPct = S.eSlow > 0 ? max(S.eSlowPct, pct) : pct
-      S.eSlow = max(S.eSlow, s.slow)
+      if (S.versus) {
+        // Player 2 has no forming timer to throttle: in versus a slow always
+        // shaves the guard, for both players (§6.19).
+        if (S.eGuard > 0) S.eGuard *= 1 - pct
+      } else {
+        // On the foe a slow throttles her hand (§6.7.7): the stronger one wins.
+        S.eSlowPct = S.eSlow > 0 ? max(S.eSlowPct, pct) : pct
+        S.eSlow = max(S.eSlow, s.slow)
+      }
     }
     if (s.k === 4) S.eForm = max(0, S.eForm - 0.5) // pushback disrupts casting
     emit('hit')
@@ -782,6 +809,10 @@ const tick = (dt: number): void => {
     S.snap.t += dt
     if (S.snap.t > 0.45) S.snap = null
   }
+  if (S.esnap) {
+    S.esnap.t += dt
+    if (S.esnap.t > 0.45) S.esnap = null
+  }
 }
 
 /** End the duel once, and only once. */
@@ -795,6 +826,19 @@ const finish = (won: boolean): void => {
   S.regen = S.eRegen = 0
   S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
   S.frozen = S.eFrozen = 0
+  S.edraw = 0
+  S.epts.length = 0
+  if (S.versus) {
+    // A versus match is a game between friends: no duel counts (the
+    // leaderboard's score is duels won), nothing is saved, and the result is
+    // both players' together (§2.2 rule 21) — the chrome shows it.
+    rainbowBurst(won ? UX : AX, GY - 120)
+    flashAdd(0.6)
+    shakeAdd(0.5)
+    sfx('win')
+    emit('finish', won)
+    return
+  }
   if (won) {
     S.wins++
     if (!S.best || S.dur < S.best) S.best = S.dur
@@ -819,6 +863,8 @@ export interface DuelStart {
   usesMagic: boolean
   /** Dream Dust: this node's current loss streak (§6.15). */
   lossStreak: number
+  /** Local 2P versus (§6.19): the right-hand duelist is player 2. */
+  versus?: boolean
 }
 
 /** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15). */
@@ -834,13 +880,15 @@ export const resetDuel = (start?: DuelStart): void => {
   if (start) {
     S.foe = clamp(start.foe | 0, 0, FOES.length - 1)
     S.usesMagic = start.usesMagic
-    S.dust = dreamDust(start.lossStreak)
+    S.versus = !!start.versus
+    S.dust = S.versus ? 1 : dreamDust(start.lossStreak)
   }
   const foe: FoeDef = FOES[S.foe]!
-  S.onboard = onboarding(S.wins + S.losses)
+  // Versus is always the base fight: 100 HP a side, no easing (§6.19).
+  S.onboard = S.versus ? 1 : onboarding(S.wins + S.losses)
   S.phase = PH_DUEL
   S.hpMax = HP_MAX
-  S.ehpMax = foe.hpMax
+  S.ehpMax = S.versus ? HP_MAX : foe.hpMax
   S.hp = S.hpMax
   S.ehp = S.ehpMax
   S.regen = S.eRegen = S.regenRate = S.eRegenRate = 0
@@ -858,7 +906,11 @@ export const resetDuel = (start?: DuelStart): void => {
   S.dur = S.over = S.panelT = 0
   S.resultUp = false
   S.eThink = 1.2 // a grace beat before the foe opens
-  S.snap = null
+  // Her committed next rune belongs to the last duel's foe: pick afresh.
+  S.eRune = -1
+  S.snap = S.esnap = null
+  S.edraw = 0
+  S.epts.length = 0
   S.landed = 0
   S.sky = 0.5
   S.round++
@@ -883,7 +935,7 @@ export const updateSim = (dt: number): void => {
       S.introStep = 2
       S.introT = 0
     }
-  } else think(dt)
+  } else if (!S.versus) think(dt)
 
   // A boss crossing half her HP shifts phase (§6.11): a 1.8 s wind-up in which
   // she forms nothing — the universal tell — then her chapter's mechanic.

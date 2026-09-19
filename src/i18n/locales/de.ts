@@ -443,6 +443,15 @@ export default {
     'umbra2': 'Hier ist es jetzt so schön!',
     'umbra3': 'Wollen wir mal zum Spaß ein Duell machen?'
   },
+  'versus': {
+    'play': 'Zusammen spielen',
+    'player1': 'Spieler 1',
+    'player2': 'Spieler 2',
+    'ready': 'Bereit!',
+    'turnSideways': 'Dreh dein Gerät quer, um zusammen zu spielen!',
+    'greatDuel': 'Was für ein Duell!',
+    'castKey2': '[Enter] Zaubern'
+  },
 
   'gift': {
     'flowerCrown': 'Blumenkranz',

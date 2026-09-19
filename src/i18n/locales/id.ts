@@ -443,6 +443,15 @@ export default {
     'umbra2': 'Tempat ini cantik sekali sekarang!',
     'umbra3': 'Kapan-kapan mau duel seru-seruan?'
   },
+  'versus': {
+    'play': 'Main bersama',
+    'player1': 'Pemain 1',
+    'player2': 'Pemain 2',
+    'ready': 'Siap!',
+    'turnSideways': 'Putar perangkatmu ke samping untuk main bersama!',
+    'greatDuel': 'Duel yang seru!',
+    'castKey2': '[Enter] Rapal'
+  },
 
   'gift': {
     'flowerCrown': 'Mahkota Bunga',

@@ -445,6 +445,15 @@ export default {
     'umbra2': 'Jak tu teraz pięknie!',
     'umbra3': 'Zagramy kiedyś w pojedynek dla zabawy?'
   },
+  'versus': {
+    'play': 'Graj razem',
+    'player1': 'Gracz 1',
+    'player2': 'Gracz 2',
+    'ready': 'Gotowe!',
+    'turnSideways': 'Obróć urządzenie poziomo, aby grać razem!',
+    'greatDuel': 'Ale pojedynek!',
+    'castKey2': '[Enter] Czaruj'
+  },
 
   'gift': {
     'flowerCrown': 'Kwiatowa korona',

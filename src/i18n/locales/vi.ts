@@ -443,6 +443,15 @@ export default {
     'umbra2': 'Nơi này giờ đẹp quá đi!',
     'umbra3': 'Khi nào mình đấu cho vui nhé?'
   },
+  'versus': {
+    'play': 'Chơi cùng nhau',
+    'player1': 'Người chơi 1',
+    'player2': 'Người chơi 2',
+    'ready': 'Sẵn sàng!',
+    'turnSideways': 'Xoay ngang thiết bị để chơi cùng nhau nhé!',
+    'greatDuel': 'Trận đấu tuyệt quá!',
+    'castKey2': '[Enter] Tung phép'
+  },
 
   'gift': {
     'flowerCrown': 'Vương Miện Hoa',

@@ -8,10 +8,11 @@
  *   toMap      the interstitial (if due), then the page-turn to the map
  *   sting      a loss: the doze-off sting (1.4 s)
  *   loss       the loss beat — Retry or Map
+ *   versusEnd  a local 2P match ended: both players' result, together
  *   idle       none of the above (another scene is showing)
  */
 import { reactive } from 'vue'
 
-export type DuelBeatPhase = 'idle' | 'fight' | 'flourish' | 'thanks' | 'toMap' | 'sting' | 'loss'
+export type DuelBeatPhase = 'idle' | 'fight' | 'flourish' | 'thanks' | 'toMap' | 'sting' | 'loss' | 'versusEnd'
 
 export const duelBeat = reactive<{ phase: DuelBeatPhase; node: number }>({ phase: 'idle', node: -1 })

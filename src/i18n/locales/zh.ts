@@ -443,6 +443,15 @@ export default {
     'umbra2': '这里现在好漂亮呀！',
     'umbra3': '改天一起来场好玩的对决吧？'
   },
+  'versus': {
+    'play': '一起玩',
+    'player1': '玩家1',
+    'player2': '玩家2',
+    'ready': '准备好了！',
+    'turnSideways': '把设备横过来，一起玩吧！',
+    'greatDuel': '真是一场精彩的对决！',
+    'castKey2': '[回车] 施法'
+  },
 
   'gift': {
     'flowerCrown': '花冠',

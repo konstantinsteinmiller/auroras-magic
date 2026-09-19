@@ -443,6 +443,15 @@ export default {
     'umbra2': 'Bu joy endi juda chiroyli!',
     'umbra3': 'Bir kun shunchaki o‘yin uchun duel qilamizmi?'
   },
+  'versus': {
+    'play': 'Birga o‘ynash',
+    'player1': 'O‘yinchi 1',
+    'player2': 'O‘yinchi 2',
+    'ready': 'Tayyor!',
+    'turnSideways': 'Birga o‘ynash uchun qurilmani yotiq holatga buring!',
+    'greatDuel': 'Qanday ajoyib bellashuv!',
+    'castKey2': '[Enter] Sehrlash'
+  },
 
   'gift': {
     'flowerCrown': 'Gul toji',

@@ -32,9 +32,9 @@ const UST: PoseState = { cast: 0, hurt: 0, hp: 1, win: 0, lose: 0, form: 0 }
  *  line would be a 4 px hairline, so the ink keeps a floor in SCREEN px. */
 const inkK = (): number => max(1, 0.55 / S.vs)
 
-/** The stroke the player is drawing right now. */
-const drawStroke = (g: G2D): void => {
-  const p = S.pts
+/** The stroke a player is drawing right now: `p` her buffer, `core` its
+ *  ink (player 2's, in versus, is lilac, so two hands never read as one). */
+const drawStroke = (g: G2D, p: readonly number[] = S.pts, core = '#fff'): void => {
   if (p.length < 4) return
   const k = inkK()
   g.save()
@@ -55,7 +55,33 @@ const drawStroke = (g: G2D): void => {
   g.strokeStyle = '#1a1030'
   g.stroke()
   g.lineWidth = 9 * k
-  g.strokeStyle = '#fff'
+  g.strokeStyle = core
+  g.stroke()
+  g.restore()
+}
+
+/**
+ * Local versus (§3.12): a faint seam down the middle of the stage and a
+ * dashed frame round each half — where each player draws.
+ */
+const drawVersusHalves = (g: G2D, t: number): void => {
+  g.save()
+  g.setLineDash([12, 14])
+  g.lineDashOffset = -t * 12
+  g.lineWidth = 3
+  g.strokeStyle = 'rgba(255, 250, 240, 0.28)'
+  g.beginPath()
+  g.moveTo(640, 170)
+  g.lineTo(640, 580)
+  g.stroke()
+  g.lineWidth = 2.5
+  g.strokeStyle = 'rgba(255, 215, 106, 0.2)'
+  g.beginPath()
+  g.roundRect(24, 168, 596, 410, 22)
+  g.stroke()
+  g.strokeStyle = 'rgba(192, 140, 255, 0.24)'
+  g.beginPath()
+  g.roundRect(660, 168, 596, 410, 22)
   g.stroke()
   g.restore()
 }
@@ -156,8 +182,17 @@ const drawBoltShot = (g: G2D, r: number, col: string, lit: string, dir: number):
   g.restore()
 }
 
-/** The clean rune flashing before it is stored (GDD 2.2). */
+/** The clean rune flashing before it is stored (GDD 2.2). In versus, over
+ *  each player's own half. */
 const drawSnap = (g: G2D): void => {
+  if (S.versus) {
+    for (const [sn, cx] of [[S.snap, 320], [S.esnap, 960]] as const) {
+      if (!sn) continue
+      const k = clamp(sn.t / 0.45, 0, 1)
+      drawGlyph(g, sn.r, cx, 370, 110 * (1 + ease(k) * 0.5), 1 - k)
+    }
+    return
+  }
   if (!S.snap) return
   const k = clamp(S.snap.t / 0.45, 0, 1)
   const [cx, cy] = zoneCentre()
@@ -470,6 +505,7 @@ export const render = (g: G2D): void => {
   // A boss winding up her phase shift glows at the horn (§6.11's tell).
   UST.form = S.eWindup > 0 ? Math.max(S.eForm, 1 - S.eWindup / 1.8) : S.eForm
 
+  if (S.versus && !S.portrait) drawVersusHalves(g, t)
   drawPrismGlow(g, t)
   drawDecoys(g, false, AST, t, false)
   drawDecoys(g, true, UST, t, false)
@@ -496,6 +532,7 @@ export const render = (g: G2D): void => {
   drawFxOver(g)
   drawSnap(g)
   if (S.draw && !S.portrait) drawStroke(g)
+  if (S.versus && S.edraw) drawStroke(g, S.epts, '#ecdcff')
   if (S.portrait) {
     g.restore()
     portraitClip(g)
@@ -506,6 +543,7 @@ export const render = (g: G2D): void => {
   g.restore()
 
   if (S.draw && S.portrait) drawStroke(g)
+  if (S.versus) return
   if (S.intro && !S.book && S.phase === PH_DUEL && S.introStep < 1) drawIntroTrace(g, t)
   else if (traceAssist.value && !S.book && S.phase === PH_DUEL && S.landed === 0) drawAssistTrace(g, t)
 }

@@ -446,6 +446,15 @@ export default {
     'umbra2': 'Burası artık çok güzel görünüyor!',
     'umbra3': 'Bir ara eğlencesine düello yapalım mı?'
   },
+  'versus': {
+    'play': 'Birlikte oyna',
+    'player1': 'Oyuncu 1',
+    'player2': 'Oyuncu 2',
+    'ready': 'Hazır!',
+    'turnSideways': 'Birlikte oynamak için cihazını yan çevir!',
+    'greatDuel': 'Ne düello ama!',
+    'castKey2': '[Enter] Büyü yap'
+  },
 
   'gift': {
     'flowerCrown': 'Çiçek Tacı',

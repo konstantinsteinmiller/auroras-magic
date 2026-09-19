@@ -443,6 +443,15 @@ export default {
     'umbra2': '여기 이제 정말 예뻐졌다!',
     'umbra3': '언제 재미로 대결 한 판 할래?'
   },
+  'versus': {
+    'play': '함께 놀기',
+    'player1': '플레이어 1',
+    'player2': '플레이어 2',
+    'ready': '준비 완료!',
+    'turnSideways': '함께 놀려면 기기를 가로로 돌려 주세요!',
+    'greatDuel': '정말 멋진 대결이었어!',
+    'castKey2': '[엔터] 시전'
+  },
 
   'gift': {
     'flowerCrown': '꽃왕관',

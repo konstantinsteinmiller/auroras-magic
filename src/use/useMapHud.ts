@@ -17,5 +17,7 @@ export const mapHud = reactive({
    *  its i18n key and where her head is (CSS px); null when quiet. */
   umbraSay: null as { key: string; x: number; y: number } | null,
   /** The Festival's finale card is up (§10.19). */
-  finale: false
+  finale: false,
+  /** Local 2P versus is unlocked (chapter 10's gift, C18). */
+  versus: false
 })

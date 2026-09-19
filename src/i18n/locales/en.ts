@@ -506,6 +506,21 @@ export default {
     'umbra3': 'Want to duel for fun sometime?'
   },
 
+  // Local 2P versus (§3.12, S5): two players on one wide screen.
+  'versus': {
+    // The map's button (read aloud) — the Friendship Duo, chapter 10's gift.
+    'play': 'Play together',
+    'player1': 'Player 1',
+    'player2': 'Player 2',
+    'ready': 'Ready!',
+    // Shown when the screen is too narrow for two halves, or held upright.
+    'turnSideways': 'Turn your device sideways to play together!',
+    // The match's end, for both players at once — never a lone winner.
+    'greatDuel': 'What a duel!',
+    // Player 2's empty CAST button on a keyboard device.
+    'castKey2': '[Enter] Cast'
+  },
+
   // Wardrobe keepsakes, one per chapter's boss chest (§10.13.C).
   'gift': {
     'flowerCrown': 'Flower Crown',

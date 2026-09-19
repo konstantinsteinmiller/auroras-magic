@@ -17,10 +17,15 @@
  *
  * REPLAY (§3.2.5, C24): no gift, no reward; the interstitial clock is checked
  * exactly as normal; the page turns straight back to the map.
+ *
+ * VERSUS (§6.19, C18, S5): local 2P from the `versusSetup` scene. The right
+ * duelist is player 2 (no AI). No campaign side-effects, no duel counted;
+ * the result is both players' together (§2.2 rule 21); the interstitial
+ * clock is checked once per match; then back to the ready screen.
  */
 import { S } from '@/game/duel/state'
 import { PH_DUEL } from '@/game/duel/config'
-import { FOES } from '@/game/duel/foes'
+import { FOES, VERSUS_FOE } from '@/game/duel/foes'
 import { resetDuel, onDuelEvent } from '@/game/duel/sim'
 import { resetFx } from '@/game/duel/fx'
 import { resetAudio, sfx } from '@/game/duel/audio'
@@ -41,6 +46,7 @@ import { track } from '@/use/useAnalytics'
 import { reportRun } from '@/use/useLeaderboard'
 import { duelBeat } from '@/use/useDuelBeat'
 import { sectorOf } from '@/game/map/sectors'
+import { versusHud } from '@/use/useVersus'
 
 /** The flourish / sting: an ad must never cut either off mid-note. */
 export const AD_BEAT_MS = 1400
@@ -59,7 +65,7 @@ export const startDuel = (n: number): void => {
   replay = isReplay(n)
   resetFx()
   setArenaGift(false)
-  resetDuel({ foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n) })
+  resetDuel({ foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n), versus: false })
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
   resetAudio()
@@ -97,8 +103,73 @@ const maybeShowInterstitial = async (trigger: 'win' | 'loss'): Promise<void> => 
   }
 }
 
+/* ─────────────────────────── local 2P versus ─────────────────────────── */
+
+/** The arena set for a versus match: both duelists at full HP, the
+ *  Festival's island (chapter 10's theme — where the two became friends). */
+const prepVersus = (): void => {
+  resetFx()
+  setArenaGift(false)
+  resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 0, versus: true })
+  S.theme = 9
+  resetHudMirrors()
+  versusHud.winner = -1
+}
+
+/** The map's versus affordance: to the ready screen (§4.1.3). */
+export const openVersus = (): void => {
+  dipTo(() => {
+    prepVersus()
+    versusHud.ready = [false, false]
+    duelBeat.phase = 'idle'
+    gotoScene('versusSetup')
+  }, 0.4)
+}
+
+/** Both players ready: the match begins. */
+export const startVersus = (): void => {
+  prepVersus()
+  resetAudio()
+  duelBeat.phase = 'fight'
+  duelBeat.node = -1
+  gen++
+  startedAt = performance.now()
+  startBattleMusic()
+  gotoScene('duel', -1, 'versus')
+  reconcileGameplayBracket()
+  track('versus_start', {})
+}
+
+/** Back to the map from the ready screen: versus is over. */
+export const leaveVersus = (): void => {
+  S.versus = false
+  versusHud.ready = [false, false]
+  dipTo(() => gotoScene('map'), 0.4)
+}
+
+/** A match ended: both players see it together, then the ready screen. */
+const onVersusFinish = async (p1Won: boolean): Promise<void> => {
+  const my = gen
+  reconcileGameplayBracket()
+  track('versus_end', { p1Won, durationMs: Math.round(performance.now() - startedAt) })
+  haptic('reward')
+  versusHud.winner = p1Won ? 0 : 1
+  duelBeat.phase = 'versusEnd'
+  await wait(2600)
+  if (my !== gen) return
+  await maybeShowInterstitial('win')
+  if (my !== gen) return
+  dipTo(() => {
+    duelBeat.phase = 'idle'
+    versusHud.ready = [false, false]
+    prepVersus()
+    gotoScene('versusSetup')
+  }, 0.4)
+}
+
 /** The duel ended (the sim's `finish`). */
 const onFinish = async (won: boolean): Promise<void> => {
+  if (S.flow.mode === 'versus') return onVersusFinish(won)
   const n = S.flow.node
   const my = gen
   // The live window closed the instant S.phase left PH_DUEL (§11.2).
@@ -178,6 +249,12 @@ export const toMap = (): void => {
  */
 export const leaveDuel = (): void => {
   if (S.flow.scene !== 'duel' || S.phase !== PH_DUEL) return
+  if (S.flow.mode === 'versus') {
+    gen++
+    duelBeat.phase = 'idle'
+    leaveVersus()
+    return
+  }
   track('duel_abandon', { nodeId: S.flow.node, wasReplay: replay })
   gen++
   S.resultUp = false

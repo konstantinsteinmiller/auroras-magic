@@ -444,6 +444,15 @@ export default {
     'umbra2': 'Wat is het hier nu mooi!',
     'umbra3': 'Zin om eens voor de lol te duelleren?'
   },
+  'versus': {
+    'play': 'Samen spelen',
+    'player1': 'Speler 1',
+    'player2': 'Speler 2',
+    'ready': 'Klaar!',
+    'turnSideways': 'Draai je apparaat op zijn kant om samen te spelen!',
+    'greatDuel': 'Wat een duel!',
+    'castKey2': '[Enter] Toveren'
+  },
 
   'gift': {
     'flowerCrown': 'Bloemenkroon',

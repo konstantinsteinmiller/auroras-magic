@@ -443,6 +443,15 @@ export default {
     'umbra2': 'ここ、すっかりきれいになったわね！',
     'umbra3': 'こんど、あそびでしょうぶしない？'
   },
+  'versus': {
+    'play': 'いっしょに遊ぶ',
+    'player1': 'プレイヤー1',
+    'player2': 'プレイヤー2',
+    'ready': '準備OK！',
+    'turnSideways': '画面を横向きにして、いっしょに遊ぼう！',
+    'greatDuel': 'すごい対決だった！',
+    'castKey2': '[エンター] 発動'
+  },
 
   'gift': {
     'flowerCrown': '花のかんむり',

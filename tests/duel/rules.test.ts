@@ -125,8 +125,9 @@ describe('the elemental graph (§6.6)', () => {
 })
 
 describe('the foe roster (§6.10–§6.12)', () => {
-  it('holds a shadow clone and a Guardian per chapter, by position', () => {
-    expect(FOES.length).toBe(20)
+  it('holds a shadow clone and a Guardian per chapter, by position, then the versus Umbra', () => {
+    expect(FOES.length).toBe(21)
+    expect(FOES[20]).toMatchObject({ slug: 'umbra', hpMax: 100, element: -1, boss: false })
     for (let c = 0; c < 10; c++) {
       expect(FOES[shadowOf(c)]!.boss).toBe(false)
       expect(FOES[guardianOf(c)]!.boss).toBe(true)

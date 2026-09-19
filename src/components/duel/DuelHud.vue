@@ -7,6 +7,7 @@ import { S } from '@/game/duel/state'
 import { hud, hudLayout } from '@/use/useDuelHud'
 import { spellName } from '@/use/useSpellName'
 import { bookHud } from '@/use/useBook'
+import { flowHud } from '@/use/useFlow'
 import HpBar from '@/components/duel/HpBar.vue'
 import RuneSlot from '@/components/duel/RuneSlot.vue'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
@@ -31,7 +32,7 @@ const props = defineProps<{
   keyboard: boolean
   paused: boolean
 }>()
-const emit = defineEmits<{ cast: []; mute: []; options: []; book: [] }>()
+const emit = defineEmits<{ cast: []; cast2: []; mute: []; options: []; book: [] }>()
 const { t, locale } = useI18n()
 
 const L = computed(() => hudLayout.value)
@@ -45,6 +46,7 @@ const auroraName = computed(() => t('duelist.aurora'))
  * rune the player cannot draw would teach nothing (§6.6).
  */
 const weakTo = computed(() => {
+  if (versus.value) return -1
   const fe = FOES[hud.foe]?.element ?? -1
   const c = fe >= 0 ? CTR[fe] ?? -1 : -1
   return c >= 0 && ((S.campaign.runesUnlocked | 0b1111) >> c) & 1 ? c : -1
@@ -55,13 +57,19 @@ const weakLabel = computed(() => weakTo.value >= 0
   : '')
 
 const duel = computed(() => hud.phase === PH_DUEL)
+/** Local 2P versus (§3.12): two symmetric halves, each its own CAST. */
+const versus = computed(() => flowHud.mode === 'versus')
+const cast2Live = computed(() => duel.value && hud.equeue.length > 0)
+const cast2Label = computed(() => (hud.ecast ? spellName(t, locale.value, hud.ecast) : props.keyboard ? t('versus.castKey2') : t('hud.cast')))
+const showDrawHint2 = computed(() => duel.value && !hud.equeue.length)
 const castLive = computed(() => duel.value && hud.queue.length > 0)
 const castLabel = computed(() => {
   if (hud.cast) return spellName(t, locale.value, hud.cast)
   return props.keyboard ? t('hud.castKey') : t('hud.cast')
 })
 const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length)
-const introBeat = computed(() => (duel.value && hud.intro && !hud.book ? hud.introStep : -1))
+// Onboarding teaches one player; a versus match never shows it.
+const introBeat = computed(() => (duel.value && hud.intro && !hud.book && !versus.value ? hud.introStep : -1))
 
 const slots = Array.from({ length: MAX_RUNES }, (_, i) => i)
 
@@ -142,7 +150,11 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         div.abs(v-for="i in slots" :key="'e' + i" role="listitem" :style="box(1190 - i * 64, 80, 60, 60)")
           RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune")
 
-      span.abs.ink-text.breathe(v-if="showDrawHint" :style="[at(640, 142, 30), { color: '#cfc4ff' }]") {{ t('hud.drawARune') }}
+      span.abs.ink-text.breathe(v-if="showDrawHint && !versus" :style="[at(640, 142, 30), { color: '#cfc4ff' }]") {{ t('hud.drawARune') }}
+      //- Local versus: each half invites its own player.
+      template(v-if="versus")
+        span.abs.ink-text.breathe(v-if="showDrawHint" :style="[at(320, 200, 28), { color: '#ffe7a6' }]") {{ t('hud.drawARune') }}
+        span.abs.ink-text.breathe(v-if="showDrawHint2" :style="[at(960, 200, 28), { color: '#e0ccff' }]") {{ t('hud.drawARune') }}
 
       //- Onboarding: three beats, none of which block play. The ghost trace of
       //- beat 0 is drawn on the canvas; these are its captions.
@@ -153,32 +165,56 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         svg.abs.intro-arrow(:style="box(600, 514, 80, 78)" viewBox="600 514 80 78" aria-hidden="true")
           path(d="M640 524 L640 582 M640 582 L620.9 564.4 M640 582 L659.1 564.4" fill="none" stroke="#ffd76a" stroke-width="9" stroke-linecap="round")
 
-      button.abs.duel-plate.cast-btn(
-        :style="box(467.5, 593.5, 345, 85)"
-        :class="{ live: castLive }"
-        :aria-label="castLive ? castLabel : t('hud.castAria')"
-        @click="emit('cast')"
-      )
-        span.cast-glow(v-if="castLive")
-        span.ink-text.cast-label(:style="{ fontSize: '34px', color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+      template(v-if="!versus")
+        button.abs.duel-plate.cast-btn(
+          :style="box(467.5, 593.5, 345, 85)"
+          :class="{ live: castLive }"
+          :aria-label="castLive ? castLabel : t('hud.castAria')"
+          @click="emit('cast')"
+        )
+          span.cast-glow(v-if="castLive")
+          span.ink-text.cast-label(:style="{ fontSize: '34px', color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
 
-      button.abs.duel-plate.icon-btn(:style="box(39.5, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
-        GameIcon.gear(name="settings")
-      button.abs.duel-plate.icon-btn(
-        v-if="SPELLBOOK"
-        :class="{ 'book-new': bookHud.hasNew }"
-        :style="box(1053.5, 607.5, 73, 67)"
-        :aria-label="t('hud.spellbook')"
-        @click="emit('book')"
-      )
-        GameIcon.gear(name="book")
-      button.abs.duel-plate.icon-btn(:style="box(1145.5, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
-        span.ink-text(:style="{ fontSize: '40px', color: muted ? '#7a6f95' : '#fff' }") ♪
+        button.abs.duel-plate.icon-btn(:style="box(39.5, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
+          GameIcon.gear(name="settings")
+        button.abs.duel-plate.icon-btn(
+          v-if="SPELLBOOK"
+          :class="{ 'book-new': bookHud.hasNew }"
+          :style="box(1053.5, 607.5, 73, 67)"
+          :aria-label="t('hud.spellbook')"
+          @click="emit('book')"
+        )
+          GameIcon.gear(name="book")
+        button.abs.duel-plate.icon-btn(:style="box(1145.5, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
+          span.ink-text(:style="{ fontSize: '40px', color: muted ? '#7a6f95' : '#fff' }") ♪
+
+      //- ── local 2P versus: a CAST each, the shared buttons between them ──
+      template(v-else)
+        button.abs.duel-plate.cast-btn(
+          :style="box(30, 593.5, 330, 85)"
+          :class="{ live: castLive }"
+          :aria-label="t('versus.player1') + ': ' + (castLive ? castLabel : t('hud.castAria'))"
+          @click="emit('cast')"
+        )
+          span.cast-glow(v-if="castLive")
+          span.ink-text.cast-label(:style="{ fontSize: '32px', color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+        button.abs.duel-plate.cast-btn.p2(
+          :style="box(920, 593.5, 330, 85)"
+          :class="{ live: cast2Live }"
+          :aria-label="t('versus.player2') + ': ' + (cast2Live ? cast2Label : t('hud.castAria'))"
+          @click="emit('cast2')"
+        )
+          span.cast-glow(v-if="cast2Live")
+          span.ink-text.cast-label(:style="{ fontSize: '32px', color: cast2Live ? '#fff' : '#7a6f95' }") {{ cast2Label }}
+        button.abs.duel-plate.icon-btn(:style="box(503, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
+          GameIcon.gear(name="settings")
+        button.abs.duel-plate.icon-btn(:style="box(682, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
+          span.ink-text(:style="{ fontSize: '40px', color: muted ? '#7a6f95' : '#fff' }") ♪
 
       DuelPopups(:portrait="false")
 
     //- ═════════════════════════════ PORTRAIT ══════════════════════════════
-    template(v-else)
+    template(v-else-if="!versus")
       div.port-top(:style="topStyle")
         div.port-row.bars
           div.port-bar

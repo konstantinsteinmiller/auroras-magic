@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 next)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -115,7 +115,7 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S2 | Flow shell + chapter 1: `AppScene.vue` (one canvas, RAF, input, `S.flow`), scene FSM, boot into arena, `useDuelRewards.ts`, map, dialogue, Boss Chest + Sunbeam, save schema v2 + migration (§3, §4, §10) | Chapter 1 playable from a cold boot through its boss and wipe; portal QA green | 15–19 | ✅ 2026-09-18 |
 | S3 | Chapters 1–3 = **the v1 release** (D2): water / lightning magics, Eraser, spellbook, wardrobe tent, Twin Gift (bloom), i18n for 21 locales (§6, §8, §10, §11) | §12.2.4 gate, kid playtest, portal QA on every target | 9–13 | ✅ 2026-09-19 (engineering gate) |
 | S4 | Chapters 4–10 in pairs (4–5, 6–7, 8–9, 10): Signature Spells, the remaining runes and magics, finale (§6, §10) | Win-rate floors hold from telemetry per pair (§7.2, §12.6) | 26–32 | ✅ 2026-09-19 |
-| S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ⬜ |
+| S5 | Local 2P versus: split screen, P2 on the right-side `e*` duelist (§6.19, §3.12) | Two players on one landscape screen | 8–10 | ✅ 2026-09-19 |
 | S6 | Step 3 painted art (art-generation pipeline, `art-style.md`, whose prompt was updated for D1) (§9.12) | Painted A/B vs drawn, byte budgets per chapter | 20–30 | ⬜ |
 
 **Totals:** S0–S4 (the full 10-chapter game) ≈ 60–77 agent-days; everything
@@ -504,6 +504,46 @@ lands, resume from the first unticked line):**
 - **Tests:** 76 files and 727 tests green, plus the opt-in win-rate
   harness; `vue-tsc` clean.
 
+
+**S5 — local 2P versus (2026-09-19), as built (story-spec §8.19):**
+- [x] **Entry:** the map's "play together" button (after the finale) opens
+  `versusSetup`: READY on each half, then 3-2-1.
+- [x] **One shared arena, two halves:** per-pointer routing by screen half,
+  a stroke buffer and a CAST each; Space and Enter on a keyboard.
+- [x] **Symmetric rules (§6.19):** 100 HP a side, full kit on both, and
+  freeze, slow and the Love gate for either player. No duel is counted and
+  no campaign state is touched.
+- [x] **The shared result** (rule 21): "What a duel!" and a trophy over the
+  winner, then back to the ready screen.
+- [x] **Below 900 px or upright:** the "turn sideways" prompt, including
+  mid-match, where the sim holds still.
+- [x] **i18n:** 7 keys in all 21 locales.
+- [x] **Also fixed:** the foe's pending rune is now reset per duel.
+
+**S5 result (2026-09-19) — the §12.2.6 gate:**
+- **Browser (dev server):**
+  - entry through the map button and both READY taps;
+  - 20 duels, each started by ONE two-finger multi-touch gesture, both
+    players drawing at once (triangle, square, Z, chevron, heart, spiral in
+    rotation): **zero cross-talk and zero recognition misses**;
+  - both sides cast the late kit (Love, Lightning);
+  - wins and losses unchanged after 20 matches, and the campaign untouched;
+  - the prompt at 360×740 portrait, at a 780 px landscape, and when
+    squeezed to 820 px mid-match (the sim held);
+  - no console errors.
+- **Unit tests:** `tests/duel/versus.test.ts` (7), including 20 interleaved
+  two-stroke duels on the sim with no cross-talk. 734 tests green;
+  `vue-tsc` clean.
+- **Win rate:** still clears §7.2 in every chapter (standard ≥ 91 %, boss
+  ≥ 83 %).
+- **Portal QA** (built bundles):
+- GamePix 29/29;
+  - GameMonetize 31/31 (dummy id, as an env override only);
+  - CrazyGames pre-release 22/22 and full release 37/37;
+  - web 20/20.
+- **Campaign regression:** chapter 10 and the finale replayed clean on a
+  production build (finale card, wandering Umbra, no bracket violations, no
+  console errors).
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their

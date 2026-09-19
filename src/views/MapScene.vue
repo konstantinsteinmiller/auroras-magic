@@ -27,6 +27,7 @@ import { leaderboardLive } from '@/use/useLeaderboard'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import FinaleCard from '@/components/story/FinaleCard.vue'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
+import { openVersus } from '@/game/flow/duelFlow'
 
 const emit = defineEmits<{ board: [] }>()
 const { t } = useI18n()
@@ -53,6 +54,11 @@ const options = (): void => {
 const book = (): void => {
   sfx('ui')
   openOverlay('spellbook')
+}
+/* The Friendship Duo (chapter 10's gift): local 2P versus (§3.12). */
+const versus = (): void => {
+  sfx('ui')
+  openVersus()
 }
 
 /* The Twin Gift's press-and-hold (§3.3.4). */
@@ -140,6 +146,8 @@ const twinStyle = computed(() => {
         GameIcon.glyph(name="book")
       button.duel-plate.icon(v-if="leaderboardLive" :aria-label="t('leaderboard.title')" @click.stop="emit('board')")
         GameIcon.glyph(name="leaderboard")
+      button.duel-plate.icon.versus(v-if="mapHud.versus" :aria-label="t('versus.play')" @click.stop="versus")
+        GameIcon.glyph(name="squad")
 </template>
 
 <style scoped lang="sass">

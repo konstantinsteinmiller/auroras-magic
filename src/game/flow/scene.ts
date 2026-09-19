@@ -35,6 +35,7 @@ export const gotoScene = (scene: SceneId, node = -1, mode: 'campaign' | 'versus'
   S.flow.mode = mode
   flowHud.scene = scene
   flowHud.node = node
+  flowHud.mode = mode
   reconcileGameplayBracket()
 }
 

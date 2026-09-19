@@ -24,12 +24,13 @@ import { S, load, save } from '@/game/duel/state'
 import { applyLayout, toStage, LAYOUT } from '@/game/duel/layout'
 import { render } from '@/game/duel/render'
 import { updateFx } from '@/game/duel/fx'
-import { updateSim, strokeStart, strokeMove, strokeEnd, cast, onDuelEvent } from '@/game/duel/sim'
+import { updateSim, strokeStart, strokeMove, strokeEnd, cast, castSide, onDuelEvent } from '@/game/duel/sim'
 import { initAudio, tickAudio, sfx, setAmbience } from '@/game/duel/audio'
 import { gotoScene, arm, openOverlay, closeOverlay, type SceneId } from '@/game/flow/scene'
 import { installGameplayBracket, bracketLive } from '@/game/flow/bracket'
 import { dipTo, stepTransition, drawTransition, fading, __flushTransition } from '@/game/flow/transition'
-import { installDuelFlow, retry, leaveDuel, startDuel } from '@/game/flow/duelFlow'
+import { installDuelFlow, retry, leaveDuel, startDuel, openVersus, startVersus } from '@/game/flow/duelFlow'
+import { versusHud, updateVersusWide } from '@/use/useVersus'
 import { bootScene, playNode } from '@/game/flow/nodes'
 import { installCampaignController } from '@/game/campaign/controller'
 import { pendingSectorNode } from '@/game/campaign/state'
@@ -64,6 +65,7 @@ import DialogueScene from '@/views/DialogueScene.vue'
 import UnboxScene from '@/views/UnboxScene.vue'
 import WipeScene from '@/views/WipeScene.vue'
 import WardrobeScene from '@/views/WardrobeScene.vue'
+import VersusSetup from '@/views/VersusSetup.vue'
 import SpellBook from '@/components/duel/SpellBook.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
@@ -97,6 +99,7 @@ const resize = (): void => {
   cv.style.width = `${w}px`
   cv.style.height = `${h}px`
   publishLayout(applyLayout(w, h, dpr))
+  updateVersusWide(w, h)
   restoreResize()
   mapResize(w, h)
   wardrobeResize()
@@ -121,15 +124,24 @@ const wake = (e?: Event): void => {
 const scene = (): SceneId => S.flow.scene
 const blocked = (): boolean => isGamePaused.value || S.flow.overlay !== null || boardOpen.value || fading()
 
-const zoneCallout = (): [number, number] => {
+const zoneCallout = (e = false): [number, number] => {
+  // In local versus a refusal shows over the half its player draws on.
+  if (S.versus) return [e ? 960 : 320, BOX.y - 46]
   if (!LAYOUT.portrait) return [640, BOX.y - 46]
   const z = LAYOUT.zone
   return [z.x + z.w / 2, z.y + z.h * 0.42]
 }
-const endStroke = (): void => {
-  const [x, y] = zoneCallout()
-  strokeEnd(x, y)
+const endStroke = (e = false): void => {
+  const [x, y] = zoneCallout(e)
+  strokeEnd(x, y, e)
 }
+/**
+ * Local versus (§3.12): which side each live pointer draws for — decided on
+ * its first contact by the half of the SCREEN it landed in, before any stage
+ * transform is involved, and kept for the whole stroke, so a finger that
+ * wanders over the middle never starts writing into the other hand.
+ */
+const strokeSide = new Map<number, boolean>()
 
 const onPointerDown = (e: PointerEvent): void => {
   e.preventDefault()
@@ -140,7 +152,14 @@ const onPointerDown = (e: PointerEvent): void => {
   if (sc === 'duel') {
     if (S.phase !== PH_DUEL) return
     const [x, y] = toStage(e.clientX, e.clientY)
-    strokeStart(x, y)
+    if (S.versus) {
+      if (!versusHud.wide) return
+      const side = e.clientX >= window.innerWidth / 2
+      // One finger per side: a second finger on the same half is ignored.
+      if (side ? S.edraw : S.draw) return
+      strokeSide.set(e.pointerId, side)
+      strokeStart(x, y, side)
+    } else strokeStart(x, y)
   } else if (sc === 'unbox' || sc === 'wipe') restorePointerDown(e.clientX, e.clientY, e.timeStamp)
   else if (sc === 'map') mapPointerDown(e.clientX, e.clientY, e.timeStamp)
 }
@@ -153,6 +172,21 @@ const onPointerMove = (e: PointerEvent): void => {
     else fn(e)
   }
   if (sc === 'duel') {
+    if (S.versus) {
+      const side = strokeSide.get(e.pointerId)
+      if (side === undefined) return
+      if (e.buttons === 0) {
+        strokeSide.delete(e.pointerId)
+        endStroke(side)
+        return
+      }
+      e.preventDefault()
+      each((ev) => {
+        const [x, y] = toStage(ev.clientX, ev.clientY)
+        strokeMove(x, y, side)
+      })
+      return
+    }
     if (!S.draw) return
     if (e.buttons === 0) {
       endStroke()
@@ -179,11 +213,19 @@ const onPointerMove = (e: PointerEvent): void => {
 
 const onPointerUp = (e?: PointerEvent): void => {
   const sc = scene()
-  if (sc === 'duel') endStroke()
+  if (sc === 'duel' && S.versus) {
+    // A pointer lifts its own hand; a blur (no pointer) lifts both.
+    for (const id of e ? [e.pointerId] : [...strokeSide.keys()]) {
+      const side = strokeSide.get(id)
+      if (side === undefined) continue
+      strokeSide.delete(id)
+      endStroke(side)
+    }
+  } else if (sc === 'duel') endStroke()
   else if (sc === 'unbox' || sc === 'wipe') restorePointerUp()
   else if (sc === 'map' && e) mapPointerUp(e.clientX, e.clientY, e.timeStamp)
 }
-const onLostCapture = (): void => onPointerUp()
+const onLostCapture = (e?: Event): void => onPointerUp(e instanceof PointerEvent ? e : undefined)
 
 /* ────────────────────────────── the map's taps ────────────────────────── */
 
@@ -219,7 +261,14 @@ const onKeyDown = (e: KeyboardEvent): void => {
   }
   if (boardOpen.value) return
   const sc = scene()
-  if (sc === 'duel') {
+  if (sc === 'duel' && S.versus) {
+    // Local versus on one keyboard: Space casts for player 1, Enter for 2.
+    if ((k === ' ' || k === 'Enter') && S.phase === PH_DUEL) {
+      e.preventDefault()
+      sfx('ui')
+      castSide(k === 'Enter')
+    }
+  } else if (sc === 'duel') {
     if (k === ' ' || k === 'Enter' || k === 'e' || k === 'E') {
       e.preventDefault()
       if (duelBeat.phase === 'loss' && hud.tapReady) retry()
@@ -316,7 +365,9 @@ const frame = (now: number): void => {
     S.dt = dt
     S.t += dt
     if (sc === 'duel') {
-      if (S.flow.armed) {
+      // A versus match holds still while the screen is too narrow to hold
+      // both halves (the chrome shows the turn-sideways prompt).
+      if (S.flow.armed && (!S.versus || versusHud.wide)) {
         acc = Math.min(acc + dt, 0.25)
         while (acc >= STEP) {
           updateSim(STEP)
@@ -338,7 +389,7 @@ const frame = (now: number): void => {
     acc = 0
   }
   if (g) {
-    if (sc === 'duel') render(g)
+    if (sc === 'duel' || sc === 'versusSetup') render(g)
     else if (sc === 'unbox' || sc === 'wipe') drawRestore(g)
     else if (sc === 'map' || sc === 'dialogue') drawMap(g)
     else if (sc === 'wardrobe') drawWardrobe(g)
@@ -440,6 +491,8 @@ onMounted(() => {
       /** Close Options / the spellbook, whatever their buttons are called. */
       closeOverlay
     }
+    w.__versus = { open: openVersus, start: startVersus, state: () => ({ ...versusHud, versus: S.versus }) }
+    w.__castSide = castSide
     w.__campaign = {
       state: () => S.campaign,
       reset: qaWipe.reset,
@@ -552,6 +605,7 @@ onUnmounted(() => {
     MapScene(v-else-if="flowHud.scene === 'map'" @board="boardOpen = true")
     DialogueScene(v-else-if="flowHud.scene === 'dialogue'")
     WardrobeScene(v-else-if="flowHud.scene === 'wardrobe'")
+    VersusSetup(v-else-if="flowHud.scene === 'versusSetup'")
     template(v-if="flowHud.scene === 'unbox' || flowHud.scene === 'wipe'")
       UnboxScene(v-if="flowHud.scene === 'unbox'" @open="openGiftFromUi" @pick="pickPot")
       WipeScene(@back="leaveRestore" @continue="continueRestore")

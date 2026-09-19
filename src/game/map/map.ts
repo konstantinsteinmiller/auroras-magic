@@ -745,6 +745,7 @@ const publish = (): void => {
   if (mapHud.reached !== reached) mapHud.reached = reached
   if (mapHud.visible !== visible) mapHud.visible = visible
   if (mapHud.portrait !== portrait) mapHud.portrait = portrait
+  if (mapHud.versus !== S.campaign.versusUnlocked) mapHud.versus = S.campaign.versusUnlocked
   // The Twin Gift's DOM hold target follows the gift as the map pans.
   if (twinGift.node >= 0 && twinShown()) {
     const [x, y, s] = twinScreen(twinGift.node)

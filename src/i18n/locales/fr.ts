@@ -446,6 +446,15 @@ export default {
     'umbra2': 'Cet endroit est si joli maintenant !',
     'umbra3': 'Un petit duel pour s’amuser, un de ces jours ?'
   },
+  'versus': {
+    'play': 'Jouer ensemble',
+    'player1': 'Joueur 1',
+    'player2': 'Joueur 2',
+    'ready': 'Prêt !',
+    'turnSideways': 'Tourne ton appareil sur le côté pour jouer ensemble !',
+    'greatDuel': 'Quel duel !',
+    'castKey2': '[Entrée] Lancer'
+  },
 
   'gift': {
     'flowerCrown': 'Couronne de fleurs',

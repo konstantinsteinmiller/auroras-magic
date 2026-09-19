@@ -53,6 +53,9 @@ import { probeSink, type Sink } from '@/use/analyticsSink'
 export type AnalyticsEvent =
   | 'duel_start'
   | 'duel_end'
+  // Local 2P versus (§6.19, S5): one start and one end per match.
+  | 'versus_start'
+  | 'versus_end'
   | 'first_rune'
   | 'reward_claim'
   | 'recognition_attempt'

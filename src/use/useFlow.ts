@@ -8,8 +8,9 @@
 import { reactive } from 'vue'
 import type { SceneId, OverlayId } from '@/game/flow/scene'
 
-export const flowHud = reactive<{ scene: SceneId; node: number; overlay: OverlayId | null }>({
+export const flowHud = reactive<{ scene: SceneId; node: number; overlay: OverlayId | null; mode: 'campaign' | 'versus' }>({
   scene: 'boot',
   node: -1,
-  overlay: null
+  overlay: null,
+  mode: 'campaign'
 })

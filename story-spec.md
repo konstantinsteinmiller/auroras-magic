@@ -5956,6 +5956,56 @@ winter scarf and Pet Star.
   `RigAnchors` gains points in the caller's space (hooves, tail, body,
   head). With nothing worn, Aurora renders pixel-identical to before.
 
+### §8.19 S5 as built (2026-09-19)
+
+S5 is local two-player versus (§6.19, §3.12, C18), unlocked by chapter 10's
+chest (`versusUnlocked`).
+- **Entry:** a "play together" button on the map (the `squad` glyph) opens
+  the `versusSetup` scene. The arena waits behind it, Aurora on the left
+  for player 1 and Umbra, a friend now, on the right for player 2. Each
+  player taps READY on their own half; with both ready, a 3-2-1 (numbers,
+  not words) and the match begins, on the Festival's island.
+- **Layout — one shared arena, two halves (a deliberate reading of §3.12).**
+  The whole 1280×720 stage is fitted to the full screen, so both players
+  watch the same fight, and each half of the screen is one player's:
+  - her drawing zone (a dashed frame, a seam down the middle);
+  - her rune slots (the existing left and right rows);
+  - her own CAST button;
+  - options and sound, shared, between the two CASTs.
+
+  §3.12's "each half through `computeLayout` as its own sub-viewport" would
+  draw the arena twice at half size: two small copies of one fight. The
+  split is by input and HUD instead.
+- **Input:** each pointer is routed on first contact by the half of the
+  SCREEN it landed in, and keeps that side for the whole stroke, into its
+  own buffer (`pts`/`epts`, `draw`/`edraw`, `snap`/`esnap`). One finger per
+  side; a blur lifts both. On a keyboard, Space casts for player 1 and
+  Enter for player 2.
+- **Rules (§6.19):**
+  - the right-hand duelist is player 2 (`S.versus`: `think()` bypassed,
+    `castSide(true)`);
+  - 100 HP each, no easing, no weakness (the appended `FOES[20]`, the versus
+    Umbra);
+  - both hold the save's full kit;
+  - Frost Lock freezes either side (a frozen hand can neither draw nor
+    cast);
+  - a slow on player 2 shaves her guard, since she has no forming timer;
+  - the Love gate is symmetric.
+- **No side effects:**
+  - no duel is counted, since the leaderboard's score is duels won;
+  - the campaign controller ignores a versus match entirely: no progress,
+    no Dream Dust, no spellbook discoveries;
+  - no versus field is ever persisted.
+- **The end (§2.2 rule 21):** one shared "What a duel!", a trophy over the
+  winner, no lone spotlight and no loss copy. The interstitial clock is
+  checked once per match, then back to the ready screen.
+- **Below 900 CSS px, or held upright:** the "turn sideways" prompt, never
+  a half-UI and never pass-and-play (C18). A match squeezed mid-duel holds
+  still under the prompt until the screen is wide again.
+- **Also fixed:** the foe's committed next rune (`eRune`) now resets with
+  every duel. Before, the last duel's foe's pick carried into the next
+  duel's first rune.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

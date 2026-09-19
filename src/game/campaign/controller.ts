@@ -34,6 +34,9 @@ let installed: (() => void) | null = null
 export const installCampaignController = (): (() => void) => {
   if (installed) return installed
   const off = onDuelEvent((e, won) => {
+    // C18: a local versus match has no campaign side-effects at all — no
+    // progress, no Dream Dust, no spellbook discoveries.
+    if (S.flow.mode === 'versus') return
     if (e === 'cast') {
       const c = lastPlayerCast()
       if (c.index >= 0 && !hasBit(S.campaign.combosSeen, c.index)) {
@@ -46,7 +49,7 @@ export const installCampaignController = (): (() => void) => {
     }
     if (e !== 'finish') return
     const node = S.flow.node
-    if (S.flow.mode === 'versus' || node < 0) return
+    if (node < 0) return
     const fresh = node === nextDuelNode(S.campaign) && node > S.campaign.furthestNode
     if (!fresh) return
     const k = String(node)

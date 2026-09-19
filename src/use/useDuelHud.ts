@@ -36,6 +36,8 @@ export interface HudState {
   eRune: number
   /** The spell the CAST button would throw, or null when the hand is empty. */
   cast: SpellNameParts | null
+  /** Player 2's, in local versus. */
+  ecast: SpellNameParts | null
   /** Lifetime duels won: the leaderboard's score. */
   wins: number
 }
@@ -53,6 +55,7 @@ export const hud = reactive<HudState>({
   eSlot: 0,
   eRune: -1,
   cast: null,
+  ecast: null,
   wins: 0
 })
 
@@ -151,6 +154,11 @@ export const syncHud = (dt: number): void => {
       const sp = spellOf(S.queue)
       hud.cast = { nameId: sp.nameId, kind: sp.kind, count: sp.count, rune: sp.dominant }
     } else hud.cast = null
+    // Player 2's plate, in local versus: her hand, the same resolution.
+    if (S.versus && S.equeue.length) {
+      const sp = spellOf(S.equeue)
+      hud.ecast = { nameId: sp.nameId, kind: sp.kind, count: sp.count, rune: sp.dominant }
+    } else hud.ecast = null
   }
   if (hud.wins !== S.wins) hud.wins = S.wins
 
@@ -178,4 +186,4 @@ export const resetHudMirrors = (): void => {
 
 /** The hand the CAST plate last resolved, and the current one, as a key. */
 let castFor = '-'
-const handKey = (): string => S.queue.join('.')
+const handKey = (): string => `${S.queue.join('.')}|${S.versus ? S.equeue.join('.') : ''}`
