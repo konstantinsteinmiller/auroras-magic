@@ -6247,6 +6247,29 @@ performance cost, then game feel.
 Nothing in S9 changes the game. Each item is a separately scoped
 update.
 
+### §8.24 S10 as built (2026-09-19) — the release candidate
+
+S10 is the final gate, run on the committed tree (S0–S9) with every check
+the earlier stages used. Each one is repeatable from the repo:
+
+| Check | Result |
+| --- | --- |
+| `vue-tsc` + unit tests | clean; 757 passed |
+| Win rate (`pnpm test:winrate`, the §7.2 core child on the real duel) | every chapter clears its floors (standard ≥ 90/85 %, boss ≥ 75/60 %). Standard 91.1–100 %, bosses 82.8–100 %, 100 % within three tries |
+| `pnpm build:all` | 10 archives within budget, 434–642 kB |
+| `scripts/release-audit.mjs --build` | 10/10 clear. One warning: the GameDistribution id is blank (owner) |
+| Portal QA (`pnpm qa:portal`) | GamePix 29/29, GameMonetize 31/31, CrazyGames pre-release 22/22 and full release 37/37, web 20/20 |
+| Cross-browser | Chrome, Edge, Opera, Firefox and WebKit: boot → win → unbox → wipe → admire → map, no console errors |
+| Full playthrough on the built web bundle | landscape 1-1 → 10-5 on the real input path from an empty save: 50/50 sectors restored, all 12 runes, both signature spells, all 9 keepsakes plus the Friendship Duo, 9/9 rescues (chapter 10 has none, §8.8), the finale card and Umbra on the map. No gameplay-bracket violations, no console errors, 16 min. Chapter 10 in portrait (320×658 touch): the same, in 97 s |
+| Performance (S8, unchanged source since) | worst p95 4.2 ms of the 16.7 ms budget at CPU ×4 |
+
+One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-3) reads false, as it did at S4. It cannot fire: the foe's ward answers an incoming shot and its pierce answers a raised guard, and the probe neither casts nor guards after its first rune. The AI's use of magic is pinned by `tests/duel/magic.test.ts` (green).
+
+**The release candidate is the tree at the S10 commit.** It is not
+released: `RELEASE-CHECKLIST.md` holds the owner's remaining steps (portal
+ids, uploads, store art, the child-directed and privacy decisions, a real
+iOS device).
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

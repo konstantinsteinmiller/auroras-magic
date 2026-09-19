@@ -83,7 +83,7 @@ path anyway, build with a throwaway id, then rebuild clean:
   - Poki, Yandex and Playgama builds contain zero references to the Worker, and CrazyGames carries it in its CSP;
   - in a real browser a win sent exactly one signed POST (Worker intercepted), the badge and list rendered, and there were no errors.
 
-## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 ✅ · S9 ✅ · S10 next)
+## Step 2 — story extension (spec done · S0 ✅ · S1 ✅ · S2 ✅ · S3 ✅ · S4 ✅ · S5 ✅ · S6 ✅ · S7 ✅ · S8 ✅ · S9 ✅ · S10 ✅ — release candidate)
 
 **The spec is `story-spec.md`** (project root, 14 chapters, §0–§13). It came
 out of an expert-panel review of `story-GDD.md` on 2026-09-18:
@@ -120,7 +120,7 @@ Build from the spec. When the spec and this file disagree, the spec wins.
 | S7 | Release prep for all 10 chapters (playbook Phase 7): release audit per portal, cross-browser matrix, small viewports, localisation QA, image compression | Every portal build release-ready | 3–5 | ✅ 2026-09-19 |
 | S8 | Performance pass (`web-game-performance-optimize`): budget, throttled baseline, A/B only for measured wins | Inside budget on a throttled mid-range profile | 2–4 | ✅ 2026-09-19 (already fast enough) |
 | S9 | Post-launch retention roadmap (playbook Phase 8): `retention-roadmap.md` | A sorted, sized roadmap | 1 | ✅ 2026-09-19 |
-| S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ⬜ |
+| S10 | Final release-candidate gate across everything: build matrix, portal QA, playthroughs, win rate, tests | A release candidate | 1–2 | ✅ 2026-09-19 |
 
 **Totals:** S0–S4 (the full 10-chapter game) ≈ 60–77 agent-days; everything
 through S6 ≈ 88–117 (§1.1). Removing the currency (D3) trims these slightly;
@@ -639,6 +639,23 @@ boot 4.1 s. No optimisation was warranted, so none was made
 cost, then game feel, each naming the code it touches and the event that
 measures it, under the D1/D3/portal guardrails. Start with item 1 (the
 funnel analytics). Item 12 needs the owner.
+
+**S10 — the release-candidate gate (2026-09-19), story-spec §8.24:**
+| Check | Result |
+| --- | --- |
+| `vue-tsc` + unit tests | clean; 757 passed |
+| Win rate (`pnpm test:winrate`, the §7.2 core child on the real duel) | every chapter clears its floors (standard ≥ 90/85 %, boss ≥ 75/60 %). Standard 91.1–100 %, bosses 82.8–100 %, 100 % within three tries |
+| `pnpm build:all` | 10 archives within budget, 434–642 kB |
+| `scripts/release-audit.mjs --build` | 10/10 clear. One warning: the GameDistribution id is blank (owner) |
+| Portal QA (`pnpm qa:portal`) | GamePix 29/29, GameMonetize 31/31, CrazyGames pre-release 22/22 and full release 37/37, web 20/20 |
+| Cross-browser | Chrome, Edge, Opera, Firefox and WebKit: boot → win → unbox → wipe → admire → map, no console errors |
+| Full playthrough on the built web bundle | landscape 1-1 → 10-5 on the real input path from an empty save: 50/50 sectors restored, all 12 runes, both signature spells, all 9 keepsakes plus the Friendship Duo, 9/9 rescues (chapter 10 has none, §8.8), the finale card and Umbra on the map. No gameplay-bracket violations, no console errors, 16 min. Chapter 10 in portrait (320×658 touch): the same, in 97 s |
+| Performance (S8, unchanged source since) | worst p95 4.2 ms of the 16.7 ms budget at CPU ×4 |
+
+One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-3) reads false, as it did at S4. It cannot fire: the foe's ward answers an incoming shot and its pierce answers a raised guard, and the probe neither casts nor guards after its first rune. The AI's use of magic is pinned by `tests/duel/magic.test.ts` (green).
+
+**Next:** the owner's steps in `RELEASE-CHECKLIST.md`, then
+`retention-roadmap.md` item 1.
 
 **Panel working papers** (rulings, round-1 reports, audits) are in the
 session scratchpad. They are not part of the repo; the spec summarises their
