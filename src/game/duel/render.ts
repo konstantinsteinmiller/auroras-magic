@@ -11,7 +11,7 @@ import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING }
 import { S } from '@/game/duel/state'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
 import { drawDuelPage } from '@/game/duel/duelPage'
-import { lookOf, bodyRadius, heft, type Body, type SpellLook } from '@/game/duel/spellArt'
+import { castLook, bodyRadius, heft, type Body, type Mark, type CastLook } from '@/game/duel/spellArt'
 import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
@@ -131,7 +131,7 @@ const ribbonOf = (s: Shot, keep: number): number[] => {
  * increasing width and alpha read as the same taper for a tenth of the work.
  */
 const CHUNKS = 3
-const drawRibbon = (g: G2D, tr: number[], r: number, look: SpellLook, col: string, lit: string): void => {
+const drawRibbon = (g: G2D, tr: number[], r: number, look: CastLook, col: string, lit: string, mixCol: string): void => {
   const pts = tr.length / 2
   if (pts < 3) return
   g.save()
@@ -141,7 +141,9 @@ const drawRibbon = (g: G2D, tr: number[], r: number, look: SpellLook, col: strin
   for (let pass = 0; pass < 2; pass++) {
     // A soft wide wash, then a bright narrow core through it.
     const w = r * look.width * (pass ? 0.5 : 1.45)
-    g.strokeStyle = pass ? lit : col
+    // The wide wash carries the cast's OTHER element where it has one: two
+    // colours in the trail is how a mixed spell reads as mixed in flight.
+    g.strokeStyle = pass ? lit : mixCol
     for (let c = 0; c < CHUNKS; c++) {
       const from = Math.floor((c * (pts - 1)) / CHUNKS)
       const to = Math.floor(((c + 1) * (pts - 1)) / CHUNKS)
@@ -154,6 +156,63 @@ const drawRibbon = (g: G2D, tr: number[], r: number, look: SpellLook, col: strin
       for (let i = from + 1; i <= to; i++) g.lineTo(tr[i * 2]!, tr[i * 2 + 1]!)
       g.stroke()
     }
+  }
+  g.restore()
+}
+
+/**
+ * THE FLOURISH of a golden spell (§8.31): the mark that says this cast is not
+ * just "some fire" but Fire Rain. Drawn in the body's own space, over it, in
+ * the element's light tone — four shapes, because a flourish a child cannot
+ * name is noise.
+ */
+const drawMark = (g: G2D, mark: Mark, r: number, lit: string, t: number): void => {
+  if (mark === 'none') return
+  g.save()
+  g.globalCompositeOperation = 'lighter'
+  g.strokeStyle = lit
+  g.fillStyle = lit
+  if (mark === 'crown') {
+    // Three motes riding overhead, the way a heavy drags its own weather.
+    for (let k = 0; k < 3; k++) {
+      const a = t * 2.2 + (k * TAU) / 3
+      g.globalAlpha = 0.5 + 0.3 * Math.sin(a * 2)
+      g.beginPath()
+      g.arc(Math.cos(a) * r * 1.25, Math.sin(a) * r * 0.5 - r * 0.9, r * 0.17, 0, TAU)
+      g.fill()
+    }
+  } else if (mark === 'star') {
+    // A four-point sparkle turning against the body's own spin.
+    g.globalAlpha = 0.72
+    g.lineWidth = Math.max(1.5, r * 0.1)
+    g.lineCap = 'round'
+    g.beginPath()
+    for (let k = 0; k < 4; k++) {
+      const a = -t * 2.6 + (k * TAU) / 4
+      g.moveTo(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5)
+      g.lineTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 1.5)
+    }
+    g.stroke()
+  } else if (mark === 'shards') {
+    // Chips thrown off the body and left behind it.
+    g.globalAlpha = 0.65
+    for (let k = 0; k < 4; k++) {
+      const a = t * 3.4 + k * 1.9
+      const d = r * (1.15 + 0.25 * Math.sin(a))
+      g.beginPath()
+      g.moveTo(Math.cos(a) * d, Math.sin(a) * d)
+      g.lineTo(Math.cos(a + 0.5) * d * 0.72, Math.sin(a + 0.5) * d * 0.72)
+      g.lineTo(Math.cos(a - 0.3) * d * 0.8, Math.sin(a - 0.3) * d * 0.8)
+      g.closePath()
+      g.fill()
+    }
+  } else {
+    // A halo lying flat around a spell that whirls.
+    g.globalAlpha = 0.5
+    g.lineWidth = Math.max(1.5, r * 0.13)
+    g.beginPath()
+    g.ellipse(0, 0, r * 1.45, r * 0.5, Math.sin(t * 1.6) * 0.5, 0, TAU)
+    g.stroke()
   }
   g.restore()
 }
@@ -304,12 +363,16 @@ const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: nu
 const drawShots = (g: G2D): void => {
   for (const s of S.shots) {
     const [col, lit] = RUNES[s.r]!
-    const look = lookOf(s.r)
+    // The lead element, what else was mixed into the cast, and — for the
+    // golden 22 — that spell's own flourish (§8.31).
+    const look = castLook(s.r, s.m ?? -1, s.sg ?? '')
+    const mixed = look.mix >= 0
+    const mixLit = mixed ? RUNES[look.mix]![1]! : col
     const hv = heft(s.k)
     const r = bodyRadius(s.k) * (1 + look.pulse * 0.5 * Math.sin(S.t * 22))
     // Where it has been, and therefore which way it is pointing.
     const tr = ribbonOf(s, look.tail)
-    drawRibbon(g, tr, r * hv, look, col, lit)
+    drawRibbon(g, tr, r * hv, look, col, lit, mixLit)
     const n = tr.length
     const head = n >= 4
       ? Math.atan2(s.y - tr[n - 3]!, s.x - tr[n - 4]!)
@@ -323,6 +386,20 @@ const drawShots = (g: G2D): void => {
     if (s.r === WATER) drawBubbleShot(g, r, col, lit)
     else if (s.r === LIGHTNING) drawBoltShot(g, r * 1.15, col, lit, s.dir)
     else drawBody(g, look.body, r, col, lit, S.t)
+    // The rim the second element catches: the body stays the lead's, because
+    // the lead is what the damage is scaled by, but the edge is both.
+    if (mixed) {
+      g.save()
+      g.globalCompositeOperation = 'lighter'
+      g.globalAlpha = 0.5 + 0.2 * Math.sin(S.t * 9)
+      g.lineWidth = Math.max(1.5, r * 0.16)
+      g.strokeStyle = mixLit
+      g.beginPath()
+      g.arc(0, 0, r * 0.94, 0, TAU)
+      g.stroke()
+      g.restore()
+    }
+    drawMark(g, look.mark, r, lit, S.t)
     // A piercing shot crackles, so "this one goes through shields" can be
     // read before it lands (§6.8).
     if (s.p) {
@@ -648,6 +725,37 @@ const drawPrismGlow = (g: G2D, t: number): void => {
   g.restore()
 }
 
+/* ------------------------------ the rig ----------------------------- */
+
+/** How long a cast's animation runs (`S.castAnim`, set by the sim). */
+const CAST_T = 0.55
+
+/**
+ * THE REAR, shaped (§8.31). The clock decays evenly, but a rear that fades
+ * evenly reads as a cross-fade rather than as an act: an animator snaps into
+ * the extreme and eases out of it. So the pose punches to full in two frames
+ * and settles back over the rest, with one small bounce on the way down.
+ */
+const castPose = (left: number): number => {
+  if (left <= 0) return 0
+  const a = (CAST_T - clamp(left, 0, CAST_T)) / CAST_T
+  if (a < 0.14) return a / 0.14
+  const d = (a - 0.14) / 0.86
+  return Math.max(0, (1 - d) * (1 + 0.1 * Math.sin(d * 8.5)))
+}
+
+/**
+ * THE RECOIL: the shove a release puts through the caster, backwards off the
+ * horn and springing home. Anticipation is not available to us — the shot
+ * leaves on the same frame the player presses cast, and delaying it to wind
+ * up would be a gameplay change — so the weight goes into the kick instead.
+ */
+const castKick = (left: number): number => {
+  if (left <= 0) return 0
+  const a = CAST_T - clamp(left, 0, CAST_T)
+  return a < 0.05 ? (a / 0.05) * 7 : 7 * Math.exp(-(a - 0.05) * 9)
+}
+
 /** Portrait: clip to the visible duel window (saves; the caller restores). */
 const portraitClip = (g: G2D): void => {
   g.save()
@@ -711,7 +819,7 @@ export const render = (g: G2D): void => {
   drawIsland(g)
   drawFxUnder(g)
 
-  AST.cast = clamp(S.castAnim / 0.55, 0, 1)
+  AST.cast = castPose(S.castAnim)
   AST.hurt = S.hurt
   AST.hp = S.hp / 100
   AST.win = S.phase === PH_WIN ? clamp(S.over, 0, 1) : 0
@@ -719,7 +827,7 @@ export const render = (g: G2D): void => {
   AST.form = S.queue.length / 3
   // What Aurora wears (the wardrobe, C17) she wears into every duel.
   Object.assign(AST, equippedHooks())
-  UST.cast = clamp(S.eCastAnim / 0.55, 0, 1)
+  UST.cast = castPose(S.eCastAnim)
   UST.hurt = S.eHurt
   UST.hp = S.ehp / 100
   UST.win = AST.lose
@@ -731,8 +839,10 @@ export const render = (g: G2D): void => {
   drawPrismGlow(g, t)
   drawDecoys(g, false, AST, t, false)
   drawDecoys(g, true, UST, t, false)
-  drawUnicorn(g, AX, GY, -1, AST, t)
-  drawUnicorn(g, UX, GY, 1, UST, t)
+  // Each duelist stands where she stands, minus the kick of her own last
+  // cast — backwards, away from the spell she just threw.
+  drawUnicorn(g, AX - castKick(S.castAnim), GY, -1, AST, t)
+  drawUnicorn(g, UX + castKick(S.eCastAnim), GY, 1, UST, t)
   drawIce(g, AX, S.frozen, t)
   drawIce(g, UX, S.eFrozen, t)
   drawDecoys(g, false, AST, t, true)

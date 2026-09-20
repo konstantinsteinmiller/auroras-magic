@@ -749,10 +749,21 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
   scenes moved 2–6× between runs. Before release, on a quiet machine:
   `npx vite build --base=./ --outDir dist-perf && node scripts/perf-scenes.mjs dist-perf 4 "" land`
   (last clean read: duel p95 4.4 ms at CPU ×4).
-- [ ] **Stage two** (still owed on the owner's "AAA" ask): per-spell
-  signatures for the golden combinations, shields that crack and shatter,
-  a language for the decoy / reflect / Love finisher, anticipation and recoil
-  on the rig, then painted spell art through the pipeline.
+- [x] **The fight, stage two** (§8.31 D): every cast carries the element
+  MIXED into it (`mixRune` → `Shot.m`), which tints the ribbon, the rim, the
+  muzzle and half the afterlife — so all 454 combinations read as
+  combinations; the golden 22 wear a flourish of their own (crown / star /
+  shards / halo), kept in step with the spell matrix by a test; a ward
+  lights up and ripples at the point of contact instead of silently
+  swallowing a spell; the rear is shaped (snap, settle, one bounce) and the
+  release kicks the caster backwards.
+- [x] Verified: 820 tests (incl. `tests/duel/spellArt.test.ts`); a browser
+  run holding the game's clock — a mixed Magma Shard (lead Earth, mix Fire)
+  photographed in flight, a Boulder's crown, and the foe's bolt breaking on
+  Aurora's earth wall.
+- [ ] **Stage three:** a language for the decoy / reflect / Love finisher, a
+  flinch on the hit to match the kick on the cast, then painted spell art
+  through the pipeline.
 
 - [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
   the intro pages, then islands and badges. Then run `pnpm slice-sheets` and

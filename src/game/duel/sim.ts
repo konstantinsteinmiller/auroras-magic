@@ -13,7 +13,7 @@
  */
 import {
   AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING, ILLUSION,
-  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex,
+  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex, comboKey,
   type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
@@ -22,10 +22,11 @@ import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/ru
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
-  impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
+  impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
   decoyPoof, frostBurst, heartBurst, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
 import { duelPageHit } from '@/game/duel/duelPage'
+import { mixRune } from '@/game/duel/spellArt'
 import { sfx, setMood } from '@/game/duel/audio'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 
@@ -372,7 +373,12 @@ const launch = (q: Rune[], e: boolean): void => {
   // (+1 s of Nature's 4/s: the first boss a child ever meets — S4 tuning.)
   if (boss2 === 'natureRider' && !q.includes(NATURE as Rune)) dot += 1
 
-  castBurst(hx, HORN_Y, dr)
+  // What ELSE went into this cast (§8.31) — the second colour every layer
+  // downstream tints with. A Rainbow-completed spell is looked up as the
+  // spell it completed INTO, so a wild Fire Ball flies as a Fire Ball.
+  const mix = mixRune(q, dr)
+  const artKey = sp.wild ? comboKey(sp.wild) : sp.key
+  castBurst(hx, HORN_Y, dr, mix)
   sfx('cast', q.length)
   if (e) S.eCastAnim = 0.55
   else S.castAnim = 0.55
@@ -439,7 +445,9 @@ const launch = (q: Rune[], e: boolean): void => {
       b: sp.dmg,
       ls,
       sp: slowPct,
-      rf: 0
+      rf: 0,
+      m: mix,
+      sg: artKey
     })
   }
 
@@ -504,7 +512,7 @@ const strike = (s: Shot, e: boolean): void => {
       return
     }
     // Blocked. Still loud — a block the player cannot see is a bug report.
-    impact(tx - s.dir * 58, GY - 90, guardRune(gk), 0.35)
+    wardHit(tx - s.dir * 58, GY - 90, guardRune(gk), 0.35)
     sfx('guard')
     shakeAdd(0.12)
     pop('blocked', '#8ff0ff', tx, GY - 210)
@@ -539,7 +547,7 @@ const strike = (s: Shot, e: boolean): void => {
   // fireRain is FIRE-flavoured art, so it only fits a fire heavy. Non-fire
   // heavies get a full-power elemental impact.
   if (s.k === 3 && s.r === FIRE) fireRain(tx, GY, p)
-  impact(tx, GY - 90, s.r, s.k === 3 ? 1 : p)
+  impact(tx, GY - 90, s.r, s.k === 3 ? 1 : p, s.m)
   // …and it lands on the PAGE behind them (§8.29): Aurora's spells blow the
   // dust off it, Umbra's puff it back over.
   duelPageHit(tx, GY - 90, e, p)

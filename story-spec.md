@@ -6749,8 +6749,9 @@ along its foot, and everything between the two was blank. It now carries what
 a picture book puts on its endpapers — and nothing more, because the beat
 cards are the only thing on a page a child is meant to look at.
 
-Three quiet layers under the beats (`map/pageDecor.ts`, drawn inside the
-page's own clip so a turning page carries them with it):
+A chapter page's whole background is now ONE baked image
+(`map/pageDecor.ts`), blitted inside the page's own clip so a turning page
+carries it with it. Four layers go into that bake, in this order:
 
 1. **The light on the paper.** A warm bloom off the head of the page and the
    binding's shadow down its spine edge, so the card reads as a sheet lying in
@@ -6773,11 +6774,14 @@ page's own clip so a turning page carries them with it):
 
    A chapter that has not been built yet dreams in stars instead, beside the
    moon and the Zs §3.7 already gives it, and a shade fainter.
-3. **Paper grain.** A seamless fibre tile over the whole page, hills included,
-   because paper shows through the ink printed on it. It is a repeating
-   PATTERN at CSS resolution anchored to the page's corner — not a texture
-   baked into the page — so it stays crisp at any page size and travels with
-   the sheet during a turn instead of swimming under it.
+3. **The biome wash** — the two bands of rolling hills along the page's foot
+   (its side, in portrait) that the page already had. It moves into the bake
+   because it never moves on screen either, and every separate fill is another
+   full-page composite through the page's rounded clip.
+4. **Paper grain.** A seamless fibre tile over the whole page, hills included,
+   because paper shows through the ink printed on it. It is laid in as a
+   repeating pattern at DEVICE resolution, so the fibre is 1:1 with the
+   screen's own pixels rather than stretched with the page.
 
 **The rule the whole feature is built around: marginalia is furniture, not
 content.** One ink colour, a tenth of an alpha, never animated, never
@@ -6794,13 +6798,27 @@ coloured, and never anywhere it could be mistaken for something to tap:
 - the scatter is seeded per chapter, so a page looks the same every time it is
   opened and nothing shimmers between frames.
 
+**Why it is baked, measured rather than assumed.** Drawn live, the layer is
+three full-page composites (a pattern fill and two gradients) on top of the
+wash's two, all through the page's rounded clip — and a rounded clip is the
+one thing that costs real time when a canvas is not GPU-composited. On a
+restored chapter page in a software-rasterised browser (`--disable-gpu`, which
+stands in for a weak device since a vsync-locked GPU arm cannot tell the two
+apart) it **halved the frame rate: 33.3 ms a frame against 16.7 ms with the
+layer off.** Baking the light, the marginalia and the grain alone did NOT fix
+it — the remaining cost was the clipped full-page blit itself, which is why
+the wash went into the same image. As one blit the page is back to **16.7 ms
+median, p95 16.8 ms** over 200 frames across three runs, i.e. the baseline,
+and the page now performs FEWER clipped composites per frame than it did
+before this feature existed. The bake is keyed by chapter, built-state,
+orientation, wash colours and page size, with the last three kept: a browser
+run counted **one bake for a whole session**.
+
 **Verified:** `tests/ui/pageDecor.test.ts` pins the keep-out contract (never
 over a card or badge, never on the wash, never off the page, never piled,
 stable per chapter, and empty rather than crowded when there is no room); in a
-browser, chapters 1–10 on desktop and phone, landscape and portrait. Frame
-times on the map are unchanged — median 16.7 ms, p95 16.7 ms over 200 frames,
-i.e. still vsync-bound — since the whole layer is one pattern fill, two
-gradients and ~16 stroked line drawings per page.
+browser, chapters 1–10 on desktop and phone, landscape and portrait, against
+both dusty and fully restored beat cards; 809 tests.
 
 ### §8.31 Owner request, 2026-09-20 — the fight, and the book held upright
 
@@ -6851,12 +6869,42 @@ ball with a highlight. What is in now:
 - **A heavy is heavier everywhere at once** (`heft`): longer ribbon, wider
   glow, more shed — not the light spell drawn bigger.
 
-**Still to do — stage two** (this is a floor, not a finish):
-- per-SPELL signatures rather than per-element ones: the 454 combinations
-  resolve to ~60 spells, and the golden ones should each have a flourish;
-- the wards: a shield that takes a hit should crack and shatter, not blink;
+**D. Stage two — the cast, not just the element.**
+
+Stage one gave each of the twelve ELEMENTS a look. But the lead rune is only
+ever half of a spell (§6.2 step 7): Fire and Ice together is not a hot spell
+with a cold name, it is a Wet Ball, and the eye should be able to say so
+before the callout does.
+
+- **Every cast now knows what else went into it.** `mixRune` names the
+  strongest element that is not the lead, and the shot carries it (`Shot.m`).
+  It never touches the body — the body is the lead's, because the lead is
+  what the damage is scaled by — it tints the ribbon's wide pass, the rim the
+  light catches, the muzzle, and half of what the hit leaves behind. That is
+  one number, and it makes all **454 combinations** read as combinations.
+- **The golden 22 wear their own flourish.** A spell with a NAME a child
+  reads on the callout gets a mark over its body: a crown of motes riding
+  over the heavies, a counter-spinning star on the crystalline ones, chips
+  thrown off the shattering ones, a halo on the ones that whirl. Sixteen
+  entries, one per named spell that flies — a test walks the spell matrix and
+  fails if a new named spell is ever added without one. Everything else keeps
+  the plain element look, deliberately: 454 combinations cannot be
+  hand-drawn, and a flourish a child cannot name is noise.
+- **A ward reacts to what it stops.** It used to swallow a spell and not
+  move — the spell simply stopped existing in front of it. Now the shell
+  lights up and throws a ripple from the point of contact (`wardHit`), over
+  whichever of the five silhouettes is standing, and the spell's own element
+  still breaks on it.
+- **The rig.** The rear is SHAPED rather than faded: it punches to the
+  extreme in two frames and settles back with one bounce, the way an animator
+  holds an extreme. And the release kicks — the caster is shoved back off her
+  own horn and springs home. True anticipation is not available to us: the
+  shot leaves on the frame the player presses cast, and delaying it to wind
+  up would be a gameplay change, so the weight goes into the recoil instead.
+
+**Still to do — stage three** (this is a floor, not a finish):
 - the decoy, the reflect and the Love finisher deserve their own language;
-- the rig: anticipation and recoil on the cast, a flinch on the hit;
+- a flinch on the hit, to match the kick on the cast;
 - painted spell art through the art pipeline (§8.27's families), once the
   shapes have settled.
 

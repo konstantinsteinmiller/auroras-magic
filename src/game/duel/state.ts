@@ -60,6 +60,18 @@ export interface Shot {
   sp: number
   /** Already reflected once: a second Crystal Ward only blocks it. */
   rf: 0 | 1
+  /**
+   * The element MIXED into the cast (§8.31): the strongest rune in it that is
+   * not the lead. It never changes the damage — that is the lead's job — but
+   * it tints the ribbon, the rim and half of what the hit leaves behind, so
+   * Fire+Ice can be read as a wet ball before the callout says so. -1 (or
+   * absent) = a pure cast.
+   */
+  m?: number
+  /** The combo key this cast resolved to, when it is one of the golden 22:
+   *  the spells with names of their own, and the only ones that fly with a
+   *  flourish (`spellArt.SIG`). */
+  sg?: string
 }
 
 /** A floating HUD callout. `k` is an i18n key under `pop.`; `p` its params. */

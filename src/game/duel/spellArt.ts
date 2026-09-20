@@ -63,6 +63,91 @@ export const LOOK: readonly SpellLook[] = [
 
 export const lookOf = (rune: number): SpellLook => LOOK[rune] ?? LOOK[FIRE]!
 
+/* ------------------------- the combination half ---------------------- */
+
+/**
+ * A flourish carried over the body by a spell that has EARNED A NAME — the
+ * golden 22 (§6.4). Four of them, because a flourish a child cannot name is
+ * noise: a crown of orbiting motes (the heavies), a counter-spinning star
+ * (the crystalline ones), chips thrown off (the shattering ones) and a halo
+ * (the ones that whirl).
+ */
+export type Mark = 'none' | 'crown' | 'star' | 'shards' | 'halo'
+
+/**
+ * A cast's whole look: its lead element's, plus what the REST of the cast
+ * does to it.
+ *
+ * The lead rune is only ever half of a spell (§6.2 step 7). Fire and Ice
+ * together is not a hot spell with a cold name — it is a wet ball, and the
+ * eye should be able to say so before the callout does. So a cast carries a
+ * `mix`: the strongest element that is not the lead. It never touches the
+ * body (that is the lead's job, and the lead is what the damage is scaled
+ * by) — it tints the ribbon's soft pass, the rim the light catches, and half
+ * of what the hit leaves behind. All 454 combinations get it for free.
+ */
+export interface CastLook extends SpellLook {
+  /** The element mixed into this cast; -1 when it is pure. */
+  mix: number
+  mark: Mark
+}
+
+/**
+ * The golden spells' own silhouettes (§6.4). Only these 20 fly — the two
+ * barriers in the matrix are walls, not shots — and only these have names a
+ * child reads on the callout, so only these are worth hand-drawing. Every
+ * other combination is the generated look plus its `mix`.
+ */
+const SIG: Readonly<Record<string, Partial<SpellLook> & { mark: Mark }>> = {
+  '0.0': { mark: 'halo', tail: 11, shed: 34 },                        // Fire Storm
+  '0.0.0': { mark: 'crown', tail: 12, glow: 3.4, shed: 40 },          // Fire Rain
+  '1.1.1': { mark: 'halo', tail: 14, spin: 11, width: 0.9 },          // Cyclone
+  '2.2.2': { mark: 'star', tail: 10, glow: 2.8, shed: 26 },           // Blizzard
+  '3.3': { mark: 'shards', spin: 5 },                                 // Earth Shard
+  '3.3.3': { mark: 'crown', tail: 6, width: 1.05, glow: 2 },          // Boulder
+  '0.1': { mark: 'halo', tail: 12, spin: 4 },                         // Fire Ball
+  '0.2': { mark: 'star', tail: 10, glow: 3 },                         // Wet Ball
+  '0.3': { mark: 'shards', spin: 4.5, shed: 32 },                     // Magma Shard
+  '1.2': { mark: 'halo', tail: 12, spin: 6, width: 0.8 },             // Frost Gale
+  '1.3': { mark: 'shards', tail: 7, shed: 30 },                       // Sand Blast
+  '2.3': { mark: 'crown', tail: 8, width: 0.8, glow: 2.6 },           // Glacier
+  '0.1.2': { mark: 'star', tail: 13, spin: 2.6, glow: 3.4 },          // Prism Nova
+  '0.1.3': { mark: 'halo', tail: 12, shed: 36 },                      // Ash Storm
+  '0.2.3': { mark: 'shards', tail: 9, glow: 3, shed: 34 },            // Shatter
+  '1.2.3': { mark: 'halo', tail: 13, spin: 7, glow: 2.8 }             // Tempest
+}
+
+/**
+ * The element MIXED into a cast: the commonest rune that is not the lead,
+ * ties broken toward the one drawn first — the same "what did she lean on"
+ * question `dominantRune` asks, with the lead taken out of the running.
+ * Returns -1 for a pure cast, which is what "no second colour" means
+ * everywhere downstream.
+ */
+export const mixRune = (q: readonly number[], lead: number): number => {
+  let best = -1
+  let bestN = 0
+  for (let i = 0; i < q.length; i++) {
+    const r = q[i]!
+    if (r === lead) continue
+    let n = 0
+    for (const x of q) if (x === r) n++
+    if (n > bestN) {
+      bestN = n
+      best = r
+    }
+  }
+  return best
+}
+
+/** The look a cast flies with: its lead element's, its mix, and — if it is one
+ *  of the golden 22 — that spell's own flourish. */
+export const castLook = (lead: number, mix = -1, key = ''): CastLook => {
+  const base = lookOf(lead)
+  const sig = SIG[key]
+  return { ...base, ...sig, mix: mix === lead ? -1 : mix, mark: sig?.mark ?? 'none' }
+}
+
 /** `[core, light]` — the element's own two tones (`RUNES`). */
 export const tonesOf = (rune: number): readonly [string, string] => RUNES[rune] ?? RUNES[FIRE]!
 

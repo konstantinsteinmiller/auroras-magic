@@ -205,6 +205,9 @@ const SO: [number, number] = [0, 0]
 const BR = new Float32Array(8)
 /** Per side: has the bubble ward taken its first hit (a crack)? */
 const BRC = new Uint8Array(2)
+/** Per side: seconds left of the flash a ward runs when it STOPS something
+ *  (§8.31). A shield that swallows a spell without moving reads as scenery. */
+const BRH = new Float32Array(2)
 
 /* ------------------------------- spawn ------------------------------ */
 
@@ -389,10 +392,13 @@ const gather = (x: number, y: number, rune: number, _p?: number): void => {
  * held back a few frames and sweeps out over ~0.08s, so the gather is still
  * visibly closing when the spell tears out of it.
  */
-export const castBurst = (x: number, y: number, rune: number): void => {
+export const castBurst = (x: number, y: number, rune: number, mix = -1): void => {
   gather(x, y, rune)
   const dir = x < SW / 2 ? 0 : PI
   burst(x, y, 6, 300, 0.5, 14, kindOf(rune), rune, hi(rune), 0.08, 1.3, dir)
+  // The cast's OTHER element leaves with it (§8.31), in its own shape and a
+  // third of the count: a mixed spell is two colours from the first frame.
+  if (mix >= 0) burst(x, y, 3, 260, 0.45, 11, kindOf(mix), mix, hi(mix), 0.1, 1.3, dir)
   // THE MUZZLE (§8.31): a hard white ring leaving the horn on the same beat
   // as the spell, and a lick of the element's own light chasing it out. The
   // release is what a cast is; before this it was a puff.
@@ -408,7 +414,7 @@ export const castBurst = (x: number, y: number, rune: number): void => {
  * hang and drift, shards fall hard, rocks tumble down and settle on the ground.
  * `p` is power 0..1 and scales count, speed, size, wave and shake.
  */
-export const impact = (x: number, y: number, rune: number, p?: number): void => {
+export const impact = (x: number, y: number, rune: number, p?: number, mix = -1): void => {
   rune = fxRune(rune)
   p = clamp(+(p ?? 0) || 0, 0, 1)
   const k = kindOf(rune)
@@ -426,6 +432,9 @@ export const impact = (x: number, y: number, rune: number, p?: number): void => 
   // …and what it leaves behind, which is how an element is remembered: fire
   // burns on, ice settles as frost, earth hangs as dust (`spellArt.ts`).
   after(x, y, rune, p)
+  // …and the cast's other element leaves its own, quieter (§8.31): frost
+  // settling through embers is what a Wet Ball IS.
+  if (mix >= 0 && mix !== rune) after(x, y, fxRune(mix), p * 0.55)
   shakeAdd(0.22 + p * 0.55)
   flashAdd(0.1 + p * 0.3)
   stopAdd(0.026 + p * 0.05)
@@ -516,6 +525,41 @@ export const barrier = (x: number, y: number, rune: number, tt: number, cracked 
   BR[i + 3] = rune
 }
 
+/**
+ * A ward STOPPED something (§8.31). The old hit was the element's impact and
+ * nothing else, so the wall itself never reacted — the spell simply stopped
+ * existing in front of it. Now the shell lights up and throws a ripple out
+ * from where it was struck, and the spell's own element still breaks on it.
+ */
+export const wardHit = (x: number, y: number, rune: number, p = 0.35): void => {
+  BRH[x < SW / 2 ? 0 : 1] = 0.26
+  impact(x, y, rune, p)
+}
+
+/**
+ * The flash itself: the shell's own light, thrown outward as a ring from the
+ * point of contact. Drawn over whichever silhouette the ward happens to be,
+ * so all five flavours react the same way without five pieces of code.
+ */
+const drawWardFlash = (g: G2D, x: number, y: number, rune: number, h: number): void => {
+  const u = 1 - h / 0.26
+  g.save()
+  g.globalCompositeOperation = 'lighter'
+  g.globalAlpha = (1 - u) * 0.6
+  g.strokeStyle = PAL[hi(fxRune(rune))] ?? '#ffffff'
+  g.lineWidth = 7 * (1 - u) + 1.5
+  g.beginPath()
+  g.ellipse(x, y, 34 + u * 74, 44 + u * 86, 0, 0, TAU)
+  g.stroke()
+  g.globalAlpha = (1 - u) * 0.35
+  g.strokeStyle = '#ffffff'
+  g.lineWidth = 3
+  g.beginPath()
+  g.ellipse(x, y, 20 + u * 96, 26 + u * 110, 0, 0, TAU)
+  g.stroke()
+  g.restore()
+}
+
 export const heal = (x: number, y: number): void => burst(x, y, 12, 70, 1, 6, K_GLINT, C_WHITE, C_RB + 2)
 
 /** Victory: the whole vocabulary at once, in the whole rainbow, unrolling over
@@ -598,7 +642,10 @@ export const updateFx = (dt: number): void => {
   // Barriers run their own countdown back through `barrier`, so running out is
   // the same event as being torn down and shatters the same way.
   for (let i = 0; i < 8; i += 4) if (BR[i]! > 0) barrier(BR[i + 1]!, BR[i + 2]!, BR[i + 3]!, BR[i]! - dt)
-  for (let s = 0; s < 2; s++) if (BR[s * 4]! <= 0) BRC[s] = 0
+  for (let s = 0; s < 2; s++) {
+    if (BR[s * 4]! <= 0) BRC[s] = 0
+    if (BRH[s]! > 0) BRH[s] = max(0, BRH[s]! - dt)
+  }
   glow = max(0, glow - dt)
 
   S.flash = max(0, S.flash - dt * 2.6)
@@ -986,6 +1033,13 @@ export const drawFxOver = (g: G2D): void => {
   g.globalCompositeOperation = 'source-over'
   drawBar(g, 0)
   drawBar(g, 4)
+  for (let s = 0; s < 2; s++) {
+    const h = BRH[s]!
+    if (h > 0 && BR[s * 4]! > 0) {
+      const bx = BR[s * 4 + 1]!
+      drawWardFlash(g, bx + (bx < SW / 2 ? 54 : -54), BR[s * 4 + 2]! - 24, BR[s * 4 + 3]!, h)
+    }
+  }
 }
 
 /** The vignette gradient is built ONCE per context (stage space never resizes). */
@@ -1020,6 +1074,7 @@ export const resetFx = (): void => {
   P.fill(0)
   BR.fill(0)
   BRC.fill(0)
+  BRH.fill(0)
   USED.fill(0)
   live = head = glow = SO[0] = SO[1] = 0
   S.shake = S.flash = S.stop = S.punch = 0
