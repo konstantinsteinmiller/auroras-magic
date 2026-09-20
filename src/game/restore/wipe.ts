@@ -48,6 +48,7 @@ import { Eraser, eraserSize } from '@/game/restore/eraser'
 import { toolOf, type ToolId } from '@/game/campaign/tables'
 import { Sunbeam, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
 import { computeFrame } from '@/game/restore/frame'
+import { drawPotCue, drawLandmarkTarget } from '@/game/restore/potCue'
 import { makeCanvas, bakeStamp, bakeDust, eraseStamp, eraseCells, clearDust, sectorPx, bakePaddle, erasePaddle } from '@/game/restore/dust'
 import { sectorOf, type SectorDef } from '@/game/map/sectors'
 import { drawGift, drawBoxGift, drawSponge, drawEraser, giftShake, drawChest, chestRattle, drawSunbeam } from '@/game/restore/gift'
@@ -1448,6 +1449,16 @@ export const drawRestore = (g: G2D): void => {
   const chestUp = boss && phase === 'open' && giftOpenAt < tUntie + tBurst + 0.5
   if (phase === 'invite' || chestUp || (phase === 'open' && giftOpenAt < tUntie + 0.05)) drawOpeningGift(g)
   if (phase === 'paint' && !paintLanded) drawPaintFlight(g)
+  if (phase === 'pots') drawPotCue(g, {
+    pots: restoreHud.pots,
+    tones: restoreHud.potDefs.map((p) => p.base),
+    size: restoreHud.potSize,
+    lx: toCss(sec.landmark.x, sec.landmark.y)[0],
+    ly: toCss(sec.landmark.x, sec.landmark.y)[1],
+    t: S.t,
+    phaseT,
+    autoAt: T_AUTOPICK
+  })
   if (phase === 'pots') drawLandmarkCue(g)
   drawRuneReveal(g)
   const showTool = phase === 'open' ? giftOpenAt >= tUntie : phase === 'zoom' || phase === 'wipe'
@@ -1730,22 +1741,12 @@ const drawPaintFlight = (g: G2D): void => {
   g.fill()
 }
 
-/** While the pots wait: a soft, breathing ring round the blank landmark —
- *  "this is what gets coloured". */
+/** While the pots wait: the ring round the blank landmark. It is the
+ *  DESTINATION, so it is now the quieter of the two cues — `potCue.ts` owns
+ *  the loud half, over the pots themselves (§8.33). */
 const drawLandmarkCue = (g: G2D): void => {
   const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
-  const v = view()
-  const r = v.w * (0.09 + 0.012 * sin(S.t * 4))
-  g.save()
-  g.globalAlpha = clamp(phaseT / 0.4, 0, 1) * (0.55 + 0.25 * sin(S.t * 4))
-  g.beginPath()
-  g.arc(lx, ly, r, 0, TAU)
-  g.lineWidth = Math.max(3, v.w * 0.006)
-  g.strokeStyle = '#fff6c8'
-  g.setLineDash([10, 9])
-  g.lineDashOffset = -S.t * 30
-  g.stroke()
-  g.restore()
+  drawLandmarkTarget(g, lx, ly, view().w, S.t, phaseT)
 }
 
 /** The sponge's footprint while it touches: a soft ring at its core radius. */

@@ -90,21 +90,37 @@ button
   border-radius: 50%
   background: rgba(255, 244, 230, 0.92)
   box-shadow: 0 4px 0 #3A2340, 0 0 0 3px #3A2340
-  // Three pots rise from the gift, one after another (§8.7).
-  animation: pot-rise 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both
-  animation-delay: calc(var(--i) * 0.08s)
+  // Three pots rise from the gift, one after another (§8.7), and then keep
+  // BREATHING until one is chosen (§8.33). A child taps what is moving: the
+  // old pots rose once and went still while the landmark's ring went on
+  // pulsing, so the only living thing on screen was the one place she could
+  // not press. Out of phase per pot, so the row shimmers rather than blinks.
+  animation: pot-rise 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both, pot-breathe 1.9s ease-in-out infinite
+  animation-delay: calc(var(--i) * 0.08s), calc(0.42s + var(--i) * 0.28s)
   transition: transform 0.18s ease-out, opacity 0.25s
   svg
     width: 86%
     height: 86%
   &:active
+    // The press must beat the breathing, or a tap gives nothing back.
+    animation: none
     transform: scale(0.94)
+  // Chosen, or one of the two not chosen: the breathing stops either way —
+  // the question has been answered.
   &.picked
+    animation: none
     transform: scale(1.14)
   &.faded
+    animation: none
     opacity: 0.35
   &:disabled
     cursor: default
+
+// Respect the system setting (§3.11): the haloes and the drifting motes on
+// the canvas carry the invitation on their own.
+@media (prefers-reduced-motion: reduce)
+  .pot
+    animation: pot-rise 0.42s ease-out both
 
 @keyframes pot-rise
   from
@@ -113,4 +129,11 @@ button
   to
     opacity: 1
     transform: none
+
+//- A small, slow bob — the jar is waiting to be picked up, not vibrating.
+@keyframes pot-breathe
+  0%, 100%
+    transform: translateY(0) scale(1)
+  50%
+    transform: translateY(-7px) scale(1.06)
 </style>

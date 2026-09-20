@@ -7082,6 +7082,59 @@ in hidden UI is a deadlock, not a pause.
 once the shapes have settled — and the frame cost, which is still NOT
 re-measured (§8.31's note stands).
 
+### §8.33 Owner report, 2026-09-20 — the game pointed at the wrong thing
+
+*"After cleaning the picture, the next step is to select a colour and a
+yellow circle shows the destination, but nothing highlights the actual click
+targets, the 3 paint buckets. This is misleading to the player."*
+
+Exactly right, and the failure is worth naming because it was introduced by a
+cue that was, on its own, correct. The blank landmark wore a breathing dashed
+ring — "this is what gets coloured" (§8.7). The three pots rose on their
+little stagger and then went perfectly still. So the only living, glowing
+thing on the screen was the one place she cannot press, and a child taps what
+is moving. The game was telling her to tap the picture.
+
+**The invitation and the destination are now clearly different things**, and
+the pots carry the louder half (`game/restore/potCue.ts`, new):
+
+- **each pot breathes in its own colour** — a coloured wash, a small additive
+  bloom, and a RING of the pot's own hue around the jar. The ring is there
+  because a glow alone takes the colour of what is behind it: over the
+  sector's bright green grass the pink pot glowed GREEN, which is the one
+  thing this cue must never do, since the thing being chosen IS the colour.
+  An outline holds up against any backdrop the ten biomes can put behind it;
+- **the pots keep bobbing** in the DOM until one is chosen, out of phase with
+  each other so the row shimmers rather than blinks. The press beats the
+  breathing, or a tap would give nothing back;
+- **a tap ripple runs across them, one at a time** — the gesture the game
+  wants, performed on the thing it wants it performed on;
+- **motes drift from the pots to the landmark**, each carrying the colour of
+  the pot it left: three colours on their way to one place, which is the
+  question, drawn instead of written (§8.2). It is also what makes the ring
+  make sense rather than compete with the pots;
+- **the ring round the landmark is now the quieter of the two**, with grains
+  of light settling INTO it, so it reads as somewhere paint lands rather than
+  somewhere to press;
+- **and the pot the game is about to pick announces itself.** In the last
+  second before §8.7's four-second auto-pick, the cue gathers on the pot it
+  is about to take, so a child who never chose still sees WHICH one was
+  chosen and why the picture turns that colour. It announces the default; it
+  does not count down to it.
+
+Reduced motion (§3.11) keeps the whole invitation and drops the movement: the
+haloes hold at their brightest, the grains are drawn along the path instead of
+travelling it, the ripple and the bobbing stop. Nothing moves; everything
+still points.
+
+**The rule:** *a cue that says where a thing is going is not a cue that says
+what to press, and the one that says what to press must always be louder.*
+
+Pinned by `tests/ui/potCue.test.ts` — every pot marked in its OWN colour and
+never a neighbour's, the pots louder than the landmark, the auto-pick told in
+advance, and nothing clock-dependent under reduced motion. Seen in a browser
+at 1280×720 and 390×844.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

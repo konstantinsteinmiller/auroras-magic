@@ -776,6 +776,19 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
 - [x] Verified: 822 tests; a browser run of the twin, the bounce, the
   finisher and a blow landing, each set up through the duel's own state with
   the clock held.
+**After the RC — owner report (2026-09-20), story-spec §8.33:**
+- [x] **The colour step pointed at the wrong thing:** the blank landmark wore
+  the only moving, glowing cue while the three paint pots sat still, so the
+  game pointed at the destination and never at the buttons. New
+  `game/restore/potCue.ts`: each pot wears a halo AND a ring in its own
+  colour (a glow alone took the grass's colour), keeps bobbing until one is
+  chosen, wears a travelling tap ripple, and sends motes of its own colour to
+  the landmark; the landmark's ring is now the quieter of the two; and the
+  pot the 4 s auto-pick is about to take announces itself first. Reduced
+  motion keeps the invitation and drops the movement.
+- [x] Verified: `tests/ui/potCue.test.ts` (5) + 827 tests; browser runs at
+  1280×720 and 390×844.
+
 - [ ] **Left:** painted spell art through the pipeline, and the frame cost
   re-measured on a quiet machine (§8.31's note still stands).
 
