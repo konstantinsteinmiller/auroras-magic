@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Rune',
     'lockedRune': 'Una runa ancora da trovare',
+    'nextRune': 'La prossima runa che riceverai',
     'count1': 'Incantesimi con una runa',
     'count2': 'Incantesimi con due rune',
     'count3': 'Incantesimi con tre rune'

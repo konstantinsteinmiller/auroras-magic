@@ -144,6 +144,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runes',
     'lockedRune': 'Une rune encore à trouver',
+    'nextRune': 'La prochaine rune que tu recevras',
     'count1': 'Sorts à une rune',
     'count2': 'Sorts à deux runes',
     'count3': 'Sorts à trois runes'

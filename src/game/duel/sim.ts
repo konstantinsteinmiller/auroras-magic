@@ -948,6 +948,13 @@ export const resetDuel = (start?: DuelStart): void => {
 
 /** One simulation step. Called at a fixed timestep by the scene. */
 export const updateSim = (dt: number): void => {
+  // HIT-STOP (§8.31): the duel holds still for a few dozen milliseconds when
+  // something lands, so a blow reads as weight. The SIM owns the clock — a
+  // harness that steps the sim alone (every duel test) must thaw on its own.
+  if (S.stop > 0) {
+    S.stop = max(0, S.stop - dt)
+    return
+  }
   if (S.phase !== PH_DUEL) {
     S.over += dt
     if (S.resultUp) S.panelT += dt

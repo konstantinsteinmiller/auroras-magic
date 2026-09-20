@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Phù văn',
     'lockedRune': 'Một phù văn chưa tìm thấy',
+    'nextRune': 'Rune tiếp theo bạn sẽ nhận',
     'count1': 'Phép một phù văn',
     'count2': 'Phép hai phù văn',
     'count3': 'Phép ba phù văn'

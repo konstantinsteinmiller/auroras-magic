@@ -53,7 +53,7 @@ import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDue
 import { flowHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
 import { restoreHud } from '@/use/useRestoreHud'
-import { isGamePaused } from '@/use/useGamePause'
+import { isGamePaused, acquireAppPause } from '@/use/useGamePause'
 import { acquireModalOpen } from '@/use/useModalState'
 import { registerQaAdTap, breakQaAdChain } from '@/use/useQaAdTrigger'
 import { runeGift, closeRuneGift } from '@/use/useRuneGift'
@@ -384,6 +384,9 @@ const frame = (now: number): void => {
   if (!paused) {
     S.dt = dt
     S.t += dt
+    // A duel left mid-freeze (§8.31) never carries the hold into another
+    // scene: only the duel's own sim spends that clock.
+    if (S.stop > 0 && sc !== 'duel') S.stop = 0
     if (sc === 'duel') {
       // A versus match holds still while the screen is too narrow to hold
       // both halves (the chrome shows the turn-sideways prompt).
@@ -491,6 +494,22 @@ onMounted(() => {
       }
     }
     w.__frame = () => { if (g) render(g) }
+    /**
+     * Hold the game's own clock so a harness can walk a fight frame by frame
+     * (`__step` still advances it by hand). Without it the live loop runs
+     * between two round trips and a spell's whole flight — six frames — is
+     * over before a screenshot lands.
+     */
+    let held: (() => void) | null = null
+    w.__hold = () => {
+      if (!held) held = acquireAppPause()
+      return true
+    }
+    w.__release = () => {
+      held?.()
+      held = null
+      return true
+    }
     w.__musicOn = isMusicPlaying
     w.__cast = cast
     w.__stroke = (pts: number[]) => {

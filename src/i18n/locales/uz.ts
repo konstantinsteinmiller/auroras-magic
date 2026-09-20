@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runalar',
     'lockedRune': 'Hali topilmagan runa',
+    'nextRune': 'Keyingi oladigan runangiz',
     'count1': 'Bir runali sehrlar',
     'count2': 'Ikki runali sehrlar',
     'count3': 'Uch runali sehrlar'

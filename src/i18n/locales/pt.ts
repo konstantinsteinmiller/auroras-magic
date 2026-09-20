@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runas',
     'lockedRune': 'Uma runa ainda por encontrar',
+    'nextRune': 'A próxima runa que você ganhará',
     'count1': 'Feitiços de uma runa',
     'count2': 'Feitiços de duas runas',
     'count3': 'Feitiços de três runas'

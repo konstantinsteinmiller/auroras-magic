@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'รูน',
     'lockedRune': 'รูนที่ยังหาไม่เจอ',
+    'nextRune': 'รูนถัดไปที่จะได้รับ',
     'count1': 'เวทหนึ่งรูน',
     'count2': 'เวทสองรูน',
     'count3': 'เวทสามรูน'

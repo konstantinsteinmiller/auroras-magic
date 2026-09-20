@@ -142,6 +142,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runen',
     'lockedRune': 'Een rune die je nog moet vinden',
+    'nextRune': 'De volgende rune die je krijgt',
     'count1': 'Spreuken met één rune',
     'count2': 'Spreuken met twee runen',
     'count3': 'Spreuken met drie runen'

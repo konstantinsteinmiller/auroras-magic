@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'ルーン',
     'lockedRune': 'まだ見つけていないルーン',
+    'nextRune': 'つぎにもらえるルーン',
     'count1': 'ルーン1つの魔法',
     'count2': 'ルーン2つの魔法',
     'count3': 'ルーン3つの魔法'

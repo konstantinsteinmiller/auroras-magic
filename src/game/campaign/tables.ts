@@ -104,6 +104,19 @@ export const runeForNode = (n: number): number | null => {
   return nodeIsBoss(n) ? CHAPTERS[nodeChapter(n)]?.newRune ?? null : null
 }
 
+/**
+ * The rune the NEXT chest owes this player — the one to tease in the
+ * spellbook (§8.30). It is whatever `runeForNode` owes at the first node from
+ * `from` on that she has not been given yet, or null once she holds them all.
+ */
+export const nextRuneAfter = (from: number, held: number): number | null => {
+  for (let n = Math.max(0, from); n < CHAPTER_COUNT * NODES_PER_CHAPTER; n++) {
+    const r = runeForNode(n)
+    if (r !== null && !((held >> r) & 1)) return r
+  }
+  return null
+}
+
 /** A boss chest's keepsake per chapter: a cosmetic, or (ch10) the versus unlock. */
 export interface GiftDef { kind: 'cosmetic' | 'feature'; cosmeticId?: number; feature?: 'versus' }
 export const GIFTS: readonly GiftDef[] = [

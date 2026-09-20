@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': '符文',
     'lockedRune': '还没找到的符文',
+    'nextRune': '你将获得的下一个符文',
     'count1': '一个符文的法术',
     'count2': '两个符文的法术',
     'count3': '三个符文的法术'

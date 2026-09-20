@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runen',
     'lockedRune': 'Eine noch unentdeckte Rune',
+    'nextRune': 'Die nächste Rune, die du bekommst',
     'count1': 'Zauber mit einer Rune',
     'count2': 'Zauber mit zwei Runen',
     'count3': 'Zauber mit drei Runen'

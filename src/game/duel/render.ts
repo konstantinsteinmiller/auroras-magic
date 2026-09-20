@@ -11,6 +11,8 @@ import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING }
 import { S } from '@/game/duel/state'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
 import { drawDuelPage } from '@/game/duel/duelPage'
+import { lookOf, bodyRadius, heft, type Body, type SpellLook } from '@/game/duel/spellArt'
+import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
 import { drawGlyph } from '@/game/duel/glyph'
@@ -89,29 +91,238 @@ const drawVersusHalves = (g: G2D, t: number): void => {
 }
 
 /** Spells in flight: a cel-shaded blob with a hard outline. */
+/**
+ * THE SPELL IN FLIGHT (story-spec §8.31).
+ *
+ * Four layers, in the order light behaves: the glow it throws ahead of
+ * itself, the ribbon of where it has been, the body itself, and the rim the
+ * light catches on it. Each element flies as its own silhouette
+ * (`spellArt.ts`) — half of them are a shade of blue, so shape is what tells
+ * Ice from Water at arm's length.
+ *
+ * The ribbon is sampled HERE, per drawn frame, from the shot's own position:
+ * a trail is a picture of motion, not a fact about the simulation, and the
+ * sim's fixed step must not carry per-frame presentation.
+ */
+const RIBBON = new WeakMap<object, number[]>()
+
+const ribbonOf = (s: Shot, keep: number): number[] => {
+  let tr = RIBBON.get(s)
+  if (!tr) {
+    tr = []
+    RIBBON.set(s, tr)
+  }
+  const n = tr.length
+  // Only sample when it has actually moved: a held spell hanging overhead
+  // must not smear its own ribbon into a blob.
+  if (n < 2 || Math.abs(tr[n - 2]! - s.x) + Math.abs(tr[n - 1]! - s.y) > 1.5) {
+    tr.push(s.x, s.y)
+    while (tr.length > keep * 2) tr.splice(0, 2)
+  }
+  return tr
+}
+
+/**
+ * The ribbon: a tapering, fading stroke through where the shot has been.
+ *
+ * Drawn in THREE chunks per pass, not one stroke per sample: a twelve-sample
+ * ribbon stroked segment by segment is two dozen stroke calls per shot per
+ * frame, and three shots of that is a real cost on a phone. Three chunks of
+ * increasing width and alpha read as the same taper for a tenth of the work.
+ */
+const CHUNKS = 3
+const drawRibbon = (g: G2D, tr: number[], r: number, look: SpellLook, col: string, lit: string): void => {
+  const pts = tr.length / 2
+  if (pts < 3) return
+  g.save()
+  g.globalCompositeOperation = 'lighter'
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  for (let pass = 0; pass < 2; pass++) {
+    // A soft wide wash, then a bright narrow core through it.
+    const w = r * look.width * (pass ? 0.5 : 1.45)
+    g.strokeStyle = pass ? lit : col
+    for (let c = 0; c < CHUNKS; c++) {
+      const from = Math.floor((c * (pts - 1)) / CHUNKS)
+      const to = Math.floor(((c + 1) * (pts - 1)) / CHUNKS)
+      if (to <= from) continue
+      const f = (c + 1) / CHUNKS
+      g.globalAlpha = (pass ? 0.72 : 0.42) * f * f
+      g.lineWidth = Math.max(1, w * f)
+      g.beginPath()
+      g.moveTo(tr[from * 2]!, tr[from * 2 + 1]!)
+      for (let i = from + 1; i <= to; i++) g.lineTo(tr[i * 2]!, tr[i * 2 + 1]!)
+      g.stroke()
+    }
+  }
+  g.restore()
+}
+
+/** The light a spell throws around itself, additive and cheap. */
+const drawGlow = (g: G2D, r: number, reach: number, lit: string): void => {
+  const grd = g.createRadialGradient(0, 0, r * 0.2, 0, 0, r * reach)
+  grd.addColorStop(0, lit)
+  grd.addColorStop(0.45, `${lit}55`)
+  grd.addColorStop(1, `${lit}00`)
+  g.save()
+  g.globalCompositeOperation = 'lighter'
+  g.globalAlpha = 0.55
+  g.fillStyle = grd
+  g.beginPath()
+  g.arc(0, 0, r * reach, 0, TAU)
+  g.fill()
+  g.restore()
+}
+
+/** The body, in the element's own silhouette. Drawn around the origin, the
+ *  shot's heading along +x. */
+const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: number): void => {
+  const ink = '#1a1030'
+  g.lineWidth = Math.max(3, r * 0.26)
+  g.strokeStyle = ink
+  g.lineJoin = 'round'
+  g.beginPath()
+  switch (body) {
+    case 'flame': {
+      // A teardrop with a licking tip, wobbling as it burns.
+      const w = 1 + 0.12 * Math.sin(t * 26)
+      g.moveTo(r * 1.5 * w, 0)
+      g.quadraticCurveTo(r * 0.2, -r * 1.02, -r * 0.55, -r * 0.62)
+      g.quadraticCurveTo(-r * 1.25, 0, -r * 0.55, r * 0.62)
+      g.quadraticCurveTo(r * 0.2, r * 1.02, r * 1.5 * w, 0)
+      break
+    }
+    case 'gust': {
+      // Three stacked crescents, the middle one longest.
+      for (let i = -1; i <= 1; i++) {
+        const rr = r * (1 - Math.abs(i) * 0.3)
+        g.moveTo(-rr * 0.9, i * r * 0.62)
+        g.quadraticCurveTo(rr * 0.35, i * r * 0.95, rr * 1.25, i * r * 0.2)
+        g.quadraticCurveTo(rr * 0.35, i * r * 0.35, -rr * 0.9, i * r * 0.62)
+      }
+      break
+    }
+    case 'shard': {
+      g.moveTo(r * 1.5, 0)
+      g.lineTo(-r * 0.1, -r * 0.82)
+      g.lineTo(-r * 1.1, -r * 0.2)
+      g.lineTo(-r * 0.5, r * 0.5)
+      g.lineTo(r * 0.2, r * 0.86)
+      g.closePath()
+      break
+    }
+    case 'boulder': {
+      const n = 7
+      for (let i = 0; i <= n; i++) {
+        const a = (i / n) * TAU
+        const rr = r * (0.82 + 0.3 * Math.sin(i * 2.7))
+        const x = Math.cos(a) * rr
+        const y = Math.sin(a) * rr
+        if (i) g.lineTo(x, y)
+        else g.moveTo(x, y)
+      }
+      g.closePath()
+      break
+    }
+    case 'leaf': {
+      g.moveTo(r * 1.35, 0)
+      g.quadraticCurveTo(0, -r * 1.05, -r * 1.2, 0)
+      g.quadraticCurveTo(0, r * 1.05, r * 1.35, 0)
+      break
+    }
+    case 'bubble': {
+      const w = 1 + 0.1 * Math.sin(t * 17)
+      g.ellipse(0, 0, r * w, r * (2 - w), 0, 0, TAU)
+      break
+    }
+    case 'bolt': {
+      g.moveTo(r * 1.6, 0)
+      g.lineTo(-r * 0.1, -r * 0.35)
+      g.lineTo(r * 0.35, -r * 0.05)
+      g.lineTo(-r * 1.55, r * 0.45)
+      g.lineTo(-r * 0.2, r * 0.05)
+      g.lineTo(-r * 0.6, -r * 0.25)
+      g.closePath()
+      break
+    }
+    case 'wisp': {
+      // A comma of smoke: fat head, curling tail.
+      g.moveTo(r * 1.1, -r * 0.1)
+      g.quadraticCurveTo(r * 0.3, -r * 1.05, -r * 0.7, -r * 0.5)
+      g.quadraticCurveTo(-r * 1.4, r * 0.1, -r * 0.2, r * 0.75)
+      g.quadraticCurveTo(r * 0.7, r * 0.9, r * 1.1, -r * 0.1)
+      break
+    }
+    case 'prism': {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU + t * 0.6
+        const rr = r * (i % 2 ? 0.62 : 1.18)
+        const x = Math.cos(a) * rr
+        const y = Math.sin(a) * rr
+        if (i) g.lineTo(x, y)
+        else g.moveTo(x, y)
+      }
+      g.closePath()
+      break
+    }
+    case 'sand': {
+      // An hourglass on its side: two cones meeting at the waist.
+      g.moveTo(-r * 1.2, -r * 0.85)
+      g.lineTo(0, -r * 0.12)
+      g.lineTo(r * 1.2, -r * 0.85)
+      g.lineTo(r * 1.2, r * 0.85)
+      g.lineTo(0, r * 0.12)
+      g.lineTo(-r * 1.2, r * 0.85)
+      g.closePath()
+      break
+    }
+    case 'crescent': {
+      g.arc(0, 0, r * 1.1, 0.75, -0.75)
+      g.arc(r * 0.5, 0, r * 0.95, -0.95, 0.95, true)
+      g.closePath()
+      break
+    }
+    case 'heart': {
+      g.moveTo(0, r * 0.95)
+      g.bezierCurveTo(-r * 1.5, r * 0.02, -r * 0.85, -r * 1.15, 0, -r * 0.45)
+      g.bezierCurveTo(r * 0.85, -r * 1.15, r * 1.5, r * 0.02, 0, r * 0.95)
+      break
+    }
+  }
+  g.fillStyle = col
+  g.fill()
+  g.stroke()
+  // The rim the light catches, up and ahead.
+  g.beginPath()
+  g.arc(r * 0.22, -r * 0.34, r * 0.4, 0, TAU)
+  g.globalAlpha = 0.85
+  g.fillStyle = lit
+  g.fill()
+  g.globalAlpha = 1
+}
+
 const drawShots = (g: G2D): void => {
   for (const s of S.shots) {
     const [col, lit] = RUNES[s.r]!
-    const r = (s.k === 3 ? 30 : s.k === 1 ? 24 : 17) * (1 + 0.12 * Math.sin(S.t * 22))
+    const look = lookOf(s.r)
+    const hv = heft(s.k)
+    const r = bodyRadius(s.k) * (1 + look.pulse * 0.5 * Math.sin(S.t * 22))
+    // Where it has been, and therefore which way it is pointing.
+    const tr = ribbonOf(s, look.tail)
+    drawRibbon(g, tr, r * hv, look, col, lit)
+    const n = tr.length
+    const head = n >= 4
+      ? Math.atan2(s.y - tr[n - 3]!, s.x - tr[n - 4]!)
+      : s.dir > 0 ? 0 : Math.PI
     g.save()
     g.translate(s.x, s.y)
     // Delayed spells hang overhead and pulse a warning before they fall.
     if (s.delay > 0) g.globalAlpha = 0.55 + 0.45 * Math.sin(S.t * 14)
+    drawGlow(g, r, look.glow * hv, lit)
+    g.rotate(look.spin ? S.t * look.spin : head)
     if (s.r === WATER) drawBubbleShot(g, r, col, lit)
     else if (s.r === LIGHTNING) drawBoltShot(g, r * 1.15, col, lit, s.dir)
-    else {
-      g.beginPath()
-      g.arc(0, 0, r, 0, TAU)
-      g.fillStyle = col
-      g.fill()
-      g.lineWidth = 5
-      g.strokeStyle = '#1a1030'
-      g.stroke()
-      g.beginPath()
-      g.arc(-r * 0.3, -r * 0.3, r * 0.34, 0, TAU)
-      g.fillStyle = lit
-      g.fill()
-    }
+    else drawBody(g, look.body, r, col, lit, S.t)
     // A piercing shot crackles, so "this one goes through shields" can be
     // read before it lands (§6.8).
     if (s.p) {
@@ -471,7 +682,13 @@ export const render = (g: G2D): void => {
 
   const so = shakeOffset()
   const k = S.vs * d
-  g.setTransform(k, 0, 0, k, (S.vx + so[0] * S.vs) * d, (S.vy + so[1] * S.vs) * d)
+  // THE PUNCH (§8.31): the camera leans in on a hit — a couple of per cent,
+  // about the stage's own middle, so nothing slides and the blow lands in
+  // the whole frame rather than only where it hit.
+  const pz = 1 + S.punch * 0.022
+  const px = (pz - 1) * (SW / 2) * k
+  const py = (pz - 1) * (SH / 2) * k
+  g.setTransform(k * pz, 0, 0, k * pz, (S.vx + so[0] * S.vs) * d - px, (S.vy + so[1] * S.vs) * d - py)
   if (S.portrait) drawPadFrame(g)
 
   g.save()

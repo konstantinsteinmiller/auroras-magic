@@ -24,6 +24,9 @@ import { spellOf } from '@/game/duel/sim'
 import { sfx } from '@/game/duel/audio'
 import { spellName } from '@/use/useSpellName'
 import { bookHud, drawableMask, isKnown, isNewCombo, isReachable, markViewed, refreshBook } from '@/use/useBook'
+import { S } from '@/game/duel/state'
+import { nextRuneAfter } from '@/game/campaign/tables'
+import { pendingSectorNode } from '@/game/campaign/state'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import RuneTrace from '@/components/duel/RuneTrace.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
@@ -63,7 +66,11 @@ const groups = computed(() => {
 const strip = computed(() => {
   void bookHud.rev
   const mask = drawableMask()
-  return RUNE_IDS.map((id, r) => ({ r, id, open: ((mask >>> r) & 1) === 1 }))
+  // The one the next chest owes (§8.30): its silhouette is lit and carries a
+  // little chest, so a child can see what she is playing toward.
+  const cs = S.campaign
+  const next = nextRuneAfter(pendingSectorNode(cs) ?? cs.furthestNode + 1, mask)
+  return RUNE_IDS.map((id, r) => ({ r, id, open: ((mask >>> r) & 1) === 1, next: r === next }))
 })
 
 /* Tap a rune: it draws itself. */
@@ -133,12 +140,13 @@ const close = (): void => {
             v-for="s in strip"
             :key="s.id"
             role="listitem"
-            :class="{ locked: !s.open }"
-            :aria-label="s.open ? t(`rune.${s.id}`) : t('book.lockedRune')"
+            :class="{ locked: !s.open, next: s.next }"
+            :aria-label="s.open ? t(`rune.${s.id}`) : t(s.next ? 'book.nextRune' : 'book.lockedRune')"
             :aria-disabled="!s.open"
             @click.stop="trace(s.r, s.open)"
           )
             RuneTrace(:rune="s.r" :size="44" :locked="!s.open" :play="plays[s.r]")
+            GameIcon.coming(v-if="s.next" name="chest" aria-hidden="true")
         div.list(ref="list")
           section.group(v-for="grp in groups" :key="grp.n")
             h3.sect(:aria-label="t(`book.count${grp.n}`)")
@@ -239,9 +247,40 @@ const close = (): void => {
   &.locked
     background: #e5d6b4
     cursor: default
+  // The one the next chest owes (§8.30): lit, breathing, with a little chest
+  // on the corner. A child can see what she is playing toward.
+  &.next
+    position: relative
+    background: #fff2cf
+    border-color: #b9821f
+    box-shadow: 0 0 0 3px rgba(255, 201, 63, 0.55)
+    animation: next-rune 1.8s ease-in-out infinite
+    :deep(svg)
+      opacity: 0.9
+  .coming
+    position: absolute
+    right: -7px
+    bottom: -7px
+    width: 22px
+    height: 22px
+    padding: 2px
+    color: #3A2340
+    background: #ffc93f
+    border: 2.5px solid #3A2340
+    border-radius: 8px
   &:focus-visible
     outline: 3px solid var(--duel-gold)
     outline-offset: 2px
+
+@keyframes next-rune
+  0%, 100%
+    box-shadow: 0 0 0 3px rgba(255, 201, 63, 0.35)
+  50%
+    box-shadow: 0 0 0 6px rgba(255, 201, 63, 0.75)
+
+@media (prefers-reduced-motion: reduce)
+  .rune.next
+    animation: none
 
 .list
   flex: 1

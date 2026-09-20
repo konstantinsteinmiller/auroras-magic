@@ -142,6 +142,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Runy',
     'lockedRune': 'Runa, którą trzeba jeszcze znaleźć',
+    'nextRune': 'Następna runa, którą dostaniesz',
     'count1': 'Zaklęcia z jednej runy',
     'count2': 'Zaklęcia z dwóch run',
     'count3': 'Zaklęcia z trzech run'

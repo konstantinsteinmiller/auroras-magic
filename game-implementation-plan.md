@@ -729,6 +729,31 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
   CrazyGames full 42/42 — QA caught the early chests firing the portal's
   happy moment, now back to one per chapter at the boss.
 
+**After the RC — owner requests (2026-09-20), story-spec §8.31:**
+- [x] **The book in portrait:** the page is fitted to the view on both axes
+  under the chapter ribbon, centred in what is left, and clipped to its own
+  card — no more next page bleeding in under this one. Its empty middle is
+  filled with page decor: light off the paper, the chapter's own world as
+  thin marginalia, and paper grain, all placed clear of every beat card.
+- [x] **The next rune, teased:** the spellbook lights the silhouette of the
+  rune the next chest owes, with a little chest on its corner.
+- [x] **The fight, stage one** (a foundation, not a finish): `spellArt.ts`
+  gives each of the twelve elements its own body, ribbon, shed and afterlife;
+  a shot flies as glow + ribbon + silhouette + rim; a cast throws a white
+  ring off the horn; a hit lands two shockwaves, its debris and its element's
+  afterlife, plus hit-stop (26–76 ms, held by the sim) and a camera punch.
+- [x] Verified: 809 tests (incl. `tests/ui/pageDecor.test.ts`); the strike
+  chain walked frame by frame in a browser through the new `__hold`/`__release`
+  QA seams; the portrait book at 390×844, 320×658 and 768×1024.
+- [ ] **Perf is NOT re-measured** — the machine was loaded and the untouched
+  scenes moved 2–6× between runs. Before release, on a quiet machine:
+  `npx vite build --base=./ --outDir dist-perf && node scripts/perf-scenes.mjs dist-perf 4 "" land`
+  (last clean read: duel p95 4.4 ms at CPU ×4).
+- [ ] **Stage two** (still owed on the owner's "AAA" ask): per-spell
+  signatures for the golden combinations, shields that crack and shatter,
+  a language for the decoy / reflect / Love finisher, anticipation and recoil
+  on the rig, then painted spell art through the pipeline.
+
 - [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
   the intro pages, then islands and badges. Then run `pnpm slice-sheets` and
   compress.

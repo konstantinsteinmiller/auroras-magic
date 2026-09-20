@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': '룬',
     'lockedRune': '아직 찾지 못한 룬',
+    'nextRune': '다음에 받을 룬',
     'count1': '룬 1개 마법',
     'count2': '룬 2개 마법',
     'count3': '룬 3개 마법'

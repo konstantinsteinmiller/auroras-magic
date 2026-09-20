@@ -186,6 +186,7 @@ export default {
     // Read aloud: the rune strip, a rune not found yet, the three sections.
     'runes': 'Runes',
     'lockedRune': 'A rune still to find',
+    'nextRune': 'The next rune you will be given',
     'count1': 'One-rune spells',
     'count2': 'Two-rune spells',
     'count3': 'Three-rune spells'

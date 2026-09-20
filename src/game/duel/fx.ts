@@ -40,6 +40,7 @@
 import { RUNES, SW, SH, GY } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, sin, cos, rnd, min, max, clamp, atan2 } from '@/game/duel/util'
+import { lookOf } from '@/game/duel/spellArt'
 
 type G2D = CanvasRenderingContext2D
 
@@ -359,6 +360,11 @@ export const heartBurst = (x: number, y: number, k = 1): void => {
 
 export const shakeAdd = (v: number): number => (S.shake = min(1, S.shake + v))
 export const flashAdd = (v: number): number => (S.flash = min(1, S.flash + v))
+/** Hold the whole duel still for `v` seconds (§8.31). Never stacks past a
+ *  tenth of a second: a freeze the player can count is a stutter. */
+export const stopAdd = (v: number): number => (S.stop = min(0.1, max(S.stop, v)))
+/** Punch the camera in, 0..1. */
+export const punchAdd = (v: number): number => (S.punch = min(1, S.punch + v))
 
 /** Glowing motes chasing the drawing finger. `hue` is 0..1 around the wheel. */
 export const trail = (x: number, y: number, hue: number): void =>
@@ -372,7 +378,7 @@ export const trail = (x: number, y: number, hue: number): void =>
  */
 const gather = (x: number, y: number, rune: number, _p?: number): void => {
   rune = fxRune(rune)
-  burst(x, y, 7, -240, 0.27, 12, kindOf(rune), rune, C_HI + rune, 0, TAU, 0, 68)
+  burst(x, y, 5, -240, 0.27, 11, kindOf(rune), rune, C_HI + rune, 0, TAU, 0, 68)
   ring(x, y, rune, 64, -460, 0.24, kindOf(rune))
   burst(x, y, 5, 180, 0.3, 6, K_GLINT, C_WHITE, rune)
   flashAdd(0.13)
@@ -385,8 +391,16 @@ const gather = (x: number, y: number, rune: number, _p?: number): void => {
  */
 export const castBurst = (x: number, y: number, rune: number): void => {
   gather(x, y, rune)
-  burst(x, y, 9, 300, 0.5, 16, kindOf(rune), rune, hi(rune), 0.08, 1.3, x < SW / 2 ? 0 : PI)
+  const dir = x < SW / 2 ? 0 : PI
+  burst(x, y, 6, 300, 0.5, 14, kindOf(rune), rune, hi(rune), 0.08, 1.3, dir)
+  // THE MUZZLE (§8.31): a hard white ring leaving the horn on the same beat
+  // as the spell, and a lick of the element's own light chasing it out. The
+  // release is what a cast is; before this it was a puff.
+  ring(x, y, C_WHITE, 8, 1100, 0.14, K_GLINT)
+  ring(x, y, rune, 16, 520, 0.26, kindOf(rune))
+  burst(x, y, 5, 520, 0.28, 7, K_SPARK, C_WHITE, hi(rune), 0.05, 0.8, dir)
   shakeAdd(0.16)
+  punchAdd(0.16)
 }
 
 /**
@@ -404,9 +418,55 @@ export const impact = (x: number, y: number, rune: number, p?: number): void => 
   // Fire and ice (even runes) are the crisp elements and land on one beat;
   // wind and earth (odd) keep arriving. One bit of the rune buys the weight.
   burst(x, y, 7 + p * 11, 140 + p * 200, 1, 15 + p * 13, k, rune, hi(rune), 0.03 + (rune & 1) * 0.13)
+  // TWO SHOCKWAVES, not one (§8.31): a thin white one that outruns the eye,
+  // and the element's own behind it. A single ring reads as a bubble; two
+  // read as a blow.
+  ring(x, y, C_WHITE, 10, 900 + p * 700, 0.16 + p * 0.06, K_GLINT)
   ring(x, y, rune, 18, 340 + p * 240, 0.32 + p * 0.16, k)
+  // …and what it leaves behind, which is how an element is remembered: fire
+  // burns on, ice settles as frost, earth hangs as dust (`spellArt.ts`).
+  after(x, y, rune, p)
   shakeAdd(0.22 + p * 0.55)
   flashAdd(0.1 + p * 0.3)
+  stopAdd(0.026 + p * 0.05)
+  punchAdd(0.25 + p * 0.5)
+}
+
+/**
+ * THE AFTERLIFE of a hit: the layer that stays for a breath once the debris
+ * has gone. Small counts on purpose — it is an aftertaste, and it is the
+ * first thing the quality tier thins.
+ */
+const after = (x: number, y: number, rune: number, p: number): void => {
+  const n = 2 + p * 4
+  switch (lookOf(rune).after) {
+    case 'embers':
+      burst(x, y - 10, n, 46, 1.5, 5, K_GLINT, C_EMBER, hi(rune), 0.35)
+      break
+    case 'frost':
+      burst(x, y, n, 30, 1.4, 6, K_SHARD, C_WHITE, rune, 0.3)
+      break
+    case 'dust':
+      burst(x, y + 14, n, 54, 1.2, 16, K_PUFF, rune, C_WHITE, 0.2)
+      break
+    case 'swirl':
+      burst(x, y, n, 96, 1.1, 9, K_SWOOSH, rune, hi(rune), 0.25)
+      break
+    case 'petals':
+      burst(x, y, n, 52, 1.6, 7, K_LEAF, rune, hi(rune), 0.3)
+      break
+    case 'spray':
+      burst(x, y, n, 70, 1.1, 6, K_BUBBLE, rune, C_WHITE, 0.2)
+      break
+    case 'sparks':
+      burst(x, y, n + 2, 150, 0.7, 4, K_SPARK, C_WHITE, hi(rune), 0.12)
+      break
+    case 'motes':
+      burst(x, y, n, 26, 1.7, 5, K_GLINT, hi(rune), rune, 0.4)
+      break
+    default:
+      break
+  }
 }
 
 /**
@@ -471,6 +531,11 @@ export const rainbowBurst = (x: number, y: number, k = 1): void => {
 
 export const updateFx = (dt: number): void => {
   dt = min(0.05, dt > 0 ? dt : 0) // junk/negative -> 0; a tab-switch spike can't teleport
+  // HIT-STOP (§8.31): the frame still draws, but nothing in it moves — the
+  // blow, held. The sim spends the clock; the camera holds its punch for the
+  // length of the freeze and eases out after it.
+  if (S.stop > 0) return
+  S.punch = max(0, S.punch - dt * 3.4)
   T += dt
   USED.fill(0)
 
@@ -957,7 +1022,7 @@ export const resetFx = (): void => {
   BRC.fill(0)
   USED.fill(0)
   live = head = glow = SO[0] = SO[1] = 0
-  S.shake = S.flash = 0
+  S.shake = S.flash = S.stop = S.punch = 0
 }
 
 export const fxCount = (): number => live

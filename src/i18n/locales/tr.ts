@@ -142,6 +142,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Rünler',
     'lockedRune': 'Henüz bulunmamış bir rün',
+    'nextRune': 'Alacağın sonraki rün',
     'count1': 'Tek rünlü büyüler',
     'count2': 'İki rünlü büyüler',
     'count3': 'Üç rünlü büyüler'

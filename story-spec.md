@@ -391,10 +391,10 @@ self-checking.
     interstitial stays in the duel controller (§4.9.3) and is unchanged by
     D3 — it still fires after wins and losses exactly as before.
   - **The Boss Chest + Sunbeam** (M8): chapter 1's node 5 is a boss, and a
-    boss ships at S2 — so the Sunbeam's aim-and-release band-sweep and the
-    boss sector's 4×-area mask (M5) land here, not deferred to S4 with the
-    rest of C10's tool roster. §7.5 tunes the sweep so the 4× sector still
-    clears in ~45 s.
+    boss ships at S2 — so the Sunbeam's aim-and-release fan and the boss
+    sector's 4×-area mask (M5) land here, not deferred to S4 with the rest
+    of C10's tool roster. §7.5 tunes the fan so the 4× sector clears in no
+    more than three shots (~10 s).
   - Save schema v2: `S.campaign` nested object, `am_schema = 2`, the single
     migration function (C28) — new keys in `src/keys.ts` (`CAMPAIGN_KEY =
     'am_campaign'`, `SCHEMA_KEY = 'am_schema'`; M23 confirms both are
@@ -428,7 +428,7 @@ self-checking.
 - **Exit demo:** a fresh save boots to node 1-1's dialogue → duel → win →
   gift (+ interstitial if due) → map → unbox → wipe → reveal → map with 1-2
   pulsing → … through the 1-5 boss → its ornate Boss Chest opens → a
-  Sunbeam sweep clears the 4×-area boss sector in ~45 s → chapter 1 shows
+  Sunbeam fan clears the 4×-area boss sector in three shots (~10 s) → chapter 1 shows
   fully restored on the map. A loss at any node: doze-off → interstitial if
   due → retry or map, Dream Dust visibly easing the retry (C13). A
   completed node replays without a gift (C24). A Step-1 dev save loads
@@ -469,9 +469,8 @@ self-checking.
   for the S2+S3 key volume across all 21 locale files; `released: false`
   flags in `S.campaign` gating chapters 4–10's (not-yet-existing) data.
 - **Exit demo:** `pnpm qa:portal` green on every configured platform; a
-  full 1-1 → 3-5 playthrough (~17 min for 3 chapters, out of a ≈61.5 min
-  full campaign, per the Numbers section's corrected 5.7 min/chapter,
-  §7/N-13); `pnpm build:all` produces archives inside the existing size
+  full 1-1 → 3-5 playthrough (~15.5 min for 3 chapters, out of a ≈55.1 min
+  full campaign, per the Numbers section's 5.15 min/chapter, §7/N-13); `pnpm build:all` produces archives inside the existing size
   budget; a fresh save and a migrated Step-1 dev save both boot clean.
 - **Agent-days: 9–13** (bumped from the previous draft's 8–11 by the ch2
   guard-flavour re-estimate, M19/I-21).
@@ -1150,18 +1149,18 @@ targeted at exactly this kind of shape.
 Corrected per N-15/M29 — the old 5.5 min / 60 min pair did not compose and
 is withdrawn. This chapter now derives its numbers directly from the
 ratified per-node duel time only (RULINGS numbers block: standard node
-≈ 56 s (≈ 53 s once the Eraser arrives), boss node ≈ 120 s; chapter ≈ 5.5–5.7 min;
-campaign ≈ 61.5 min including +10 % for map browsing; a 10-minute session ≈ 1.8
+≈ 56 s (≈ 53 s once the Eraser arrives), boss node ≈ 85 s; chapter ≈ 4.9–5.2 min;
+campaign ≈ 55.1 min including +10 % for map browsing; a 10-minute session ≈ 2.0
 chapters; §7.7 owns these figures).
-Wipe time (C10: ≈ 15 s standard, ≈ 45 s boss) is already **inside** those node figures, not added
+Wipe time (≈ 15 s standard, ≈ 10 s boss since the 2026-09-20 Sunbeam retune) is already **inside** those node figures, not added
 on top of these figures — that additive step is exactly what made the
 withdrawn numbers fail to compose — so it is called out separately below
 rather than folded back in.
 
 - **At 56 s per standard node: 5 min ≈ 5 nodes; 15 min ≈ 16 nodes**
-  (300 / 56 ≈ 5.4; 900 / 56 ≈ 16.1). Against the ratified 5.7 min/chapter
-  figure, that is roughly **0.9 chapters at 5 minutes and ≈ 2.6 chapters
-  at 15 minutes** — consistent with §7.7's anchor of 10 min ≈ 1.8
+  (300 / 56 ≈ 5.4; 900 / 56 ≈ 16.1). Against the ratified 5.15 min/chapter
+  figure, that is roughly **1.0 chapters at 5 minutes and ≈ 2.9 chapters
+  at 15 minutes** — consistent with §7.7's anchor of 10 min ≈ 2.0
   chapters.
 - **Target for this audience: 5–15 minute sittings**, with a clean stop
   point after every completed node (never mid-duel, never mid-wipe — the
@@ -1174,7 +1173,7 @@ rather than folded back in.
   boss run would violate this and needs a new ruling before it ships.
 - **Wipe time is already INSIDE the node figures above.** §7.7's 56 s
   standard node = 9 s dialogue + 25 s duel + 4 s unbox + 15 s wipe + 3 s
-  reveal, and the boss's 45 s wipe is inside its 120 s. §7.7 owns this
+  reveal, and the boss's 10 s wipe is inside its 85 s. §7.7 owns this
   arithmetic. Both fit comfortably inside a 15-minute ceiling; a session is allowed to end AT a
   boss's big reveal rather than push into the next chapter — the map (§8)
   already gives that a satisfying stopping visual (a newly restored
@@ -1399,7 +1398,7 @@ Colour-me placement corrected per M20/I-22: it sits right after unbox's tool-flo
 | 8 | Colour-me pick (§8.7) — 3 paint pots rise alongside the tool the instant step 7's tool-float finishes; tap one (≥56 px target, §3.4) or auto-pick after **4 s** idle | 0–4 s (player-paced, capped) | every sector has exactly one colour-me landmark (§8.7 — unconditional, not "if this sector has one"); still scene `unbox`, resolves BEFORE the wipe starts |
 | 9 | `unbox` → `wipe`: zoom in, camera locks | **400 ms** ease | camera lock takes effect the instant the zoom starts — no pan/pinch input is read from the first frame of step 9 |
 | 10 | Wipe | **target 15 s** (§C10) | §8 owns the interaction; this chapter owns steps 6, 9, 11–13 |
-| 11 | Auto-complete: coverage ≥ 85 % AND pointer idle ≥ 1.5 s (§8.6/C25) → reveal fires. OR the player reaches 100 % by hand → reveal fires immediately, sweep step skipped | 0–∞ (player-paced) | §8.6's exact rule, not a flat timer |
+| 11 | Auto-complete: coverage ≥ 85 % (or §8.6's graceful finish: the sector LOOKS clean) AND pointer idle ≥ 1.5 s (§8.6/C25) → reveal fires. OR nothing visible is left at all, or the player reaches 100 % by hand → reveal fires immediately, sweep step skipped | 0–∞ (player-paced) | §8.6's exact rule, not a flat timer |
 | 12 | Reveal (§8.6's real breakdown, standard sector) — input freeze, then one directional wipe-wave from the player's last touch point to the sector's far edge (white-hot leading edge ~120 ms, then true colour bleeds in), 40–60 staggered glints, a scaled-down flourish at chime steps 9–10 | **550 ms freeze + 420 ms sweep** (no single stated total — cite the breakdown, per I-31) | §8/§9 own the look |
 | 13 | `wipe` → `map`: zoom out, back to idle `map` at the SAME pan offset it had before step 6 | **400 ms** | `sectorsDone` bit set, `wipeCoverage` cleared; `pendingSectorNode` now resolves null; next node's hit-circle starts breathing (§3.4); the just-restored sector is now eligible for the Twin Gift offer (step 13a) |
 | 13a | Twin Gift offered beside the just-restored sector, on the idle `map` | until pressed-and-held, or ignored | **win only** — a loss has no restored sector to bloom (§3.2.4; D3 removes that offer entirely on a loss); gated by the same **1.2 s press-and-hold** as §3.3.4; grants a permanent cosmetic bloom of that sector — extra animated critters/flowers plus a gentle sparkle, via the existing capped prop system; no power, no progress; one bloom per sector, ever (50 at most); absent when `VITE_CHILD_DIRECTED` (§C2); D3 (2026-09-18) supersedes F25's coin payload — the story build has no currency |
@@ -1811,7 +1810,7 @@ stay behind as the `duel` scene's controller.
 | `duel` | loss, player taps "retry" | `duel` (same node) | campaign | S2 |
 | `duel` | (versus) either side's HP hits 0 | `versusSetup` | — | S5 |
 | `unbox` | burst animation completes (~1 s, no input); `onUnboxComplete(node)` (§4.8.1, R-1b) runs first | `wipe` (node) | — | S1 |
-| `wipe` | 85 %+coverage, 1.5 s idle grace elapses (C25); reveal plays out | `map` | — | S1 |
+| `wipe` | 85 %+coverage — or §8.6's graceful finish — and the 1.5 s idle grace elapses (C25); reveal plays out | `map` | — | S1 |
 | `wardrobe` | tap "done" / back affordance | `map` | — | S4 |
 | `versusSetup` | both sides ready | `duel` | versus | S5 |
 | `versusSetup` | back affordance | `map` | — | S5 |
@@ -4914,7 +4913,11 @@ tighter than it did before tuning, not looser.
 **Targets (C10):** standard sector 15s with the Stardust Brush, **12s with
 the Magic Eraser** (both inside the 12-20s acceptable band — R-12 makes
 these two figures apply to the SAME constant sector area, not two different
-sector sizes), boss biome 45s (35-60s).
+sector sizes), boss biome **≈10s, and never more than THREE shots of the
+Sunbeam** (owner, 2026-09-20). The 45s / 13-sweep figure this section carried
+before is WITHDRAWN: at thirteen aim-pull-release cycles the boss wipe had
+stopped being a spectacle and become a chore, which is the one thing these
+targets exist to prevent.
 
 **Formula:** `T = coverage × sectorArea / (brushDiameter × wipeSpeed × pathEfficiency)`,
 `coverage = 0.85`.
@@ -4937,7 +4940,7 @@ stays a roughly constant real CSS px/s regardless of how large or small the
 sector renders. So on a small-phone viewport (scale factor below 1), the SAME
 physical finger speed covers a bigger fraction of the (smaller-rendered)
 sector per second than this section's reference numbers assume, and wipes
-measurably run FASTER than the 15s/12s/45s targets; on a bigger-than-reference
+measurably run FASTER than the 15s/12s targets and the Sunbeam's three-shot contract; on a bigger-than-reference
 device (tablet/desktop, scale factor above 1), the same swipe covers less of
 the sector per second, so wipes run SLOWER. This is expected, not a defect in
 the numbers below — they are reference figures for the scale-1 case. **Telemetry
@@ -4986,17 +4989,38 @@ area at the same speed.
   now-removed Eraser-era area; this is what §8.4/§8.14 should cite from here
   on.
 
-  **Re-solved tool parameters** for the smaller, corrected boss area,
-  aim-and-release (a different interaction model from a dragged brush):
-  `sweepsNeeded = ceil(0.85 × bossSectorArea / bandArea)`, total time =
-  `sweepsNeeded × sweepDuration`, target ≈45s (35-60s band, C10). Propose
-  `bandArea ≈ 85,000 RVU²` (~292×292 RVU per sweep — smaller than this
-  chapter's previous 150,000 RVU², because the boss area itself shrank by
-  ≈44% under the corrected ratio) and `sweepDuration ≈ 3.5s` (aim + release +
-  travel + settle, unchanged): `ceil(0.85 × 1,270,600 / 85,000) = 13` sweeps
-  `× 3.5s = 45.5s` — squarely on the ~45s target. `bandArea`/`sweepDuration`
-  remain §8's feel numbers to tune around this fixed area; this is the
-  arithmetic scaffold they tune against.
+  **Re-solved tool parameters — the FAN (owner, 2026-09-20).** The band no
+  longer travels at a constant width. The light leaves the staff at a THROAT
+  width and SPREADS as it flies, gaining a fixed half-width per unit
+  travelled up to a ceiling of the sector's short side. A shot is therefore a
+  WEDGE, not a lane — and the widest part of it lands furthest from the press
+  point, which is also the part a child aims at least precisely, so the
+  spread buys accuracy as well as area.
+
+  Shipped (`src/game/restore/sunbeam.ts`, sizes in SECTOR UNITS — the sector
+  is 1152 × 672 SU): `BEAM_W = 240` (throat), `BEAM_SPREAD = 0.24` (half-width
+  gained per SU), cap `BEAM_MAX_W = SEC_H = 672`, `BEAM_SPEED = 980 SU/s`,
+  `BEAM_RECHARGE = 0.35s` (was 0.6s — three shots should flow, not queue).
+
+  The old back-solve `ceil(0.85 × area / bandArea)` no longer applies: a
+  wedge's swept area depends on where it is fired FROM, so there is no single
+  `bandArea` to divide by. The target is stated as a CONTRACT instead, gated
+  from both ends by simulation on the real beam and coverage model
+  (`tests/restore/sunbeamTiming`, `tests/restore/sunbeamBot`):
+
+  | Case | Result |
+  |---|---|
+  | Three shots fired from an edge — across, down, or fanned from one rim spot | **always ≥ 85 %**: measured 100 % / 95.6 % / 94.4 % |
+  | The best single shot there is (edge mid-point, straight down the long axis) | **80.9 %** — under the 85 % rule, so one shot can never finish |
+  | A middling aimer (`sunbeamBot`, 10 seeds) | **2.8 shots / 8.8 s** mean, 4 shots worst case |
+  | A careless aimer (`looks: 1` — aims at random dust) | 9 shots / 21 s worst case (was 14 shots / 33 s) |
+
+  **Both ends of that table are load-bearing.** A tool that finishes in one
+  tap is not an easier tool, it is a deleted one; the 80.9 % single-shot
+  ceiling is what keeps the boss sector a two-or-three-shot performance
+  rather than a button. The throat width, the spread and the recharge remain
+  §8's feel numbers to tune — the contract above is what any retune must
+  still satisfy.
 
 ### §7.6 Coverage-grid reconciliation (NUM-10, resolved)
 
@@ -5042,24 +5066,27 @@ by era too:
   4s + wipe 15s + reveal beat ≈ 3s. `9+25+4+15+3 = 56`.
 - **Standard node, Eraser era (ch.3's boss onward) ≈ 53s**: same breakdown
   with the 12s Eraser wipe target instead: `9+25+4+12+3 = 53`.
-- **Boss node ≈ 120s** (unchanged by R-12 — bosses always use the Sunbeam,
-  not the standard brush): dialogue (3 opener/boss bubbles + 2 thank-you,
-  C12) ≈ 18s + duel ≈ 35s (blended target) + chest unbox ≈ 7s + wipe 45s +
-  reveal/rune-or-Signature-Spell unlock ≈ 15s. `18+35+7+45+15 = 120`.
-- **Chapter 1-3 (Stardust) = `4×56 + 120 = 344s ≈ 5.73 min` each** (unchanged).
-  **Chapter 4-10 (Eraser) = `4×53 + 120 = 332s ≈ 5.53 min` each** (down from
-  344s, since the standard wipe itself is 3s faster).
-- **Campaign (10 chapters) = `3×344 + 7×332 = 3,356s = 55.9 min`**, +10% for
-  map traversal/admiring (GDD's explicit "scroll back" beat, C29) **`≈ 61.5
-  min`** (down from the previous pass's 63 min, entirely from the Eraser-era
-  wipe getting faster).
-- **Session:** average chapter time is now `3,356/10 = 335.6s`, so at a
-  600s (10-min) Playgama/Playables target, `600 / 335.6 ≈ 1.79` →
-  **≈1.8 chapters per 10-minute session** (up slightly from the previous
-  pass's 1.7, since most of the campaign — chapters 4-10 — got a bit
-  shorter). A full campaign is **≈5.6 sessions** for a daily returning
-  player (`10 / 1.79`); the post-campaign loop (Prism-tier replay, spellbook
-  completion, wardrobe, 2P) carries retention past that.
+- **Boss node ≈ 85s** (bosses always use the Sunbeam, not the standard
+  brush; re-solved 2026-09-20 against §7.5's three-shot Sunbeam — was 120s
+  on the withdrawn 45s wipe): dialogue (3 opener/boss bubbles + 2 thank-you,
+  C12) ≈ 18s + duel ≈ 35s (blended target) + chest unbox ≈ 7s + wipe 10s +
+  reveal/rune-or-Signature-Spell unlock ≈ 15s. `18+35+7+10+15 = 85`.
+- **Chapter 1-3 (Stardust) = `4×56 + 85 = 309s ≈ 5.15 min` each** (down from
+  344s: every chapter ends on a boss, and the boss wipe lost 35s).
+  **Chapter 4-10 (Eraser) = `4×53 + 85 = 297s ≈ 4.95 min` each** (down from
+  332s, same cause plus the 3s-faster standard wipe).
+- **Campaign (10 chapters) = `3×309 + 7×297 = 3,006s = 50.1 min`**, +10% for
+  map traversal/admiring (GDD's explicit "scroll back" beat, C29) **`≈ 55.1
+  min`** (down from 61.5 min — the whole 6.4 min is the three-shot Sunbeam,
+  35s × 10 bosses).
+- **Session:** average chapter time is now `3,006/10 = 300.6s`, so at a
+  600s (10-min) Playgama/Playables target, `600 / 300.6 ≈ 2.00` →
+  **≈2.0 chapters per 10-minute session** (up from 1.8). A full campaign is
+  **≈5.0 sessions** for a daily returning player (`10 / 2.00`); the
+  post-campaign loop (Prism-tier replay, spellbook completion, wardrobe, 2P)
+  carries retention past that. **A shorter campaign is the cost of the
+  three-shot Sunbeam and was taken knowingly** — the 6.4 min came out of the
+  one stretch of the game a player was most likely to put the phone down in.
 
 **Correction chain, for the record:** RULINGS.md's original shared-numbers
 block ("Chapter ≈5.5 min, Campaign ≈60 min, session ≈2 chapters") didn't
@@ -5067,10 +5094,11 @@ compose from the ratified 56s/120s node times even before this chapter
 touched anything (N-13/M29 caught that). The immediately preceding pass
 corrected it to a single 5.7 min/63 min/1.7-chapters figure, assuming one
 flat 15s standard wipe everywhere. **R-12 supersedes that single figure**
-with the two-tier 5.73/5.53 min-per-chapter split above, landing the
-campaign total at ≈61.5 min and the session figure at ≈1.8 chapters — these
-are the current, authoritative numbers; anywhere still citing 5.5/60/2 OR
-the previous pass's flat 5.7/63/1.7 should update to this two-tier version.
+with a two-tier min-per-chapter split; the 2026-09-20 Sunbeam retune then
+re-solved both tiers downward. The current, authoritative numbers are the
+**5.15/4.95 min-per-chapter split above, a campaign total of ≈55.1 min and
+a session figure of ≈2.0 chapters**; anywhere still citing 5.5/60/2, the
+flat 5.7/63/1.7, or R-12's 5.73/5.53/61.5/1.8 should update to these.
 
 ### §7.8 Ad cadence under F25 — resulting ads per session/hour
 
@@ -5251,8 +5279,8 @@ report that a session ended some OTHER way.
 | `reward_claim` | `{sectorId, kind: 'bloom'}` | `GameScene.vue`'s Twin Gift handler, on a successful press-and-hold claim | **updated (D3)** — payload changed from the coin-era `{kind: 'double'|'consolation', coins}` shape; the Twin Gift now pays exactly one permanent cosmetic bloom per sector (50 max, ever), offered on the map right after a sector's reveal, win-only, gated by the existing 1.2s press-and-hold gate and 6-per-5-min `canOfferReward` limiter — there is no loss-side offer |
 | `ad_interstitial_shown` | `{trigger: 'win'|'loss', sinceLastMs, sessionElapsedMs}` | `GameScene.vue` `maybeShowInterstitial()`, right after `markInterstitialShown()` | **new** — this is what turns §7.8's computed 28/hour into a measured number, and is the metric D8 needs if the owner ever revisits the session cap |
 | `wipe_start` | `{sectorId, chapter, isBoss, tool, sectorAreaRvu2}` | new wipe module (`src/game/restore/`, per M16 — not yet built) | new — supporting event, not part of M7's canonical pair; kept for `coverage85AtMs`'s baseline. Field renamed `sectorAreaRvu2` (was `sectorAreaPx2`) to match §7.5's RVU convention (R-5) |
-| **`wipe_complete`** | `{sectorId, chapter, isBoss, tool, durationMs, coverage85AtMs, coveragePct, strokeOrSweepCount, manualTo100, rescueFound}` | same new module (`src/game/restore/`) | **canonical (M7)** — supersedes this chapter's Round-2 draft (which lacked the last three fields) and §8.13's separately-defined `restore_wipe` (retired alias, folded in here). `coverage85AtMs`: ms from wipe start to first crossing 85% (checks C25's 1.5s idle grace and this chapter's 15s/12s/45s targets). `coveragePct`: final coverage at completion (usually ≥85%, may be 100 if `manualTo100`). `manualTo100`: true if the player kept wiping past the 85% auto-complete pop to full coverage (a completionist signal, §8's to interpret). `rescueFound`: true if §8's rescue-assist for a coarse-grid-missed spot ever triggered during this wipe (inherited from §8.13's definition; §8 owns the mechanic, this chapter only owns the event's existence and firing point). **Also the event R-5 relies on**, segmented by viewport class, to check whether real wipe durations track the reference-scale targets |
-| `wipe_interrupted` | `{sectorId, pctAtInterrupt, reason}` | same new module (`src/game/restore/`) — fires instead of `wipe_complete` when the restore view is left before 85% coverage (e.g. the player backs out to the map, or a platform pause/interruption per `useGamePause` ends the session there) | **new (R-14)** — `reason` is a small enum (`'left' | 'platformPause' | 'other'`); this is what tells §7.5/§8 whether the 15s/12s/45s targets are being abandoned rather than just measured slow, which `wipe_complete.durationMs` alone can't distinguish |
+| **`wipe_complete`** | `{sectorId, chapter, isBoss, tool, durationMs, coverage85AtMs, coveragePct, strokeOrSweepCount, manualTo100, graceFinish, rescueFound}` | same new module (`src/game/restore/`) | **canonical (M7)** — supersedes this chapter's Round-2 draft (which lacked the last three fields) and §8.13's separately-defined `restore_wipe` (retired alias, folded in here). `coverage85AtMs`: ms from wipe start to first crossing 85% (checks C25's 1.5s idle grace and this chapter's 15s/12s targets and the Sunbeam's three-shot contract). `coveragePct`: final coverage at completion (usually ≥85%, may be 100 if `manualTo100`). `manualTo100`: true if the player kept wiping past the 85% auto-complete pop to full coverage (a completionist signal, §8's to interpret). `graceFinish`: true if §8.6's graceful finish (owner, 2026-09-20) ended the wipe — the sector LOOKED clean before the arithmetic reached 85 %, so `coveragePct` may read below 85. `rescueFound`: true if §8's rescue-assist for a coarse-grid-missed spot ever triggered during this wipe (inherited from §8.13's definition; §8 owns the mechanic, this chapter only owns the event's existence and firing point). **Also the event R-5 relies on**, segmented by viewport class, to check whether real wipe durations track the reference-scale targets |
+| `wipe_interrupted` | `{sectorId, pctAtInterrupt, reason}` | same new module (`src/game/restore/`) — fires instead of `wipe_complete` when the restore view is left before 85% coverage (e.g. the player backs out to the map, or a platform pause/interruption per `useGamePause` ends the session there) | **new (R-14)** — `reason` is a small enum (`'left' | 'platformPause' | 'other'`); this is what tells §7.5/§8 whether the 15s/12s targets and the Sunbeam's three-shot contract are being abandoned rather than just measured slow, which `wipe_complete.durationMs` alone can't distinguish |
 
 **Explicitly out of this chapter's lane** (belongs to whichever chapter owns the
 feature, flagged so it isn't silently missing): map/wardrobe/spellbook
@@ -5273,7 +5301,7 @@ portal's own retention dashboard. Nothing in this chapter gates on a D1 target.
 | `onboarding` ramp (0.7→1.0 over 6 duels) | §7.2 | `duel_end.duelsPlayedTotal` × `won`, specifically for the first 6 duels ever — the exact segment C13's ramp targets |
 | `dreamDust` curve (0.08/loss, floor 0.6) | §7.4 | `duel_end.lossStreak` × `won` — does the measured cumulative-within-3-attempts rate actually clear the amended target's ≥95% clause (§7.2/§7.4) |
 | Standard/boss HP curves | §7.2 | `duel_end` win rate by `chapter`/`isBoss`, checked against `tests/duel/balance.test.ts`'s regression pins |
-| Wipe brush/speed/efficiency | §7.5 | `wipe_complete.durationMs`/`coveragePct`/`strokeOrSweepCount` vs. the 15s (Stardust)/12s (Eraser)/45s (Sunbeam) targets, segmented by viewport class per R-5 |
+| Wipe brush/speed/efficiency | §7.5 | `wipe_complete.durationMs`/`coveragePct`/`strokeOrSweepCount` vs. the 15s (Stardust)/12s (Eraser) targets and the Sunbeam's ≤ 3-shot / ≈10s contract, segmented by viewport class per R-5 (the Sunbeam's fan is sized to the SECTOR, not the finger, so its figure should NOT drift with viewport class — if it does, something is wrong) |
 | 24×14 coverage grid size | §7.6 | qualitative only (does 85% ever feel like it missed something) — no numeric telemetry needed, a fixed grid is cheap to keep as-is unless §12's playtests flag it |
 | Twin Gift bloom pacing (1 per sector, 50 lifetime cap, 6-per-5-min limiter) | §7.9/D3 | no numeric tuning needed — the reward is a fixed one-per-sector cosmetic with no price curve; `reward_claim` volume is only a lifetime-cap/limiter sanity check, not a balance lever (removed the old `winCoins`/`rankPrice`/rank-cap row here per D3, since there is no currency left to tune) |
 | `INTERSTITIAL_MIN_GAP_MS`/`FIRST_INTERSTITIAL_AFTER_MS` | owner's F25 values, unchanged here | `ad_interstitial_shown` volume vs. §7.8's 28/hour figure — this is D8's number if the owner revisits it |
@@ -5388,8 +5416,8 @@ Two regimes exist and cross over at `shortSide ≈ 514 px` (where `36 px == 7 % 
 **Sunbeam** `[S2]` (see §8.2 — it ships with the Boss Chest, not held back to S3) — boss chests only, never reusable after its one biome reveal (it retires to the trophy rack, §3's tent flow / §8.9's shrine-adjacent display — final placement is §3's call).
 - Interaction is aim-and-release, not drag-scrub — the fantasy is aiming, not scrubbing:
   - **Aim:** press-drag sets an origin and heading, slingshot-style. Max pull distance = 30 % of `shortSide` (capped so a small hand can't overdraw). No timer on the aim.
-  - **Release:** the beam auto-travels along that heading, clearing a straight band, then recharges for another aimed shot (reusing the `gather()` anticipation convention in `fx.ts` — shapes rush inward before the next beam is ready — so the player is never left with nothing happening between shots).
-  - **Band width, travel speed and shot count are §7.5's numbers, not this chapter's.** §7.5 owns the back-solve that makes a boss sector (4× a standard sector's area, §8.14) clear in ~45 s (35–60 s acceptable) with this aim-release model; §8 does not restate them here, to avoid two competing sources of truth. What belongs to this chapter is the FEEL around whatever §7.5 lands on: the slingshot aim, the gather-beat recharge, and the sparkle/audio layering below (§8.5).
+  - **Release:** the beam auto-travels along that heading as a FAN — narrow at the staff, spreading as it flies — clearing everything the wedge crosses, then recharges for another aimed shot (reusing the `gather()` anticipation convention in `fx.ts` — shapes rush inward before the next beam is ready — so the player is never left with nothing happening between shots). The aiming guide draws the WEDGE, edges and all, not a lane: what the release clears is exactly what the guide promised.
+  - **Throat width, spread, travel speed and shot count are §7.5's numbers, not this chapter's.** §7.5 owns the contract that makes a boss sector (4× a standard sector's area, §8.14) clear in **no more than three shots** (≈10 s) with this aim-release model, and that no single shot can finish it; §8 does not restate them here, to avoid two competing sources of truth. What belongs to this chapter is the FEEL around whatever §7.5 lands on: the slingshot aim, the gather-beat recharge, and the sparkle/audio layering below (§8.5).
 - No dwell, no speed response — the Sunbeam is the "conductor, not scrubber" tool.
 
 ### §8.5 Wipe feel: brush, speed response, sparkle, chime ladder, audio layering
@@ -5438,6 +5466,39 @@ Speed response and sparkle density are specified per tool in §8.4. This section
 > **Superseded in part by §8.25 (owner, 2026-09-19):** the pots now rise
 > AFTER the reveal, not before the wipe, and the landmark is cleaned blank
 > and coloured last.
+
+> **Widened by the GRACEFUL FINISH (owner, 2026-09-20).** The 85 % rule is
+> honest arithmetic over `coverage01`, and it counts dust far too thin to
+> make out over the painting underneath. A child who has been over the sector
+> twice is looking at a picture that reads as restored while the model still
+> says 80 %, stops — and nothing happens, with nothing visible left to aim at.
+> So the auto-complete now fires on EITHER the arithmetic or the LOOK:
+>
+> - **The look** = at least **95 % of the sector** holding no visible dust,
+>   **and** no solid chunk of dust left anywhere — measured as the dustiest
+>   8 × 8 sample window (96 × 96 SU, a 2 × 2 cell blotch, ~8 % of the sector's
+>   width) being under 60 % full. The window, not a connected-area measure:
+>   what a wipe leaves behind is mostly the thread network of stroke rims, and
+>   those all touch, so "biggest connected patch" calls a web of hairlines one
+>   enormous chunk. A missed SPOT is solid; hairlines are not.
+> - **Two visibility floors**, because "still scrubbing" and "stopped" are
+>   different questions. While the tool is moving, only dust at or under **18 %**
+>   opacity is discounted, and a sector that clean finishes AT ONCE, mid-stroke
+>   — there is nothing left the player could aim at, and C25's idle grace would
+>   never elapse for a child who keeps scrubbing. Once the tool has rested out
+>   the same **1.5 s** idle grace, the floor drops to **32 %**: a player who has
+>   put it down has said they believe it is done, and an even haze too thin to
+>   read is not worth a dead end.
+> - **One first pass leaves 45 %** (§8.4) — above both floors — so a single
+>   sweep of the sector still never finishes it, and a big visible chunk still
+>   blocks the finish however clean the rest is. That is the whole point of the
+>   wipe, and it is unchanged.
+> - **The progress ring** (§3.3.5) now fills to whichever finish line is
+>   nearer, so "you can stop now" is never a lie about a sector that has
+>   stopped looking dusty. A chunk still showing holds it just short of full.
+> - `wipe_complete` carries **`graceFinish`** (§12.4): the finish came from the
+>   look rather than from 85 %. How often it fires is how the two floors get
+>   tuned.
 
 ### §8.7 Colour-me pots
 
@@ -5514,10 +5575,10 @@ This chapter defines no telemetry event of its own. The canonical event is `wipe
 ### §8.14 Assumptions handed to §7 / §9 (state so they can be checked)
 
 - **Sector aspect** is assumed fixed at 12∶7 (long∶short), matching §9's 24×14 coverage grid collapsed to lowest terms — every size/timing number above is built on this ratio. This also matches §9's stated boss/standard asset pixel sizes (2304×1344 and 1152×672 both simplify to 12∶7), so the aspect assumption and the area figure below are mutually consistent.
-- **Boss sector area is 4× a standard sector's area**, matching §9's asset sizes (2304×1344 vs 1152×672 — each dimension doubles, so area is ×4, not ×9 as an earlier draft of this chapter assumed). This is §7.5's canonical input for re-solving the Sunbeam's band width, travel speed and shot count so the 4× area clears in ~45 s (§8.4); §8's own reveal-wave scaling in §8.6 uses the matching ≈2× LINEAR size (√4).
+- **Boss sector area is 4× a standard sector's area**, matching §9's asset sizes (2304×1344 vs 1152×672 — each dimension doubles, so area is ×4, not ×9 as an earlier draft of this chapter assumed). This is §7.5's canonical input for re-solving the Sunbeam's throat width, spread, travel speed and shot count so the 4× area clears in no more than three shots (§8.4); §8's own reveal-wave scaling in §8.6 uses the matching ≈2× LINEAR size (√4).
 - **Reference device** for the 36 px-floor / 7 %-target crossover: the floor dominates for any `shortSide` under ≈514 CSS px (covering the whole stated minimum-device range) and the percentage target dominates above it.
 - **Standard sector area is constant across all 10 chapters** (moderator-ruled canonical; §7 re-solves to it). The Eraser's larger, dwell-free footprint is what drops the target from 15 s (Brush era, chapters 1–3) to ≈12 s (Eraser era, chapter 4 onward) on that SAME fixed-size sector — a faster tool delivering deliberate fatigue relief, not a shrinking sector and not a hack to hold one number flat.
-- If §7.13's measured `wipe_complete` telemetry disagrees with the 15 s / 12 s / 45 s targets by more than the stated acceptable bands, retune the Brush/Eraser radius and dwell constants in §8.4 first (the Sunbeam's band-width/travel-speed constants are §7.5's to retune) — sector area and aspect are the harder-to-move numbers and should be the last resort.
+- If §7.13's measured `wipe_complete` telemetry disagrees with the 15 s / 12 s targets, or the Sunbeam's ≤ 3-shot contract, by more than the stated acceptable bands, retune the Brush/Eraser radius and dwell constants in §8.4 first (the Sunbeam's throat-width/spread/travel-speed constants are §7.5's to retune) — sector area and aspect are the harder-to-move numbers and should be the last resort.
 
 ### §8.15 S1 as built (2026-09-18)
 
@@ -6679,6 +6740,141 @@ given, one chest at a time.
   ceremony on desktop and phone; portal QA web 25/25, GamePix 34/34,
   GameMonetize 37/37, CrazyGames full 42/42.
 
+### §8.31 Owner request, 2026-09-20 — the page behind the beats
+
+*"I think the background of the storybook pages also needs some kind of
+background art, as it looks barren right now, but it should not distract from
+the story beat cards."* A chapter page was a cream card with a coloured hill
+along its foot, and everything between the two was blank. It now carries what
+a picture book puts on its endpapers — and nothing more, because the beat
+cards are the only thing on a page a child is meant to look at.
+
+Three quiet layers under the beats (`map/pageDecor.ts`, drawn inside the
+page's own clip so a turning page carries them with it):
+
+1. **The light on the paper.** A warm bloom off the head of the page and the
+   binding's shadow down its spine edge, so the card reads as a sheet lying in
+   a book rather than a flat swatch. No shapes, so nothing to compete with.
+2. **Marginalia.** The chapter's own world in thin ink on the paper, one set
+   per chapter:
+
+   | Chapter | Printed on its paper |
+   |---|---|
+   | 1 Whispering Woods | clouds, a gull, drifting leaves, a whisper curl |
+   | 2 Bubble Bay | bubbles, wave curls, a fan shell, a gull |
+   | 3 Cloud Kingdom | clouds, birds, a star, air curls |
+   | 4 Crystal Caves | crystals, drops, twinkles |
+   | 5 Mirror Mountains | peaks, snowflakes, drops, twinkles |
+   | 6 Rainbow Ridge | rainbow arcs, clouds, twinkles, hearts |
+   | 7 Sunken Sands | suns, wind curls, shells, twinkles |
+   | 8 Twilight Tundra | snowflakes, pines, stars, a cloud |
+   | 9 Starlight Summit | stars, a crescent, twinkles, a peak |
+   | 10 Friendship Festival | bunting, balloons, hearts, twinkles |
+
+   A chapter that has not been built yet dreams in stars instead, beside the
+   moon and the Zs §3.7 already gives it, and a shade fainter.
+3. **Paper grain.** A seamless fibre tile over the whole page, hills included,
+   because paper shows through the ink printed on it. It is a repeating
+   PATTERN at CSS resolution anchored to the page's corner — not a texture
+   baked into the page — so it stays crisp at any page size and travels with
+   the sheet during a turn instead of swimming under it.
+
+**The rule the whole feature is built around: marginalia is furniture, not
+content.** One ink colour, a tenth of an alpha, never animated, never
+coloured, and never anywhere it could be mistaken for something to tap:
+
+- every motif is rejection-sampled against the page's five beat cards (each
+  grown to take in its frame and shadow), their badges, the binding, the
+  folded corners and the page dots, and against every motif already placed;
+- marginalia is printed on PAPER only — the coloured biome wash along the
+  page's foot (its side, in portrait) is left alone;
+- a page that has no room left simply carries fewer drawings. In portrait,
+  where the five cards fill most of the sheet, that is often only three or
+  four, which is the right answer rather than a shortfall;
+- the scatter is seeded per chapter, so a page looks the same every time it is
+  opened and nothing shimmers between frames.
+
+**Verified:** `tests/ui/pageDecor.test.ts` pins the keep-out contract (never
+over a card or badge, never on the wash, never off the page, never piled,
+stable per chapter, and empty rather than crowded when there is no room); in a
+browser, chapters 1–10 on desktop and phone, landscape and portrait. Frame
+times on the map are unchanged — median 16.7 ms, p95 16.7 ms over 200 frames,
+i.e. still vsync-bound — since the whole layer is one pattern fill, two
+gradients and ~16 stroked line drawings per page.
+
+### §8.31 Owner request, 2026-09-20 — the fight, and the book held upright
+
+Three things, from one message: *"the storybook doesn't look good in portrait
+mode"*, *"the casting effects and particles… were implemented for a 13 kB
+version of the game, let's bump up the quality… to a AAA game studios quality
+level"*, and *"do the next up silhouettes to peak interest"*.
+
+**A. The book, held upright** (supersedes §8.28's portrait layout). The page
+was taller than the screen, so the NEXT page bled in under it — a scroll, not
+a book. Now, in portrait, the page is fitted to the view on BOTH axes, under
+the chapter ribbon and above the corner buttons, and centred in what is left;
+the world is clipped to the page's own card; and the binding is a band beside
+the page rather than whatever the margin happened to be.
+
+**B. The next rune, teased** (§8.30). The spellbook's strip lights the
+silhouette of the rune the NEXT chest owes (`nextRuneAfter`) and hangs a
+little chest on its corner — what she is playing toward, without a word.
+
+**C. The fight (stage one).** The jam build drew every spell as a coloured
+ball with a highlight. What is in now:
+
+- **`spellArt.ts` — one table, twelve elements.** Per rune: the body its shot
+  flies as (flame, gust, shard, boulder, leaf, bubble, bolt, wisp, prism,
+  sand, crescent, heart), its ribbon, its spin and pulse, and what it leaves
+  behind. Shape is what tells Ice from Water at arm's length — half these
+  elements are a shade of blue.
+- **A spell in flight is four layers**, in the order light behaves: the glow
+  it throws ahead of itself, the ribbon of where it has been, the body in its
+  own silhouette, and the rim the light catches. The ribbon is sampled per
+  DRAWN frame from the shot's own position — a trail is a picture of motion,
+  not a fact about the simulation — and drawn in three chunks per pass, not
+  one stroke per sample: the taper reads the same and costs a tenth.
+- **The release** (`castBurst`): the gather it always had, then a hard white
+  ring leaving the horn on the same beat as the spell, a lick of the
+  element's light chasing it out, and a camera punch.
+- **The hit** (`impact`): the impact frame it always had, then TWO
+  shockwaves — a thin white one that outruns the eye and the element's own
+  behind it — the debris, and then the AFTERLIFE: embers burning on, frost
+  settling, dust hanging, petals, spray, sparks, motes. Plus:
+  - **hit-stop** — the duel holds still for 26–76 ms, scaled by power, so a
+    blow reads as weight rather than as a number going down. The SIM owns
+    that clock (a harness that steps the sim alone must thaw on its own);
+    the fx clock skips while it runs, and the app clears it if a duel is left
+    mid-freeze;
+  - **the camera punch** — a couple of per cent, about the stage's middle, so
+    nothing slides.
+- **A heavy is heavier everywhere at once** (`heft`): longer ribbon, wider
+  glow, more shed — not the light spell drawn bigger.
+
+**Still to do — stage two** (this is a floor, not a finish):
+- per-SPELL signatures rather than per-element ones: the 454 combinations
+  resolve to ~60 spells, and the golden ones should each have a flourish;
+- the wards: a shield that takes a hit should crack and shatter, not blink;
+- the decoy, the reflect and the Love finisher deserve their own language;
+- the rig: anticipation and recoil on the cast, a flinch on the hit;
+- painted spell art through the art pipeline (§8.27's families), once the
+  shapes have settled.
+
+**Verified:** 801 tests, including the duel suites the hit-stop runs through;
+the strike chain walked frame by frame in a browser (a new `__hold` QA seam
+holds the game's own clock, since a spell's whole flight is six frames and
+was over before a screenshot landed); portrait book checked at 390×844,
+320×658 and 768×1024.
+
+**NOT verified: the frame cost.** The machine was loaded while this was
+written — a re-run of the untouched scenes moved by 2–6× between runs, and a
+measurement taken in that noise is not a measurement. The last clean read
+(§8.29) was duel p95 4.4 ms at CPU ×4; the VFX pass must be re-measured on a
+quiet machine before release:
+`npx vite build --base=./ --outDir dist-perf && node scripts/perf-scenes.mjs dist-perf 4 "" land`.
+The known costs added are one glow gradient and six ribbon strokes per shot,
+two rings and ~4 extra particles per hit.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary
@@ -6706,7 +6902,7 @@ stamp and dust compositing (§9.3), per §4.2's explicit assignment (M16);
 **Assumption flagged for audit:** §9 assumes the persisted coverage grid is
 **24×14 cells per sector**, matching C9's stated save size (336 cells, 1
 bit/cell, 42 bytes, 56 base64 chars). If §7 or §8 back-solve a different
-brush size from C10's 15 s/45 s wipe targets that makes 24×14 feel too coarse
+brush size from C10's 15 s standard / ≈10 s boss wipe targets that makes 24×14 feel too coarse
 or too fine, the cell COUNT is a one-line constant (`GRID_W`/`GRID_H` in
 `src/game/restore/mask.ts`); nothing else in this chapter depends on the exact
 number, only on cells being small enough to bit-pack and square-ish enough to
@@ -9267,7 +9463,7 @@ The wipe (§8/§9) introduces a NEW temptation: flushing the in-progress
 coverage grid (C9's 56-char bitstring) on every brush stamp. **This chapter
 requires that wipe-progress flushes are debounced to at most once every few
 seconds of active wiping** (a concrete number — e.g. every 4 s — is §4's/§7's
-to tune against the 15 s/45 s wipe durations in C10; the constraint is the
+to tune against the 15 s standard / ≈10 s boss wipe durations in C10; the constraint is the
 ceiling, not the exact interval). Getting this wrong doesn't corrupt data —
 Yandex's SDK just starts rejecting the excess calls — but it would mean the
 "resume a wipe exactly where you left it" promise (C9) silently stops holding
@@ -9560,7 +9756,7 @@ carries the one open risk this panel owes the owner data on: whether
   ≤ 5 % corpus bar; this chapter extends that bar with a second, harder
   bar for kid-sourced strokes (§12.5) and cites §5 as the owner of the fix
   when a shape fails it.
-- §8 owns the 15 s / 45 s wipe-duration targets and the restoration loop's
+- §8 owns the 15 s standard / ≈10 s boss wipe-duration targets and the restoration loop's
   exact steps; §9 owns the mask budget (≤ 3 ms/frame standard, ≤ 4 ms/frame boss, §9.3.3) and "the reference
   low-end device" (this chapter names it only as a placeholder for §9 to
   fix); §10 owns dialogue volume and localisation process — this chapter
@@ -10269,6 +10465,6 @@ These are not blocking. They are listed so none of them surprises you:
 - **Every node is a duel.** There are no puzzle or dress-up node types; fatigue
   is measured in §12 before revisiting.
 - **The wipe has no skip.** Its length is bounded instead (15 s standard,
-  45 s boss).
+  ≈10 s boss).
 - **happytime / GamePix happy moments** move off every win onto boss clears,
   chapter restorations and rune unlocks, per CrazyGames' own guidance.

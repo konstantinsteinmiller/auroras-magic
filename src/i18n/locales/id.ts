@@ -141,6 +141,7 @@ export default {
     'unknown': '? ? ?',
     'runes': 'Rune',
     'lockedRune': 'Rune yang belum ditemukan',
+    'nextRune': 'Rune berikutnya untukmu',
     'count1': 'Mantra satu rune',
     'count2': 'Mantra dua rune',
     'count3': 'Mantra tiga rune'

@@ -45,6 +45,7 @@ import { mapHud } from '@/use/useMapHud'
 import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
+import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
 import { drawBookmark, drawDogEar, drawSpine, shadeTurn, turnAngle, turnWidth } from '@/game/flow/pageTurn'
@@ -134,11 +135,11 @@ const slotOf = (n: number): Slot => {
  *  laid out to the right of it, so the spine always has somewhere to be. */
 let gut = 18
 /** Map units → CSS px. */
-const sx = (mx: number): number => (portrait ? mx * ms : (mx - cam) * ms) + gut
-const sy = (my: number): number => (portrait ? (my - cam) * ms + insetTop : my * ms + (vh - PAGE_H * ms) / 2)
+const sx = (mx: number): number => (portrait ? mx * ms : (mx - cam) * ms) + padX
+const sy = (my: number): number => (portrait ? (my - cam) * ms : my * ms) + padY
 /** CSS px → map units. */
-const mxOf = (x: number): number => (portrait ? (x - gut) / ms : (x - gut) / ms + cam)
-const myOf = (y: number): number => (portrait ? (y - insetTop) / ms + cam : (y - (vh - PAGE_H * ms) / 2) / ms)
+const mxOf = (x: number): number => (portrait ? (x - padX) / ms : (x - padX) / ms + cam)
+const myOf = (y: number): number => (portrait ? (y - padY) / ms + cam : (y - padY) / ms)
 
 /* ---------------------------------------------------------------- state */
 
@@ -197,7 +198,15 @@ const thumbOf = (n: number): HTMLCanvasElement => {
  *  stuck under a button (a tap there would open the leaderboard). */
 const CHROME_BOTTOM = 96
 const CHROME_RIGHT = 64
+/** Portrait: the chapter ribbon runs across the TOP, and the page starts
+ *  under it. A page that starts behind the tabs reads as a page that does not
+ *  fit the book. */
+const CHROME_TOP_P = 58
 let chromeB = CHROME_BOTTOM
+/** Where the page is pinned on screen, CSS px (the binding's side, and the
+ *  head of the page). */
+let padX = 0
+let padY = 0
 
 export const mapResize = (w: number, h: number): void => {
   vw = w
@@ -208,12 +217,23 @@ export const mapResize = (w: number, h: number): void => {
   chromeB = CHROME_BOTTOM + ins.bottom
   gut = clamp(w * 0.02, 14, 34)
   if (portrait) {
-    ms = (w - gut - ins.left) / PAGE_WP
+    // ONE PAGE, WHOLE. Held upright, the page is fitted to the screen on BOTH
+    // axes — a page taller than the view let the next one bleed in under it,
+    // which is a scroll, not a book (owner, 2026-09-20).
+    const top = ins.top + CHROME_TOP_P
+    const bottom = h - chromeB
+    const availW = w - gut - ins.left - ins.right
+    const availH = Math.max(120, bottom - top)
+    ms = Math.min(availW / PAGE_WP, availH / PAGE_HP)
+    padX = gut + ins.left + Math.max(0, (availW - PAGE_WP * ms) / 2)
+    padY = top + Math.max(0, (availH - PAGE_HP * ms) / 2)
     visW = PAGE_WP
-    camMax = Math.max(0, HUB_P + CHAPTER_COUNT * PAGE_HP - (h - ins.top - chromeB) / ms)
+    camMax = Math.max(0, HUB_P + CHAPTER_COUNT * PAGE_HP - availH / ms)
   } else {
     ms = Math.min((w - CHROME_RIGHT - gut - ins.left - ins.right) / PAGE_W, h / PAGE_H)
     visW = (w - CHROME_RIGHT - gut - ins.right) / ms
+    padX = gut + ins.left
+    padY = (h - PAGE_H * ms) / 2
     camMax = Math.max(0, HUB + CHAPTER_COUNT * PAGE_W - visW)
   }
   cam = camOf(page)
@@ -644,6 +664,24 @@ const drawFrontPage = (g: G2D): void => {
   g.restore()
 }
 
+/**
+ * Where a page's marginalia may not go (§8.31): the five beat cards, each
+ * grown to take in its frame and its shadow, and the badge that hangs off the
+ * card's foot. Circles rather than rectangles — a motif only needs to keep
+ * clear, not to tile around.
+ */
+const keepOut = (c: number, px: number, py: number): KeepOut[] => {
+  const out: KeepOut[] = []
+  for (let i = 0; i < NODES_PER_CHAPTER; i++) {
+    const n = c * NODES_PER_CHAPTER + i
+    const s = slotOf(n)
+    out.push({ x: sx(s.x) - px, y: sy(s.y) - py, r: Math.hypot(s.w, s.h) * 0.5 * ms + 10 })
+    const [mx, my] = markerScreen(n)
+    out.push({ x: mx - px, y: my - py, r: markerR() + 10 })
+  }
+  return out
+}
+
 /** One chapter page: a paper card with a soft biome wash and the trail. */
 const drawPage = (g: G2D, c: number): void => {
   const [ox, oy] = pageOrigin(c)
@@ -679,6 +717,16 @@ const drawPage = (g: G2D, c: number): void => {
     g.fillStyle = wash[i]!
     g.fill()
   }
+  // What is printed on the paper behind the beats (§8.31): the light on the
+  // sheet, the chapter's own world in thin ink, and the fibre over the lot —
+  // one baked image, since none of it moves. It goes on after the wash so the
+  // grain lands on the hills too; the marginalia inside it is kept above them
+  // by its own `ground`. Every beat card and badge on this page is handed over
+  // as somewhere a motif may NOT go.
+  g.drawImage(
+    pageDecorBake(w, h, c, built, portrait, keepOut(c, x, y), portrait ? w * 0.2 : h * 0.62),
+    x, y, w, h
+  )
   g.restore()
   if (!built) {
     // A sleepy silhouette: the page exists, its story comes later (§3.7).
@@ -924,8 +972,9 @@ const drawSwing = (g: G2D, p: number, prog: number): void => {
 /** The binding, the reader's ribbon, the folded corners and the page dots. */
 const drawBook = (g: G2D): void => {
   const r = pageRect(page)
-  // The binding fills the whole gutter: left of it is the cover, not a page.
-  drawSpine(g, r.x, 0, vh, Math.max(9, r.x))
+  // The binding sits in the gutter beside the page — a band, not a slab: on
+  // a wide screen the page is centred and the gutter is most of the margin.
+  drawSpine(g, r.x, r.y, r.h, clamp(r.x, 9, Math.max(12, 20 * ms)))
   // The ribbon marks the chapter the player is actually up to.
   const mark = currentChapter() + 1
   if (page === mark && !turning()) {
@@ -942,7 +991,7 @@ const drawBook = (g: G2D): void => {
   const dr = Math.max(2.5, r.h * 0.008)
   const gap = dr * 3.4
   const x0 = r.x + r.w / 2 - (gap * (PAGE_COUNT - 1)) / 2
-  const y0 = r.y + r.h - dr * 3.2
+  const y0 = r.y + r.h - dr * 2.1
   for (let i = 0; i < PAGE_COUNT; i++) {
     g.beginPath()
     g.arc(x0 + i * gap, y0, i === page ? dr * 1.7 : dr, 0, TAU)
@@ -963,7 +1012,9 @@ export const drawMap = (g: G2D): void => {
   const open = pageRect(page)
   g.save()
   g.beginPath()
-  g.rect(open.x - 1, 0, open.w + 2, vh)
+  // Its own card, its drop shadow and nothing else: the pages either side of
+  // it never show past the gutter or under the fore-edge.
+  g.rect(open.x - 1, open.y - 1, open.w + 14, open.h + 16)
   g.clip()
   if (turning()) {
     // Forward, the page being left swings away over the one arriving; back,

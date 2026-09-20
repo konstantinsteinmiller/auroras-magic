@@ -204,6 +204,14 @@ export interface DuelState {
   /* feel */
   shake: number
   flash: number
+  /**
+   * HIT-STOP (§8.31): the whole duel holds still for a few dozen
+   * milliseconds when something lands, so a heavy hit reads as weight rather
+   * than as a number going down. The sim freezes; the frame keeps drawing.
+   */
+  stop: number
+  /** The camera's punch on that same hit, 0..1, decaying. */
+  punch: number
   sky: number
   pops: Pop[]
 
@@ -315,6 +323,8 @@ export const auroras_magic_state: DuelState = {
 
   shake: 0,
   flash: 0,
+  stop: 0,
+  punch: 0,
   sky: 0.5,
   pops: [],
 
