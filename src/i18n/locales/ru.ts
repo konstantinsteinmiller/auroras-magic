@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Радуга',
     'time': 'Время',
     'moon': 'Луна',
-    'love': 'Любовь'
+    'love': 'Любовь',
+    'newRune': 'Новая руна!',
+    'howToDraw': 'Рисуй её так',
   },
 
   'spell': {

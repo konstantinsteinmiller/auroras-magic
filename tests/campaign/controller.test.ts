@@ -4,10 +4,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast } from '@/game/duel/sim'
-import { FIRE, NATURE, PH_WIN, PH_LOSE, comboEnumerationIndex } from '@/game/duel/config'
+import { FIRE, WIND, ICE, NATURE, PH_WIN, PH_LOSE, comboEnumerationIndex } from '@/game/duel/config'
 import { defaultCampaign } from '@/game/campaign/state'
 import { hasBit } from '@/game/campaign/bitset'
-import { duelSetup, COSMETICS } from '@/game/campaign/tables'
+import { duelSetup, COSMETICS, STARTING_RUNES } from '@/game/campaign/tables'
 import { installCampaignController, onUnboxComplete, markDialogueSeen, isReplay, lossStreakOf } from '@/game/campaign/controller'
 
 const STEP = 1 / 120
@@ -95,9 +95,38 @@ describe('the campaign controller', () => {
     expect(onUnboxComplete(4)).toEqual({ rune: null, signature: null, cosmetic: null })
   })
 
-  it('a standard gift grants nothing (its payload is the tool)', () => {
-    expect(onUnboxComplete(2)).toEqual({ rune: null, signature: null, cosmetic: null })
-    expect(S.campaign.runesUnlocked).toBe(0b1111)
+  it('the first chests give the two early runes, once each (§8.30)', () => {
+    // After the FIRST battle: Ice. After the third: Wind.
+    expect(onUnboxComplete(0)).toEqual({ rune: ICE, signature: null, cosmetic: null })
+    expect((S.campaign.runesUnlocked >> ICE) & 1).toBe(1)
+    expect(onUnboxComplete(0)).toEqual({ rune: null, signature: null, cosmetic: null })
+    expect(onUnboxComplete(1)).toEqual({ rune: null, signature: null, cosmetic: null })
+    expect(onUnboxComplete(2)).toEqual({ rune: WIND, signature: null, cosmetic: null })
+    expect(S.campaign.runesUnlocked).toBe(STARTING_RUNES | (1 << ICE) | (1 << WIND))
+  })
+
+  it('every other standard gift grants nothing (its payload is the tool)', () => {
+    for (const n of [1, 3, 5, 6, 7, 8, 11, 23, 48]) {
+      expect(onUnboxComplete(n), `node ${n}`).toEqual({ rune: null, signature: null, cosmetic: null })
+    }
+    expect(S.campaign.runesUnlocked).toBe(STARTING_RUNES)
+  })
+
+  it('hands out all twelve runes across the story, and never twice (§8.30)', () => {
+    let held = STARTING_RUNES
+    const given: number[] = []
+    for (let n = 0; n < 50; n++) {
+      const g = onUnboxComplete(n)
+      if (g.rune === null) continue
+      expect((held >> g.rune) & 1, `rune ${g.rune} given twice`).toBe(0)
+      held |= 1 << g.rune
+      given.push(g.rune)
+    }
+    // Two to start, ten earned: every rune in the game, each exactly once.
+    expect(given).toHaveLength(10)
+    expect(held).toBe(0xfff)
+    // The cadence the owner asked for: after the 1st, 3rd and 5th battles.
+    expect(given.slice(0, 3)).toEqual([ICE, WIND, NATURE])
   })
 
   it('marks a dialogue seen once', () => {

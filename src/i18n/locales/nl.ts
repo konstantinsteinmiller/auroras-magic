@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Regenboog',
     'time': 'Tijd',
     'moon': 'Maan',
-    'love': 'Liefde'
+    'love': 'Liefde',
+    'newRune': 'Een nieuwe rune!',
+    'howToDraw': 'Zo teken je hem',
   },
 
   'spell': {

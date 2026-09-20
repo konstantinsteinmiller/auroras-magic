@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Arcobaleno',
     'time': 'Tempo',
     'moon': 'Luna',
-    'love': 'Amore'
+    'love': 'Amore',
+    'newRune': 'Una nuova runa!',
+    'howToDraw': 'Disegnala così',
   },
 
   'spell': {

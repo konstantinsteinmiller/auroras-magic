@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Pelangi',
     'time': 'Waktu',
     'moon': 'Bulan',
-    'love': 'Cinta'
+    'love': 'Cinta',
+    'newRune': 'Rune baru!',
+    'howToDraw': 'Gambar begini',
   },
 
   'spell': {

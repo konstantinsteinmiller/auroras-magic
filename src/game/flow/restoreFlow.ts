@@ -13,7 +13,7 @@
  *     between the reveal and the idle map (§3.9.2 item 3).
  */
 import { S, save } from '@/game/duel/state'
-import { COSMETIC_SLOTS, COSMETICS, FINALE_NODE } from '@/game/campaign/tables'
+import { COSMETIC_SLOTS, COSMETICS, FINALE_NODE, nodeIsBoss } from '@/game/campaign/tables'
 import { onUnboxComplete, type ChestGrant } from '@/game/campaign/controller'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, DIP_ZOOM } from '@/game/flow/transition'
@@ -24,6 +24,7 @@ import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
 import { offerTwinGift } from '@/use/useDuelRewards'
 import { beginRestore, type RestoreEnd } from '@/game/restore/wipe'
 import { mapHud } from '@/use/useMapHud'
+import { showRuneGift } from '@/use/useRuneGift'
 import { artSettled } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
 
@@ -46,8 +47,13 @@ export const openSector = (n: number): void => {
 export const onUnboxed = (n: number): ChestGrant => {
   lastNode = n
   lastGrant = onUnboxComplete(n)
-  if (lastGrant.rune !== null || lastGrant.signature !== null) {
-    // §11.6: exactly one happy moment per chapter, here at the chest.
+  // A new rune is a ceremony, not a line in a log (§8.30): the reveal takes
+  // the screen, and holds the game paused behind it until the child taps on.
+  if (lastGrant.rune !== null) showRuneGift(lastGrant.rune)
+  // §11.6: exactly one happy moment per chapter, at the BOSS chest — not at
+  // the early rune chests (§8.30), which are a moment for the child rather
+  // than a milestone for the portal.
+  if (nodeIsBoss(n) && (lastGrant.rune !== null || lastGrant.signature !== null)) {
     triggerHappytime()
     gamePixHappyMoment()
   }

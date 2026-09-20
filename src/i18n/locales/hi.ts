@@ -50,7 +50,9 @@ export default {
     'rainbow': 'इंद्रधनुष',
     'time': 'समय',
     'moon': 'चाँद',
-    'love': 'प्यार'
+    'love': 'प्यार',
+    'newRune': 'नया रून!',
+    'howToDraw': 'इसे ऐसे बनाओ',
   },
 
   'spell': {

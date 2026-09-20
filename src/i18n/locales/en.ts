@@ -67,7 +67,11 @@ export default {
     'rainbow': 'Rainbow',
     'time': 'Time',
     'moon': 'Moon',
-    'love': 'Love'
+    'love': 'Love',
+    // A chest has just given this rune (§8.30): the reveal, and the
+    // panel that shows how to draw it.
+    'newRune': 'A new rune!',
+    'howToDraw': 'Draw it like this',
   },
 
   // ─── Spell names — the CAST button shows the one that is loaded ───────────

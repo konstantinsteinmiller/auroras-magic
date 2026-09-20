@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Gökkuşağı',
     'time': 'Zaman',
     'moon': 'Ay',
-    'love': 'Sevgi'
+    'love': 'Sevgi',
+    'newRune': 'Yeni bir rün!',
+    'howToDraw': 'Böyle çiz',
   },
 
   'spell': {

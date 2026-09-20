@@ -27,9 +27,9 @@ vi.hoisted(() => {
   Math.random = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
 })
 
-import { CTR, PH_DUEL, PH_WIN, resolveSpell, type Rune } from '@/game/duel/config'
+import { CTR, FIRE, EARTH, PH_DUEL, PH_WIN, resolveSpell, type Rune } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
-import { CHAPTERS } from '@/game/campaign/tables'
+import { runeForNode } from '@/game/campaign/tables'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast } from '@/game/duel/sim'
 
@@ -37,21 +37,36 @@ const DT = 1 / 60
 const MAX_T = 150
 const N = 360
 
-/** The runes a player owns on reaching chapter `c` (0-based): the first
- *  four, plus the rune of every boss chest before it. */
-const owned = (c: number): number[] => [
-  0, 1, 2, 3, ...CHAPTERS.slice(0, c).flatMap((ch) => (ch.newRune === null ? [] : [ch.newRune]))
-]
+/**
+ * The runes a player owns ARRIVING AT node `n` (§8.30): the two she starts
+ *  with, plus every rune a chest has given before it — the two of chapter 1
+ *  and then each chapter's own.
+ *
+ * This is also what the FOE may draw (`chooseRune` reads the same save), so
+ *  the model has to set it rather than assume the old frozen four: with it
+ *  unset, chapter 7's shadow fights with Fire and Earth and every number here
+ *  is flattering.
+ */
+const owned = (n: number): number[] => {
+  const held = new Set<number>([FIRE, EARTH])
+  for (let k = 0; k < n; k++) {
+    const r = runeForNode(k)
+    if (r !== null) held.add(r)
+  }
+  return [...held]
+}
 
 /** One duel on the real sim; true = won, false = lost or timed out. */
-const duel = (foe: number, c: number, usesMagic: boolean, lossStreak: number): boolean => {
+const duel = (foe: number, node: number, usesMagic: boolean, lossStreak: number): boolean => {
   S.wins = 20 // past onboarding (§6.14)
   S.losses = 0
   S.intro = 0
   S.campaign.signaturesUnlocked = 0
+  const kit = owned(node)
+  S.campaign.runesUnlocked = kit.reduce((m, r) => m | (1 << r), 0)
   resetDuel({ foe, usesMagic, lossStreak })
   const el = FOES[foe]!.element
-  const counter = el >= 0 && owned(c).includes(CTR[el]!) ? CTR[el]! : -1
+  const counter = el >= 0 && kit.includes(CTR[el]!) ? CTR[el]! : -1
   const solo = counter >= 0 && [2, 5].includes(resolveSpell([counter, counter]).kind)
   let clock = 0
   for (let t = 0; t < MAX_T; t += DT) {
@@ -60,7 +75,9 @@ const duel = (foe: number, c: number, usesMagic: boolean, lossStreak: number): b
     if (clock >= 1.25) {
       clock -= 1.25
       if (Math.random() < 0.85) {
-        const r = counter >= 0 && Math.random() < 0.5 ? counter : (Math.random() * 4) | 0
+        // She draws from what she OWNS — two runes in the first battles, more
+        // as the chests give them.
+        const r = counter >= 0 && Math.random() < 0.5 ? counter : kit[(Math.random() * kit.length) | 0]!
         if (r === counter && solo && S.queue.length) cast()
         S.queue.push(r as Rune)
         if (S.queue.length >= 2 || (r === counter && solo)) cast()
@@ -72,15 +89,15 @@ const duel = (foe: number, c: number, usesMagic: boolean, lossStreak: number): b
   return false
 }
 
-const rate = (foe: number, c: number, usesMagic: boolean, streak = 0): number => {
+const rate = (foe: number, node: number, usesMagic: boolean, streak = 0): number => {
   let w = 0
-  for (let i = 0; i < N; i++) if (duel(foe, c, usesMagic, streak)) w++
+  for (let i = 0; i < N; i++) if (duel(foe, node, usesMagic, streak)) w++
   return w / N
 }
 
 /** P(cleared within three tries), each retry eased by Dream Dust. */
-const within3 = (foe: number, c: number, usesMagic: boolean, first: number): number =>
-  1 - (1 - first) * (1 - rate(foe, c, usesMagic, 1)) * (1 - rate(foe, c, usesMagic, 2))
+const within3 = (foe: number, node: number, usesMagic: boolean, first: number): number =>
+  1 - (1 - first) * (1 - rate(foe, node, usesMagic, 1)) * (1 - rate(foe, node, usesMagic, 2))
 
 const pct = (x: number): string => `${(x * 100).toFixed(1)} %`
 
@@ -89,11 +106,12 @@ describe.skipIf(!process.env.WINRATE)('difficulty on the real duel (§7.2, the c
     const stdTarget = c < 6 ? 0.9 : 0.85
     const bossTarget = c < 6 ? 0.75 : 0.6
     it(`chapter ${c + 1}: standard ≥ ${stdTarget * 100} %, boss ≥ ${bossTarget * 100} %, all ≥ 95 % within 3`, () => {
-      const n12 = rate(shadowOf(c), c, false)
-      const n34 = rate(shadowOf(c), c, true)
-      const boss = rate(guardianOf(c), c, true)
-      const n34x3 = within3(shadowOf(c), c, true, n34)
-      const bossx3 = within3(guardianOf(c), c, true, boss)
+      // Each group is measured with the kit its FIRST node is reached with.
+      const n12 = rate(shadowOf(c), c * 5, false)
+      const n34 = rate(shadowOf(c), c * 5 + 2, true)
+      const boss = rate(guardianOf(c), c * 5 + 4, true)
+      const n34x3 = within3(shadowOf(c), c * 5 + 2, true, n34)
+      const bossx3 = within3(guardianOf(c), c * 5 + 4, true, boss)
       const row = `ch${c + 1}  nodes 1–2 ${pct(n12)}  nodes 3–4 ${pct(n34)}  boss ${pct(boss)}  ≤3 tries: ${pct(n34x3)} / ${pct(bossx3)}`
       console.info(`[winrate] ${row}`)
       // WINRATE_OUT=<file> keeps the table (a passing test's console is hidden).

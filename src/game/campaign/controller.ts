@@ -17,7 +17,7 @@
 import { onDuelEvent, lastPlayerCast } from '@/game/duel/sim'
 import { S, save } from '@/game/duel/state'
 import { nextDuelNode } from '@/game/campaign/state'
-import { CHAPTERS, GIFTS, NODES, nodeChapter, nodeIsBoss } from '@/game/campaign/tables'
+import { CHAPTERS, GIFTS, NODES, nodeChapter, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
 import { hasBit, setBit } from '@/game/campaign/bitset'
 import { clamp } from '@/game/duel/util'
 import { track } from '@/use/useAnalytics'
@@ -72,20 +72,25 @@ export const installCampaignController = (): (() => void) => {
 export interface ChestGrant { rune: number | null; signature: number | null; cosmetic: number | null }
 
 /**
- * The unbox beat finished (§4.8.1, R-1b). A no-op on a standard node, whose
- * gift is its tool. On a boss node it sets exactly this chapter's rune OR
- * Signature Spell bit — never both, never another chapter's — plus its
- * keepsake. Idempotent: a second call sets nothing new.
+ * The unbox beat finished (§4.8.1, R-1b, §8.30). Every chest that owes a rune
+ * gives it here: the two early ones (after the first and the third battle)
+ * and then each chapter's own, at its boss. A boss chest also sets this
+ * chapter's Signature Spell — never both a rune and a spell, never another
+ * chapter's — plus its keepsake. Idempotent: a second call sets nothing new.
  */
 export const onUnboxComplete = (node: number): ChestGrant => {
   const none: ChestGrant = { rune: null, signature: null, cosmetic: null }
-  if (!nodeIsBoss(node)) return none
-  const ch = CHAPTERS[nodeChapter(node)]!
   const grant: ChestGrant = { ...none }
-  if (ch.newRune !== null && !((S.campaign.runesUnlocked >> ch.newRune) & 1)) {
-    S.campaign.runesUnlocked |= 1 << ch.newRune
-    grant.rune = ch.newRune
+  const owed = runeForNode(node)
+  if (owed !== null && !((S.campaign.runesUnlocked >> owed) & 1)) {
+    S.campaign.runesUnlocked |= 1 << owed
+    grant.rune = owed
   }
+  if (!nodeIsBoss(node)) {
+    if (grant.rune !== null) save()
+    return grant
+  }
+  const ch = CHAPTERS[nodeChapter(node)]!
   if (ch.signatureSpell !== null && !((S.campaign.signaturesUnlocked >> ch.signatureSpell) & 1)) {
     S.campaign.signaturesUnlocked |= 1 << ch.signatureSpell
     grant.signature = ch.signatureSpell

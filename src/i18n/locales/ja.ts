@@ -50,7 +50,9 @@ export default {
     'rainbow': '虹',
     'time': '時',
     'moon': '月',
-    'love': '愛'
+    'love': '愛',
+    'newRune': 'あたらしいルーン！',
+    'howToDraw': 'こうやってかくよ',
   },
 
   'spell': {

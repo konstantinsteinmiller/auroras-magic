@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Cầu vồng',
     'time': 'Thời gian',
     'moon': 'Trăng',
-    'love': 'Tình yêu'
+    'love': 'Tình yêu',
+    'newRune': 'Rune mới!',
+    'howToDraw': 'Vẽ như thế này',
   },
 
   'spell': {

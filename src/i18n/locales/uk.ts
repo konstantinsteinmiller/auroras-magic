@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Веселка',
     'time': 'Час',
     'moon': 'Місяць',
-    'love': 'Любов'
+    'love': 'Любов',
+    'newRune': 'Нова руна!',
+    'howToDraw': 'Малюй її так',
   },
 
   'spell': {

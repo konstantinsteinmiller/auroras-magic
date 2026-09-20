@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Кемпірқосақ',
     'time': 'Уақыт',
     'moon': 'Ай',
-    'love': 'Махаббат'
+    'love': 'Махаббат',
+    'newRune': 'Жаңа руна!',
+    'howToDraw': 'Осылай сыз',
   },
 
   'spell': {

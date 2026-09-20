@@ -50,7 +50,9 @@ export default {
     'rainbow': 'قوس قزح',
     'time': 'زمن',
     'moon': 'قمر',
-    'love': 'حب'
+    'love': 'حب',
+    'newRune': 'رمز جديد!',
+    'howToDraw': 'ارسمه هكذا',
   },
 
   'spell': {

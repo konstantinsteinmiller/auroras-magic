@@ -8,7 +8,7 @@
  * `posInChapter = n % 5`, `isBoss = posInChapter === 4`.
  */
 import { FOES, shadowOf, guardianOf, type FoeDef } from '@/game/duel/foes'
-import { NATURE } from '@/game/duel/config'
+import { FIRE, WIND, ICE, EARTH, NATURE } from '@/game/duel/config'
 
 export const CHAPTER_COUNT = 10
 export const NODES_PER_CHAPTER = 5
@@ -32,6 +32,22 @@ export interface ChapterDef {
   /** Built (playable) in this build. Later chapters show as silhouettes. */
   built: boolean
 }
+
+/**
+ * THE RUNES A PLAYER STARTS WITH (owner, 2026-09-20; §8.30): two, not four —
+ * Fire to throw and Earth to hide behind, the two simplest shapes for a small
+ * finger. Everything else is earned.
+ */
+export const STARTING_RUNES = (1 << FIRE) | (1 << EARTH)
+
+/**
+ * The runes the first chapter hands over, by the node whose chest gives them:
+ * one after the first battle, one after the third. The fifth arrives at the
+ * end of chapter 1 with the boss chest (`CHAPTERS[0].newRune`), and a chapter
+ * has given one ever since — except the two Signature-Spell chapters, which
+ * give a spell instead. Twelve runes, ten chapters, one schedule.
+ */
+export const EARLY_RUNES: Readonly<Record<number, number>> = { 0: ICE, 2: WIND }
 
 export const CHAPTERS: readonly ChapterDef[] = [
   { id: 0, slug: 'c1', newRune: NATURE, signatureSpell: null, creature: 'Twig', built: true },
@@ -77,6 +93,16 @@ export const COSMETICS: readonly CosmeticDef[] = [
   { slot: 'neck', slug: 'winterScarf' },
   { slot: 'companion', slug: 'petStar' }
 ]
+
+/**
+ * The rune node `n`'s chest gives, or null: the early ones by node, then each
+ * chapter's own at its boss.
+ */
+export const runeForNode = (n: number): number | null => {
+  const early = EARLY_RUNES[n]
+  if (early !== undefined) return early
+  return nodeIsBoss(n) ? CHAPTERS[nodeChapter(n)]?.newRune ?? null : null
+}
 
 /** A boss chest's keepsake per chapter: a cosmetic, or (ch10) the versus unlock. */
 export interface GiftDef { kind: 'cosmetic' | 'feature'; cosmeticId?: number; feature?: 'versus' }

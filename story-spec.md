@@ -6601,6 +6601,84 @@ cleaning finishes what the duel started.
   page. Perf at CPU ×4, 915×412 DPR 2: duel work p95 **4.4 ms** (p99 6.0),
   map 4.6 ms, wipe 3.1 ms, no long tasks — the same budget as §8.22's pass.
 
+### §8.30 Owner ruling, 2026-09-20 — the runes are earned, two at a time
+
+*"The player should start with 2 runes and the enemy also only have the same
+runes available as the player… Present new runes as gifts given after a click
+on the gift chest, which opens the FReward in reveal state with firework and
+confetti… also show the player how to draw the new rune."* This supersedes
+§4.4's "frozen four": a new player now holds TWO runes, and the other ten are
+given, one chest at a time.
+
+- **The starting pair is Fire and Earth** (`STARTING_RUNES`): a triangle and a
+  square — the two simplest shapes for a small finger — and between them both
+  jobs from the first battle, since a lone Earth is already a shield.
+- **The schedule** (`runeForNode`, one table):
+
+  | Given | Rune | Where |
+  | --- | --- | --- |
+  | at the start | Fire, Earth | — |
+  | after the 1st battle | Ice | node 1's chest |
+  | after the 3rd battle | Wind | node 3's chest |
+  | after the 5th | Nature | chapter 1's boss chest |
+  | at the end of each chapter after that | its own rune | that boss's chest |
+
+  Ten chapters and twelve runes do not divide evenly: chapters 4 and 8 give
+  their **Signature Spell** instead, exactly as before (§4.4). Every rune is
+  given exactly once, and by the Festival the player holds all twelve —
+  pinned by `tests/campaign/controller.test.ts`.
+- **A save from before this keeps its four.** Nobody is taken back down to
+  two: `readCampaign` ORs the starting pair in, never masks down.
+- **The foe fights with the player's runes** (`foeMask`): every free choice
+  she makes is filtered to the runes the player holds. The one exception is
+  her own chapter's magic — the rune that chapter's chest is about to give —
+  so a chapter still introduces its rune by using it against you first, and
+  every boss keeps its mechanic (§6.11, §6.13: Crystal Ward, the decoys,
+  Frost Lock, the Love finisher). Her scripted contracts are not filtered;
+  each is already gated on its own condition.
+- **The ceremony** (`FReward.vue`, `RuneGift.vue`, `useRuneGift.ts`). A chest
+  that owes a rune opens into it, on the tap that opens the gift:
+  - the reveal — a slow burst of rays from the middle of the screen, a warm
+    glow, drifting sparks and falling confetti — with the fanfare;
+  - the rune itself on its plate, big, with its name under it, **drawing
+    itself in the order a finger makes it** over its own faint ghost. A tap
+    replays the stroke; it also loops on its own;
+  - the game is held paused behind it (`acquireModalOpen`), so the wipe
+    waiting underneath does not run on without the player;
+  - the rune is already saved when the ceremony starts: closing the tab
+    mid-burst loses the party, never the rune.
+  - `FReward` is ported from the same component in `survivalist` — its ray
+    burst is one element, one conic gradient, one transform — and dressed in
+    this game's paper. Reduced motion (§3.11) stops the spin, the drift and
+    the confetti.
+- **And then in the duel:** §5.13's trace assist already ghosts the NEWEST
+  rune in the drawing box, so the rune the chest just taught is the one the
+  next duel offers to trace.
+- **The happy moment stays the boss's** (§11.6): the early rune chests are a
+  moment for the child, not a milestone for the portal — exactly one
+  happytime / happyMoment per chapter, at the boss chest. Portal QA caught
+  this the first time round, when every rune chest fired one.
+- **Difficulty** (D1, tune for children). The win-rate harness
+  (`pnpm test:winrate`) now models the real schedule — it sets
+  `runesUnlocked` per node and draws only from what she owns, because the
+  foe reads the same save; with it unset every number was flattering.
+  Measured, 360 duels per cell, the core child:
+
+  | | nodes 1–2 | nodes 3–4 | boss | within 3 tries |
+  | --- | --- | --- | --- | --- |
+  | ch1 | 98.9 % | 95.0 % | 86.4 % | 100 % |
+  | ch5 | 99.7 % | 98.6 % | 99.4 % | 100 % |
+  | ch10 | 97.8 % | 96.7 % | 96.4 % | 100 % |
+
+  Every chapter clears its floors (§7.2: 90 %/85 % standard, 75 %/60 % boss).
+  The first battles are the easiest in the game, which is what a two-rune
+  start is for.
+- **Verified:** 797 tests, including `tests/duel/runeSchedule.test.ts` (the
+  cadence, all twelve given once, and the foe reaching only for the player's
+  runes plus her chapter's magic); a browser run of the first chest's
+  ceremony on desktop and phone; portal QA web 25/25, GamePix 34/34,
+  GameMonetize 37/37, CrazyGames full 42/42.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

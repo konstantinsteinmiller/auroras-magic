@@ -10,6 +10,7 @@
  * most 16 members is a plain int bitmask (§4.5.1's rule).
  */
 import { emptyBitset, hasBit, countBits } from '@/game/campaign/bitset'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 
 export const NODE_COUNT = 50
 /** 24 × 14 coverage cells per sector (C9). */
@@ -70,7 +71,7 @@ export const defaultCampaign = (): CampaignState => ({
   sectorsDone: emptyBitset(NODE_COUNT),
   wipeCoverage: null,
   wipeHalf: null,
-  runesUnlocked: 0b1111,
+  runesUnlocked: STARTING_RUNES,
   signaturesUnlocked: 0,
   combosSeen: emptyBitset(COMBO_COUNT),
   combosViewed: emptyBitset(COMBO_COUNT),
@@ -121,7 +122,9 @@ export const readCampaign = (raw: unknown): CampaignState => {
     sectorsDone: b64(r.sectorsDone, d.sectorsDone),
     wipeCoverage: r.wipeCoverage === null || r.wipeCoverage === undefined ? null : b64(r.wipeCoverage, '') || null,
     wipeHalf: r.wipeHalf === null || r.wipeHalf === undefined ? null : b64(r.wipeHalf, '') || null,
-    runesUnlocked: int(r.runesUnlocked, 0, 0xfff, d.runesUnlocked) | 0b1111,
+    // A save from before the runes were earned (§8.30) holds the old frozen
+    // four and keeps them: nobody is taken back down to two.
+    runesUnlocked: int(r.runesUnlocked, 0, 0xfff, d.runesUnlocked) | STARTING_RUNES,
     signaturesUnlocked: int(r.signaturesUnlocked, 0, 0b11, 0),
     combosSeen: b64(r.combosSeen, d.combosSeen),
     combosViewed: b64(r.combosViewed, d.combosViewed),

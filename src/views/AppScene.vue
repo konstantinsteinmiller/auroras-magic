@@ -56,6 +56,7 @@ import { restoreHud } from '@/use/useRestoreHud'
 import { isGamePaused } from '@/use/useGamePause'
 import { acquireModalOpen } from '@/use/useModalState'
 import { registerQaAdTap, breakQaAdChain } from '@/use/useQaAdTrigger'
+import { runeGift, closeRuneGift } from '@/use/useRuneGift'
 import { signalGameplayLoaded } from '@/use/useCrazyGames'
 import { syncGameplayLifecycle } from '@/use/useGameplayLifecycle'
 import { haptic } from '@/use/useHaptics'
@@ -76,6 +77,7 @@ import IntroScene from '@/views/IntroScene.vue'
 import SpellBook from '@/components/duel/SpellBook.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
+import RuneGift from '@/components/story/RuneGift.vue'
 import { drawWardrobe, updateWardrobe, wardrobeResize } from '@/game/cosmetics/wardrobe'
 import { openSector, onRestoreFinished } from '@/game/flow/restoreFlow'
 import { sectorOf } from '@/game/map/sectors'
@@ -555,6 +557,15 @@ onMounted(() => {
       startDuel(n)
       return S.flow.scene
     }
+    /** The rune ceremony a chest may raise (§8.30): is one up, and take it. */
+    w.__runeGift = {
+      rune: () => runeGift.rune,
+      take: () => {
+        const had = runeGift.rune
+        closeRuneGift()
+        return had
+      }
+    }
     /** Open node `n`'s sector and stop at its waiting gift (the unbox). */
     w.__toInvite = async (n: number) => {
       if (S.campaign.furthestNode < n) S.campaign.furthestNode = n
@@ -567,6 +578,10 @@ onMounted(() => {
     w.__toWipe = async (n: number) => {
       if (restoreHud.phase === 'idle') await (w.__toInvite as (k: number) => Promise<boolean>)(n)
       if (restoreHud.phase === 'invite') openGiftFromUi()
+      // A chest that owes a rune raises its ceremony first (§8.30), and holds
+      // the game paused behind it: a harness takes the gift and carries on.
+      await until(() => runeGift.rune >= 0 || restoreHud.phase === 'wipe', 4000)
+      if (runeGift.rune >= 0) closeRuneGift()
       return until(() => restoreHud.phase === 'wipe')
     }
     /** Clear the sector in the wipe, pick the first pot when they rise, and
@@ -653,6 +668,8 @@ onUnmounted(() => {
     SpellBook(v-if="overlayOpen === 'spellbook'" @close="closeOverlay")
     OptionsModal(:is-open="overlayOpen === 'options'" @close="closeOverlay")
     LeaderboardModal(v-if="leaderboardLive" v-model="boardOpen" :score="hud.wins")
+    //- A chest has just given a new rune (§8.30): the reveal, and how to draw it.
+    RuneGift(v-if="runeGift.rune >= 0" :rune="runeGift.rune" @close="closeRuneGift")
 </template>
 
 <style scoped lang="sass">

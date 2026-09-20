@@ -50,7 +50,9 @@ export default {
     'rainbow': '彩虹',
     'time': '时光',
     'moon': '月亮',
-    'love': '爱心'
+    'love': '爱心',
+    'newRune': '新符文！',
+    'howToDraw': '这样画',
   },
 
   'spell': {

@@ -655,6 +655,14 @@ try {
   await ev('window.__gotoNode(0)')
   check('entered chapter 1\'s first duel', await waitScene('duel'))
 
+  // ── The earned runes (§8.30) ────────────────────────────────────────────
+  //
+  // A new player holds two, and the first chest gives the third with its own
+  // reveal — which pauses the game behind it, so a battery that cannot take
+  // the gift would hang here rather than in the wipe.
+  const runeMask = await ev('window.__campaign.state().runesUnlocked')
+  check('a new player holds two runes (§8.30)', runeMask === 0b1001, `mask=${runeMask.toString(2)}`)
+
   // ── GameMonetize: the ad bracket, which is its only portal signal ───────
   //
   // The first-play interstitial is moderation-mandated on this network, so it

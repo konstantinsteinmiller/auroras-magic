@@ -711,6 +711,24 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
   long tasks); portal QA web 24/24, GamePix 33/33, GameMonetize 36/36,
   CrazyGames full 41/41.
 
+**After the RC — owner ruling (2026-09-20), story-spec §8.30:**
+- [x] **Two runes to start** (Fire and Earth), not four. Ice after the first
+  battle, Wind after the third, Nature at chapter 1's boss, then one at the
+  end of every chapter that has one — twelve runes, each given once.
+- [x] **The foe fights with the player's runes**, plus her own chapter's
+  magic (the rune that chapter's chest is about to give), so every boss keeps
+  its mechanic.
+- [x] **A ceremony for each one:** the chest opens into `FReward`'s reveal —
+  rays, confetti, fanfare — with the rune drawing itself over its ghost, its
+  name, and "draw it like this". The game pauses behind it; the rune is saved
+  before the party starts.
+- [x] Old saves keep their four runes.
+- [x] Verified: 797 tests (incl. `tests/duel/runeSchedule.test.ts`); win rates
+  re-measured on an honest model (ch1 99/95/86 %, all chapters above their
+  floors); portal QA web 25/25, GamePix 34/34, GameMonetize 37/37,
+  CrazyGames full 42/42 — QA caught the early chests firing the portal's
+  happy moment, now back to one per chapter at the boss.
+
 - [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
   the intro pages, then islands and badges. Then run `pnpm slice-sheets` and
   compress.

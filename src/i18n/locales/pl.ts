@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Tęcza',
     'time': 'Czas',
     'moon': 'Księżyc',
-    'love': 'Miłość'
+    'love': 'Miłość',
+    'newRune': 'Nowa runa!',
+    'howToDraw': 'Narysuj ją tak',
   },
 
   'spell': {

@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Kamalak',
     'time': 'Vaqt',
     'moon': 'Oy',
-    'love': 'Sevgi'
+    'love': 'Sevgi',
+    'newRune': 'Yangi runa!',
+    'howToDraw': 'Mana shunday chiz',
   },
 
   'spell': {

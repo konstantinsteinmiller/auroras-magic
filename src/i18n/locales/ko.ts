@@ -50,7 +50,9 @@ export default {
     'rainbow': '무지개',
     'time': '시간',
     'moon': '달',
-    'love': '사랑'
+    'love': '사랑',
+    'newRune': '새 룬이야!',
+    'howToDraw': '이렇게 그려요',
   },
 
   'spell': {

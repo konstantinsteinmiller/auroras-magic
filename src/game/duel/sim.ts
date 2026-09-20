@@ -27,6 +27,7 @@ import {
 } from '@/game/duel/fx'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { sfx, setMood } from '@/game/duel/audio'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 
 /* ------------------------------ tuning ------------------------------ */
 /** Projectile speed per spell kind (stage units/sec); fields/heavies wait. */
@@ -130,10 +131,10 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
     p.length = 0
     return
   }
-  // The runes this player can draw: the frozen four plus every rune a boss
-  // chest has granted (§4.4, §5.7.2).
+  // The runes this player can draw: the two she starts with plus every rune a
+  // chest has granted (§4.4, §5.7.2, §8.30).
   // (In versus both players share the save, so both hold the full kit.)
-  const active = (S.campaign.runesUnlocked | FROZEN_MASK) >>> 0
+  const active = (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
   const r = recognise(p, active)
   // Telemetry: what the stroke was, even when it was not a rune. Two more
   // passes over a 32-point stroke, once per pointer release.
@@ -704,6 +705,29 @@ const think = (dt: number): void => {
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
+/**
+ * The runes SHE may reach for (§8.30): the ones the player holds, plus her
+ * own chapter's magic — the rune this chapter's chest is about to give. A
+ * child cannot answer, or even read, a shape she has never been shown; the
+ * one exception is the rune she is about to be given, and meeting it in the
+ * foe's hand first is how the chapter introduces it.
+ *
+ * Her scripted contracts (§6.11, §6.13 — the Love finisher, Crystal Ward, a
+ * decoy) are not filtered: they are the boss's identity, and each is already
+ * gated on its own condition.
+ */
+const foeMask = (): number => {
+  const foe = FOES[S.foe]!
+  const magic = S.usesMagic && foe.magic >= 0 ? 1 << foe.magic : 0
+  return ((S.campaign.runesUnlocked | STARTING_RUNES | magic) >>> 0)
+}
+const mayDraw = (r: number): boolean => !!((foeMask() >> r) & 1)
+/** `pool` with everything the player has never seen taken out. */
+const hers = (pool: readonly Rune[]): readonly Rune[] => {
+  const ok = pool.filter(mayDraw)
+  return ok.length ? ok : ([FIRE] as const)
+}
+
 const chooseRune = (): Rune => {
   const q = S.equeue
   const foe = FOES[S.foe]!
@@ -719,11 +743,11 @@ const chooseRune = (): Rune => {
     (q.length > 0 || S.queue.length >= 1 || S.shots.some((s) => s.dir > 0))) return nextOf(q, CRYSTAL)
   // A lone EARTH already IS a barrier, so under a read threat it is the
   // fastest wall she can put up.
-  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length) return EARTH
+  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH)) return EARTH
   // Answer pressure with defence — in chapter 5, maybe a decoy (§6.13) —
   // otherwise build toward damage.
   if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) {
-    return magic === ILLUSION && S.eDecoy <= 0 && rnd() < 0.5 ? ILLUSION : pick([EARTH, ICE, WIND] as const)
+    return magic === ILLUSION && S.eDecoy <= 0 && rnd() < 0.5 ? ILLUSION : pick(hers([EARTH, ICE, WIND] as const))
   }
   if (q.length === 1 && rnd() < 0.55) return q[0]! // doubling up is the strong play
   // Her chapter's magic, exactly when its contract says (§6.13) — never at
@@ -741,7 +765,9 @@ const chooseRune = (): Rune => {
   // A foe themed to a BASE element leans on it — that is what makes it
   // readable, and therefore what makes its weakness worth learning.
   const el = foe.element
-  return el >= 0 && el < 4 && rnd() >= 0.4 ? (el as Rune) : pick([FIRE, FIRE, ICE, ICE, EARTH, WIND] as const)
+  return el >= 0 && el < 4 && mayDraw(el) && rnd() >= 0.4
+    ? (el as Rune)
+    : pick(hers([FIRE, FIRE, ICE, ICE, EARTH, WIND] as const))
 }
 
 /* ------------------------------- update ----------------------------- */

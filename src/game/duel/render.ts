@@ -22,6 +22,7 @@ import { traceAssist } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
 import { FOES } from '@/game/duel/foes'
 import { decoyX } from '@/game/duel/sim'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 
 type G2D = CanvasRenderingContext2D
 
@@ -225,7 +226,7 @@ const drawIntroTrace = (g: G2D, t: number): void => {
  * that; this is for the shapes that arrive later.
  */
 const newestRune = (): number => {
-  const extra = (S.campaign.runesUnlocked & ~FROZEN_MASK) >>> 0
+  const extra = (S.campaign.runesUnlocked & ~STARTING_RUNES) >>> 0
   return extra ? 31 - Math.clz32(extra) : -1
 }
 const drawAssistTrace = (g: G2D, t: number): void => {

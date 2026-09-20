@@ -50,7 +50,9 @@ export default {
     'rainbow': 'สายรุ้ง',
     'time': 'เวลา',
     'moon': 'จันทร์',
-    'love': 'ความรัก'
+    'love': 'ความรัก',
+    'newRune': 'รูนใหม่!',
+    'howToDraw': 'วาดแบบนี้',
   },
 
   'spell': {

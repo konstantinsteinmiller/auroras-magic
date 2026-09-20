@@ -50,7 +50,9 @@ export default {
     'rainbow': 'Arco-íris',
     'time': 'Tempo',
     'moon': 'Lua',
-    'love': 'Amor'
+    'love': 'Amor',
+    'newRune': 'Uma runa nova!',
+    'howToDraw': 'Desenhe assim',
   },
 
   'spell': {

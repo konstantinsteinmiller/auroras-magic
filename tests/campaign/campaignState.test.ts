@@ -7,12 +7,16 @@ import {
   defaultCampaign, readCampaign, pendingSectorNode, nextDuelNode, NODE_COUNT
 } from '@/game/campaign/state'
 import { setBit, emptyBitset, hasBit } from '@/game/campaign/bitset'
+import { STARTING_RUNES } from '@/game/campaign/tables'
+import { FIRE, EARTH } from '@/game/duel/config'
 
 describe('CampaignState', () => {
-  it('defaults to a fresh story: no node won, the frozen four unlocked', () => {
+  it('defaults to a fresh story: no node won, two runes in hand (§8.30)', () => {
     const c = defaultCampaign()
     expect(c.furthestNode).toBe(-1)
-    expect(c.runesUnlocked).toBe(0b1111)
+    // Fire to throw and Earth to hide behind; everything else is earned.
+    expect(c.runesUnlocked).toBe(STARTING_RUNES)
+    expect(STARTING_RUNES).toBe((1 << FIRE) | (1 << EARTH))
     expect(c.wipeCoverage).toBeNull()
     expect(c.giftsEquipped).toEqual([-1, -1, -1, -1, -1, -1, -1])
   })
@@ -22,7 +26,7 @@ describe('CampaignState', () => {
       const c = readCampaign(raw)
       expect(c.furthestNode).toBe(-1)
       expect(c.sectorsDone).toBe(emptyBitset(NODE_COUNT))
-      expect(c.runesUnlocked & 0b1111).toBe(0b1111)
+      expect(c.runesUnlocked & STARTING_RUNES).toBe(STARTING_RUNES)
     }
   })
 
@@ -36,11 +40,18 @@ describe('CampaignState', () => {
     expect(back).toEqual(c)
   })
 
-  it('clamps hand-edited numbers and never drops the frozen four', () => {
+  it('clamps hand-edited numbers and never drops the starting pair', () => {
     const c = readCampaign({ furthestNode: 999, runesUnlocked: 0, lossStreaks: { 3: 99, x: 1, 80: 2 } })
     expect(c.furthestNode).toBe(NODE_COUNT - 1)
-    expect(c.runesUnlocked).toBe(0b1111)
+    expect(c.runesUnlocked).toBe(STARTING_RUNES)
     expect(c.lossStreaks).toEqual({ 3: 8 })
+  })
+
+  it('leaves a save from before the runes were earned with all four (§8.30)', () => {
+    // Every profile that has played until now holds the old frozen four.
+    // Nobody is taken back down to two.
+    const c = readCampaign({ runesUnlocked: 0b1111, furthestNode: 3 })
+    expect(c.runesUnlocked).toBe(0b1111)
   })
 
   it('finds the pending gift: won, not yet wiped', () => {

@@ -17,6 +17,7 @@ import { S, save } from '@/game/duel/state'
 import { hasBit, setBit } from '@/game/campaign/bitset'
 import { COMBO_COUNT, comboFromIndex } from '@/game/duel/config'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 
 export const bookHud = reactive({
   /** Some reachable discovery has not been looked at yet. */
@@ -26,7 +27,7 @@ export const bookHud = reactive({
 })
 
 /** The runes the player can draw now, as a bitmask. */
-export const drawableMask = (): number => (S.campaign.runesUnlocked | FROZEN_MASK) >>> 0
+export const drawableMask = (): number => (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
 
 export const isReachable = (i: number, mask = drawableMask()): boolean => {
   const q = comboFromIndex(i)

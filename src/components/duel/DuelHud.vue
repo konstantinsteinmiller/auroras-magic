@@ -14,6 +14,7 @@ import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import DuelPopups from '@/components/duel/DuelPopups.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import { vFit } from '@/use/vFit'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 
 /**
  * The duel's chrome, as the jam build laid it out.
@@ -50,7 +51,7 @@ const weakTo = computed(() => {
   if (versus.value) return -1
   const fe = FOES[hud.foe]?.element ?? -1
   const c = fe >= 0 ? CTR[fe] ?? -1 : -1
-  return c >= 0 && ((S.campaign.runesUnlocked | 0b1111) >> c) & 1 ? c : -1
+  return c >= 0 && ((S.campaign.runesUnlocked | STARTING_RUNES) >> c) & 1 ? c : -1
 })
 const weakMul = computed(() => (weakTo.value >= 0 ? elemMul(weakTo.value, FOES[hud.foe]!.element) : 1))
 const weakLabel = computed(() => weakTo.value >= 0
