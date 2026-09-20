@@ -6740,86 +6740,6 @@ given, one chest at a time.
   ceremony on desktop and phone; portal QA web 25/25, GamePix 34/34,
   GameMonetize 37/37, CrazyGames full 42/42.
 
-### §8.31 Owner request, 2026-09-20 — the page behind the beats
-
-*"I think the background of the storybook pages also needs some kind of
-background art, as it looks barren right now, but it should not distract from
-the story beat cards."* A chapter page was a cream card with a coloured hill
-along its foot, and everything between the two was blank. It now carries what
-a picture book puts on its endpapers — and nothing more, because the beat
-cards are the only thing on a page a child is meant to look at.
-
-A chapter page's whole background is now ONE baked image
-(`map/pageDecor.ts`), blitted inside the page's own clip so a turning page
-carries it with it. Four layers go into that bake, in this order:
-
-1. **The light on the paper.** A warm bloom off the head of the page and the
-   binding's shadow down its spine edge, so the card reads as a sheet lying in
-   a book rather than a flat swatch. No shapes, so nothing to compete with.
-2. **Marginalia.** The chapter's own world in thin ink on the paper, one set
-   per chapter:
-
-   | Chapter | Printed on its paper |
-   |---|---|
-   | 1 Whispering Woods | clouds, a gull, drifting leaves, a whisper curl |
-   | 2 Bubble Bay | bubbles, wave curls, a fan shell, a gull |
-   | 3 Cloud Kingdom | clouds, birds, a star, air curls |
-   | 4 Crystal Caves | crystals, drops, twinkles |
-   | 5 Mirror Mountains | peaks, snowflakes, drops, twinkles |
-   | 6 Rainbow Ridge | rainbow arcs, clouds, twinkles, hearts |
-   | 7 Sunken Sands | suns, wind curls, shells, twinkles |
-   | 8 Twilight Tundra | snowflakes, pines, stars, a cloud |
-   | 9 Starlight Summit | stars, a crescent, twinkles, a peak |
-   | 10 Friendship Festival | bunting, balloons, hearts, twinkles |
-
-   A chapter that has not been built yet dreams in stars instead, beside the
-   moon and the Zs §3.7 already gives it, and a shade fainter.
-3. **The biome wash** — the two bands of rolling hills along the page's foot
-   (its side, in portrait) that the page already had. It moves into the bake
-   because it never moves on screen either, and every separate fill is another
-   full-page composite through the page's rounded clip.
-4. **Paper grain.** A seamless fibre tile over the whole page, hills included,
-   because paper shows through the ink printed on it. It is laid in as a
-   repeating pattern at DEVICE resolution, so the fibre is 1:1 with the
-   screen's own pixels rather than stretched with the page.
-
-**The rule the whole feature is built around: marginalia is furniture, not
-content.** One ink colour, a tenth of an alpha, never animated, never
-coloured, and never anywhere it could be mistaken for something to tap:
-
-- every motif is rejection-sampled against the page's five beat cards (each
-  grown to take in its frame and shadow), their badges, the binding, the
-  folded corners and the page dots, and against every motif already placed;
-- marginalia is printed on PAPER only — the coloured biome wash along the
-  page's foot (its side, in portrait) is left alone;
-- a page that has no room left simply carries fewer drawings. In portrait,
-  where the five cards fill most of the sheet, that is often only three or
-  four, which is the right answer rather than a shortfall;
-- the scatter is seeded per chapter, so a page looks the same every time it is
-  opened and nothing shimmers between frames.
-
-**Why it is baked, measured rather than assumed.** Drawn live, the layer is
-three full-page composites (a pattern fill and two gradients) on top of the
-wash's two, all through the page's rounded clip — and a rounded clip is the
-one thing that costs real time when a canvas is not GPU-composited. On a
-restored chapter page in a software-rasterised browser (`--disable-gpu`, which
-stands in for a weak device since a vsync-locked GPU arm cannot tell the two
-apart) it **halved the frame rate: 33.3 ms a frame against 16.7 ms with the
-layer off.** Baking the light, the marginalia and the grain alone did NOT fix
-it — the remaining cost was the clipped full-page blit itself, which is why
-the wash went into the same image. As one blit the page is back to **16.7 ms
-median, p95 16.8 ms** over 200 frames across three runs, i.e. the baseline,
-and the page now performs FEWER clipped composites per frame than it did
-before this feature existed. The bake is keyed by chapter, built-state,
-orientation, wash colours and page size, with the last three kept: a browser
-run counted **one bake for a whole session**.
-
-**Verified:** `tests/ui/pageDecor.test.ts` pins the keep-out contract (never
-over a card or badge, never on the wash, never off the page, never piled,
-stable per chapter, and empty rather than crowded when there is no room); in a
-browser, chapters 1–10 on desktop and phone, landscape and portrait, against
-both dusty and fully restored beat cards; 809 tests.
-
 ### §8.31 Owner request, 2026-09-20 — the fight, and the book held upright
 
 Three things, from one message: *"the storybook doesn't look good in portrait
@@ -6922,6 +6842,245 @@ quiet machine before release:
 `npx vite build --base=./ --outDir dist-perf && node scripts/perf-scenes.mjs dist-perf 4 "" land`.
 The known costs added are one glow gradient and six ribbon strokes per shot,
 two rings and ~4 extra particles per hit.
+
+### §8.32 Owner request, 2026-09-20 — the page behind the beats
+
+*"I think the background of the storybook pages also needs some kind of
+background art, as it looks barren right now, but it should not distract from
+the story beat cards."* A chapter page was a cream card with a coloured hill
+along its foot, and everything between the two was blank. It now carries what
+a picture book puts on its endpapers — and nothing more, because the beat
+cards are the only thing on a page a child is meant to look at.
+
+A chapter page's whole background is now ONE baked image
+(`map/pageDecor.ts`), blitted inside the page's own clip so a turning page
+carries it with it. Four layers go into that bake, in this order:
+
+1. **The light on the paper.** A warm bloom off the head of the page and the
+   binding's shadow down its spine edge, so the card reads as a sheet lying in
+   a book rather than a flat swatch. No shapes, so nothing to compete with.
+2. **Marginalia.** The chapter's own world in thin ink on the paper, one set
+   per chapter:
+
+   | Chapter | Printed on its paper |
+   |---|---|
+   | 1 Whispering Woods | clouds, a gull, drifting leaves, a whisper curl |
+   | 2 Bubble Bay | bubbles, wave curls, a fan shell, a gull |
+   | 3 Cloud Kingdom | clouds, birds, a star, air curls |
+   | 4 Crystal Caves | crystals, drops, twinkles |
+   | 5 Mirror Mountains | peaks, snowflakes, drops, twinkles |
+   | 6 Rainbow Ridge | rainbow arcs, clouds, twinkles, hearts |
+   | 7 Sunken Sands | suns, wind curls, shells, twinkles |
+   | 8 Twilight Tundra | snowflakes, pines, stars, a cloud |
+   | 9 Starlight Summit | stars, a crescent, twinkles, a peak |
+   | 10 Friendship Festival | bunting, balloons, hearts, twinkles |
+
+   A chapter that has not been built yet dreams in stars instead, beside the
+   moon and the Zs §3.7 already gives it, and a shade fainter.
+3. **The biome wash** — the two bands of rolling hills along the page's foot
+   (its side, in portrait) that the page already had. It moves into the bake
+   because it never moves on screen either, and every separate fill is another
+   full-page composite through the page's rounded clip.
+4. **Paper grain.** A seamless fibre tile over the whole page, hills included,
+   because paper shows through the ink printed on it. It is laid in as a
+   repeating pattern at DEVICE resolution, so the fibre is 1:1 with the
+   screen's own pixels rather than stretched with the page.
+
+**The rule the whole feature is built around: marginalia is furniture, not
+content.** One ink colour, a tenth of an alpha, never animated, never
+coloured, and never anywhere it could be mistaken for something to tap:
+
+- every motif is rejection-sampled against the page's five beat cards (each
+  grown to take in its frame and shadow), their badges, the binding, the
+  folded corners and the page dots, and against every motif already placed;
+- marginalia is printed on PAPER only — the coloured biome wash along the
+  page's foot (its side, in portrait) is left alone;
+- a page that has no room left simply carries fewer drawings. In portrait,
+  where the five cards fill most of the sheet, that is often only three or
+  four, which is the right answer rather than a shortfall;
+- the scatter is seeded per chapter, so a page looks the same every time it is
+  opened and nothing shimmers between frames.
+
+**Why it is baked, measured rather than assumed.** Drawn live, the layer is
+three full-page composites (a pattern fill and two gradients) on top of the
+wash's two, all through the page's rounded clip — and a rounded clip is the
+one thing that costs real time when a canvas is not GPU-composited. On a
+restored chapter page in a software-rasterised browser (`--disable-gpu`, which
+stands in for a weak device since a vsync-locked GPU arm cannot tell the two
+apart) it **halved the frame rate: 33.3 ms a frame against 16.7 ms with the
+layer off.** Baking the light, the marginalia and the grain alone did NOT fix
+it — the remaining cost was the clipped full-page blit itself, which is why
+the wash went into the same image. As one blit the page is back to **16.7 ms
+median, p95 16.8 ms** over 200 frames across three runs, i.e. the baseline,
+and the page now performs FEWER clipped composites per frame than it did
+before this feature existed. The bake is keyed by chapter, built-state,
+orientation, wash colours and page size, with the last three kept: a browser
+run counted **one bake for a whole session**.
+
+**Verified:** `tests/ui/pageDecor.test.ts` pins the keep-out contract (never
+over a card or badge, never on the wash, never off the page, never piled,
+stable per chapter, and empty rather than crowded when there is no room); in a
+browser, chapters 1–10 on desktop and phone, landscape and portrait, against
+both dusty and fully restored beat cards; 809 tests.
+
+### §8.33 Owner request, 2026-09-20 — the placing goes on the page
+
+*"The leaderboard badge on the win-screen is barely visible, that needs to be
+placed at a better place, maybe in the top-right corner of the storybook."*
+
+The badge used to flash on the duel's win flourish — centred at 58 % of the
+height, for the length of one beat, on the busiest frame the game draws, while
+sparks, the foe's collapse and the chapter's own fanfare were all moving. It
+was competing with a firework. It now lives on the **storybook page's
+top-right corner** (`MapScene.vue`), where the player actually stops.
+
+- **It is printed on the paper, not floated over the screen.** `map.ts`
+  publishes the open page's rect (`mapHud.page`) and the plate pins to it.
+  `pageRect` puts every page in the same place, so the plate settles on the
+  first frame and then only moves on a resize — it never chases a turning
+  page.
+- **Under the bookmark's tail.** The ribbon hangs from the page's top edge at
+  86 % of its width for `h × 0.16`; the plate sits at `y + h × 0.135`, right-
+  aligned to the page. Move one and move the other.
+- **It wears the book's dress, not the HUD's.** `RankBadge` is drawn for a
+  dark HUD — a near-transparent plate with white numerals on a black shadow.
+  On cream paper that is nearly invisible, which is a second reason it went
+  unseen. On the page it takes the gold plate and ink ring the node star
+  badges wear two inches away on the same sheet.
+- **It waits for a first win.** On the map the plate is permanent chrome
+  rather than a beat, so an unplayed player would have the badge's honest "…"
+  sitting on the page forever. `S.wins > 0` gates it — the lifetime count, the
+  same number `reportRun` posts, never this run's result.
+- **The win moment is not lost.** The map opens immediately after a win, so
+  the placing is still the first thing on screen once the duel resolves — it
+  is simply on a page that holds still.
+
+Portrait passes `compact`, dropping the "of N" tail: at ~390 px of page width
+the full pair wraps to two lines.
+
+### §8.34 Owner request, 2026-09-20 — the Festival card holds
+
+*"The Festival scene should show the image a bit longer as it's beautiful, but
+currently skipped a bit too fast — better give the player the option to skip
+forward with a skip button."*
+
+The finale card (§10.19) closed on **a tap anywhere**, and it opens during the
+page turn that carries the player from the restored Festival sector to the
+map. So the second tap of "tap Continue, tap again" — the most natural thing a
+child does, and the card is not yet opaque when it lands — threw the one-time
+capstone of the whole story away before it had finished fading in. Measured in
+a browser: the card is in the DOM at t+2.6 s after Continue and a synthetic
+backdrop tap at t+3.3 s removed it.
+
+- **The backdrop no longer closes it.** `@click.stop` and `@pointerdown.stop`
+  on the root swallow stray taps instead of acting on them. The card now holds
+  for as long as the player wants to look at it — verified to 6 s and it is
+  not on a timer at all.
+- **One control, and it is a SKIP.** The card's own button is the single way
+  on. It kept its size and place (a 64 px plate under the line, where a
+  child's eye lands after reading it) and lost the `forward` arrow, which on a
+  card with nowhere else to go read as decoration.
+- **A second skip was tried and removed.** A top-right skip, matching the
+  intro's, was built first and then taken out: two controls doing exactly the
+  same thing on one card is worse than either alone.
+- **It is there from the first frame**, the same promise `IntroScene`'s skip
+  makes — nobody is held in a scene they have already seen.
+
+**The `skip` glyph (§3.4's icon set).** New, and deliberately NOT
+`skip-forward`: `▶|` is "next track", a step through a list, while `»` is "get
+past this presentation". Two buttons that do different things may not wear the
+same drawing. It is two copies of the set's own `right` chevron, uniformly
+scaled to 0.82 — uniform, so the arcs stay circular and the arms stay ≥ 2.5
+units thick at HUD sizes — set 7.4 apart and nudged right of the box's centre
+for the same optical reason `play`'s triangle is. `ui.skip` already existed in
+all 21 locales, so the label needed no new key.
+
+**Verified:** 820 tests; in a browser, the whole Festival ending on desktop and
+phone — the restored sector, the card surviving taps on the backdrop and on
+the confetti layer, the skip button closing it — and the rank plate on the
+page in landscape and portrait, on a page carrying the bookmark and on one
+without.
+
+### §8.32 Owner report, 2026-09-20 — the freeze, and the last of the fight
+
+**A. THE FREEZE.** *"I opened the spellbook right before the enemy died and
+the game froze."* It did, permanently, and the way it did is worth writing
+down because the same shape can come back.
+
+Three true things met:
+
+1. an overlay — the spellbook, the options — **pauses the game** while it is
+   up (`acquireModalOpen`, §4.1.2), which is right: a child reading the book
+   is not fighting;
+2. a page turn (§8.28) **hides every scrap of DOM chrome** so the paper can
+   swing alone — including that overlay and its close button;
+3. the turn's own clock is spent **by the frame loop, only while the game
+   runs**.
+
+So: the foe dies, the flow waits out the flourish on a real-time clock and
+reaches its page turn to the map. The turn starts, the chrome goes, and the
+game is paused by the book. The turn cannot advance, because the pause stops
+it. The pause cannot be lifted, because the only control that lifts it is on
+the other side of a wall the turn just built. Nothing moves again — the
+canvas holds a picture of the win, forever.
+
+The fix is two guarantees, both at the one place every turn goes through:
+
+- **Turning the page shuts the book.** `dipTo` closes any open overlay, for
+  the turn it starts AND for one it has to queue. Nothing stands on a page
+  that is being turned.
+- **A turn is never paused.** `stepTransition` now runs whatever the pause
+  state, as the backstop for every other way the game can pause mid-turn
+  (an overlay opened DURING one, an ad, a portal callback). A page finishing
+  its turn under an ad costs nothing; a page that never finishes costs the
+  session.
+
+And, so the win is not watched through a covered screen for the length of
+the flourish, the duel ENDING closes the book itself (`onFinish`).
+
+Pinned by two tests in `tests/ui/pageTurn.test.ts`, and both paths driven in
+a browser: the book opened during the flourish (the owner's case), and the
+book opened mid-turn (the backstop's case).
+
+**The rule this leaves behind:** *anything that hides the chrome must first
+take away every reason the chrome was needed.* A pause whose release lives
+in hidden UI is a deadlock, not a pause.
+
+**B. Stage three of the fight** (§8.31 D's leftovers).
+
+- **The mirror-twin has three moments instead of one puff.** She RISES —
+  light gathering off the ground into a shape; she BREAKS when she takes the
+  spell meant for her caster — an image coming apart into its own shards,
+  with a beat of hit-stop for the last twin, because that is the moment the
+  real duelist is exposed again; and she FADES when her eight seconds simply
+  run out — a handful of motes drifting up, nothing else. A twin that expires
+  must never read like a twin that was hit.
+- **The mirror throws it back.** A reflect (§6.5) used to be a block with a
+  different callout. Now the ward itself flares and ripples, a white front
+  leaves the facets, the spell's own colour turns around on the spot, and the
+  duel holds still long enough for a child to understand that it is coming
+  BACK. It is the rarest thing in the game and it lands like one.
+- **The Love finisher blooms.** Three waves of hearts on their own beats,
+  gold through them, two fronts, and the deepest camera punch in the game —
+  but NO hit-stop on the cast: freezing the duel on the frame the player
+  casts holds up her own spell, and the hold belongs to the landing, where
+  `impact` already puts it. The flash is bright, not blinding: this plays for
+  a six-year-old sitting close to the screen.
+- **The flinch**, the answer to §8.31's cast kick. The rig read the hurt
+  clock raw, so a blow landed as a fade and the strobe did all the work.
+  The pose is now shaped like the rear — hard into it in a frame, out of it
+  with a bounce — and because the rig multiplies `hurt` by four for its own
+  0..1 `hit`, handing it a quarter of the shaped pose hands it the pose
+  exactly. The stagger it already applied becomes the shaped one; there is
+  no second translate.
+- **A duel never opens frozen.** `resetDuel` now clears `S.stop` and
+  `S.punch`. A retry straight out of a hit-stop was spending its first frames
+  holding the previous duel's blow — found by two rule tests that step the
+  sim once and got a frozen frame instead.
+
+**Still to do:** painted spell art through the pipeline (§8.27's families),
+once the shapes have settled — and the frame cost, which is still NOT
+re-measured (§8.31's note stands).
 
 ## §9 Rendering, assets & performance
 

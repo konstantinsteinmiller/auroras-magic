@@ -761,9 +761,23 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
   run holding the game's clock — a mixed Magma Shard (lead Earth, mix Fire)
   photographed in flight, a Boulder's crown, and the foe's bolt breaking on
   Aurora's earth wall.
-- [ ] **Stage three:** a language for the decoy / reflect / Love finisher, a
-  flinch on the hit to match the kick on the cast, then painted spell art
-  through the pipeline.
+- [x] **THE FREEZE, fixed** (§8.32 A): the spellbook open as a duel ended
+  wedged the game for good — an overlay pauses the game, the page turn hides
+  the overlay's own close button, and the turn needs the game running to
+  finish. Now `dipTo` shuts any overlay, `stepTransition` runs whatever the
+  pause state, and a duel ending closes the book itself. Two tests in
+  `tests/ui/pageTurn.test.ts`; both paths driven in a browser.
+- [x] **The fight, stage three** (§8.32 B): the mirror-twin rises, breaks and
+  fades as three different things; a reflect flares, turns the spell around
+  and holds the duel a beat; the Love finisher blooms in three waves (no
+  hit-stop on the CAST — that belongs to the landing); the flinch is shaped
+  like the rear, through the stagger the rig already had; and `resetDuel`
+  clears `S.stop`/`S.punch`, so a retry can never open frozen.
+- [x] Verified: 822 tests; a browser run of the twin, the bounce, the
+  finisher and a blow landing, each set up through the duel's own state with
+  the clock held.
+- [ ] **Left:** painted spell art through the pipeline, and the frame cost
+  re-measured on a quiet machine (§8.31's note still stands).
 
 - [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
   the intro pages, then islands and badges. Then run `pnpm slice-sheets` and

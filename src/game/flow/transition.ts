@@ -21,7 +21,16 @@
  * Input is held for the whole turn (`fading()`), and only one runs at a time:
  * a second request during one is queued, never dropped, so a fast player
  * cannot strand the flow.
+ *
+ * TURNING THE PAGE SHUTS THE BOOK (§8.32). An overlay — the spellbook, the
+ * options — holds the game PAUSED, and the turn's own clock is spent by the
+ * frame loop only while the game runs. The turn also hides every scrap of
+ * DOM chrome, including that overlay's close button. So an overlay left open
+ * across a turn hides the only control that could release the pause that is
+ * stopping the turn: the game freezes, for good. It is closed here, at the
+ * one place every turn goes through.
  */
+import { closeOverlay } from '@/game/flow/scene'
 import { reducedMotion } from '@/use/useAccessibility'
 import { flowHud } from '@/use/useFlow'
 import { sfx } from '@/game/duel/audio'
@@ -50,12 +59,15 @@ let snapped = false
 export const dipTo = (fn: () => void, seconds = DIP_PAGE): void => {
   if (t >= 0) {
     queue.push({ fn, dur: seconds })
+    closeOverlay()
     return
   }
   t = 0
   dur = seconds
   mid = fn
   snapped = false
+  // Nothing stands on a page that is being turned (see the header note).
+  closeOverlay()
   // The scene's DOM chrome steps aside for the page (see `useFlow`).
   flowHud.turning = true
   if (!reducedMotion.value) sfx('page')

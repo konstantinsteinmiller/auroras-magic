@@ -23,7 +23,7 @@ import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
   impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
-  decoyPoof, frostBurst, heartBurst, BAR_CRYSTAL, BAR_FROST
+  decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { mixRune } from '@/game/duel/spellArt'
@@ -263,7 +263,7 @@ const summon = (e: boolean, hits: number, secs: number, two: boolean): void => {
     S.decoyN = 1
     S.decoyT = secs
   }
-  decoyPoof(decoyX(e, 0), GY - 90, 1)
+  decoyRise(decoyX(e, 0), GY - 90)
   sfx('decoy')
 }
 
@@ -280,9 +280,8 @@ const decoyHit = (e: boolean): void => {
     S.decoyN = min(S.decoyN, S.decoy)
     if (left <= 0) S.decoyT = 0
   }
-  decoyPoof(x, GY - 90, left <= 0 ? 1 : 0.6)
+  decoyPop(x, GY - 90, left <= 0)
   sfx('decoy')
-  shakeAdd(0.1)
   pop('decoy', '#ecdcff', x, GY - 230)
 }
 
@@ -321,9 +320,8 @@ const reflect = (s: Shot, e: boolean): void => {
   if (e) S.eGuard = 0
   else S.guard = 0
   barrier(tx, GY - 70, BAR_CRYSTAL, 0)
-  impact(tx - s.dir * 58, GY - 90, ILLUSION, 0.5)
+  reflectFlash(tx - s.dir * 58, GY - 90, s.r)
   sfx('reflect')
-  shakeAdd(0.18)
   pop(s.rf ? 'blocked' : 'reflected', '#e0c4ff', tx, GY - 210)
   if (s.rf) return
   S.shots.push({
@@ -399,8 +397,7 @@ const launch = (q: Rune[], e: boolean): void => {
   // or the finisher's flat +25.
   mend(e, (sp.healPct ?? 0) * (e ? S.ehpMax : S.hpMax) + (sp.healFlat ?? 0))
   if (sp.finisher) {
-    heartBurst(hx, HORN_Y - 10, 1)
-    flashAdd(0.35)
+    finisherBloom(hx, HORN_Y - 10)
     sfx('finisher')
   }
 
@@ -811,11 +808,11 @@ const tick = (dt: number): void => {
   }
   // A decoy fades on its own clock (8 s / 10 s cap, §6.3).
   if (S.decoyT > 0 && (S.decoyT -= dt) <= 0) {
-    if (S.decoy > 0) decoyPoof(decoyX(false, 0), GY - 90, 0.5)
+    if (S.decoy > 0) decoyFade(decoyX(false, 0), GY - 90)
     S.decoy = S.decoyN = S.decoyT = 0
   }
   if (S.eDecoyT > 0 && (S.eDecoyT -= dt) <= 0) {
-    if (S.eDecoy > 0) decoyPoof(decoyX(true, 0), GY - 90, 0.5)
+    if (S.eDecoy > 0) decoyFade(decoyX(true, 0), GY - 90)
     S.eDecoy = S.eDecoyN = S.eDecoyT = 0
   }
   // Frost Lock thaws, then the 6 s before it can hold again (§6.5).
@@ -941,6 +938,9 @@ export const resetDuel = (start?: DuelStart): void => {
   S.hitsLanded = 0
   S.usedFinisher = S.eUsedFinisher = false
   S.castAnim = S.eCastAnim = S.hurt = S.eHurt = S.draw = 0
+  // A duel never OPENS frozen (§8.31): a retry straight out of a hit-stop
+  // would otherwise spend its first frames holding the last duel's blow.
+  S.stop = S.punch = 0
   S.dur = S.over = S.panelT = 0
   S.resultUp = false
   S.eThink = 1.2 // a grace beat before the foe opens

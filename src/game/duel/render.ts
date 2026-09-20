@@ -756,6 +756,38 @@ const castKick = (left: number): number => {
   return a < 0.05 ? (a / 0.05) * 7 : 7 * Math.exp(-(a - 0.05) * 9)
 }
 
+/** How long a full flinch runs (`S.hurt`, set by the sim: 0.3 s on a real
+ *  hit, 0.06 s on chip damage). */
+const HURT_T = 0.3
+
+/**
+ * THE FLINCH (§8.32), the answer to the cast's kick. The clock decays evenly
+ * and the rig read it raw, so a blow landed as a fade — the strobe did all
+ * the work and the body barely moved. Shaped the same way as the rear: hard
+ * into the flinch in a frame, then out of it, so being hit has a shape of
+ * its own.
+ *
+ * Chip damage (a burn tick) sets a much shorter clock; it is normalised by
+ * the same constant, so a tick is a twitch and a spell is a flinch — which is
+ * exactly the difference a child needs to read.
+ */
+const hurtPose = (left: number): number => {
+  if (left <= 0) return 0
+  const a = (HURT_T - clamp(left, 0, HURT_T)) / HURT_T
+  if (a < 0.1) return a / 0.1
+  const d = (a - 0.1) / 0.9
+  return Math.max(0, (1 - d) * (1 - d) * (1 + 0.18 * Math.sin(d * 11)))
+}
+
+/**
+ * The rig reads `hurt` in SECONDS and multiplies by four for its own 0..1
+ * `hit` — which drives the stagger, the strobe and the mane. Handing it a
+ * quarter of the shaped pose therefore hands it the pose exactly, and the
+ * stagger it already applies becomes the shaped one. No second translate:
+ * the rig staggers, this decides how.
+ */
+const hurtIn = (left: number): number => hurtPose(left) / 4
+
 /** Portrait: clip to the visible duel window (saves; the caller restores). */
 const portraitClip = (g: G2D): void => {
   g.save()
@@ -820,7 +852,7 @@ export const render = (g: G2D): void => {
   drawFxUnder(g)
 
   AST.cast = castPose(S.castAnim)
-  AST.hurt = S.hurt
+  AST.hurt = hurtIn(S.hurt)
   AST.hp = S.hp / 100
   AST.win = S.phase === PH_WIN ? clamp(S.over, 0, 1) : 0
   AST.lose = S.phase === PH_LOSE ? clamp(S.over, 0, 1) : 0
@@ -828,7 +860,7 @@ export const render = (g: G2D): void => {
   // What Aurora wears (the wardrobe, C17) she wears into every duel.
   Object.assign(AST, equippedHooks())
   UST.cast = castPose(S.eCastAnim)
-  UST.hurt = S.eHurt
+  UST.hurt = hurtIn(S.eHurt)
   UST.hp = S.ehp / 100
   UST.win = AST.lose
   UST.lose = AST.win
@@ -840,7 +872,8 @@ export const render = (g: G2D): void => {
   drawDecoys(g, false, AST, t, false)
   drawDecoys(g, true, UST, t, false)
   // Each duelist stands where she stands, minus the kick of her own last
-  // cast — backwards, away from the spell she just threw.
+  // cast — backwards, away from the spell she just threw. (The stagger off a
+  // BLOW is the rig's own, shaped by `hurtIn` above.)
   drawUnicorn(g, AX - castKick(S.castAnim), GY, -1, AST, t)
   drawUnicorn(g, UX + castKick(S.eCastAnim), GY, 1, UST, t)
   drawIce(g, AX, S.frozen, t)

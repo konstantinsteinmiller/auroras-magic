@@ -32,7 +32,7 @@ import { resetAudio, sfx } from '@/game/duel/audio'
 import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { pendingSectorNode } from '@/game/campaign/state'
-import { gotoScene } from '@/game/flow/scene'
+import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
 import { dipTo } from '@/game/flow/transition'
 import { setArenaGift } from '@/game/restore/gift'
@@ -172,6 +172,10 @@ const onVersusFinish = async (p1Won: boolean): Promise<void> => {
 
 /** The duel ended (the sim's `finish`). */
 const onFinish = async (won: boolean): Promise<void> => {
+  // The fight is over, so the book shuts now rather than at the page turn
+  // two seconds later: an overlay pauses the game, and a flourish nobody can
+  // see is not a celebration (§8.32).
+  closeOverlay()
   if (S.flow.mode === 'versus') return onVersusFinish(won)
   const n = S.flow.node
   const my = gen

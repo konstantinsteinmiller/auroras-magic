@@ -407,11 +407,17 @@ const frame = (now: number): void => {
     const [amb, ak] = sc === 'map' || sc === 'dialogue' ? mapAmbience() : sc === 'unbox' || sc === 'wipe' ? restoreAmbience() : [-1, 0]
     setAmbience(amb, sc === 'dialogue' ? ak * 0.5 : ak)
     tickAudio(dt)
-    stepTransition(dt)
   } else {
     S.dt = 0
     acc = 0
   }
+  // A TURN IS NEVER PAUSED (§8.32). The turn hides the scene's DOM chrome,
+  // so anything that could lift an app-side pause is off screen while one
+  // runs — a turn that stalls on a pause cannot be un-stalled by the player.
+  // `dipTo` already shuts any overlay; this is the backstop for every other
+  // way the game can pause mid-turn, and letting a page finish turning under
+  // an ad costs nothing.
+  stepTransition(dt)
   if (g) {
     if (sc === 'duel' || sc === 'versusSetup') render(g)
     else if (sc === 'unbox' || sc === 'wipe') drawRestore(g)

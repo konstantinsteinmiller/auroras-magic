@@ -334,13 +334,89 @@ export const BAR_CRYSTAL = 12
 export const BAR_FROST = 13
 const fxRune = (r: number): number => (r === BAR_CRYSTAL ? 7 : r === BAR_FROST ? 2 : r)
 
-/** Illusion's decoy (§6.3) appearing or popping: a shimmer of lilac glints
- *  and pastel sparkle round a mirror ring — a trick of the light, no debris. */
-export const decoyPoof = (x: number, y: number, k = 1): void => {
-  burst(x, y, 10, 200 * k, 0.55, 10 * k, K_GLINT, 7, C_HI + 7, 0.06)
-  burst(x, y, 6, 120 * k, 0.5, 8 * k, K_GLINT, C_WHITE, C_PASTEL + 4, 0.1)
-  ring(x, y, C_HI + 7, 14, 300 * k, 0.3, K_GLINT)
-  flashAdd(0.08 * k)
+/**
+ * A mirror-twin STANDING UP (§8.32). The old summon and the old pop were the
+ * same puff at two sizes, which read as "something happened here" twice. An
+ * illusion arriving should gather: the light collects off the ground and she
+ * is suddenly there.
+ */
+export const decoyRise = (x: number, y: number): void => {
+  ring(x, y, C_HI + 7, 8, 240, 0.34, K_GLINT)
+  // Motes drawn UPWARD into the shape — the gather, not a scatter.
+  burst(x, y + 40, 9, 150, 0.55, 9, K_GLINT, 7, C_HI + 7, 0.04, 1.5, -PI / 2, 30)
+  burst(x, y, 5, 70, 0.6, 7, K_GLINT, C_WHITE, C_PASTEL + 4, 0.12, 2.4, -PI / 2)
+  flashAdd(0.06)
+}
+
+/**
+ * A mirror-twin taking the spell meant for her caster (§8.32). She does not
+ * fall over — she BREAKS: an image coming apart into its own shards, a white
+ * front through it, and the illusion's colours blowing away. The last one to
+ * go takes a beat of hit-stop with it, because that is the moment the real
+ * duelist is exposed again.
+ */
+export const decoyPop = (x: number, y: number, last: boolean): void => {
+  const k = last ? 1 : 0.68
+  burst(x, y, 8 * k, 240 * k, 0.5, 12 * k, K_SHARD, 7, C_HI + 7, 0.02)
+  burst(x, y, 9 * k, 180 * k, 0.55, 9 * k, K_GLINT, C_HI + 7, C_WHITE, 0.05)
+  ring(x, y, C_WHITE, 8, 760, 0.14, K_GLINT)
+  ring(x, y, 7, 15, 340 * k, 0.3, K_GLINT)
+  shakeAdd(0.12 * k)
+  flashAdd(0.1 * k)
+  if (last) stopAdd(0.03)
+}
+
+/**
+ * A twin whose eight seconds simply ran out (§6.3). No blow landed on her, so
+ * she does not break — she thins away: the same motes, a handful of them,
+ * drifting up, and nothing else. A twin that expires must never read like a
+ * twin that was hit.
+ */
+export const decoyFade = (x: number, y: number): void => {
+  burst(x, y, 5, 90, 0.7, 8, K_GLINT, 7, C_HI + 7, 0.06, 2.2, -PI / 2)
+}
+
+/**
+ * THE MIRROR THROWS IT BACK (§6.5, §8.32). A reflect used to read as a block
+ * with a different callout. It is the rarest thing in the game and it should
+ * land like one: the ward itself flares (`wardHit`), a white front leaves the
+ * facets, the spell's OWN colour turns around on the spot, and the duel holds
+ * still long enough for a child to understand that it is coming back.
+ */
+export const reflectFlash = (x: number, y: number, rune: number): void => {
+  wardHit(x, y, 7, 0.45) // 7 = Illusion: the ward's own colour, as everywhere here
+  ring(x, y, C_WHITE, 12, 1000, 0.2, K_GLINT)
+  // The spell's own element, thrown back the way it came.
+  const r = fxRune(rune)
+  burst(x, y, 7, 320, 0.5, 11, kindOf(r), r, hi(r), 0.02, 1.6, x < SW / 2 ? PI : 0)
+  ring(x, y, r, 18, 460, 0.3, kindOf(r))
+  stopAdd(0.05)
+  punchAdd(0.45)
+  flashAdd(0.22)
+}
+
+/**
+ * THE LOVE FINISHER (§6.9, §8.32) — the biggest thing in the game, and it
+ * used to be one heart burst. Three waves of hearts leaving on their own
+ * beats, gold through them, two fronts, and the longest hold the duel ever
+ * takes. It is cast once per duel at most: it can afford to cost something.
+ */
+export const finisherBloom = (x: number, y: number): void => {
+  for (let w = 0; w < 3; w++) {
+    const d = w * 0.12
+    burst(x, y, 10, 240 + w * 90, 1.2, 15 - w * 2, K_HEART, 11, C_HI + 11, d, TAU, 0, w * 14)
+    burst(x, y, 6, 180 + w * 70, 0.9, 8, K_GLINT, C_GOLD, C_WHITE, d + 0.04)
+  }
+  ring(x, y, C_WHITE, 14, 1200, 0.24, K_GLINT)
+  ring(x, y, C_HI + 11, 24, 620, 0.55, K_HEART)
+  shakeAdd(0.4)
+  // Bright, not blinding: this plays for a six-year-old sitting close to the
+  // screen, and a white-out is the one thing the flash must never become.
+  flashAdd(0.34)
+  // No hit-stop here, deliberately: this is the RELEASE. Freezing the duel
+  // on the frame the player casts holds up her own spell; the hold belongs
+  // to the moment it lands, where `impact` already puts it.
+  punchAdd(0.85)
 }
 
 /** Frost Lock taking hold (§6.5): ice shards and snow-white glints fly off
@@ -351,14 +427,6 @@ export const frostBurst = (x: number, y: number, k = 1): void => {
   ring(x, y, C_HI + 2, 20, 420 * k, 0.4, K_SHARD)
   shakeAdd(0.2 * k)
   flashAdd(0.18 * k)
-}
-
-/** The Love finisher (§6.9): a fountain of pink hearts and gold glints. */
-export const heartBurst = (x: number, y: number, k = 1): void => {
-  burst(x, y, 16, 280 * k, 1.1, 16 * k, K_HEART, 11, C_HI + 11, 0.2)
-  burst(x, y, 12, 200 * k, 0.9, 9 * k, K_GLINT, C_GOLD, C_WHITE, 0.12)
-  ring(x, y, C_HI + 11, 20, 520 * k, 0.5, K_HEART)
-  shakeAdd(0.3 * k)
 }
 
 export const shakeAdd = (v: number): number => (S.shake = min(1, S.shake + v))

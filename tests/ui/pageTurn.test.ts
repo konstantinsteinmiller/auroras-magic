@@ -15,7 +15,9 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { dipTo, fading, stepTransition, __flushTransition, DIP_PAGE } from '@/game/flow/transition'
 import { turnAngle, turnWidth, turnEase } from '@/game/flow/pageTurn'
+import { openOverlay } from '@/game/flow/scene'
 import { flowHud } from '@/use/useFlow'
+import { S } from '@/game/duel/state'
 
 describe('the page, as it turns', () => {
   it('starts flat and ends edge-on, and never goes back on itself', () => {
@@ -72,5 +74,29 @@ describe('the turn between scenes', () => {
     __flushTransition()
     expect(swap).toHaveBeenCalledTimes(1)
     expect(fading()).toBe(false)
+  })
+
+  // THE FREEZE (§8.32). An overlay holds the game paused, and the turn's
+  // clock is only spent while the game runs. The turn also hides every scrap
+  // of DOM chrome — including that overlay's own close button. Leave one open
+  // across a turn and the player is holding the only key to a door that is
+  // now on the other side of the wall: the owner hit exactly this by opening
+  // the spellbook as the foe died.
+  it('shuts whatever was standing on the page', () => {
+    openOverlay('spellbook')
+    expect(S.flow.overlay).toBe('spellbook')
+    dipTo(vi.fn())
+    expect(S.flow.overlay).toBeNull()
+    expect(flowHud.overlay).toBeNull()
+    __flushTransition()
+  })
+
+  it('shuts it for a turn that had to queue, too', () => {
+    dipTo(vi.fn())
+    openOverlay('options')
+    dipTo(vi.fn())
+    expect(S.flow.overlay).toBeNull()
+    expect(flowHud.overlay).toBeNull()
+    __flushTransition()
   })
 })
