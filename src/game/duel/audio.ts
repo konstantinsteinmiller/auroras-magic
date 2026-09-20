@@ -253,6 +253,8 @@ export type Cue =
   // the first-launch intro (story-spec §8.26): the unicorns' own voices —
   // sounds, never words (D6)
   | 'neigh' | 'sigh' | 'giggle'
+  // the storybook's own sound (§8.28): a page turning
+  | 'page'
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -390,6 +392,15 @@ const CUES: Record<Cue, (v?: number) => void> = {
   paint: (v) => {
     V(SIN, 520, 180, 0.16, 0.18, 1, 0, 0.01)
     V(TRI, nf(cl((v ?? 0) | 0, 0, 2) * 2) * 4, 0, 0.45, 0.06, 5, 0.08)
+  },
+
+  /* A page turning (§8.28): the short scrape of paper lifting, then the
+     softer flap as it falls. Two noise sweeps, no pitch — paper has none,
+     and a tuned "page" would sing along with the music every scene change. */
+  page: (v) => {
+    const soft = (v ?? 1) < 1
+    V(NOISE, 1800, 5200, 0.16, soft ? 0.03 : 0.05, 1, 0, 0.05)
+    V(NOISE, 3200, 700, 0.26, soft ? 0.022 : 0.035, 1, 0.09, 0.12)
   },
 
   /* The reveal wave travelling out: an airy rising sweep. */

@@ -36,6 +36,7 @@ import { gotoScene } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
 import { dipTo } from '@/game/flow/transition'
 import { setArenaGift } from '@/game/restore/gift'
+import { beginDuelPage, resetDuelPage, stashDuelClearing } from '@/game/duel/duelPage'
 import { resetHudMirrors } from '@/use/useDuelHud'
 import { useMusic } from '@/use/useSound'
 import { isInterstitialReady, showMidgameAd } from '@/use/useAds'
@@ -68,6 +69,8 @@ export const startDuel = (n: number): void => {
   resetDuel({ foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n), versus: false })
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
+  // …and the duel is fought over that sector's own page (§8.29).
+  beginDuelPage(n)
   resetAudio()
   resetHudMirrors()
   duelBeat.phase = 'fight'
@@ -181,6 +184,9 @@ const onFinish = async (won: boolean): Promise<void> => {
   void flushSaveNow()
   if (won) {
     haptic('reward')
+    // What her spells blew off the page travels with her into the wipe
+    // (§8.29). Only a WON duel leaves it: a loss changes nothing.
+    stashDuelClearing(n)
     // The controller already advanced `furthestNode`: a first win on this
     // node leaves its sector pending — that is the gift.
     const gift = !replay && pendingSectorNode(S.campaign) === n
@@ -202,6 +208,7 @@ const onFinish = async (won: boolean): Promise<void> => {
     void reportRun(S.wins, S.campaign.furthestNode + 1)
     dipTo(() => {
       setArenaGift(false)
+      resetDuelPage()
       duelBeat.phase = 'idle'
       gotoScene('map', gift ? n : -1)
     })
@@ -240,7 +247,10 @@ export const toMap = (): void => {
   sfx('ui')
   S.resultUp = false
   duelBeat.phase = 'idle'
-  dipTo(() => gotoScene('map'))
+  dipTo(() => {
+    resetDuelPage()
+    gotoScene('map')
+  })
 }
 
 /**
@@ -260,7 +270,10 @@ export const leaveDuel = (): void => {
   S.resultUp = false
   duelBeat.phase = 'idle'
   // Hold the duel where it stands; the map never steps the sim.
-  dipTo(() => gotoScene('map'))
+  dipTo(() => {
+    resetDuelPage()
+    gotoScene('map')
+  })
 }
 
 let off: (() => void) | null = null

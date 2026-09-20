@@ -1,13 +1,21 @@
 /**
- * map.ts — the map: the reward space (story-spec §3.5.1, §3.8, §8.10, §9.1).
+ * map.ts — the map: the reward space (story-spec §3.5.1, §3.8, §8.10, §9.1,
+ * §8.28).
  *
- * A pop-up book of chapter PAGES: ten pages laid end to end (landscape, pan
- * along x) or stacked (portrait, pan along y), after a small hub knoll. Each
- * page holds its chapter's five sectors along a winding trail, each sector a
- * live thumbnail of its own painting — dusty until restored, then in colour
- * with its props moving. One gesture vocabulary (§3.3.1): a press that moves
- * < 12 px within 250 ms is a TAP (resolved under the release point); anything
- * more is a PAN, with a little inertia. No pinch, no zoom.
+ * A BOUND BOOK of pages, one on screen at a time: the front page (the knoll
+ * where the wardrobe tent stands), then one page per chapter, each holding
+ * its five sectors along a winding trail — every sector a live thumbnail of
+ * its own painting, dusty until restored, then in colour with its props
+ * moving.
+ *
+ * Turning is the whole navigation (§8.28): drag the page sideways and it
+ * follows the finger, swinging about the spine on its left with the next page
+ * already underneath; let go past a third of the way (or flick) and it falls
+ * over, otherwise it falls back. Tapping a folded corner turns one page, and
+ * the chapter tabs turn straight to their page. One gesture vocabulary
+ * (§3.3.1): a press that moves < 12 px is a TAP (resolved under the release
+ * point); anything more is a page turn. No pinch, no zoom, and no free
+ * panning — a book has pages, not a scroll.
  *
  * It draws into the ONE canvas the app root owns, from its one RAF; it never
  * calls `requestAnimationFrame` itself. A dialogue plays over it (dimmed).
@@ -32,13 +40,16 @@ import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { readInsets } from '@/game/duel/layout'
-import { clamp, lerp, sin, TAU, PI } from '@/game/duel/util'
+import { clamp, seeded, sin, TAU, PI } from '@/game/duel/util'
 import { mapHud } from '@/use/useMapHud'
 import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
+import { drawBookmark, drawDogEar, drawSpine, shadeTurn, turnAngle, turnWidth } from '@/game/flow/pageTurn'
+import { drawUnicorn, type Face } from '@/game/duel/chars'
+import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { drawFxUnder, drawFxOver, sparkleBurst } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { haptic } from '@/use/useHaptics'
@@ -51,9 +62,10 @@ const PAGE_W = 1600
 const PAGE_H = 900
 const PAGE_WP = 900
 const PAGE_HP = 1600
-/** The hub knoll before chapter 1 (the wardrobe tent's home). */
-const HUB = 380
-const HUB_P = 300
+/** The front page — the knoll the wardrobe tent stands on — is a page like
+ *  any other, so every page turn moves by exactly one page. */
+const HUB = PAGE_W
+const HUB_P = PAGE_HP
 
 interface Slot { x: number; y: number; w: number; h: number }
 /** Sector thumbnails on a page, page-local map units: four, then the boss. */
@@ -73,11 +85,12 @@ let vh = 1
 let portrait = false
 /** CSS px per map unit. */
 let ms = 1
-/** Camera: the map-unit offset along the scroll axis. */
+/** Camera: the map-unit offset along the scroll axis. It only ever rests ON
+ *  a page (`camOf`); what moves between two pages is the page itself. */
 let cam = 0
-let camV = 0
-let camTo: number | null = null
 let camMax = 0
+/** The visible width of the book, map units (landscape). */
+let visW = 0
 let insetTop = 0
 let T = 0
 /** The clock the AMBIENT loops draw with: `T`, or 0 — at rest — under reduced
@@ -85,16 +98,46 @@ let T = 0
 let Td = 0
 
 const pageOrigin = (c: number): [number, number] => (portrait ? [0, HUB_P + c * PAGE_HP] : [HUB + c * PAGE_W, 0])
+
+/* --------------------------------------------------------------- the book */
+
+/** The front page, then one per chapter. */
+const PAGE_COUNT = CHAPTER_COUNT + 1
+/** The page on screen — the destination, while one is turning. */
+let page = 0
+/** The page being left, or -1 when nothing is turning. */
+let turnFrom = -1
+/** How far it has swung (0 flat … 1 over), and where it is heading. */
+let turnP = 0
+let turnTo = 1
+let turnDir: 1 | -1 = 1
+/** A finger is dragging it over: no clock until it lets go. */
+let turnHeld = false
+
+const turning = (): boolean => turnFrom >= 0
+
+/** Where the camera rests for page `p`. */
+const camOf = (p: number): number => {
+  if (p <= 0) return 0
+  const [ox, oy] = pageOrigin(p - 1)
+  return portrait ? oy : ox + PAGE_W / 2 - visW / 2
+}
+
+/** The page a node lives on. */
+const pageOfNode = (n: number): number => nodeChapter(n) + 1
 const slotOf = (n: number): Slot => {
   const [ox, oy] = pageOrigin(nodeChapter(n))
   const s = (portrait ? SLOTS_P : SLOTS)[n % NODES_PER_CHAPTER]!
   return { x: ox + s.x, y: oy + s.y, w: s.w, h: s.h }
 }
+/** The binding's own strip down the left of the screen, CSS px: the book is
+ *  laid out to the right of it, so the spine always has somewhere to be. */
+let gut = 18
 /** Map units → CSS px. */
-const sx = (mx: number): number => (portrait ? mx * ms : (mx - cam) * ms)
+const sx = (mx: number): number => (portrait ? mx * ms : (mx - cam) * ms) + gut
 const sy = (my: number): number => (portrait ? (my - cam) * ms + insetTop : my * ms + (vh - PAGE_H * ms) / 2)
 /** CSS px → map units. */
-const mxOf = (x: number): number => (portrait ? x / ms : x / ms + cam)
+const mxOf = (x: number): number => (portrait ? (x - gut) / ms : (x - gut) / ms + cam)
 const myOf = (y: number): number => (portrait ? (y - insetTop) / ms + cam : (y - (vh - PAGE_H * ms) / 2) / ms)
 
 /* ---------------------------------------------------------------- state */
@@ -163,37 +206,81 @@ export const mapResize = (w: number, h: number): void => {
   const ins = readInsets()
   insetTop = ins.top
   chromeB = CHROME_BOTTOM + ins.bottom
+  gut = clamp(w * 0.02, 14, 34)
   if (portrait) {
-    ms = w / PAGE_WP
+    ms = (w - gut - ins.left) / PAGE_WP
+    visW = PAGE_WP
     camMax = Math.max(0, HUB_P + CHAPTER_COUNT * PAGE_HP - (h - ins.top - chromeB) / ms)
   } else {
-    ms = Math.min(w / PAGE_W, h / PAGE_H)
-    camMax = Math.max(0, HUB + CHAPTER_COUNT * PAGE_W - (w - CHROME_RIGHT - ins.right) / ms)
+    ms = Math.min((w - CHROME_RIGHT - gut - ins.left - ins.right) / PAGE_W, h / PAGE_H)
+    visW = (w - CHROME_RIGHT - gut - ins.right) / ms
+    camMax = Math.max(0, HUB + CHAPTER_COUNT * PAGE_W - visW)
   }
-  cam = clamp(cam, 0, camMax)
+  cam = camOf(page)
   publish()
 }
 
-/** Centre the camera on node `n`'s sector (or the current node). */
+/** The page card's rectangle on screen, CSS px. Every page shows in the same
+ *  place, so the spine, the corners and the bookmark never move. */
+const PAGE_PAD = 26
+const pageRect = (p: number): { x: number; y: number; w: number; h: number } => {
+  const [ox, oy] = p <= 0 ? [0, 0] : pageOrigin(p - 1)
+  const pw = portrait ? PAGE_WP : PAGE_W
+  const ph = portrait ? PAGE_HP : PAGE_H
+  return {
+    x: sx(ox + PAGE_PAD),
+    y: sy(oy + PAGE_PAD),
+    w: (pw - PAGE_PAD * 2) * ms,
+    h: (ph - PAGE_PAD * 2) * ms
+  }
+}
+
+/** Begin turning to page `to`. `held` = a finger is driving it. */
+const startTurn = (to: number, held = false): boolean => {
+  if (turning() || to === page || to < 0 || to >= PAGE_COUNT) return false
+  turnFrom = page
+  turnDir = to > page ? 1 : -1
+  page = to
+  turnP = 0
+  turnTo = 1
+  turnHeld = held
+  cam = camOf(page)
+  if (!held) sfx('page')
+  publish()
+  return true
+}
+
+/** The turn is over: it fell over (`done`), or back where it came from. */
+const settleTurn = (done: boolean): void => {
+  if (!done) {
+    page = turnFrom
+    cam = camOf(page)
+  }
+  turnFrom = -1
+  turnP = 0
+  turnHeld = false
+  publish()
+}
+
+/** Open the book at node `n`'s page (or the current node's). */
 export const focusMap = (n = -1, animate = false): void => {
   const node = n >= 0 ? n : Math.max(0, Math.min(LAST_BUILT_NODE, S.campaign.furthestNode + 1))
-  const s = slotOf(node)
-  const target = clamp(portrait ? s.y - (vh - insetTop - chromeB) / ms / 2 : s.x - (vw - CHROME_RIGHT) / ms / 2, 0, camMax)
-  if (animate) camTo = target
-  else {
-    cam = target
-    camTo = null
+  const p = pageOfNode(node)
+  if (animate) {
+    if (p !== page) startTurn(p)
+    return
   }
-  camV = 0
+  turnFrom = -1
+  turnP = 0
+  turnHeld = false
+  page = p
+  cam = camOf(page)
   publish()
 }
 
-/** Page-turn to chapter `c` (the tab ribbon). */
+/** Turn to chapter `c`'s page (the tab ribbon). */
 export const showChapter = (c: number): void => {
-  const [ox, oy] = pageOrigin(c)
-  const target = portrait ? oy : ox + PAGE_W / 2 - (vw - CHROME_RIGHT) / ms / 2
-  camTo = clamp(target, 0, camMax)
-  camV = 0
+  startTurn(clamp(c + 1, 0, PAGE_COUNT - 1))
 }
 
 /* ---------------------------------------------------------------- input */
@@ -206,6 +293,8 @@ let lastY = 0
 let lastT = 0
 let dragging = false
 let pressed = false
+/** The finger's speed along the turn, CSS px/s: a flick turns the page. */
+let dragV = 0
 
 /** What a tap on the map may hit. */
 export type MapTarget =
@@ -292,18 +381,22 @@ export const mapPointerDown = (x: number, y: number, t: number): void => {
   downX = lastX = x
   downY = lastY = y
   downT = lastT = t
-  camV = 0
-  camTo = null
+  dragV = 0
 }
 
 export const mapPointerMove = (x: number, y: number, t: number): void => {
   if (!pressed) return
   if (!dragging && Math.hypot(x - downX, y - downY) >= 12) dragging = true
   if (dragging) {
-    const d = portrait ? lastY - y : lastX - x
-    cam = clamp(cam + d / ms, 0, camMax)
-    const dt = Math.max(1, t - lastT) / 1000
-    camV = lerp(camV, d / ms / dt, 0.4)
+    // Sideways, in both orientations: a page turns about its spine, and the
+    // spine is on the left however the book is held.
+    const dx = x - downX
+    if (!turning() && Math.abs(dx) > 10) startTurn(dx < 0 ? page + 1 : page - 1, true)
+    if (turnHeld) {
+      const span = Math.max(80, pageRect(page).w) * 0.7
+      turnP = clamp((turnDir > 0 ? downX - x : x - downX) / span, 0, 1)
+    }
+    dragV = (x - lastX) / Math.max(1, t - lastT) * 1000
   }
   lastX = x
   lastY = y
@@ -314,14 +407,39 @@ export const mapPointerUp = (x: number, y: number, t: number): void => {
   if (!pressed) return
   pressed = false
   // A press that never travelled 12 px is a tap, however slowly a small hand
-  // lifts; one that did is a pan, and never taps whatever it ends over (§3.3.1).
+  // lifts; one that did is a page turn, and never taps whatever it ends over
+  // (§3.3.1). A folded corner answers before anything on the page does.
   void downT
+  void t
   if (!dragging && Math.hypot(x - downX, y - downY) < 12) {
-    const hit = hitTest(x, y)
-    if (hit) onTap(hit)
+    if (!tapCorner(x, y)) {
+      const hit = hitTest(x, y)
+      if (hit) onTap(hit)
+    }
   }
-  if (!dragging) camV = 0
+  if (turnHeld) {
+    turnHeld = false
+    // Let go past a third of the way — or flick it — and the page falls over.
+    // A flick turns the page, but it still has to have travelled: a small
+    // fast nudge is a child steadying the tablet, not a turn.
+    const flick = turnP > 0.12 && (turnDir > 0 ? dragV < -520 : dragV > 520)
+    turnTo = turnP > 0.32 || flick ? 1 : 0
+    if (turnTo === 1) sfx('page')
+  }
+  dragV = 0
   dragging = false
+}
+
+/** The folded corners: bottom-outer turns forward, bottom-inner turns back. */
+const earSize = (): number => Math.max(28, Math.min(74, pageRect(page).h * 0.085))
+const tapCorner = (x: number, y: number): boolean => {
+  if (turning()) return false
+  const r = pageRect(page)
+  const s = earSize() * 1.25
+  if (y < r.y + r.h - s || y > r.y + r.h + s * 0.4) return false
+  if (x > r.x + r.w - s && page < PAGE_COUNT - 1) return startTurn(page + 1)
+  if (x < r.x + s && page > 0) return startTurn(page - 1)
+  return false
 }
 
 /* --------------------------------------------------------------- update */
@@ -335,15 +453,11 @@ export const updateMap = (dt: number): void => {
     sparkleBurst(sx(s.x), sy(s.y), 1.2)
     twinGift.bloomed = -1
   }
-  if (camTo !== null) {
-    cam = lerp(cam, camTo, 1 - Math.exp(-dt * 7))
-    if (Math.abs(cam - camTo) < 0.5) {
-      cam = camTo
-      camTo = null
-    }
-  } else if (!pressed && Math.abs(camV) > 1) {
-    cam = clamp(cam + camV * dt, 0, camMax)
-    camV *= Math.exp(-dt * 4)
+  if (turning() && !turnHeld) {
+    const step = dt / 0.42
+    turnP += turnTo > turnP ? step : -step
+    if (turnP >= 1) settleTurn(true)
+    else if (turnP <= 0) settleTurn(false)
   }
   publish()
 }
@@ -412,6 +526,12 @@ const drawBackdrop = (g: G2D): void => {
 }
 
 /** Each built chapter's page wash — its biome, in two soft bands. */
+/** The front page's blossoms: seeded, so they never shimmer. */
+const seededFront = (): (() => number) => seeded(77)
+
+/** How Aurora waits on the front page: pleased to see you. */
+const FRONT_FACE: Face = { brow: 0.25, eye: 1, mouth: 1, blush: 0.35 }
+
 const PAGE_WASH: readonly (readonly [string, string])[] = [
   ['#c9f5b4', '#a8eb92'], // Whispering Woods: meadow greens
   ['#ffe9b0', '#a6e6f5'], // Bubble Bay: sand over a sea band
@@ -425,18 +545,8 @@ const PAGE_WASH: readonly (readonly [string, string])[] = [
   ['#ffe0ea', '#fff0c8'] // Friendship Festival: candy and lemon
 ]
 
-/** One chapter page: a paper card with a soft biome wash and the trail. */
-const drawPage = (g: G2D, c: number): void => {
-  const [ox, oy] = pageOrigin(c)
-  const pw = portrait ? PAGE_WP : PAGE_W
-  const ph = portrait ? PAGE_HP : PAGE_H
-  const pad = 26
-  const x = sx(ox + pad)
-  const y = sy(oy + pad)
-  const w = (pw - pad * 2) * ms
-  const h = (ph - pad * 2) * ms
-  if (x > vw + 40 || x + w < -40 || y > vh + 40 || y + h < -40) return
-  const built = CHAPTERS[c]?.built ?? false
+/** The paper card every page is printed on. */
+const drawCard = (g: G2D, x: number, y: number, w: number, h: number, built: boolean): number => {
   const r = 28 * ms
   g.fillStyle = 'rgba(20,10,30,0.35)'
   g.beginPath()
@@ -449,6 +559,104 @@ const drawPage = (g: G2D, c: number): void => {
   g.lineWidth = 3
   g.strokeStyle = '#3A2340'
   g.stroke()
+  return r
+}
+
+/**
+ * The book's front page: the knoll the wardrobe tent stands on, with the
+ * trail setting off toward chapter 1. It is where the book falls open before
+ * the story starts, and where the wardrobe lives for the whole game.
+ */
+const drawFrontPage = (g: G2D): void => {
+  const pw = portrait ? PAGE_WP : HUB
+  const ph = portrait ? HUB_P : PAGE_H
+  const x = sx(PAGE_PAD)
+  const y = sy(PAGE_PAD)
+  const w = (pw - PAGE_PAD * 2) * ms
+  const h = (ph - PAGE_PAD * 2) * ms
+  if (x > vw + 40 || x + w < -40 || y > vh + 40 || y + h < -40) return
+  const r = drawCard(g, x, y, w, h, true)
+  g.save()
+  g.beginPath()
+  g.roundRect(x, y, w, h, r)
+  g.clip()
+  // A soft sky, a rainbow, and the meadow the knoll rises out of.
+  const sky = g.createLinearGradient(0, y, 0, y + h)
+  sky.addColorStop(0, '#eaf6ff')
+  sky.addColorStop(1, '#fff4e6')
+  g.fillStyle = sky
+  g.fillRect(x, y, w, h)
+  const rb = ['#ffd0e4', '#ffe6b8', '#d8f5c8', '#cfe9ff', '#e2d6ff']
+  for (let i = 0; i < rb.length; i++) {
+    g.beginPath()
+    g.arc(x + w * 0.5, y + h * 0.92, h * (0.52 - i * 0.035), PI, TAU)
+    g.lineWidth = h * 0.032
+    g.strokeStyle = rb[i]!
+    g.stroke()
+  }
+  const [g1, g2] = PAGE_WASH[0]!
+  for (let i = 0; i < 2; i++) {
+    g.beginPath()
+    g.moveTo(x, y + h * (0.74 - i * 0.07))
+    for (let k = 0; k <= 8; k++) g.lineTo(x + (w * k) / 8, y + h * (0.7 - i * 0.07 + 0.05 * sin(k * 1.9 + i)))
+    g.lineTo(x + w, y + h)
+    g.lineTo(x, y + h)
+    g.closePath()
+    g.fillStyle = (i ? g1 : g2)!
+    g.fill()
+  }
+  // The knoll itself, under where the tent stands.
+  g.beginPath()
+  g.ellipse(x + w * 0.5, y + h * 0.82, w * 0.3, h * 0.16, 0, PI, TAU)
+  g.fillStyle = g1!
+  g.fill()
+  g.lineWidth = 2.5
+  g.strokeStyle = 'rgba(58,35,64,0.35)'
+  g.stroke()
+  // The trail setting off toward chapter 1 — the page wants turning.
+  g.beginPath()
+  g.moveTo(x + w * 0.55, y + h * 0.8)
+  g.quadraticCurveTo(x + w * 0.8, y + h * 0.76, x + w * 1.02, y + h * 0.84)
+  g.lineWidth = Math.max(3, 7 * ms)
+  g.strokeStyle = '#e8c07a'
+  g.setLineDash([Math.max(8, 16 * ms), Math.max(7, 14 * ms)])
+  g.lineCap = 'round'
+  g.stroke()
+  g.setLineDash([])
+  // A few blossoms and a sparkle or two, the way a title page is dressed.
+  const fr = seededFront()
+  for (let i = 0; i < 14; i++) {
+    const fx = x + w * (0.08 + fr() * 0.84)
+    const fy = y + h * (0.74 + fr() * 0.22)
+    g.beginPath()
+    g.arc(fx, fy, Math.max(2, h * 0.008), 0, TAU)
+    g.fillStyle = ['#ff9ecf', '#ffd36b', '#ffffff', '#c7a6ff'][i % 4]!
+    g.fill()
+  }
+  // And Aurora herself, wearing whatever she is wearing, waiting on the knoll
+  // by her wardrobe and looking off toward chapter 1.
+  const ah = h * 0.3
+  g.save()
+  g.translate(x + w * (tentShown() ? 0.36 : 0.5), y + h * 0.84 + sin(Td * 1.6) * ah * 0.012)
+  g.scale(ah / 150, ah / 150)
+  drawUnicorn(g, 0, 0, -1, { face: FRONT_FACE, ...equippedHooks() }, Td * 0.6 + 1.3)
+  g.restore()
+  g.restore()
+}
+
+/** One chapter page: a paper card with a soft biome wash and the trail. */
+const drawPage = (g: G2D, c: number): void => {
+  const [ox, oy] = pageOrigin(c)
+  const pw = portrait ? PAGE_WP : PAGE_W
+  const ph = portrait ? PAGE_HP : PAGE_H
+  const pad = PAGE_PAD
+  const x = sx(ox + pad)
+  const y = sy(oy + pad)
+  const w = (pw - pad * 2) * ms
+  const h = (ph - pad * 2) * ms
+  if (x > vw + 40 || x + w < -40 || y > vh + 40 || y + h < -40) return
+  const built = CHAPTERS[c]?.built ?? false
+  const r = drawCard(g, x, y, w, h, built)
   g.save()
   g.beginPath()
   g.roundRect(x, y, w, h, r)
@@ -671,13 +879,9 @@ const drawTent = (g: G2D): void => {
   g.restore()
 }
 
-export const drawMap = (g: G2D): void => {
-  Td = reducedMotion.value ? 0 : T
-  const d = S.dpr
-  g.setTransform(d, 0, 0, d, 0, 0)
-  g.globalAlpha = 1
-  g.globalCompositeOperation = 'source-over'
-  drawBackdrop(g)
+/** Everything ON the pages, at whatever the camera is pointed at. */
+const drawWorld = (g: G2D): void => {
+  drawFrontPage(g)
   for (let c = 0; c < CHAPTER_COUNT; c++) drawPage(g, c)
   drawTent(g)
   const budget = { n: S.q > 0 ? 16 : 8 }
@@ -693,6 +897,87 @@ export const drawMap = (g: G2D): void => {
     const [x, y, s] = twinScreen(twinGift.node)
     if (x > -s && x < vw + s && y > -s && y < vh + s * 1.5) drawTwin(g, x, y, s, Td)
   }
+}
+
+/** Page `p`, swung `prog` of the way over: its own contents, squeezed about
+ *  the spine, and the paper over them. */
+const drawSwing = (g: G2D, p: number, prog: number): void => {
+  const keep = cam
+  cam = camOf(p)
+  const r = pageRect(p)
+  const w = turnWidth(prog)
+  if (w > 0.004) {
+    g.save()
+    g.beginPath()
+    g.rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2)
+    g.clip()
+    g.translate(r.x, 0)
+    g.scale(w, 1)
+    g.translate(-r.x, 0)
+    drawWorld(g)
+    g.restore()
+    shadeTurn(g, r.x, r.y, r.w * w, r.h, turnAngle(prog))
+  }
+  cam = keep
+}
+
+/** The binding, the reader's ribbon, the folded corners and the page dots. */
+const drawBook = (g: G2D): void => {
+  const r = pageRect(page)
+  // The binding fills the whole gutter: left of it is the cover, not a page.
+  drawSpine(g, r.x, 0, vh, Math.max(9, r.x))
+  // The ribbon marks the chapter the player is actually up to.
+  const mark = currentChapter() + 1
+  if (page === mark && !turning()) {
+    const wash = PAGE_WASH[currentChapter()] ?? PAGE_WASH[0]!
+    drawBookmark(g, r.x + r.w * 0.86, r.y - r.h * 0.035, r.h * 0.16, Math.max(14, r.h * 0.05), wash[1]!, Td)
+  }
+  if (!turning()) {
+    const s = earSize()
+    const hint = reducedMotion.value ? 0.35 : 0.35 + 0.35 * (0.5 + 0.5 * sin(Td * 2))
+    if (page < PAGE_COUNT - 1) drawDogEar(g, r.x, r.y, r.w, r.h, 1, s, hint)
+    if (page > 0) drawDogEar(g, r.x, r.y, r.w, r.h, -1, s, hint)
+  }
+  // Where in the book this page is: one dot per page along the foot.
+  const dr = Math.max(2.5, r.h * 0.008)
+  const gap = dr * 3.4
+  const x0 = r.x + r.w / 2 - (gap * (PAGE_COUNT - 1)) / 2
+  const y0 = r.y + r.h - dr * 3.2
+  for (let i = 0; i < PAGE_COUNT; i++) {
+    g.beginPath()
+    g.arc(x0 + i * gap, y0, i === page ? dr * 1.7 : dr, 0, TAU)
+    g.fillStyle = i === page ? '#3A2340' : 'rgba(58,35,64,0.32)'
+    g.fill()
+  }
+}
+
+export const drawMap = (g: G2D): void => {
+  Td = reducedMotion.value ? 0 : T
+  const d = S.dpr
+  g.setTransform(d, 0, 0, d, 0, 0)
+  g.globalAlpha = 1
+  g.globalCompositeOperation = 'source-over'
+  drawBackdrop(g)
+  // A bound book shows one page: clip to it, so the pages either side of it
+  // never bleed into the gutter or past the fore-edge.
+  const open = pageRect(page)
+  g.save()
+  g.beginPath()
+  g.rect(open.x - 1, 0, open.w + 2, vh)
+  g.clip()
+  if (turning()) {
+    // Forward, the page being left swings away over the one arriving; back,
+    // the page arriving falls onto the one being left.
+    const under = turnDir > 0 ? page : turnFrom
+    const over = turnDir > 0 ? turnFrom : page
+    const keep = cam
+    cam = camOf(under)
+    drawWorld(g)
+    cam = keep
+    drawSwing(g, over, turnDir > 0 ? turnP : 1 - turnP)
+  } else drawWorld(g)
+  g.restore()
+  drawBook(g)
   drawFxUnder(g)
   drawFxOver(g)
 }
@@ -702,13 +987,16 @@ export const drawMap = (g: G2D): void => {
 /** Publish what the DOM chrome needs (tabs, a11y targets). Cheap; on change. */
 const publish = (): void => {
   const reached = currentChapter()
-  const visible = portrait ? clamp(Math.floor((cam + (vh / ms) / 2 - HUB_P) / PAGE_HP), 0, 9) : clamp(Math.floor((cam + vw / ms / 2 - HUB) / PAGE_W), 0, 9)
+  const visible = clamp(page - 1, 0, CHAPTER_COUNT - 1)
   if (mapHud.reached !== reached) mapHud.reached = reached
   if (mapHud.visible !== visible) mapHud.visible = visible
+  if (mapHud.front !== (page === 0)) mapHud.front = page === 0
   if (mapHud.portrait !== portrait) mapHud.portrait = portrait
   if (mapHud.versus !== S.campaign.versusUnlocked) mapHud.versus = S.campaign.versusUnlocked
-  // The Twin Gift's DOM hold target follows the gift as the map pans.
-  if (twinGift.node >= 0 && twinShown()) {
+  // The Twin Gift's DOM hold target follows the gift from page to page. It
+  // steps aside while a page is turning: it is a hole in the chrome laid over
+  // a canvas that is, for those few hundred milliseconds, two pages at once.
+  if (twinGift.node >= 0 && twinShown() && !turning()) {
     const [x, y, s] = twinScreen(twinGift.node)
     const size = Math.max(64, Math.round(s * 1.25))
     const bx = Math.round(x - size / 2)
@@ -716,10 +1004,10 @@ const publish = (): void => {
     const tw = mapHud.twin
     if (!tw || tw.x !== bx || tw.y !== by || tw.size !== size) mapHud.twin = { x: bx, y: by, size }
   } else if (mapHud.twin) mapHud.twin = null
-  // Umbra's line follows her as the map pans, and ends on its own.
+  // Umbra's line follows her from page to page, and ends on its own.
   if (mapHud.umbraSay) {
     const wh = wanderHome()
-    if (wh < 0 || T > sayUntil) mapHud.umbraSay = null
+    if (wh < 0 || T > sayUntil || turning()) mapHud.umbraSay = null
     else {
       const [x, y, h] = wandererScreen(wh)
       const p = sayAt(x, y, h)
@@ -757,6 +1045,12 @@ export const qaMap = {
     const [x, y, s] = tentScreen()
     return [x, y - s * 0.4]
   },
+  /** The book (§8.28): which page is open, and any turn in flight. */
+  page: (): number => page,
+  pages: (): number => PAGE_COUNT,
+  turn: (): { from: number; to: number; p: number } | null =>
+    (turning() ? { from: turnFrom, to: page, p: turnP } : null),
+  toPage: (p: number): boolean => startTurn(p),
   state: nodeState
 }
 
@@ -765,6 +1059,7 @@ export const qaMap = {
  * middle of the view, at full level while any of its sectors is restored.
  */
 export const mapAmbience = (): [number, number] => {
+  if (page === 0) return [-1, 0]
   const c = mapHud.visible
   if (!CHAPTERS[c]?.built) return [-1, 0]
   for (let i = 0; i < NODES_PER_CHAPTER; i++) {

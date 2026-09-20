@@ -65,6 +65,7 @@ import { flushSaveNow } from '@/use/useSaveStatus'
 import { gotoScene, type SceneId } from '@/game/flow/scene'
 import { onUnboxed } from '@/game/flow/restoreFlow'
 import { forgetArt, onArtChanged } from '@/game/art'
+import { duelHeadStart } from '@/game/duel/duelPage'
 import { sectorArtId } from '@/game/artIds'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { NEUTRAL } from '@/game/artTint'
@@ -295,7 +296,10 @@ const bakeLayers = (): void => {
     sec.tap?.draw(g, 0, 0)
     sec.rescue?.draw(g, 0, 0)
   })
-  const cells = unpackCoverage(cov, S.campaign.wipeCoverage)
+  // The save, plus the head start the duel just won on this page (§8.29):
+  // the patches her own spells blew off it are already clear when she
+  // arrives, and the sponge starts from there.
+  const cells = unpackCoverage(cov, duelHeadStart(node, S.campaign.wipeCoverage))
   const half = unpackHalf(cov, S.campaign.wipeHalf)
   if (stampCv) {
     eraseCells(dustCv, stampCv, res, cells)

@@ -10,6 +10,7 @@
 import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
+import { drawDuelPage } from '@/game/duel/duelPage'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
 import { drawGlyph } from '@/game/duel/glyph'
@@ -485,7 +486,10 @@ export const render = (g: G2D): void => {
     portraitClip(g)
   }
 
-  drawSky(g, t)
+  // The duel is fought over the page it is about to restore (§8.29): the
+  // sector under Umbra's dust, with the sky's mood laid over it.
+  const onPage = drawDuelPage(g)
+  drawSky(g, t, onPage)
   drawIsland(g)
   drawFxUnder(g)
 

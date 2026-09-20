@@ -6506,6 +6506,101 @@ style later."* As built:
     the wardrobe badges. The fakes were then deleted;
   - 776 tests.
 
+### §8.28 Owner request, 2026-09-20 — one bound book
+
+*"I think the storybook should feel like a real storybook with book pages
+turning between the chapters, not just big panels with clickable story
+beats."* As built — the whole game is now one book, and every move through it
+turns a page:
+
+- **The page turn replaces the paper dip** (`flow/transition.ts`, supersedes
+  §3.13's dip). The frame that is leaving is photographed, the new scene is
+  switched in underneath it at once, and the photograph swings away about the
+  spine on the left: narrowing as it goes, bowing the way paper does, with
+  its lit edge, its own shading and the shadow it throws on the page below. A
+  paper swish (`page`, a new cue) goes with it. 450 ms, as §3.13 always said.
+  - The snapshot is what makes it cheap: no scene has to render into a corner
+    of the screen, and no scene changed to get this.
+  - Every scene's chrome is DOM over the one canvas, so it steps aside for
+    the turn (`flowHud.turning`) and fades back in as the page lands —
+    otherwise the new scene's buttons flash over the old page.
+  - **Reduced motion** (§3.11) keeps the old dip, and so does a browser that
+    refuses the snapshot. The swap also still happens on a frame that never
+    draws (a hidden tab, a harness), or the flow would stall.
+- **The map is a bound book** (`map/map.ts`), not a strip that pans:
+  - one page on screen at a time — the front page, then one per chapter;
+  - the binding runs down the left with its stitching, and the page's own
+    corners are folded (a tap on one turns a page);
+  - a drag turns the page and it follows the finger, with the next page
+    already showing underneath; let go past a third of the way, or flick it,
+    and it falls over — otherwise it falls back;
+  - the ribbon marks the chapter the player is actually up to, and a row of
+    dots along the foot says where in the book this page is;
+  - the chapter tabs turn straight to their page; there is no free panning.
+  - **The front page** is the knoll where the wardrobe tent stands, with
+    Aurora waiting on it in whatever she is wearing and the trail setting off
+    toward chapter 1.
+- **The story is printed on the page** (`story/DialogueBubbles.vue`), not
+  floated over it in bubbles:
+  - a chapter opens on its TITLE page — the chapter's name, and one star per
+    chapter;
+  - each beat is set on paper along the foot of the page, with the speaker's
+    portrait inset on their fixed side (Aurora left, everyone else right) and
+    the pictograms above the line;
+  - **a tap turns the page** to the next beat, with the same turn every scene
+    change uses, after C12's 600 ms dwell. A folded corner says so;
+  - the words sit on the node's OWN chapter page: entering a dialogue opens
+    the book there first.
+- **Verified:** `tests/ui/pageTurn.test.ts` (the geometry, the swap on a frame
+  that never draws, the queue); in a browser, the turn frame by frame, the
+  book's drag / corner / tab / front page, the title page and the beats on
+  desktop and phone; 786 tests; portal QA web 24/24, GamePix 33/33,
+  GameMonetize 36/36, CrazyGames full 41/41.
+
+### §8.29 Owner request, 2026-09-20 — the duel is fought on the page
+
+*"I feel like the storybook stories and the cleaning tasks and dialogs are
+disconnected to the actual unicorn dueling. How can we bring these two things
+together?"* The answer is that all three now happen to the SAME page, in
+order: the chapter's title page turns, Umbra arrives on the sector's page and
+the words are printed on it, the duel is fought over that page, and the
+cleaning finishes what the duel started.
+
+- **The page is the arena's backdrop** (`duel/duelPage.ts`). Instead of an
+  abstract storm sky, a duel is fought over the sector it is for — under
+  Umbra's dust, exactly as the wipe will show it. The sky is still the
+  scoreboard, but it lies over the page as a wash (heavier while she is
+  losing, thinner as it clears), and the island, the cloud band and the
+  weather are unchanged.
+- **Spells land on it.** Every spell that lands blows a patch of dust off the
+  page — the colour underneath comes back where it hit, with two smaller
+  scatters around it, so a duel opens the picture up rather than drilling one
+  porthole. Umbra's spells puff dust back over it.
+- **The cleaning inherits it.** What Aurora's spells blew clean is handed to
+  that sector's wipe (`duelHeadStart`), so the child arrives at the cleaning
+  with her own spells' marks already on the page.
+  - **It only ever gives** (D1): Umbra can smudge the page, but the record
+    the wipe inherits is the MOST it was ever cleared, never the least. A
+    lost duel hands over nothing; it never adds dust.
+  - **It is capped** at `CARRY_CAP` (20 % of the sector). The cleaning is the
+    reward (§8.25), so a duel can hand over a head start, never the job. A
+    typical winning duel hands over 10–13 %.
+  - A cell counts as cleared for the wipe when it LOOKS clear (`CARRY_AT`,
+    0.55), not when it meets the wipe's own stricter `DONE_AT`: what the
+    child watched come back to colour is what she should not have to scrub.
+  - The head start is granted once, and only after a win.
+- **A practice duel** on a sector already restored is fought on the finished
+  page, in full colour, with nothing to clear. **Local versus** has no page
+  and keeps the plain sky.
+- **Cost:** two bakes at half the sector's size and one mask, all dropped when
+  the duel ends; the composite is rebuilt only when a spell lands, so the
+  frame itself is two blits.
+- **Verified:** in a browser, end to end — the duel drawn on the dusty page,
+  five spells opening 10 % of it, the win stashing it, the wipe opening at
+  12.8 % with those cells already clear, and a practice duel on the finished
+  page. Perf at CPU ×4, 915×412 DPR 2: duel work p95 **4.4 ms** (p99 6.0),
+  map 4.6 ms, wipe 3.1 ms, no long tasks — the same budget as §8.22's pass.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

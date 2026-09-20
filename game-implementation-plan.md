@@ -693,6 +693,24 @@ One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-
   - synthetic paintings through every hook;
   - portal QA: web 24/24, GamePix 33/33, CrazyGames pre-release 26/26 and
     full 41/41, GameMonetize 36/36.
+**After the RC — owner requests (2026-09-20), story-spec §8.28–§8.29:**
+- [x] **One bound book:** the paper dip became a real page turn (photograph,
+  swing about the spine, paper swish), used by every scene change and every
+  story beat.
+- [x] **The map is a book:** one page at a time, a stitched binding, folded
+  corners, a place-keeping ribbon, page dots; drag / flick / corner / tab to
+  turn. The front page is the knoll with Aurora and her wardrobe.
+- [x] **The story is printed on the page:** chapter title pages, the beat on
+  paper with the speaker inset, a tap turns the page — and the words sit on
+  that node's own chapter page.
+- [x] **The duel is fought on the sector's page:** the dusty sector is the
+  backdrop, spells blow its dust off (Umbra puffs it back), and a won duel
+  hands the cleaning what it cleared — capped at 20 %, never punishing.
+- [x] Verified: 786 tests; a browser run of the turn, the book, the story
+  pages and the duel → wipe hand-over; perf at CPU ×4 (duel p95 4.4 ms, no
+  long tasks); portal QA web 24/24, GamePix 33/33, GameMonetize 36/36,
+  CrazyGames full 41/41.
+
 - [ ] Paint them: `pnpm art:desk`. Portraits first (Aurora, then Umbra), then
   the intro pages, then islands and badges. Then run `pnpm slice-sheets` and
   compress.

@@ -33,6 +33,7 @@ import { dipTo, stepTransition, drawTransition, fading, __flushTransition } from
 import { installDuelFlow, retry, leaveDuel, startDuel, openVersus, startVersus } from '@/game/flow/duelFlow'
 import { versusHud, updateVersusWide } from '@/use/useVersus'
 import { bootScene, playNode, playIntro } from '@/game/flow/nodes'
+import { duelPageState } from '@/game/duel/duelPage'
 import {
   updateIntro, drawIntro, introResize, introPointerDown, skipIntro, playFromIntro, introState, INTRO_LEN
 } from '@/game/story/intro'
@@ -586,6 +587,8 @@ onMounted(() => {
       return true
     }
     w.__campaignPhase = () => S.flow.scene
+    /** The page the duel is fought on (§8.29). */
+    w.__duelPage = { state: duelPageState }
     /** The first-launch intro (§8.26): its clock, skip, and a replay. */
     w.__intro = {
       state: introState,
@@ -635,7 +638,7 @@ onUnmounted(() => {
 <template lang="pug">
   //- dir="ltr": the world is spatial — Aurora stands on the left and chapter 1
   //- comes first in every locale. Text inside still runs right-to-left.
-  div.app-scene(dir="ltr")
+  div.app-scene(dir="ltr" :class="{ turning: flowHud.turning }")
     //- While cleaning, the sponge IS the cursor: the system arrow is hidden.
     canvas.world(ref="canvas" :class="{ 'tool-cursor': restoreHud.phase === 'wipe' }")
     GameScene(v-if="flowHud.scene === 'duel'" :keyboard="keyboard")
@@ -658,6 +661,16 @@ onUnmounted(() => {
   inset: 0
   overflow: hidden
   background: #07060f
+  // Every scene's chrome is DOM over the one canvas, and a page turn swings a
+  // picture of the CANVAS away — so the chrome hides for the turn (at once,
+  // before the new scene's buttons can flash over the old page) and fades
+  // back in as the page lands. The canvas itself is never hidden.
+  > *:not(canvas)
+    transition: opacity 0.16s ease-out
+  &.turning > *:not(canvas)
+    opacity: 0
+    pointer-events: none
+    transition: none
 
 // The canvas takes every stroke, brush and pan; `touch-action: none` or the
 // browser steals a touch-drag as a scroll first.

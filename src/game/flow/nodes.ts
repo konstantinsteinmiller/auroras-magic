@@ -24,6 +24,7 @@ import { dialogueFor } from '@/game/story/story'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, fading, DIP_PUSH } from '@/game/flow/transition'
 import { startDuel } from '@/game/flow/duelFlow'
+import { focusMap } from '@/game/map/map'
 import { beginIntro } from '@/game/story/intro'
 import { track } from '@/use/useAnalytics'
 
@@ -79,8 +80,14 @@ export const nodePlayable = (n: number): boolean => {
 }
 
 const enterDialogue = (n: number): void => {
-  if (dialogueFor(n).length) gotoScene('dialogue', n)
-  else startDuel(n)
+  if (!dialogueFor(n).length) {
+    startDuel(n)
+    return
+  }
+  // The story is printed on the page it happens on (§8.28): open the book at
+  // this node's chapter, so the words sit under its own picture.
+  focusMap(n)
+  gotoScene('dialogue', n)
 }
 
 /** A node was tapped on the map. */

@@ -294,8 +294,15 @@ export const primeArena = (): void => {
 /** True once the arena's baked surfaces exist at the current scale. */
 export const arenaReady = (): boolean => !!isle && qs() === bk && bt === S.theme
 
-/** Sky, clouds, rainbow. Fills the whole stage; draw this first. */
-export const drawSky = (g: G2D, t: number): void => {
+/**
+ * Sky, clouds, rainbow. Fills the whole stage; draw this first.
+ *
+ * `overPage`: the duel is being fought over the sector's own page (§8.29),
+ * which has already been drawn. The sky is then a WASH over it rather than a
+ * ground under it — the scoreboard still reads (`S.sky` drives its colour and
+ * its weather), but the page shows through.
+ */
+export const drawSky = (g: G2D, t: number, overPage = false): void => {
   sync(g)
   SV()
 
@@ -308,8 +315,12 @@ export const drawSky = (g: G2D, t: number): void => {
     grad.addColorStop(0, col(K, 0))
     grad.addColorStop(1, col(K, 1))
   }
+  // Over a page, the mood is a veil: heavier while she is losing (the storm
+  // closes in over the picture), thinner as the sky clears.
+  if (overPage) AL(0.3 + 0.34 * L)
   D.fillStyle = grad
   D.fillRect(0, 0, SW, SH)
+  if (overPage) AL(1)
 
   /* the rainbow — a hint from 0.52 up, a full brilliant arc at 1.0 */
   const ra = clamp(K * 2.2 - 1.15, 0, 1)

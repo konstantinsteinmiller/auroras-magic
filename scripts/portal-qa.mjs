@@ -322,7 +322,7 @@ var runAd = function (kind) {
       // themselves as well.
       audioAtOpen: qa.audioState(),
       // C30 (§11.7): the very first dialogue bubble must wait for this ad.
-      bubbleAtOpen: !!document.querySelector('.dialogue .beat'),
+      bubbleAtOpen: !!document.querySelector('.dialogue .leaf'),
       // …and so must the intro that comes before it (§8.26): on its first
       // frame, its clock not started, not one whinny.
       introAtOpen: window.__intro ? window.__intro.state() : null,

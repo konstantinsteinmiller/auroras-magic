@@ -25,6 +25,7 @@ import {
   impact, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
   decoyPoof, frostBurst, heartBurst, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
+import { duelPageHit } from '@/game/duel/duelPage'
 import { sfx, setMood } from '@/game/duel/audio'
 
 /* ------------------------------ tuning ------------------------------ */
@@ -538,6 +539,9 @@ const strike = (s: Shot, e: boolean): void => {
   // heavies get a full-power elemental impact.
   if (s.k === 3 && s.r === FIRE) fireRain(tx, GY, p)
   impact(tx, GY - 90, s.r, s.k === 3 ? 1 : p)
+  // …and it lands on the PAGE behind them (§8.29): Aurora's spells blow the
+  // dust off it, Umbra's puff it back over.
+  duelPageHit(tx, GY - 90, e, p)
   sfx('hit', p)
   sfx('hurt', p)
   shakeAdd(0.16 + p * 0.34)

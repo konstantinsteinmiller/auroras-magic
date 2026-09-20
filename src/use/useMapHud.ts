@@ -8,8 +8,10 @@ import { reactive } from 'vue'
 export const mapHud = reactive({
   /** The furthest chapter reached (0-based). */
   reached: 0,
-  /** The chapter page nearest the middle of the view. */
+  /** The chapter whose page is open (the destination, while one turns). */
   visible: 0,
+  /** The book's front page is open — the knoll, not a chapter (§8.28). */
+  front: true,
   portrait: false,
   /** The Twin Gift's hold target on screen (CSS px), or null when none. */
   twin: null as { x: number; y: number; size: number } | null,
