@@ -1,6 +1,6 @@
 /**
  * pageDecor.ts — what is printed on a chapter page BEHIND its story beats
- * (story-spec §8.28, §8.31).
+ * (story-spec §8.28, §8.32).
  *
  * The page was a blank cream card with a coloured hill along its foot, and
  * everything between the two read as empty paper. This is what fills it —
@@ -15,7 +15,7 @@
  *   2. **marginalia** — the chapter's own world drawn as thin ink lines on
  *      the paper, the way a picture book fills its endpapers: clouds and
  *      birds over the Woods, bubbles and shells over the Bay, snowflakes and
- *      pines over the Tundra. Ten sets, one per chapter (§8.31's table);
+ *      pines over the Tundra. Ten sets, one per chapter (§8.32's table);
  *   3. **paper grain** — a fine fibre tile over the whole page, hills
  *      included, because paper shows through the ink printed on it.
  *
@@ -319,7 +319,7 @@ const mHeart: Motif = (g) => {
 /* --------------------------------------------------- one set per chapter */
 
 /**
- * The chapter's own world, in the order the pages come (§8.31). The weights
+ * The chapter's own world, in the order the pages come (§8.32). The weights
  * are how often a motif is picked, so the first one in a set is the page's
  * signature and the rest are its company.
  */
@@ -472,6 +472,34 @@ export const drawPageDecor = (
   g.restore()
 }
 
+/* -------------------------------------------------------------- the wash */
+
+/**
+ * The biome wash: two soft bands of rolling hills along the page's foot (its
+ * side, in portrait). This used to be painted live by `map.ts`; it lives in
+ * the bake now for the same reason as everything else here — it never moves,
+ * and every separate fill is another full-page composite through the page's
+ * rounded clip, which is the one thing that costs real time on a weak device.
+ */
+const drawWash = (g: G2D, w: number, h: number, wash: readonly [string, string], portrait: boolean): void => {
+  for (let i = 0; i < 2; i++) {
+    g.beginPath()
+    if (portrait) {
+      g.moveTo(0, h * (0.12 + i * 0.05))
+      for (let k = 0; k <= 8; k++) g.lineTo(w * (0.1 + 0.08 * sin(k * 1.7 + i)), (h * k) / 8)
+      g.lineTo(0, h)
+    } else {
+      g.moveTo(0, h * (0.78 - i * 0.08))
+      for (let k = 0; k <= 8; k++) g.lineTo((w * k) / 8, h * (0.72 - i * 0.07 + 0.05 * sin(k * 1.9 + i)))
+      g.lineTo(w, h)
+      g.lineTo(0, h)
+    }
+    g.closePath()
+    g.fillStyle = wash[i]!
+    g.fill()
+  }
+}
+
 /* -------------------------------------------------------------- the bake */
 
 /** How many baked pages to keep: the one on screen, the one showing under it
@@ -483,7 +511,8 @@ const MAX_DPR = 2
 const bakes = new Map<string, HTMLCanvasElement>()
 
 /**
- * The whole decor layer for one page, as an image to blit at (0, 0, w, h).
+ * The whole page background for one chapter — light, marginalia, biome wash
+ * and grain — as one image to blit at (0, 0, w, h).
  *
  * Keyed by everything that changes it — the chapter, whether it is awake, the
  * orientation and the page's own size — so it is drawn once and then only
@@ -492,20 +521,21 @@ const bakes = new Map<string, HTMLCanvasElement>()
  */
 export const pageDecorBake = (
   w: number, h: number, c: number, built: boolean, portrait: boolean,
-  keepOut: readonly KeepOut[], ground: number
+  wash: readonly [string, string], keepOut: readonly KeepOut[], ground: number
 ): HTMLCanvasElement => {
   const dpr = Math.min(MAX_DPR, Math.max(1, typeof devicePixelRatio === 'number' ? devicePixelRatio : 1))
-  const key = `${c}:${built ? 1 : 0}:${portrait ? 1 : 0}:${Math.round(w)}x${Math.round(h)}@${dpr}`
+  const key = `${c}:${built ? 1 : 0}:${portrait ? 1 : 0}:${wash[0]}${wash[1]}:${Math.round(w)}x${Math.round(h)}@${dpr}`
   const hit = bakes.get(key)
   if (hit) return hit
-  console.info('[decor] BAKE ' + key)
   const cv = makeCanvas(w * dpr, h * dpr)
   const g = cv.getContext('2d')
   if (g) {
     g.scale(dpr, dpr)
+    // Paper, then what is drawn on it, then the hills that stand on it …
     drawPaperLight(g, w, h, built)
     drawPageDecor(g, w, h, c, built, portrait, keepOut, ground)
-    // The fibre goes on last: paper shows through the ink printed on it.
+    drawWash(g, w, h, wash, portrait)
+    // … and the fibre over the lot, because paper shows through its own ink.
     g.setTransform(1, 0, 0, 1, 0, 0)
     drawPaperGrain(g, cv.width, cv.height, built ? 0.5 : 0.35)
   }

@@ -145,6 +145,24 @@ export const WILD: Spell = ['wildSurge', 0, 11, 0]
 export const MAX_RUNES = 3
 export const HP_MAX = 100
 
+/**
+ * What a duel is scaled by FOR A BEGINNER — three multipliers, resolved per
+ * node by `campaign/easing.ts` and handed to `resetDuel` with the foe. The
+ * shape lives here because the duel is what applies it; who deserves it is
+ * the campaign's business, and the duel never reads a node (§4.8.1).
+ */
+export interface DuelEase {
+  /** The foe's starting health. */
+  hp: number
+  /** The foe's rune-forming rate, into §6.14's chain. */
+  rate: number
+  /** What the foe's spells take off the player. */
+  dmg: number
+}
+
+/** The fight exactly as the roster describes it. */
+export const NO_EASE: DuelEase = { hp: 1, rate: 1, dmg: 1 }
+
 /** Key of a rune queue: the sorted ids, dot-joined (C15). */
 export const comboKey = (q: readonly number[]): string => [...q].sort((a, b) => a - b).join('.')
 

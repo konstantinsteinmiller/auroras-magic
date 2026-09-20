@@ -23,6 +23,7 @@ export const ICON_LABEL_KEYS: Partial<Record<GameIconName, string>> = {
   play: 'ui.play',
   pause: 'ui.pause',
   replay: 'ui.replay',
+  skip: 'ui.skip',
   'skip-forward': 'ui.next',
   menu: 'ui.menu',
   home: 'ui.home',

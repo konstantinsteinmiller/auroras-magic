@@ -13,7 +13,7 @@
  * so a platform build round-trips one object through its cloud store.
  */
 import {
-  HP_MAX, PH_DUEL, type Phase, type Rune, type SpellKind
+  HP_MAX, NO_EASE, PH_DUEL, type DuelEase, type Phase, type Rune, type SpellKind
 } from '@/game/duel/config'
 import { sin, TAU } from '@/game/duel/util'
 import { getState, setStates } from '@/use/useGameState'
@@ -169,6 +169,10 @@ export interface DuelState {
   dust: number
   /** Onboarding's rate factor for this duel (§6.14), 0.7..1. */
   onboard: number
+  /** What this NODE's duel is eased by for a beginner (`campaign/easing.ts`).
+   *  Resolved by the campaign and handed over with the foe — the duel never
+   *  reads a node (§4.8.1). All 1 for versus and from chapter 4 on. */
+  ease: DuelEase
   /** C14's node-3 rule: the foe may cast her chapter's own magic. */
   usesMagic: boolean
   /** Runes the player has landed this duel (trace assist stops at 1, §5.13). */
@@ -304,6 +308,7 @@ export const auroras_magic_state: DuelState = {
   eWindup: 0,
   dust: 1,
   onboard: 1,
+  ease: { ...NO_EASE },
   usesMagic: false,
   landed: 0,
   theme: 0,

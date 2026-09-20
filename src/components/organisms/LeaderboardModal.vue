@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 // The project's own modal shell — swap this for whatever it already uses. The
 // board below is just a grid; it does not care what frames it.
 import FModal from '@/components/molecules/FModal.vue'
+import { vFit } from '@/use/vFit'
 import { playerDisplayName } from '@/use/usePlayerIdentity'
 import {
   ensureBoard, leaderboard, leaderboardFailed,
@@ -149,7 +150,7 @@ watch(model, (open) => {
     //- The portal's board: rank, name, score — it has no flair column. Its own
     //- row is matched by the PORTAL's player id, not by name.
     div.board(v-if="showPortal")
-      div.board__head.is-portal
+      div.board__head.is-portal(v-fit)
         span.board__col.is-rank {{ t('leaderboard.rank') }}
         span.board__col.is-name {{ t('leaderboard.player') }}
         span.board__col.is-score {{ t('leaderboard.score') }}
@@ -171,7 +172,14 @@ watch(model, (open) => {
           span.board-row__score {{ entry.score }}
 
     div.board(v-else)
-      div.board__head
+      //- The four captions shrink TOGETHER (`v-fit` on the row, the columns
+      //- inheriting its size) rather than one at a time: the tracks are sized
+      //- for the DATA — a rank, a count, a chapter number — and a one-word
+      //- header in a compounding language does not fit one ("Fortschritt" is
+      //- 20 px wider than its column, and used to sit on top of the column
+      //- beside it). Fitting each column on its own would leave the header in
+      //- four different type sizes.
+      div.board__head(v-fit)
         span.board__col.is-rank {{ t('leaderboard.rank') }}
         span.board__col.is-name {{ t('leaderboard.player') }}
         span.board__col.is-score {{ t('leaderboard.score') }}
@@ -240,16 +248,27 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
   gap: clamp(0.3rem, 2vw, 0.6rem)
   padding: 0 clamp(0.3rem, 1.6vw, 0.6rem) clamp(0.15rem, 0.8vw, 0.3rem)
   border-bottom: 2px solid rgba(255, 255, 255, 0.12)
+  // The row owns the header's type size so `v-fit` on it moves all four
+  // captions at once; the columns inherit it.
+  font-size: clamp(0.5rem, 2.2vw, 0.65rem)
 
   &.is-portal
     grid-template-columns: $cols-portal
 
 .board__col
+  min-width: 0
   color: #9fb2d0
   font-weight: 900
   text-transform: uppercase
   letter-spacing: 0.02em
-  font-size: clamp(0.5rem, 2.2vw, 0.65rem)
+  font-size: inherit
+  // A compound word gets a proper break before it gets a smaller size — the
+  // document's `lang` is set on every locale switch, so this hyphenates by the
+  // player's own language rather than by character count. Safari still wants
+  // the prefix, and Safari is half the phones this ships to.
+  -webkit-hyphens: auto
+  hyphens: auto
+  overflow-wrap: break-word
   text-align: right
 
   &.is-rank, &.is-name

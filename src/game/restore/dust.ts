@@ -91,7 +91,11 @@ export const noiseTile = (): HTMLCanvasElement => {
 
 /* ------------------------------- stamp ------------------------------- */
 
-const STAMP_PX = 96
+/** Big enough that the Sunbeam's fan, the widest stamp in the game (up to
+ *  ~420 SU of radius at the mouth, §8.4), is still drawn from more source
+ *  pixels than it covers on screen — the brush's own stamps never come near
+ *  this. One 256² bake, shared by every tool. */
+const STAMP_PX = 256
 /**
  * The pre-baked soft brush (§9.3.1): a radial gradient, opaque to `core`,
  * then a straight ramp to nothing. `mask.ts`'s `falloff` is the same curve,

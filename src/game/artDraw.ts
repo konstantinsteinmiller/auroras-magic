@@ -12,7 +12,7 @@
  */
 import {
   ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, ITEM_FILL, itemSheetSize, SECTOR_REF,
-  type Fit, type ItemSheet, type SectorSheet, type StorySheet
+  type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet
 } from '@/game/artSheet'
 import type { ItemName } from '@/game/artIds'
 import { itemBox, type ItemSpec } from '@/game/artItem'
@@ -28,6 +28,8 @@ import { PORTRAIT_ART } from '@/game/story/portrait'
 import { islandArt } from '@/game/duel/arena'
 import { KEEPSAKE_ART } from '@/game/cosmetics/icons'
 import { renderIntroPanel } from '@/game/story/intro'
+import { pageDecorBake } from '@/game/map/pageDecor'
+import { PAGE_WASH } from '@/game/map/map'
 
 type G2D = CanvasRenderingContext2D
 
@@ -191,6 +193,27 @@ export const renderSectorSheet = (s: SectorSheet): HTMLCanvasElement => {
 
 /** An intro page's reference: its beat at the key moment, 1:1, no live layer. */
 export const renderStorySheet = (s: StorySheet): HTMLCanvasElement => renderIntroPanel(s.panel - 1, SECTOR_REF.w)
+
+/**
+ * A chapter page's reference: the paper, its marginalia and its biome wash,
+ * with NO beat cards on it.
+ *
+ * `keepOut` is empty on purpose. On a real page the marginalia is
+ * rejection-sampled away from the five cards; here there are no cards to
+ * avoid, so the sheet shows the motifs spread over the whole page and the
+ * painter sees the full vocabulary. The cards are opaque and drawn on top at
+ * runtime, so whatever ends up beneath one is simply never seen.
+ */
+export const renderPageSheet = (s: PageSheet): HTMLCanvasElement => {
+  const [cv, g] = canvasOf(s.w, s.h)
+  // The card the page is printed on (map.ts's `drawCard`), under the bake.
+  g.fillStyle = '#fff4e6'
+  g.fillRect(0, 0, s.w, s.h)
+  const wash = PAGE_WASH[s.chapter] ?? PAGE_WASH[0]!
+  const ground = s.portrait ? s.w * 0.2 : s.h * 0.62
+  g.drawImage(pageDecorBake(s.w, s.h, s.chapter, true, s.portrait, wash, [], ground), 0, 0, s.w, s.h)
+  return cv
+}
 
 export const ALL_ITEM_SHEETS: readonly ItemSheet[] = [
   ...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS

@@ -44,6 +44,16 @@ export const ICON_PATHS: Record<GameIconName, string[]> = {
   'replay': [
     'M5.09 7.26A8.7 8.7 0 1 0 15.21 4.46A0.55 0.55 0 0 1 14.86 3.75L14.9 3.63A0.7 0.7 0 0 0 13.85 2.83L9.76 5.55A1 1 0 0 0 9.67 7.14L12.07 9.2A0.7 0.7 0 0 0 13.19 8.89L13.53 7.84A0.55 0.55 0 0 1 14.21 7.51A5.5 5.5 0 1 1 7.42 9.51A1 1 0 0 0 7.32 8.03L6.46 7.2A1 1 0 0 0 5.09 7.26Z'
   ],
+  // Double chevron — the "skip this" mark, for getting past something being
+  // PLAYED (the intro, the Festival's finale card) rather than stepping to a
+  // next item. Two copies of the `right` chevron, uniformly scaled to 0.82 so
+  // the arcs stay circular and the arms stay ≥ 2.5 units thick, set 7.4 apart
+  // and nudged right of the box's centre for the same optical reason `play`
+  // is: a right-pointing mass centred on its bounding box reads as slipped.
+  'skip': [
+    'M5.02 6.59A1.64 1.64 0 0 1 7.34 6.66L11.65 11.25A1.11 1.11 0 0 1 11.65 12.75L7.34 17.34A1.64 1.64 0 0 1 5.02 17.41A1.64 1.64 0 0 1 4.95 15.09L7.15 12.75A1.11 1.11 0 0 0 7.15 11.25L4.95 8.91A1.64 1.64 0 0 1 5.02 6.59Z',
+    'M12.42 6.59A1.64 1.64 0 0 1 14.74 6.66L19.05 11.25A1.11 1.11 0 0 1 19.05 12.75L14.74 17.34A1.64 1.64 0 0 1 12.42 17.41A1.64 1.64 0 0 1 12.35 15.09L14.55 12.75A1.11 1.11 0 0 0 14.55 11.25L12.35 8.91A1.64 1.64 0 0 1 12.42 6.59Z'
+  ],
   // Triangle + bar — the 'next track' mark. This replaces the word "Next".
   'skip-forward': [
     'M4 6.94A1.6 1.6 0 0 1 6.47 5.59L14.32 10.66A1.6 1.6 0 0 1 14.32 13.34L6.47 18.41A1.6 1.6 0 0 1 4 17.06L4 6.94Z',

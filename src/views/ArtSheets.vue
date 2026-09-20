@@ -21,16 +21,17 @@
  */
 import { onMounted, ref } from 'vue'
 import {
-  SECTOR_SHEETS, STORY_SHEETS, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, ART_STYLE_ID, promptDocs,
-  type Fit, type ItemSheet, type SectorSheet, type StorySheet
+  SECTOR_SHEETS, STORY_SHEETS, PAGE_SHEETS, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, ART_STYLE_ID, promptDocs,
+  type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet
 } from '@/game/artSheet'
-import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderItemSheet, renderKeySheet, renderSectorSheet, renderStorySheet } from '@/game/artDraw'
+import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderItemSheet, renderKeySheet, renderPageSheet, renderSectorSheet, renderStorySheet } from '@/game/artDraw'
 
 const busy = ref(false)
 const status = ref('idle')
 const only = ref<Set<string> | null>(null)
 const sectorPreviews = ref<HTMLCanvasElement[]>([])
 const storyPreviews = ref<HTMLCanvasElement[]>([])
+const pagePreviews = ref<HTMLCanvasElement[]>([])
 const itemPreviews = ref<HTMLCanvasElement[]>([])
 
 const save = async (name: string, body: { dataUrl?: string; text?: string }): Promise<void> => {
@@ -64,6 +65,17 @@ const storyEntry = (s: StorySheet) => ({
   bg: 'opaque',
   size: { w: SECTOR_REF.w, h: SECTOR_REF.h },
   cells: [{ id: s.id, label: s.title, target: s.target, w: SECTOR_REF.w, h: SECTOR_REF.h }]
+})
+
+/** A chapter's book page: opaque, its own orientation's aspect. */
+const pageEntry = (s: PageSheet) => ({
+  id: s.file,
+  kind: 'page',
+  title: s.title,
+  files: { clean: `${s.file}.png` },
+  bg: 'opaque',
+  size: { w: s.w, h: s.h },
+  cells: [{ id: s.id, label: s.title, target: s.target, w: s.w, h: s.h }]
 })
 
 const itemEntry = (s: ItemSheet, fit: Fit) => {
@@ -109,6 +121,13 @@ const exportAll = async (): Promise<void> => {
       }
       sheets.push(storyEntry(s))
     }
+    for (const s of PAGE_SHEETS) {
+      if (wanted(s.file)) {
+        status.value = `page ${++n}: ${s.file}`
+        await save(`${s.file}.png`, { dataUrl: renderPageSheet(s).toDataURL('image/png') })
+      }
+      sheets.push(pageEntry(s))
+    }
     for (const s of ALL_ITEM_SHEETS) {
       const fit = measureFit(s)
       fits[s.file] = fit
@@ -141,6 +160,7 @@ onMounted(() => {
   // Previews: every sector small, every item and rune at half size.
   sectorPreviews.value = SECTOR_SHEETS.map((s) => renderSectorSheet(s))
   storyPreviews.value = STORY_SHEETS.map((s) => renderStorySheet(s))
+  pagePreviews.value = PAGE_SHEETS.map((s) => renderPageSheet(s))
   itemPreviews.value = ALL_ITEM_SHEETS.map((s) => renderItemSheet(s))
 })
 
@@ -166,6 +186,11 @@ const mount = (cv: HTMLCanvasElement) => (el: unknown): void => {
       figure(v-for="(s, i) in STORY_SHEETS" :key="s.file")
         .cv(:ref="storyPreviews[i] ? mount(storyPreviews[i]) : undefined")
         figcaption Intro {{ s.panel }} {{ s.title }} · models: {{ s.also.join(', ') }}
+    h2 Chapter pages ({{ PAGE_SHEETS.length }}) — opaque, furniture behind the beat cards
+    .grid.sectors
+      figure(v-for="(s, i) in PAGE_SHEETS" :key="s.file")
+        .cv(:ref="pagePreviews[i] ? mount(pagePreviews[i]) : undefined")
+        figcaption {{ s.title }} · {{ s.w }} × {{ s.h }}
     h2 Items, keepsakes, runes, portraits and islands ({{ ALL_ITEM_SHEETS.length }}) — magenta, box = {{ Math.round(0.72 * 100) }} % of a panel
     .grid.items
       figure(v-for="(s, i) in ALL_ITEM_SHEETS" :key="s.file" :class="{ wide: s.frames > 1 }")

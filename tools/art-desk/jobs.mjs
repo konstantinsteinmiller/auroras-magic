@@ -30,7 +30,7 @@
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { basename, dirname, extname, join, relative, sep } from 'node:path'
 
 export const IMAGE_EXT = /\.(png|jpe?g|webp)$/i
 
@@ -159,10 +159,25 @@ export const scanJobs = (cfg) => {
       const keyRel = refRel && existsSync(join(cfg.sheetsDir, refRel.replace(/\.png$/i, '-key.png'))) ? refRel.replace(/\.png$/i, '-key.png') : null
       const ref = refFile ? revOf(refFile) : null
       // The images attached BEFORE the reference, relative to the sheets folder.
+      //
+      // Matched by STEM, not by the extension the manifest happened to write.
+      // A prompt chain names its model `painted/portrait-aurora.png` because
+      // that is what the painter is asked for — and Gemini's download button
+      // hands back JPEG every time, so the exact name never exists and every
+      // page that depends on a model would wait forever for a file that is
+      // already sitting next to it. The slicer identifies paintings by stem
+      // for the same reason; this is that rule, one folder over.
       const also = j.also.map((rel) => {
-        const file = join(cfg.sheetsDir, rel)
+        const named = join(cfg.sheetsDir, rel)
+        const dir = dirname(named)
+        const want = basename(rel).replace(/\.[^.]+$/, '').toLowerCase()
+        const file = existsSync(named) ? named : (() => {
+          if (!existsSync(dir)) return named
+          const hit = readdirSync(dir).find((f) => IMAGE_EXT.test(f) && f.replace(/\.[^.]+$/, '').toLowerCase() === want)
+          return hit ? join(dir, hit) : named
+        })()
         const info = revOf(file)
-        return { rel, exists: !!info, rev: info?.rev ?? null, size: info?.size ?? null }
+        return { rel: relative(cfg.sheetsDir, file).split(sep).join('/'), exists: !!info, rev: info?.rev ?? null, size: info?.size ?? null }
       })
       const info = byStem.get(stem) ?? { aliases: [], cells: j.target ? [{ id: stem, label: j.title, target: j.target }] : [] }
       const names = [stem, ...info.aliases].map((s) => s.toLowerCase())

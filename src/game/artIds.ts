@@ -114,6 +114,17 @@ export const ISLAND_SLUGS = [
 
 export const islandArtId = (theme: number): string => `island-${theme + 1}-${ISLAND_SLUGS[theme] ?? 'unknown'}`
 
+/** The chapters, by the same slugs their islands use — one world, one name. */
+export const CHAPTER_SLUGS = ISLAND_SLUGS
+
+/**
+ * A chapter's painted book page (§8.28, §8.32). Two per chapter: the book is
+ * a different shape in each orientation, so `page-1-whispering-woods-land`
+ * and `-port` are two pictures, not one picture scaled.
+ */
+export const pageArtId = (chapter: number, portrait: boolean): string =>
+  `page-${chapter + 1}-${CHAPTER_SLUGS[chapter] ?? 'unknown'}-${portrait ? 'port' : 'land'}`
+
 /**
  * The wardrobe's keepsake badges (§8.27) that are drawn for the shelf alone.
  * The Flower Crown's and the Pet Star's badges already draw their S6 item

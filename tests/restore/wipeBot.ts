@@ -6,13 +6,13 @@
  * down, at a steady speed. Rows sit one core radius apart and wobble a
  * little; a real player's rows are messier than a raster, which §7.5's
  * `pathEfficiency = 0.5` budgets for. They stop brushing the moment the
- * progress ring reports ≥ 85 %, and the reveal fires 1.5 s later (C25).
- * If a sweep ends short of 85 %, they lift, and sweep again on the
- * half-row offset — going back over what they missed, the way the dwell
- * rule invites.
+ * progress RING fills — 85 % cleared, or §8.6's "it already looks clean",
+ * whichever comes first — and the reveal fires 1.5 s later (C25). If a sweep
+ * ends short of that, they lift, and sweep again on the half-row offset —
+ * going back over what they missed, the way the dwell rule invites.
  */
 import { Brush, brushSize } from '@/game/restore/brush'
-import { createCoverage, stamp, coverage01, SEC_W, SEC_H, COMPLETE_AT } from '@/game/restore/mask'
+import { createCoverage, stamp, coverage01, lookAt, finishProgress, SEC_W, SEC_H, STOPPED_AT } from '@/game/restore/mask'
 import { computeFrame } from '@/game/restore/frame'
 import { seeded } from '@/game/duel/util'
 
@@ -29,6 +29,7 @@ export interface BotOpts {
 export interface BotResult {
   /** Wipe start → reveal, seconds (includes the 1.5 s idle grace). */
   seconds: number
+  /** When the ring filled — the moment the player may stop, s. */
   coverage85At: number
   sweeps: number
   frameW: number
@@ -83,7 +84,7 @@ export const simulateWipe = (o: BotOpts): BotResult => {
       checkT += dt
       if (checkT >= 0.25) {
         checkT = 0
-        if (coverage01(cov) >= COMPLETE_AT) {
+        if (finishProgress(coverage01(cov), lookAt(cov, STOPPED_AT)) >= 1) {
           brush.release()
           return { seconds: t + IDLE_GRACE, coverage85At: t, sweeps, frameW: f.w, core: size.core }
         }

@@ -12,9 +12,12 @@
  *     single continuous outline around the union and no seams where the parts
  *     overlap. Interior features then get hairlines, which is where the varied
  *     line weight comes from.
- *  2. THREE-BAND CEL SOLIDS (`blob`). Each form is clipped to itself and given
- *     a bounce/rim light, a core shadow and a lit coat, all hard-edged, offset
- *     towards a key light that is up-and-forward. Volume, no gradients.
+ *  2. STEPPED CEL SOLIDS (`blob`). Each form is clipped to itself and given a
+ *     bounce/rim light, a core shadow, a mid tone and a lit coat, all
+ *     hard-edged, offset towards a key light that is up-and-forward. Volume,
+ *     no gradients. The mid step (2026-09-20) is what lets the drawn rig sit
+ *     inside the painted art's soft-edged shading: same total offset, half
+ *     the jump at each edge, so the turn into light stops reading as a band.
  *
  * The legs are REAL EQUINE LEGS, not two-bone doll limbs: three segments and a
  * hoof, with the fore KNEE and the hind HOCK folding backward while the STIFLE
@@ -122,8 +125,17 @@ export interface PoseState {
   mane?: readonly [string, string] | 'rainbow'
 }
 
-/** The one hand-inked outline colour. */
-const OUT = '#150f1c'
+/**
+ * The one hand-inked outline colour.
+ *
+ * Was the jam build's near-black `#150f1c`. art-style.md §2 has asked for
+ * warm deep plum since the style was pinned, and it stopped being a nicety
+ * the moment painted scenes shipped: this rig now stands ON a painted meadow
+ * inked in plum, and a near-black character on it reads as a sticker pasted
+ * onto a painting rather than someone standing in it. The value is close
+ * enough that the silhouette is every bit as readable at 64 px (§8.1).
+ */
+const OUT = '#3A2340'
 /** Nominal standing height, hooves -> horn tip, in stage units. */
 const HT = 197
 /** Torso masses as [cx, cy, rx, ry] quads: haunch, barrel, chest. */
@@ -137,12 +149,47 @@ const PAL: readonly (readonly string[])[] = [
   ['#213', '#102', '#74c', '#84d', '#7ff', '#a5f', '#539', '#7ff', '#b7f', '#639']
 ]
 
+/**
+ * Halfway between the core shadow and the lit coat — the extra band that
+ * turns `blob`'s hard two-step cel edge into a gentler four-step one, so a
+ * drawn character sits inside the painted art's soft-edged shading instead
+ * of beside it.
+ *
+ * DERIVED, not authored: skins, the Mane Color Palette and the nine foe
+ * palettes are all 10-entry arrays, and an eleventh slot would be `undefined`
+ * for every one of them. Cached by the two tones it is mixed from, so it
+ * costs one mix per palette ever in play and nothing per frame — this rig
+ * allocates nothing in a draw.
+ */
+const midCache = new Map<string, string>()
+const chan = (c: string): [number, number, number] => {
+  const s = c.replace('#', '')
+  return s.length === 3
+    ? [parseInt(s[0]! + s[0]!, 16), parseInt(s[1]! + s[1]!, 16), parseInt(s[2]! + s[2]!, 16)]
+    : [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)]
+}
+const midTone = (a: string, b: string): string => {
+  const k = `${a}|${b}`
+  const hit = midCache.get(k)
+  if (hit !== undefined) return hit
+  let hex = b
+  try {
+    const p = chan(a)
+    const q = chan(b)
+    hex = `#${[0, 1, 2].map((i) => (((p[i]! + q[i]!) >> 1) & 255).toString(16).padStart(2, '0')).join('')}`
+  } catch { /* a non-hex palette entry: fall back to the lit coat */ }
+  midCache.set(k, hex)
+  return hex
+}
+
 /** Draw context + clock + the active palette, cached so helpers stay terse. */
 let g!: G2D
 let T = 0
 let AM = 0
 let CO = ''
 let SH = ''
+/** The band between SH and CO (`midTone`). */
+let MD = ''
 let RM = ''
 let MA = ''
 let MH = ''
@@ -253,6 +300,10 @@ const blob = (x: number, y: number, rx: number, ry: number): void => {
     ink(RM)
     el(x + rx * 0.08, y - ry * 0.08, rx, ry)
     ink(SH)
+    // The extra step. Same total offset, half the size of each jump, so the
+    // turn from shadow into light reads as a soft edge rather than a band.
+    el(x + rx * 0.21, y - ry * 0.20, rx, ry)
+    ink(MD)
     el(x + rx * 0.34, y - ry * 0.32, rx, ry)
     ink(CO)
     g.restore()
@@ -442,6 +493,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // Hit flash: strobe the whole coat white/red while `hurt` runs down.
   const F = hit && sin(t * 46) > 0 ? (sin(t * 23) > 0 ? '#fff' : '#f55') : ''
   if (F) CO = SH = RM = MA = MH = HO = HF = BL = F // the eye stays readable
+  MD = midTone(SH, CO)
 
   const K = 1 + D * 0.07 // the foe is a touch stockier...
   const HK = 1.18 + D * 0.06 // ...with a bigger head on a shorter neck

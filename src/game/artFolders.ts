@@ -29,6 +29,14 @@
  *                `intro-1` … `intro-5` (§8.26): each beat's meadow and
  *                characters; the rune trace, the sponge and the sparkles stay
  *                live on top.
+ *   page         a chapter's BOOK PAGE, printed behind its five beat cards
+ *                (§8.28, §8.32): the paper, the chapter's marginalia and the
+ *                biome wash along its foot, as one painting. TWO per chapter,
+ *                because the book is laid out differently in each orientation
+ *                (1600 × 900 landscape, 900 × 1600 portrait) and one page
+ *                stretched between them mangles its own doodles. Only a BUILT
+ *                chapter's page is painted; a sleeping one keeps the drawn
+ *                lilac version, which is a different picture, not a tint.
  *   island       a duel arena's floating island, one per chapter theme
  *                (§8.27): the rock, its rim and its grass; the tufts, the
  *                mood tint and the clouds stay drawn.
@@ -47,6 +55,7 @@ export const ART_FOLDERS = {
   portrait: 'images/portraits',
   story: 'images/story',
   island: 'images/islands',
+  page: 'images/pages',
   ui: 'images/ui'
 } as const
 

@@ -13,6 +13,10 @@ export const mapHud = reactive({
   /** The book's front page is open — the knoll, not a chapter (§8.28). */
   front: true,
   portrait: false,
+  /** The open page's card on screen (CSS px). Every page shows in the same
+   *  place, so this only changes on a resize — which is what lets the DOM
+   *  chrome pin things to the paper without chasing a turning page. */
+  page: { x: 0, y: 0, w: 0, h: 0 },
   /** The Twin Gift's hold target on screen (CSS px), or null when none. */
   twin: null as { x: number; y: number; size: number } | null,
   /** Umbra, wandering after the finale, saying one of her lines (§8.11):

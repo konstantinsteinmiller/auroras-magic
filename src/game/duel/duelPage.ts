@@ -22,15 +22,19 @@
  * page, in full colour, with nothing to clear; local versus has no page at
  * all and keeps the old sky.
  *
- * COST. Two small bakes (the page in colour, and under dust) and one mask,
- * all at half the sector's size, plus a composite that is rebuilt only when a
- * spell lands — the frame itself is two blits. Everything is dropped when the
- * duel ends.
+ * COST. Two bakes (the page in colour, and under dust) and one mask, plus a
+ * composite rebuilt only when a spell lands — the frame itself is two blits.
+ * The bakes are half the sector's size while the page is DRAWN and full size
+ * once it is PAINTED (`RES_DRAWN` / `RES_PAINTED`), because half a painting
+ * stretched back over the stage is visibly soft. Everything is dropped when
+ * the duel ends.
  */
 import { S } from '@/game/duel/state'
 import { SW, SH } from '@/game/duel/config'
 import { sectorOf } from '@/game/map/sectors'
-import { paintSectorArt } from '@/game/map/sectorArt'
+import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { artSettled, onArtChanged } from '@/game/art'
+import { sectorArtId } from '@/game/artIds'
 import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import {
   SEC_W, SEC_H, CELLS, cellCover, createCoverage, resetCoverage, stamp, coverage01, type Coverage
@@ -41,8 +45,26 @@ import { clamp, rnd } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
 
-/** The page is baked at half the sector's size: it sits behind the duel. */
-const RES = 0.5
+/**
+ * What fraction of the sector's size the page is baked at.
+ *
+ * HALF was right while the page was flat vector art: it re-renders at any
+ * resolution, and a 2× upscale of flat fills and hard edges is invisible.
+ *
+ * A PAINTING is 1152 × 672 of real brushwork, and baking that at half threw
+ * away every second pixel and then stretched the result back across a 1280-
+ * wide stage — a downsample followed by a 2.2× upsample, which is exactly as
+ * soft as it sounds, and is why the painted duel backdrop looked blurred
+ * while the rig and the island on top of it stayed sharp.
+ *
+ * At 1 the painting's own pixels all survive and the only resample left is
+ * the single one at draw time. Going above 1 would buy nothing: the painting
+ * has no more pixels to give, and the drawn path keeps its cheap half.
+ */
+const RES_DRAWN = 0.5
+const RES_PAINTED = 1
+/** The resolution the CURRENT bake used; `bakeLayers` picks it. */
+let res = RES_DRAWN
 /** The soft mask the colour comes back through, in cells × 4. */
 const MW = 192
 const MH = 112
@@ -84,6 +106,50 @@ export const duelPageActive = (): boolean => !!shown
 export const duelPageCleared = (): number => (node < 0 || restored ? 0 : coverage01(cov))
 
 /**
+ * Bake — or RE-bake — the two layers derived from the sector's artwork:
+ * `colour` (the page as it will look when clean) and `dust` (that page under
+ * Umbra's dust, with the sector's props in it).
+ *
+ * Deliberately touches neither `mask` nor `cov`. Those are the child's own
+ * work — the patches she has already blown clean — and a re-bake must never
+ * cost her any of it. The dust is seeded by the node, so it comes back the
+ * same shape and she cannot see it re-settle.
+ */
+const bakeLayers = (): boolean => {
+  if (node < 0) return false
+  const sec = sectorOf(node)
+  const pick = getPaintPick(S.campaign.paintPicks, node)
+  const pot = pick > 0 ? sec.pots[pick - 1] ?? { id: 'neutral', ...NEUTRAL } : { id: 'neutral', ...NEUTRAL }
+  // Decided before the canvas exists, so ask the probe rather than the draw.
+  res = sectorPainted(node, false) ? RES_PAINTED : RES_DRAWN
+  const w = Math.round(SEC_W * res)
+  const h = Math.round(SEC_H * res)
+  const cv = makeCanvas(w, h)
+  const g = cv.getContext('2d')
+  if (!g) return false
+  g.setTransform(res, 0, 0, res, 0, 0)
+  if (!paintSectorArt(g, node, sec, pot, false)) sec.paint(g, pot)
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  colour = cv
+  if (restored) {
+    // Nothing to clear: the page is hers already, and IS what is shown.
+    shown = colour
+    dust = null
+    mask = null
+    return true
+  }
+  const d = makeCanvas(w, h)
+  bakeDust(d, colour, res, node + 1, (dg) => sec.props(dg, 0, 0))
+  dust = d
+  // A painting landing mid-duel raises `res`, so the composite it is drawn
+  // into has to grow with it. The MASK does not: it is a fixed 192 × 112 and
+  // `compose` already scales it to whatever `shown` is, so the patches the
+  // child has blown clean survive the change untouched.
+  if (!shown || shown.width !== w || shown.height !== h) shown = makeCanvas(w, h)
+  return true
+}
+
+/**
  * Bake node `n`'s page for a duel. A sector already restored is fought on in
  * full colour; local versus (or anything without a sector) has no page.
  */
@@ -92,34 +158,34 @@ export const beginDuelPage = (n: number): void => {
   if (S.versus || n < 0 || n > 49) return
   node = n
   restored = hasBit(S.campaign.sectorsDone, n)
-  const sec = sectorOf(n)
-  const pick = getPaintPick(S.campaign.paintPicks, n)
-  const pot = pick > 0 ? sec.pots[pick - 1] ?? { id: 'neutral', ...NEUTRAL } : { id: 'neutral', ...NEUTRAL }
-  const w = Math.round(SEC_W * RES)
-  const h = Math.round(SEC_H * RES)
-  colour = makeCanvas(w, h)
-  const g = colour.getContext('2d')
-  if (!g) {
+  // Ask for the full-size painting up front and at high priority, so it is on
+  // the wire during the duel's opening beats instead of being kicked off by
+  // the bake below — which reads it one tick too early to ever see it.
+  artSettled('sector', sectorArtId(n), 'high')
+  if (!bakeLayers()) {
     resetDuelPage()
     return
   }
-  g.setTransform(RES, 0, 0, RES, 0, 0)
-  if (!paintSectorArt(g, n, sec, pot, false)) sec.paint(g, pot)
-  g.setTransform(1, 0, 0, 1, 0, 0)
-  if (restored) {
-    // Nothing to clear: the page is hers already.
-    shown = colour
-    dust = null
-    mask = null
-    return
-  }
-  dust = makeCanvas(w, h)
-  bakeDust(dust, colour, RES, n + 1, (dg) => sec.props(dg, 0, 0))
+  if (restored) return
   mask = makeCanvas(MW, MH)
-  shown = makeCanvas(w, h)
   dirty = true
   compose()
 }
+
+/**
+ * The painted sector arriving mid-duel.
+ *
+ * `spriteFor` is lazy and asynchronous: the first ask returns null and only
+ * starts the fetch, so the bake at `beginDuelPage` ALWAYS draws the vectors,
+ * and without this the whole duel is fought on the drawn page while the
+ * painting sits decoded and unused. Only this node's painting matters; a
+ * flag flip or a refresh passes null and re-bakes too.
+ */
+onArtChanged((c) => {
+  if (node < 0) return
+  if (c && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
+  if (bakeLayers()) dirty = true
+})
 
 /** Drop the page's surfaces — the duel is over. The stash a won duel left
  *  for the wipe is not a surface, and stays. */

@@ -31,6 +31,7 @@ import { resetFx } from '@/game/duel/fx'
 import { resetAudio, sfx } from '@/game/duel/audio'
 import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
+import { earlyEase } from '@/game/campaign/easing'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
@@ -66,7 +67,12 @@ export const startDuel = (n: number): void => {
   replay = isReplay(n)
   resetFx()
   setArenaGift(false)
-  resetDuel({ foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n), versus: false })
+  resetDuel({
+    foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n),
+    // The teaching chapters cost a beginner less (`campaign/easing.ts`); from
+    // chapter 4 on this is all 1 and the fight is the roster's own.
+    ease: earlyEase(n), versus: false
+  })
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
   // …and the duel is fought over that sector's own page (§8.29).

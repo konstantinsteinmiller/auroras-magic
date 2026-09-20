@@ -23,8 +23,10 @@ import { mapHud } from '@/use/useMapHud'
 import { twinHoldStart, twinHoldCancel } from '@/game/map/twinGift'
 import { bookHud } from '@/use/useBook'
 import { twinGift } from '@/use/useDuelRewards'
-import { leaderboardLive } from '@/use/useLeaderboard'
+import { leaderboardLive, leaderboardEnabled } from '@/use/useLeaderboard'
+import { S } from '@/game/duel/state'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import RankBadge from '@/components/atoms/RankBadge.vue'
 import FinaleCard from '@/components/story/FinaleCard.vue'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
 import { openVersus } from '@/game/flow/duelFlow'
@@ -42,6 +44,33 @@ watch(() => mapHud.visible, async (i) => {
   const el = ribbon.value?.children[i] as HTMLElement | undefined
   el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
 }, { immediate: true })
+
+/**
+ * The placing, printed on the page's top-right (§8.33). It used to flash on
+ * the duel's win flourish, where it was one more thing moving on the busiest
+ * frame in the game and nobody saw it. The book is where a player actually
+ * stops, and the number is about everyone else rather than this run — so it
+ * belongs on the paper, not on the moment.
+ *
+ * `S.wins` is the LIFETIME count, the same number `reportRun` posts; ranking
+ * a single run against a board of bests would show a falling rank after a bad
+ * duel. It is also why the plate waits for a first win: on the map the badge
+ * is PERMANENT chrome, not a beat, and an unplayed player has no rank to be
+ * given — so the badge's honest "…" would sit on the page forever.
+ */
+const showRank = computed(() => leaderboardEnabled && !mapHud.front && S.wins > 0)
+const rankStyle = computed(() => {
+  const p = mapHud.page
+  const inset = Math.max(10, Math.round(p.h * 0.035))
+  return {
+    right: `${Math.round(window.innerWidth - (p.x + p.w) + inset)}px`,
+    // Under the bookmark's tail. `map.ts` hangs it from `y - h * 0.035` for
+    // `h * 0.16`, so it ends at `y + h * 0.125`; this clears that. Move one
+    // and move the other.
+    top: `${Math.round(p.y + p.h * 0.135)}px`,
+    maxWidth: `${Math.round(p.w * 0.34)}px`
+  }
+})
 
 const tab = (i: number): void => {
   sfx('ui')
@@ -134,6 +163,8 @@ const twinStyle = computed(() => {
       @blur="twinHoldCancel"
       @contextmenu.prevent
     )
+    div.rank(v-if="showRank" :style="rankStyle")
+      RankBadge(:score="S.wins" :compact="mapHud.portrait")
     transition(name="toast")
       div.bloom-toast.story-text(v-if="toast" role="status") {{ t('bloom.claimedToast') }}
     transition(name="say")
@@ -283,6 +314,39 @@ button
 .toast-enter-from, .toast-leave-to
   opacity: 0
   transform: translate(-50%, -10px)
+
+// The placing, printed on the page (§8.33). Pinned to the paper rather than
+// to the screen, so it reads as part of the book; `pageRect` puts every page
+// in the same place, so it never chases a turning page.
+.rank
+  position: absolute
+  display: flex
+  justify-content: flex-end
+  pointer-events: none
+  animation: rank-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both
+  // `RankBadge` is drawn for a dark HUD — a near-transparent plate with white
+  // numerals. On cream paper that is close to invisible, which is how it got
+  // here. On the page it wears the book's own dress instead: the gold plate
+  // and ink ring the node star badges wear, two feet away on the same sheet.
+  :deep(.rank-badge)
+    border-color: #3A2340
+    background-color: #ffd76a
+    box-shadow: 0 3px 0 rgba(20, 10, 30, 0.3)
+  :deep(.rank-badge__icon)
+    color: #3A2340
+  :deep(.rank-badge__rank)
+    color: #3A2340
+    text-shadow: none
+  :deep(.rank-badge__of)
+    color: #6b5a7a
+
+@keyframes rank-in
+  from
+    opacity: 0
+    transform: translateY(-8px)
+  to
+    opacity: 1
+    transform: none
 
 .corner
   position: absolute

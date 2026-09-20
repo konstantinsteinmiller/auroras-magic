@@ -41,12 +41,13 @@ import { S, save } from '@/game/duel/state'
 import { hasBit, setBit, getPaintPick, setPaintPick } from '@/game/campaign/bitset'
 import {
   SEC_W, SEC_H, CELLS, COMPLETE_AT, createCoverage, stamp as account, stampRect, coverage01, doneCount,
-  cellAt, cellCover, clearAll, packCoverage, unpackCoverage, packHalf, unpackHalf, FIRST_PASS_CLEAR, cellRect, CELL
+  cellAt, cellCover, clearAll, packCoverage, unpackCoverage, packHalf, unpackHalf, FIRST_PASS_CLEAR, cellRect, CELL,
+  FAINT_AT, STOPPED_AT, lookAt, looksDone, finishProgress
 } from '@/game/restore/mask'
 import { Brush, brushSize } from '@/game/restore/brush'
 import { Eraser, eraserSize } from '@/game/restore/eraser'
 import { toolOf, type ToolId } from '@/game/campaign/tables'
-import { Sunbeam, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
+import { Sunbeam, beamWidth, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
 import { computeFrame } from '@/game/restore/frame'
 import { drawPotCue, drawLandmarkTarget } from '@/game/restore/potCue'
 import { makeCanvas, bakeStamp, bakeDust, eraseStamp, eraseCells, clearDust, sectorPx, bakePaddle, erasePaddle } from '@/game/restore/dust'
@@ -194,6 +195,12 @@ let wipeT = 0
 let reached85 = -1
 let manual100 = false
 let forcedReveal = false
+/** The graceful finish (§8.6, owner 2026-09-20), sampled on the 250 ms check:
+ *  `graceNow` — not one visible speck is left, so the wipe may end mid-stroke;
+ *  `graceStopped` — it LOOKS clean, and ends once the tool has rested out the
+ *  idle grace. */
+let graceNow = false
+let graceStopped = false
 
 /** Last touch point, CSS px — where the tool floats to and the wave starts. */
 let touchX = 0
@@ -468,6 +475,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   coverage = coverage01(cov)
   chimeStep = Math.floor(coverage * 10)
   restoreHud.coverage = coverage
+  restoreHud.progress = finishProgress(coverage, lookAt(cov, STOPPED_AT))
   restoreHud.picked = pot
   restoreHud.potDefs = sec.pots.map((p) => ({ ...p }))
   restoreHud.boss = sec.rvu > 1
@@ -476,6 +484,7 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   checkT = idleT = wipeT = lifeT = 0
   reached85 = -1
   manual100 = forcedReveal = false
+  graceNow = graceStopped = false
   giftOpenAt = -1
   const [gx, gy] = toCss(sec.giftSpot.x, sec.giftSpot.y - 60)
   touchX = toolX = lastToolX = gx
@@ -781,13 +790,22 @@ const stepEraser = (dt: number, now: number): void => {
   checkCoverage(dt)
 }
 
-/** The coverage ladder, the save, and the two ways a wipe ends (§8.6). */
+/** The coverage ladder, the save, and the ways a wipe ends (§8.6). */
 const checkCoverage = (dt: number): void => {
   checkT += dt
   if (checkT >= T_CHECK) {
     checkT = 0
     coverage = coverage01(cov)
+    // How the sector LOOKS, judged at the stopped floor — the bar a player who
+    // has put the tool down is held to — and, only if that already passes, at
+    // the stricter floor that ends the wipe on the spot (§8.6's grace).
+    const look = lookAt(cov, STOPPED_AT)
+    graceStopped = looksDone(look)
+    graceNow = graceStopped && looksDone(lookAt(cov, FAINT_AT))
+    // The ring reads whichever finish line is nearer, so "you can stop now"
+    // is never a lie about a sector that is done looking dusty.
     restoreHud.coverage = coverage
+    restoreHud.progress = finishProgress(coverage, look)
     if (coverage >= COMPLETE_AT && reached85 < 0) reached85 = wipeT
     // The chime ladder: one rung per 10 % crossed. Rungs 9 and 10 belong to
     // the reveal's flourish (§8.5).
@@ -805,9 +823,15 @@ const checkCoverage = (dt: number): void => {
       return
     }
   }
-  // Auto-complete: ≥ 85 % AND the tool has stopped for 1.5 s (C25). An
-  // active perfectionist sails straight past 85 % without interruption.
-  if (coverage >= COMPLETE_AT && idleT >= T_IDLE_GRACE) startReveal()
+  // Auto-complete, three ways (C25 + §8.6's grace):
+  //   • nothing visible is left — at once, even mid-stroke, because there is
+  //     nothing the player could still aim at;
+  //   • ≥ 85 % coverage AND the tool has stopped for 1.5 s. An active
+  //     perfectionist sails straight past 85 % without interruption;
+  //   • the sector LOOKS clean and the tool has stopped for the same 1.5 s —
+  //     a child who has put it down has said they think it is done, and a haze
+  //     too thin to see is not worth a dead end.
+  if (graceNow || ((coverage >= COMPLETE_AT || graceStopped) && idleT >= T_IDLE_GRACE)) startReveal()
 }
 
 /** One stamp of the Sunbeam's band: no dwell, one pass clears (§8.4). */
@@ -825,10 +849,12 @@ const beamPuff = (): void => {
   const side = rnd() < 0.5 ? -1 : 1
   const nx = -beam.dy * side
   const ny = beam.dx * side
-  const w = BEAM_W * (0.42 + rnd() * 0.16)
+  // The curtain rides the fan's own edge, which is wider the further out it is.
+  const bw = beamWidth(Math.max(0, d))
+  const w = bw * (0.42 + rnd() * 0.16)
   const x = beam.ox + beam.dx * d + nx * w
   const y = beam.oy + beam.dy * d + ny * w
-  const out = cellAt(x + nx * BEAM_W * 0.5, y + ny * BEAM_W * 0.5)
+  const out = cellAt(x + nx * bw * 0.5, y + ny * bw * 0.5)
   if (out < 0 || cellCover(cov, out) >= 0.9) return
   const [cx, cy] = toCss(x, y)
   const k = view().w / SEC_W
@@ -957,6 +983,7 @@ const finishWave = (): void => {
   clearAll(cov)
   coverage = 1
   restoreHud.coverage = 1
+  restoreHud.progress = 1
   S.campaign.sectorsDone = setBit(S.campaign.sectorsDone, node)
   S.campaign.wipeCoverage = null
   S.campaign.wipeHalf = null
@@ -973,6 +1000,9 @@ const finishWave = (): void => {
     // The show-how's own strokes are not the child's.
     strokeOrSweepCount: Math.max(0, (beam ? beam.sweeps : hand()?.strokes ?? 0) - demoStrokes),
     manualTo100: manual100,
+    // Did §8.6's graceful finish end it — the sector looked clean before the
+    // arithmetic said 85 %? How often that fires is how the floors get tuned.
+    graceFinish: !manual100 && !forcedReveal && coverageAtReveal < COMPLETE_AT,
     rescueFound: rescueByHand
   })
   // Clean first, then colour it in (owner, 2026-09-19): the pots rise now.
@@ -1634,16 +1664,33 @@ const drawSignatureReveal = (g: G2D): void => {
   }
 }
 
+/** The fan as a trapezoid, `w0` wide at the staff and `w1` at the far end
+ *  (full widths, CSS px). The heading is the beam's, so the normal is too. */
+const beamWedge = (g: G2D, ox: number, oy: number, ex: number, ey: number, w0: number, w1: number): void => {
+  if (!beam) return
+  const nx = -beam.dy
+  const ny = beam.dx
+  g.beginPath()
+  g.moveTo(ox + nx * w0 * 0.5, oy + ny * w0 * 0.5)
+  g.lineTo(ex + nx * w1 * 0.5, ey + ny * w1 * 0.5)
+  g.lineTo(ex - nx * w1 * 0.5, ey - ny * w1 * 0.5)
+  g.lineTo(ox - nx * w0 * 0.5, oy - ny * w0 * 0.5)
+  g.closePath()
+}
+
 /**
- * The Sunbeam on the page (clipped to the sector): while AIMING, a soft band
- * shows exactly what the light will clear, with a dotted centre line; while
- * it TRAVELS, the band of light itself, hot at the head and cooling behind;
- * as it gathers again, the band fades out.
+ * The Sunbeam on the page (clipped to the sector): while AIMING, a soft WEDGE
+ * shows exactly what the light will clear — narrow at the staff, spreading to
+ * the far edge — with its two edges drawn and a dotted centre line; while it
+ * TRAVELS, the fan of light itself, hot at the mouth and cooling behind; as it
+ * gathers again, the fan fades out.
  */
 const drawBeam = (g: G2D, k: number): void => {
   if (!beam) return
   const [ox, oy] = toCss(beam.ox, beam.oy)
   const w = BEAM_W * k
+  const nx = -beam.dy
+  const ny = beam.dx
   g.save()
   g.lineCap = 'round'
   if (beam.state === 'aiming') {
@@ -1652,44 +1699,62 @@ const drawBeam = (g: G2D, k: number): void => {
       return
     }
     const [ex, ey] = toCss(...beam.guideEnd())
+    const w1 = beam.guideWidth() * k
     const a = clamp(beam.pull / 0.3, 0, 1)
+    beamWedge(g, ox, oy, ex, ey, w, w1)
     g.globalAlpha = 0.22 * a
-    g.beginPath()
-    g.moveTo(ox, oy)
-    g.lineTo(ex, ey)
-    g.lineWidth = w
-    g.strokeStyle = '#fff2b8'
-    g.stroke()
+    g.fillStyle = '#fff2b8'
+    g.fill()
+    // The two edges of the spread, so the fan reads BEFORE the shot — this is
+    // the promise the release has to keep.
+    g.globalAlpha = 0.5 * a
+    g.lineWidth = Math.max(2, w * 0.035)
+    g.strokeStyle = '#fff8dc'
+    for (const side of [1, -1]) {
+      g.beginPath()
+      g.moveTo(ox + nx * side * w * 0.5, oy + ny * side * w * 0.5)
+      g.lineTo(ex + nx * side * w1 * 0.5, ey + ny * side * w1 * 0.5)
+      g.stroke()
+    }
     g.globalAlpha = 0.85 * a
     g.setLineDash([2, 14])
     g.lineDashOffset = -S.t * 40
     g.lineWidth = Math.max(4, w * 0.12)
-    g.strokeStyle = '#fff8dc'
+    g.beginPath()
+    g.moveTo(ox, oy)
+    g.lineTo(ex, ey)
     g.stroke()
     g.setLineDash([])
   } else if (beam.state === 'firing' || (beam.state === 'recharge' && beam.wait > BEAM_RECHARGE - 0.3)) {
     const [hx, hy] = toCss(...beam.head())
+    const w1 = beam.headWidth() * k
     const fade = beam.state === 'firing' ? 1 : (beam.wait - (BEAM_RECHARGE - 0.3)) / 0.3
     const gr = g.createLinearGradient(ox, oy, hx, hy)
     gr.addColorStop(0, 'rgba(255, 236, 160, 0.05)')
     gr.addColorStop(0.7, 'rgba(255, 240, 180, 0.45)')
     gr.addColorStop(1, 'rgba(255, 250, 220, 0.8)')
     g.globalAlpha = fade
-    g.beginPath()
-    g.moveTo(ox, oy)
-    g.lineTo(hx, hy)
-    g.lineWidth = w * 1.1
-    g.strokeStyle = gr
-    g.stroke()
-    g.lineWidth = w * 0.36
-    g.strokeStyle = 'rgba(255, 255, 245, 0.85)'
-    g.stroke()
+    beamWedge(g, ox, oy, hx, hy, w * 1.1, w1 * 1.1)
+    g.fillStyle = gr
+    g.fill()
+    // The hot core: the same fan, kept slim.
+    beamWedge(g, ox, oy, hx, hy, w * 0.36, w1 * 0.36)
+    g.fillStyle = 'rgba(255, 255, 245, 0.85)'
+    g.fill()
     if (beam.state === 'firing') {
-      const head = g.createRadialGradient(hx, hy, 0, hx, hy, w * 0.8)
+      // The head is a BAR of light across the fan's mouth, not a ball: a
+      // round glow would swell to the mouth's width and swallow the sector.
+      const r = Math.max(1, w1 * 0.75)
+      const head = g.createRadialGradient(0, 0, 0, 0, 0, r)
       head.addColorStop(0, 'rgba(255, 255, 255, 1)')
       head.addColorStop(1, 'rgba(255, 244, 190, 0)')
+      g.save()
+      g.translate(hx, hy)
+      g.rotate(Math.atan2(beam.dy, beam.dx))
+      g.scale(0.32, 1)
       g.fillStyle = head
-      g.fillRect(hx - w * 0.8, hy - w * 0.8, w * 1.6, w * 1.6)
+      g.fillRect(-r, -r, r * 2, r * 2)
+      g.restore()
     }
   }
   g.restore()
@@ -1817,6 +1882,12 @@ export const qaWipe = {
     startReveal()
   },
   coverage: (): number => coverage01(cov),
+  /** What the sector LOOKS like at both of §8.6's floors, for a harness that
+   *  wants to see why the grace did or did not fire. */
+  look: (): { now: boolean; stopped: boolean; clean: number; chunk: number } => {
+    const l = lookAt(cov, STOPPED_AT)
+    return { now: looksDone(lookAt(cov, FAINT_AT)), stopped: looksDone(l), clean: l.clean, chunk: l.chunk }
+  },
   phase: (): RestorePhase => phase,
   perf: restorePerf,
   /** Drop sector `n`'s progress (done bit, pick, coverage) for a replay. */

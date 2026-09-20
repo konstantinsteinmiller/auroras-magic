@@ -40,7 +40,35 @@ const fitsFromIndex = () => {
   }
 }
 
+/**
+ * Keep the sheet index's `style` in step with the live one.
+ *
+ * The slicer stamps each painting with `index.style`, but the index is
+ * written by the BENCH, at export time. A style change is documented as
+ * "repoint `ACTIVE_STYLE_ID`, run `pnpm art:prompts`, repaint" — and that
+ * never re-exports, because the drawings did not move. So every painting made
+ * from the NEW prompts was being stamped with the OLD style and reported
+ * "REPAINT — painted in art style X, the game is now Y" forever, with a
+ * repaint doing nothing to clear it.
+ *
+ * This command is the one the workflow already runs after a style change, and
+ * it is the one that knows the live id, so it is where the two are reconciled.
+ * Only that single field is touched; the fits and rects stay the bench's.
+ */
+const syncIndexStyle = () => {
+  if (!existsSync(INDEX)) return
+  try {
+    const index = JSON.parse(readFileSync(INDEX, 'utf-8'))
+    if (index.style === manifest.ART_STYLE_ID) return
+    const was = index.style
+    index.style = manifest.ART_STYLE_ID
+    writeFileSync(INDEX, `${JSON.stringify(index, null, 2)}\n`)
+    console.log(`  · sheet-index.json style ${was} → ${manifest.ART_STYLE_ID} (re-slice anything painted since the change to restamp it)`)
+  } catch { /* the bench will rewrite it on the next export */ }
+}
+
 const fits = fitsFromIndex()
+if (!CHECK) syncIndexStyle()
 const docs = manifest.promptDocs(fits)
 mkdirSync(OUT, { recursive: true })
 

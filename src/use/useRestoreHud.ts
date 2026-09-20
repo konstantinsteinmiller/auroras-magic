@@ -17,6 +17,10 @@ export const restoreHud = reactive({
   phase: 'idle' as RestorePhase,
   /** 0..1 of the sector cleared, sampled every 250 ms. */
   coverage: 0,
+  /** 0..1 of the way to the FINISH LINE — the 85 % rule or §8.6's "it looks
+   *  clean" rule, whichever is nearer. This is what the ring draws: full means
+   *  "you can stop now", which is not always the same as 85 % cleared. */
+  progress: 0,
   /** The sector on screen, CSS px. */
   frame: { x: 0, y: 0, w: 0, h: 0 } as Box,
   /** The unopened gift's tap target, CSS px. */

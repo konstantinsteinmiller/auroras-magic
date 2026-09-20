@@ -12,7 +12,10 @@
  */
 export const GAME_ICON_NAMES = [
   // Transport / run control
-  'play', 'pause', 'replay', 'skip-forward', 'skip-back', 'stop',
+  // `skip` is the DOUBLE CHEVRON — "get past this presentation" — and is a
+  // different promise from `skip-forward`'s ▶| "next track". One leaves a
+  // scene the player is watching; the other steps through a list.
+  'play', 'pause', 'replay', 'skip', 'skip-forward', 'skip-back', 'stop',
   // Navigation
   'menu', 'home', 'back', 'forward', 'close', 'check',
   // Meta screens

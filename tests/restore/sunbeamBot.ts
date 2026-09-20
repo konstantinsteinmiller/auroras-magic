@@ -5,11 +5,11 @@
  * The player is purposeful but not a solver: before each shot they glance
  * at a handful of possible shots — start in some dusty spot, fire in some
  * direction — and take the one that crosses the most dust. Each shot costs
- * an aim (press, pull back, let go: 1.1–1.8 s, a child's pace), the band's
- * travel, and the 0.6 s the Sunbeam needs to gather its light again. They
+ * an aim (press, pull back, let go: 1.1–1.8 s, a child's pace), the fan's
+ * travel, and the beat the Sunbeam needs to gather its light again. They
  * stop the moment the ring reports ≥ 85 %, and the reveal fires 1.5 s later.
  */
-import { Sunbeam, BEAM_W, BEAM_RECHARGE, exitDistance } from '@/game/restore/sunbeam'
+import { Sunbeam, beamWidth, BEAM_RECHARGE, exitDistance } from '@/game/restore/sunbeam'
 import { createCoverage, stamp, coverage01, isCellDone, SEC_W, SEC_H, CELL, CELLS, GRID_W, COMPLETE_AT } from '@/game/restore/mask'
 import { seeded } from '@/game/duel/util'
 
@@ -52,7 +52,8 @@ export const simulateSunbeam = (o: BeamBotOpts): BeamBotResult => {
       const cy = (((c / GRID_W) | 0) + 0.5) * CELL - y
       const along = cx * dx + cy * dy
       if (along < -CELL * 0.5 || along > len) continue
-      if (Math.abs(cx * dy - cy * dx) < BEAM_W * 0.45) n++
+      // The fan is wider the further out the cell sits (§8.4).
+      if (Math.abs(cx * dy - cy * dx) < beamWidth(Math.max(0, along)) * 0.45) n++
     }
     return n
   }

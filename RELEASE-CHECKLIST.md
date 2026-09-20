@@ -34,6 +34,32 @@ from the repo.
 | Full playthrough on the built web bundle | landscape 1-1 → 10-5 on the real input path from an empty save: 50/50 sectors restored, all 12 runes, both signature spells, all 9 keepsakes plus the Friendship Duo, 9/9 rescues (chapter 10 has none, §8.8), the finale card and Umbra on the map. No gameplay-bracket violations, no console errors, 16 min. Chapter 10 in portrait (320×658 touch): the same, in 97 s |
 | Performance (S8, unchanged source since) | worst p95 4.2 ms of the 16.7 ms budget at CPU ×4 |
 
+## Added after S10 — who can finish the story?
+
+| Check | How | Result |
+| --- | --- | --- |
+| The first ten duels, for a child under nine | `pnpm test:winrate` | 83–98 % on the first try, 100 % within three. Before the S11 easing: 8.9 % on duel 1 and 0.8 % on chapter 1's boss |
+| The rest of the story, same child | `pnpm test:winrate` | every chapter ≥ 99.3 % within six tries; the first try falls from ~90 % (chapters 1–2) to 1–35 % (chapters 6–10), which is the "a bit harder" the owner asked for |
+| §7.2's core child is untouched | `pnpm test:winrate` | 91.7–100 % first try on every group of every chapter, against floors of 90/85 % (standard) and 75/60 % (boss) |
+| It is still a game | `pnpm test:winrate` | a duel nobody touches is a duel nobody wins, at full easing and full Dream Dust, on all ten teaching nodes |
+
+`pnpm test:winrate` now runs about six minutes: it measures two children rather
+than one, and the small child's table is six attempts deep.
+
+## Added after S10 — does the copy fit the chrome?
+
+| Check | How | Result |
+| --- | --- | --- |
+| Every caption fits its box, in every language | `node tools/locale-fit/audit.mjs` | 21 locales × landscape and portrait, every screen that carries text: nothing cut by its box, painted over by a neighbour, or hanging off its plate |
+
+The localisation row above is a spot check by eye, and it passed while the
+German loss screen read "Zum Duell tippe" with its tail under the Map button
+and a title half a panel wider than the panel. A word that does not fit breaks
+no assertion and throws nothing — it has to be MEASURED, which is what the tool
+does: it tours the game through the QA hooks in every shipped locale and reports
+every label whose ink leaves its box. Run it before a release, and after any
+change to a caption, a plate size or a type scale.
+
 One harness note: the in-browser "foe magic seen" probe (at 4-3, 5-3, 7-3 and 9-3) reads false, as it did at S4. It cannot fire: the foe's ward answers an incoming shot and its pierce answers a raised guard, and the probe neither casts nor guards after its first rune. The AI's use of magic is pinned by `tests/duel/magic.test.ts` (green).
 
 ## Owner actions — blocking, per portal

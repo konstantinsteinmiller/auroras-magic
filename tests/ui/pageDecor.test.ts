@@ -1,4 +1,4 @@
-// What is printed on a storybook page behind its beats (story-spec §8.31).
+// What is printed on a storybook page behind its beats (story-spec §8.32).
 //
 // The decor has exactly one way to fail badly: crowding the beat cards, which
 // are the only thing on a page a child is meant to look at. So the contract
@@ -80,7 +80,7 @@ const run = (c: number, built = true, keep = cards()): Placed[] => {
   return placed
 }
 
-describe('page marginalia (§8.31)', () => {
+describe('page marginalia (§8.32)', () => {
   it('draws a page worth of motifs on every chapter', () => {
     for (let c = 0; c < 10; c++) expect(run(c).length, `chapter ${c}`).toBeGreaterThanOrEqual(6)
   })

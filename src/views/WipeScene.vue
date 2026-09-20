@@ -12,7 +12,6 @@ import { useI18n } from 'vue-i18n'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import SceneCorner from '@/components/story/SceneCorner.vue'
 import { restoreHud } from '@/use/useRestoreHud'
-import { COMPLETE_AT } from '@/game/restore/mask'
 
 const emit = defineEmits<{ back: []; continue: [] }>()
 const { t } = useI18n()
@@ -21,8 +20,9 @@ const { t } = useI18n()
 // (the sector is already restored), and leaving there would skip the colour.
 const canLeave = computed(() => !['freeze', 'wave', 'pots', 'paint', 'admire', 'idle'].includes(restoreHud.phase))
 const wiping = computed(() => restoreHud.phase === 'wipe' || restoreHud.phase === 'zoom')
-/** The ring fills to the auto-complete line, then glows: "you can stop now". */
-const ring = computed(() => Math.min(1, restoreHud.coverage / COMPLETE_AT))
+/** The ring fills to the auto-complete line, then glows: "you can stop now" —
+ *  by the 85 % rule or by §8.6's "it already looks clean" one. */
+const ring = computed(() => Math.min(1, restoreHud.progress))
 const pct = computed(() => Math.round(restoreHud.coverage * 100))
 const R = 27
 const C = 2 * Math.PI * R

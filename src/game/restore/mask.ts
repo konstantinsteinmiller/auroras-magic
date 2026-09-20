@@ -206,6 +206,105 @@ export const coverage01 = (c: Coverage): number => {
   return 1 - s / c.rem.length
 }
 
+/* --------------------------- the graceful finish -------------------------- */
+
+/**
+ * WHAT THE PLAYER CAN SEE (owner, 2026-09-20). `coverage01` is honest
+ * arithmetic: it counts every last trace of dust, including traces far too
+ * thin to make out over the painting underneath. A child who has been over the
+ * sector twice is looking at a picture that reads as clean while the model
+ * still says 80 %, and the 85 % rule then leaves them stuck with nothing
+ * visible left to aim at. So the finish is judged a SECOND way, by look:
+ *
+ *   • dust thinner than a visibility floor does not count at all;
+ *   • at least `LOOKS_CLEAN_AT` of the sector must be that clean;
+ *   • and no single connected patch of what remains may cover more than
+ *     `PATCH_AT` of the sector — one big visible chunk still blocks the
+ *     finish, which is the whole point of the wipe.
+ *
+ * TWO FLOORS, because "still scrubbing" and "stopped" are different questions
+ * (§8.6). While the tool is moving the bar is `FAINT_AT` — only dust nobody
+ * could see is forgiven — and the sector may finish the instant there is truly
+ * nothing left to aim at, mid-stroke. Once the player has STOPPED for the
+ * 1.5 s grace they have said they believe it is done, and the bar drops to
+ * `STOPPED_AT`: a thin even haze over a restored painting is not worth a dead
+ * end. One first brush pass leaves 45 % (§8.4) — above BOTH floors, so a
+ * single sweep of the sector never finishes it.
+ */
+/** Remaining dust at or under this reads as gone while the tool is working. */
+export const FAINT_AT = 0.18
+/** …and this much, once the player has stopped and the grace has run. */
+export const STOPPED_AT = 0.32
+/** The share of the sector that must be clean at the floor in use. */
+export const LOOKS_CLEAN_AT = 0.95
+/**
+ * The "big visible chunk" test, as a window rather than a blob: dust left over
+ * from a wipe is mostly a THREAD NETWORK — the rims between overlapping
+ * strokes — and those threads all touch, so a connected-area measure calls a
+ * spider's web of faint lines one enormous patch. What a player actually sees
+ * as a missed spot is SOLID, so the test is local density: the dustiest
+ * `CHUNK` × `CHUNK` sample window anywhere on the sector (8 × 8 samples =
+ * 96 × 96 SU, a 2 × 2 cell blotch, ~8 % of the sector's width). At or over
+ * `CHUNK_AT` of that window still holding dust, the wipe goes on.
+ */
+export const CHUNK = 8
+export const CHUNK_AT = 0.6
+
+export interface Look {
+  /** Share of the sector holding no visible dust; 1 = nothing left to see. */
+  clean: number
+  /** How full the dustiest `CHUNK` × `CHUNK` window is, 0..1. */
+  chunk: number
+}
+
+const SAT = new Int32Array((LW + 1) * (LH + 1))
+
+/**
+ * How the sector LOOKS with dust under `faint` discounted: how much of it is
+ * clean, and how solid the worst blotch left is. A summed-area table over the
+ * lattice, then every window read in four lookups — ~10 000 operations on the
+ * 250 ms coverage check, never per frame (§9.3).
+ */
+export const lookAt = (c: Coverage, faint: number): Look => {
+  const n = c.rem.length
+  const W = LW + 1
+  let dirty = 0
+  for (let j = 0; j < LH; j++) {
+    let row = 0
+    for (let i = 0; i < LW; i++) {
+      const d = c.rem[j * LW + i]! > faint ? 1 : 0
+      dirty += d
+      row += d
+      SAT[(j + 1) * W + i + 1] = SAT[j * W + i + 1]! + row
+    }
+  }
+  let best = 0
+  if (dirty > 0) {
+    for (let j = 0; j + CHUNK <= LH; j++) {
+      for (let i = 0; i + CHUNK <= LW; i++) {
+        const v = SAT[(j + CHUNK) * W + i + CHUNK]! - SAT[j * W + i + CHUNK]! - SAT[(j + CHUNK) * W + i]! + SAT[j * W + i]!
+        if (v > best) best = v
+      }
+    }
+  }
+  return { clean: 1 - dirty / n, chunk: best / (CHUNK * CHUNK) }
+}
+
+/** Does this look finish the sector — clean nearly everywhere, with no solid
+ *  chunk of dust left anywhere on it? */
+export const looksDone = (l: Look): boolean => l.clean >= LOOKS_CLEAN_AT && l.chunk < CHUNK_AT
+
+/**
+ * What the progress ring should read, 0..1 of the finish line: the honest
+ * coverage against the 85 % rule, or the look against the 95 % one, whichever
+ * is further along. A chunk still showing holds it just short of full, so the
+ * ring never promises a finish the chunk rule will refuse.
+ */
+export const finishProgress = (cover: number, l: Look): number => {
+  const byLook = Math.min(1, l.clean / LOOKS_CLEAN_AT)
+  return Math.max(Math.min(1, cover / COMPLETE_AT), l.chunk < CHUNK_AT ? byLook : Math.min(0.985, byLook))
+}
+
 export const isCellDone = (c: Coverage, cell: number): boolean => cellCover(c, cell) >= DONE_AT
 
 export const doneCount = (c: Coverage): number => {

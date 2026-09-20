@@ -13,8 +13,8 @@
  */
 import {
   AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING, ILLUSION,
-  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, elemMul, resolveSpell, comboEnumerationIndex, comboKey,
-  type Rune, type ResolvedSpell
+  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, NO_EASE, elemMul, resolveSpell, comboEnumerationIndex, comboKey,
+  type DuelEase, type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
 import { S, save, pop, type Shot } from '@/game/duel/state'
@@ -357,11 +357,14 @@ const launch = (q: Rune[], e: boolean): void => {
   const boss2 = e && S.ePhase >= 2 ? foe.phase2 : null
   /**
    * Only the player's damage is scaled by elements: the element the cast
-   * LEANS ON (the last rune drawn) against the foe's. The foe's own damage is
-   * left flat. (No ranks — removed per D3.)
+   * LEANS ON (the last rune drawn) against the foe's. (No ranks — removed per
+   * D3.)
    */
   const dr = sp.lead
-  const mul = e ? 1 : elemMul(dr, foe.element)
+  // …and the foe's damage by the node's easing, which is 1 everywhere except
+  // the teaching chapters: what a blow COSTS is what decides whether a small
+  // child's mistake is survivable, and it changes no number she has to read.
+  const mul = e ? S.ease.dmg : elemMul(dr, foe.element)
   const dmg = sp.dmg * mul
   const hx = hornX(e)
   const dir = e ? -1 : 1
@@ -616,14 +619,14 @@ const stepShots = (dt: number): void => {
 /* ------------------------------ the NPC ----------------------------- */
 /**
  * The foe's pace — §6.14's whole chain:
- *   rate = base(aiTier) × onboarding × dreamDust × slow × phaseWindup
+ *   rate = base(aiTier) × onboarding × dreamDust × earlyEase × slow × phaseWindup
  * floored at 0.25 runes/s, except during a boss's phase wind-up, which is a
  * full pause by design (the universal tell, §6.11).
  */
 export const foeRate = (): number => {
   if (S.eWindup > 0 || S.eFrozen > 0) return 0
   const foe = FOES[S.foe]!
-  return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * (S.eSlow > 0 ? 1 - S.eSlowPct : 1))
+  return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * S.ease.rate * (S.eSlow > 0 ? 1 - S.eSlowPct : 1))
 }
 
 /** Chapter 4's Crystal Ward is hers from node 3 (§6.10). */
@@ -898,12 +901,40 @@ export interface DuelStart {
   usesMagic: boolean
   /** Dream Dust: this node's current loss streak (§6.15). */
   lossStreak: number
+  /** What this node's duel is eased by for a beginner (`campaign/easing.ts`).
+   *  Omitted — a test, a debug hook, versus — means the plain fight. */
+  ease?: DuelEase
   /** Local 2P versus (§6.19): the right-hand duelist is player 2. */
   versus?: boolean
 }
 
-/** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15). */
+/** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15).
+ *  This is the PACE dial, and also what the arena's motes count (`render.ts`). */
 export const dreamDust = (lossStreak: number): number => max(0.6, 1 - 0.08 * max(0, lossStreak))
+
+/**
+ * …and what the same losses take off her HEALTH and her BLOWS (§6.15, owner
+ * 2026-09-20).
+ *
+ * Dream Dust was one dial — the foe's pace — and one dial is not enough for
+ * the child it exists for. Measured on the real duel, the small child of
+ * `tests/duel/winRate.test.ts` reached chapter 9 with a 3.6 % chance per
+ * attempt; a slower foe with the same health and the same blows still needs
+ * more damage than she can deal before she runs out of health, so more tries
+ * bought her almost nothing.
+ *
+ * Health ends the grind sooner and damage decides whether her mistake is
+ * survivable — the two things pace cannot do. Same 5-loss span as the motes,
+ * and a floor that leaves a duel she still has to play: a foe at 66 % health
+ * and 60 % damage is gentle, not absent (pinned by the "a duel nobody touches
+ * is a duel nobody wins" test, which holds at full dust).
+ *
+ * It costs a competent player NOTHING: she never has the losses.
+ */
+export const dustEase = (lossStreak: number): { hp: number; dmg: number } => {
+  const k = max(0, lossStreak)
+  return { hp: max(0.66, 1 - 0.07 * k), dmg: max(0.6, 1 - 0.08 * k) }
+}
 /** Onboarding: the foe ramps 0.7× → 1.0× over the player's first six duels (§6.14). */
 export const onboarding = (duelsPlayed: number): number => 0.7 + 0.3 * min(1, max(0, duelsPlayed) / 5)
 
@@ -917,13 +948,23 @@ export const resetDuel = (start?: DuelStart): void => {
     S.usesMagic = start.usesMagic
     S.versus = !!start.versus
     S.dust = S.versus ? 1 : dreamDust(start.lossStreak)
+    // Versus is the plain fight both ways (§6.19): the second player is a
+    // person, and a handicap nobody asked for is not a kindness.
+    // Two reliefs, one product: where the node is in the story, and how this
+    // child is actually doing on it.
+    const node = start.ease ?? NO_EASE
+    const dust = dustEase(start.lossStreak)
+    S.ease = S.versus
+      ? { ...NO_EASE }
+      : { hp: node.hp * dust.hp, rate: node.rate, dmg: node.dmg * dust.dmg }
   }
   const foe: FoeDef = FOES[S.foe]!
   // Versus is always the base fight: 100 HP a side, no easing (§6.19).
   S.onboard = S.versus ? 1 : onboarding(S.wins + S.losses)
   S.phase = PH_DUEL
   S.hpMax = HP_MAX
-  S.ehpMax = S.versus ? HP_MAX : foe.hpMax
+  // Rounded, because a health bar is a number a child reads out loud.
+  S.ehpMax = S.versus ? HP_MAX : Math.round(foe.hpMax * S.ease.hp)
   S.hp = S.hpMax
   S.ehp = S.ehpMax
   S.regen = S.eRegen = S.regenRate = S.eRegenRate = 0

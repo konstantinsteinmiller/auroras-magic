@@ -1,8 +1,8 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1789859386586,
-  "updatedAt": 1789859386578,
-  "total": 38,
+  "fetchedAt": 1789938402917,
+  "updatedAt": 1789938403118,
+  "total": 45,
   "entries": [
     {
       "rank": 1,
@@ -48,39 +48,39 @@
     },
     {
       "rank": 8,
+      "name": "Sparkly Otter 196",
+      "score": 18,
+      "flair": 9
+    },
+    {
+      "rank": 9,
       "name": "Rosy Pebble 712",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 8,
+      "rank": 9,
       "name": "Twinkly Acorn 436",
       "score": 11,
       "flair": 11
     },
     {
-      "rank": 10,
+      "rank": 11,
       "name": "Fluffy Star 192",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 10,
+      "rank": 11,
       "name": "Dreamy Star 569",
       "score": 5,
       "flair": 4
     },
     {
-      "rank": 10,
+      "rank": 11,
       "name": "Frosty Cloud 795",
       "score": 5,
       "flair": 4
-    },
-    {
-      "rank": 10,
-      "name": "Sparkly Otter 196",
-      "score": 5,
-      "flair": 1
     },
     {
       "rank": 14,
@@ -231,6 +231,48 @@
       "name": "Lucky Otter 102",
       "score": 1,
       "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Dreamy Moon 139",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Golden Comet 982",
+      "score": 1,
+      "flair": 4
+    },
+    {
+      "rank": 19,
+      "name": "Fluffy Bunny 233",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Rosy Otter 221",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Minty Unicorn 874",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 19,
+      "name": "Merry Meadow 939",
+      "score": 1,
+      "flair": 4
+    },
+    {
+      "rank": 19,
+      "name": "Starry Pebble 353",
+      "score": 1,
+      "flair": 1
     }
   ],
   "dist": [
@@ -247,12 +289,16 @@
       4
     ],
     [
+      18,
+      1
+    ],
+    [
       11,
       2
     ],
     [
       5,
-      4
+      3
     ],
     [
       3,
@@ -260,7 +306,7 @@
     ],
     [
       1,
-      20
+      27
     ]
   ]
 }

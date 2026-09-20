@@ -46,6 +46,8 @@ import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
 import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
+import { spriteFor } from '@/game/art'
+import { pageArtId } from '@/game/artIds'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
 import { drawBookmark, drawDogEar, drawSpine, shadeTurn, turnAngle, turnWidth } from '@/game/flow/pageTurn'
@@ -552,7 +554,9 @@ const seededFront = (): (() => number) => seeded(77)
 /** How Aurora waits on the front page: pleased to see you. */
 const FRONT_FACE: Face = { brow: 0.25, eye: 1, mouth: 1, blush: 0.35 }
 
-const PAGE_WASH: readonly (readonly [string, string])[] = [
+/** The biome colours washed along a built page's foot. Exported for the art
+ *  bench, which draws a page's reference from the same table the map does. */
+export const PAGE_WASH: readonly (readonly [string, string])[] = [
   ['#c9f5b4', '#a8eb92'], // Whispering Woods: meadow greens
   ['#ffe9b0', '#a6e6f5'], // Bubble Bay: sand over a sea band
   ['#e6e9ff', '#cfd6fa'], // Cloud Kingdom: cloud and lavender
@@ -564,10 +568,18 @@ const PAGE_WASH: readonly (readonly [string, string])[] = [
   ['#d8dcff', '#c4c6f5'], // Starlight Summit: night periwinkle
   ['#ffe0ea', '#fff0c8'] // Friendship Festival: candy and lemon
 ]
+/** A chapter that has not been built yet: no biome to show, so lilac. */
+const ASLEEP_WASH: readonly [string, string] = ['#c8bedb', '#b7abcc']
 
 /** The paper card every page is printed on. */
-const drawCard = (g: G2D, x: number, y: number, w: number, h: number, built: boolean): number => {
-  const r = 28 * ms
+const drawCard = (g: G2D, x: number, y: number, w: number, h: number, built: boolean): number[] => {
+  // SQUARE ON THE BOUND EDGE. A leaf in a book is guillotined straight where
+  // it meets the spine and only its free corners are rounded — a page rounded
+  // on all four reads as a loose card lying on the binding rather than part
+  // of the book. The binding is the left edge in both orientations
+  // (`drawSpine` runs its stitches down `r.x`), so: [tl, tr, br, bl].
+  const c = 28 * ms
+  const r = [0, c, c, 0]
   g.fillStyle = 'rgba(20,10,30,0.35)'
   g.beginPath()
   g.roundRect(x + 8, y + 10, w, h, r)
@@ -665,7 +677,7 @@ const drawFrontPage = (g: G2D): void => {
 }
 
 /**
- * Where a page's marginalia may not go (§8.31): the five beat cards, each
+ * Where a page's marginalia may not go (§8.32): the five beat cards, each
  * grown to take in its frame and its shadow, and the badge that hangs off the
  * card's foot. Circles rather than rectangles — a motif only needs to keep
  * clear, not to tile around.
@@ -699,32 +711,20 @@ const drawPage = (g: G2D, c: number): void => {
   g.beginPath()
   g.roundRect(x, y, w, h, r)
   g.clip()
-  // The biome wash: rolling hills along the page's foot (portrait: its side).
-  const wash = built ? PAGE_WASH[c] ?? PAGE_WASH[0]! : ['#c8bedb', '#b7abcc']
-  for (let i = 0; i < 2; i++) {
-    g.beginPath()
-    if (portrait) {
-      g.moveTo(x, y + h * (0.12 + i * 0.05))
-      for (let k = 0; k <= 8; k++) g.lineTo(x + w * (0.1 + 0.08 * sin(k * 1.7 + i)), y + (h * k) / 8)
-      g.lineTo(x, y + h)
-    } else {
-      g.moveTo(x, y + h * (0.78 - i * 0.08))
-      for (let k = 0; k <= 8; k++) g.lineTo(x + (w * k) / 8, y + h * (0.72 - i * 0.07 + 0.05 * sin(k * 1.9 + i)))
-      g.lineTo(x + w, y + h)
-      g.lineTo(x, y + h)
-    }
-    g.closePath()
-    g.fillStyle = wash[i]!
-    g.fill()
-  }
-  // What is printed on the paper behind the beats (§8.31): the light on the
-  // sheet, the chapter's own world in thin ink, and the fibre over the lot —
-  // one baked image, since none of it moves. It goes on after the wash so the
-  // grain lands on the hills too; the marginalia inside it is kept above them
-  // by its own `ground`. Every beat card and badge on this page is handed over
-  // as somewhere a motif may NOT go.
+  // Everything printed on this page behind its beats (§8.32), as ONE baked
+  // image: the light on the sheet, the chapter's own world in thin ink, the
+  // biome wash along the foot and the paper fibre over the lot. None of it
+  // moves, and every separate fill here would be another full-page composite
+  // through the page's rounded clip. Each beat card and badge on the page is
+  // handed over as somewhere a motif may NOT go.
+  const wash = built ? PAGE_WASH[c] ?? PAGE_WASH[0]! : ASLEEP_WASH
+  // Painted (§9.11): a built chapter's page can be one painting — the paper,
+  // its marginalia and its wash together. Only the BUILT page: a sleeping
+  // chapter is a different picture (lilac, fainter ink, a dozing moon), not
+  // this one tinted, so it keeps drawing itself. A miss draws as before.
+  const painted = built ? spriteFor('page', pageArtId(c, portrait)) : null
   g.drawImage(
-    pageDecorBake(w, h, c, built, portrait, keepOut(c, x, y), portrait ? w * 0.2 : h * 0.62),
+    painted ?? pageDecorBake(w, h, c, built, portrait, wash, keepOut(c, x, y), portrait ? w * 0.2 : h * 0.62),
     x, y, w, h
   )
   g.restore()
@@ -1044,6 +1044,12 @@ const publish = (): void => {
   if (mapHud.front !== (page === 0)) mapHud.front = page === 0
   if (mapHud.portrait !== portrait) mapHud.portrait = portrait
   if (mapHud.versus !== S.campaign.versusUnlocked) mapHud.versus = S.campaign.versusUnlocked
+  // The paper itself, for chrome that is printed ON the page (the rank plate,
+  // §8.33). `pageRect` puts every page in the same place, so this settles on
+  // the first frame and then only moves on a resize.
+  const pr = pageRect(Math.max(1, page))
+  const mp = mapHud.page
+  if (mp.x !== pr.x || mp.y !== pr.y || mp.w !== pr.w || mp.h !== pr.h) mapHud.page = pr
   // The Twin Gift's DOM hold target follows the gift from page to page. It
   // steps aside while a page is turning: it is a hole in the chrome laid over
   // a canvas that is, for those few hundred milliseconds, two pages at once.

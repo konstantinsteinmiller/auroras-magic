@@ -5,48 +5,112 @@ backgrounds, VFX, UI and store art. If a new asset disagrees with this page, the
 asset is wrong, or this page gets a dated amendment. Never let a one-off drift
 quietly become the style.
 
-**In one line:** *cute chibi picture-book magic.* Big-headed, big-eyed unicorns
-drawn with one confident, soft outline and flat cel colour, in a pastel world
-that glows. Hand-drawn, not sketchy.
+**In one line:** *cute chibi picture-book magic, drawn by hand.* Big-headed,
+big-eyed unicorns drawn with a soft brush line that varies and fades, and
+painted colour with soft-edged shadow, in a warm world that glows. Hand-drawn,
+not sketchy — and never an even stroke traced round everything.
 
 Audience: a cozy unicorn fantasy for everyone, made especially appealing to
 girls aged 3–12. It is not a "kids only" game, and it must never look babyish.
 The youngest players are about 3, so everything must still be safe for them.
-The owner decided this on 2026-09-18 (D1, `story-spec.md` §2 and §13) and
-sharpened it on 2026-09-19 (§0 below). Everything must read as friendly, safe
-and magical at a glance, including on a phone held upright.
+The owner decided this on 2026-09-18 (D1, `story-spec.md` §2 and §13),
+sharpened it on 2026-09-19, and settled the painted look on 2026-09-20 (§0
+below). Everything must read as friendly, safe and magical at a glance,
+including on a phone held upright.
+
+**How to read this page.** It covers two kinds of art that must look like one
+world but are made in completely different ways:
+
+- **DRAWN** — what `src/game/` paints on a canvas every frame. Its rules are
+  shaped by what a canvas stroke can do cheaply, so they favour constant
+  weights and flat fills. §2–§8 are written for it.
+- **PAINTED** — the drop-in bitmaps the image model makes, governed by the
+  active profile in §0. Where a §2–§8 rule and §0 disagree, **§0 wins for
+  painted art** and the section carries a dated amendment saying so.
+
+The two are on screen together for the whole rollout — a painted sector under a
+drawn rig — so neither may drift on colour, layout or proportion. Where they
+legitimately differ is line and shading, and only there.
 
 ---
 
 ## 0. The art-style decision
 
-**Current style: `cozy-chibi-v1` — "Cozy chibi picture-book".** Decided by the
-owner on 2026-09-19.
+**Current style: `cozy-handdrawn-v2` — "Cozy hand-drawn storybook".** Decided
+by the owner on 2026-09-20, on seeing v1's first two paintings.
 
-> Cute, cozy chibi anime-style picture-book illustration: big heads, huge
-> sparkly eyes, rounded friendly shapes, soft pastel colours and warm magical
-> glows.
+> A cosy, cute, HAND-DRAWN storybook illustration — a page from a picture book
+> drawn and painted by a person, with soft varied brush lines, gently painted
+> colour, and chibi anime characters.
 
-Why: this is a unicorn fantasy, made especially appealing to girls aged 3–12
-while charming for everyone. Chibi proportions and big expressive anime eyes
-make every character lovable and readable at thumbnail size. The pastel,
-cozy palette keeps even the gloomy parts (Umbra's dust) safe for a 3-year-old.
-It is the look the procedural art already has (§1–§8), so the painted art
-upgrades the game instead of replacing its identity.
+Why it replaced v1: v1's returns were faithful, clean, and looked
+**machine-made**. An even plum stroke traced around every shape, flat fills
+under a hard cel mask, tree canopies that were circles and hills that were
+arcs. That was not the painter disobeying — v1 *asked* for it ("ONE clean
+outline around every shape"; "if the outline has thinned to a hairline it is
+several times too thin"). The owner's words on the first page: *"the rest of
+the world does look like procedurally generated… make it cute, cozy and
+handdrawn (no excessive stroking) with chibi + anime character design."*
+
+v2 moves the weight off the outline and onto drawn shape and painted colour,
+and promotes the expression from a mood to a hard requirement — the same page
+had come back with a blank-faced Aurora.
 
 **What it pins down** (the details are in §1–§9):
 
 | | |
 | --- | --- |
-| Proportions | Chibi: the head as wide as the body, compact body, short sturdy legs (§3) |
-| Faces | Huge glossy eyes with two catch-lights, tiny mouth, blush dots; big anime expressions (§3) |
-| Line | One soft, confident plum outline (`#3A2340`), never black, about 1 % of the subject's height (§2) |
-| Colour | Flat cel colour, one base tone and one violet-shifted shadow, one highlight; pastel things, saturated magic (§4) |
+| Feel | Hand-drawn and hand-painted; the small irregularities a hand makes are the point |
+| Proportions | Chibi anime: big round head about as wide as the body, compact body, short sturdy legs (§3) |
+| Faces | Large glossy anime eyes with two catch-lights, lashes, blush; the expression must be unmistakable at a glance — a blank face is a failed drawing |
+| Line | A soft brush line in plum (`#3A2340`), never black, **varying in weight and tapering to nothing**; small things carry no line at all. Never an even stroke around everything |
+| Colour | Painted, with soft variation across a shape and a soft-edged shadow; not a flat fill under a hard cel mask (§4) |
 | Mood | Cozy, warm, magical; gloomy is allowed, scary never (§1, §5) |
-| Never | Sketch lines, hatching, texture brushes, realistic horse anatomy, a western-cartoon or 3D-render look |
+| Never | An even outline round every shape, perfect circles and arcs, flat single-tone fills, blank faces, grunge or photo texture, realistic horse anatomy, a western-cartoon or 3D-render look |
+
+Costs nothing in bytes: the first v2 page ships at 36 kB against v1's 37 kB,
+and the portrait strip got *smaller* (27 kB against 33 kB) because a soft,
+broken line compresses better than a hard uniform one.
+
+**APPROVED by the owner on 2026-09-20** — *"that's exactly the artstyle I was
+looking for"* — on seeing the first two v2 paintings.
+
+### 0.1 The approved reference — look at these before painting anything
+
+Two files ARE the style. When a rule on this page and these pictures disagree,
+the pictures win and the page gets a dated amendment:
+
+| | |
+| --- | --- |
+| `public/images/story/intro-1.webp` | a full-bleed scene: brush-textured grass and hills, a line that fades out across the meadow, unoutlined flowers and pebbles, a warm daylight palette |
+| `public/images/portraits/portrait-aurora.webp` | a character strip: soft varied contour, gold-led mane, large anime eyes with two catch-lights, four faces that read at a glance |
+
+They were painted from `art-sheets/story-intro-1.png` and
+`art-sheets/portrait-aurora.png`, and the prompts that produced them are in
+`art-sheets/PROMPTS-STORY.md` and `PROMPTS-PORTRAITS.md` — generated, so they
+regenerate from `artStyle.ts` rather than being edited.
+
+What the approved pair settles, beyond the profile's words:
+
+- **A character is painted from its model strip, never from the scene
+  reference's placeholder.** The scene drawing gives position, size, facing and
+  action; the model gives the build and the face.
+- **A page names WHICH of the model's moods it wears.** A model is four or five
+  faces side by side; a page that does not choose gets a blank one.
+- **Aurora's mane is gold-led** — butter-gold as its main colour with pastel
+  streaks through it. An all-pastel rainbow mane is a different character.
+
+### History — `cozy-chibi-v1` (superseded 2026-09-20)
+
+Decided 2026-09-19. "Cute, cozy chibi anime-style picture-book illustration:
+big heads, huge sparkly eyes, rounded friendly shapes, soft pastel colours and
+warm magical glows." Flat cel colour, one base tone and one violet-shifted
+shadow, one confident plum outline at about 1 % of the subject's height. Kept
+in `ART_STYLES` so any painting stamped `cozy-chibi-v1` can still be read back
+against the brief it was made under. Nothing shipped under it.
 
 **Where it lives in the code.** `src/game/artStyle.ts` holds this decision as
-a named, versioned profile (`ART_STYLES['cozy-chibi-v1']`, selected by
+a named, versioned profile (`ART_STYLES['cozy-handdrawn-v2']`, selected by
 `ACTIVE_STYLE_ID`). Every prompt the art pipeline writes
 (`src/game/artSheet.ts`) builds its style blocks from that profile and nowhere
 else, and every painting is stamped with the style id it was made in (the
@@ -91,8 +155,8 @@ and painting them needs a part-by-part layer split first.
 
 Those are the pipeline's contracts (`LAYERS.md`, `SLICER.md`), not the look.
 
-**Previous decisions:** none. `cozy-chibi-v1` is the first style the painted
-art is made in.
+**Previous decisions:** `cozy-chibi-v1` (2026-09-19 → 2026-09-20), in the
+History subsection above. Nothing shipped under it.
 
 ## 1. Pillars
 
@@ -100,14 +164,20 @@ art is made in.
    pointy that is not a horn, a star or a crystal.
 2. **Chibi proportions.** Heads are huge, bodies are compact, legs are short and
    sturdy. See §3.
-3. **Hand-drawn, but with restraint.** One clean, confident outline per shape,
-   with a little natural weight variation. **No** sketch lines, doubled strokes,
+3. **Hand-drawn, but with restraint.** No sketch lines, doubled strokes,
    crosshatching, scribbled texture or hairy "concept art" edges. If a line does
    not describe the silhouette or a key feature (eye, mouth, mane lock,
    horn spiral), leave it out.
-4. **Flat cel colour.** A base tone plus **one** soft shadow tone and a small
-   highlight where needed. Gradients belong to skies and glows, never to
-   characters.
+   *DRAWN:* one clean, confident outline per shape with a little natural weight
+   variation. *PAINTED (v2):* a soft brush line that varies freely, tapers to
+   nothing at stroke ends and on lit edges, and is absent altogether on small
+   things. Never an even stroke traced round everything.
+4. **Colour that is not flat.**
+   *DRAWN:* a base tone plus **one** soft cel shadow tone and a small highlight.
+   *PAINTED (v2):* soft variation across each shape with a soft-edged shadow
+   that follows the form, warm where light bounces back in.
+   In both, gradients across a whole character are still wrong; they belong to
+   skies and glows.
 5. **Readable at thumb size.** Every character and rune must be identifiable as
    a 64 px silhouette and in greyscale (§8).
 6. **The sky tells the story.** The world lightens toward rainbows as Aurora
@@ -116,12 +186,31 @@ art is made in.
 
 ## 2. Line
 
+> **Amendment 2026-09-20 (`cozy-handdrawn-v2`).** The table below describes
+> the PROCEDURAL renderer's line, where a constant weight is what a canvas
+> stroke can do cheaply, and it stays correct for the drawn art. The PAINTED
+> art no longer follows the "constant within one asset" rule: a painted line
+> varies freely, tapers away to nothing at stroke ends and on lit edges, may
+> lift and break, and is simply absent on small things (flowers, pebbles,
+> grass, sparkles, distant trees). A constant-weight outline traced round
+> every shape is the "sticker" look v1 produced and v2 exists to stop. The
+> line COLOUR (`#3A2340`, never black) is unchanged and applies to both.
+>
+> **The drawn rig was brought into line on 2026-09-20.** `chars.ts` had inked
+> in the jam build's near-black `#150f1c` since the port — this page has asked
+> for plum since the style was pinned, and the code simply never followed. It
+> stopped being cosmetic the moment painted scenes shipped: the rig stands ON
+> a painted, plum-inked meadow, and near-black on it read as a sticker pasted
+> onto a painting. `blob` also gained a fourth cel step (same total offset,
+> half the jump at each edge) so the turn into light stops reading as a band
+> beside the paintings' soft-edged shading.
+
 | Property | Rule |
 | --- | --- |
 | Colour | Warm deep plum **`#3A2340`**, not pure black. Night / rival characters may use **`#241A3A`**. |
-| Outer contour | ~**0.8 %** of the asset's height (≈ 4 px on a 512 px sprite). Constant within one asset. |
+| Outer contour | ~**0.8 %** of the asset's height (≈ 4 px on a 512 px sprite). Constant within one asset — drawn art only; see the amendment. |
 | Inner lines | 50–60 % of the contour weight. Only for eyes, mouth, ear inner, mane lock partings and the horn spiral. |
-| Weight variation | Slightly heavier on the shadow side and at overlaps; lighter on the lit top edges. Subtle, 1.0×–1.3×. |
+| Weight variation | Slightly heavier on the shadow side and at overlaps; lighter on the lit top edges. Subtle, 1.0×–1.3× for drawn art; unbounded for painted art. |
 | Ends | Round caps and joins. Line ends taper softly where a stroke fades into a form (mane tips, cheek fur). |
 | Forbidden | Sketch passes, broken or doubled lines, hatching, speed lines inside forms, texture brushes on outlines. |
 
@@ -147,8 +236,16 @@ art is made in.
 
 ### 4.1 Shading model
 
+> **Amendment 2026-09-20 (`cozy-handdrawn-v2`).** The hard-edged cel shape
+> below is the DRAWN renderer's shading and stays correct for it. PAINTED art
+> uses the same *structure* — one shadow, one highlight, light from the top
+> left — with **soft edges** and gentle variation inside the shape instead of a
+> flat fill under a hard mask. The tones and the direction are shared, so a
+> painted sector and a drawn rig still agree about where the sun is.
+
 - Base + **one** shadow tone (≈ 15–20 % darker, shifted slightly toward violet),
-  laid in as a hard-edged cel shape following the form.
+  laid in as a hard-edged cel shape following the form (drawn), or as a
+  soft-edged shape that follows the form (painted).
 - Optional **highlight**: a small, soft, near-white shape on the top-left of
   round forms (head, barrel, horn, hooves). Never more than one per form.
 - Key light from the **top-left**, a warm tint. Bounce light is not drawn, except
@@ -215,11 +312,15 @@ Only the lightness is softened for the painted art:
 ## 5. Environments
 
 - Floating mossy islands, soft cumulus clouds, a distant rainbow, drifting
-  sparkles and petals. Painterly soft gradients are allowed **in skies and
-  distant layers only**. Mid- and foreground objects follow the character
-  rules (outline + cel).
+  sparkles and petals. Painterly soft gradients across a whole SKY are fine;
+  across a whole character or prop they are not. Mid- and foreground objects
+  follow the character rules (drawn: outline + cel; painted: §0's varied line
+  and soft-edged shading).
 - Depth through value and saturation: far layers are lighter and bluer, with
-  no outline or a very light one.
+  no outline or a very light one. **This is a rule for the BACK of the
+  picture only.** Applied to the whole scene it drains it, which is exactly
+  what one v1 return did — everything from the mid-ground forward keeps its
+  full, warm colour, as saturated as the drawn reference.
 - The duel window must stay readable. Keep the band between the two unicorns
   (stage x ≈ 470–810) free of high-contrast detail. That is where spells fly
   and where the eye reads the fight.
@@ -255,13 +356,21 @@ Only the lightness is softened for the painted art:
    what it is.
 2. **Greyscale:** desaturate it. Aurora, the rival and all four runes stay
    distinct by value and shape alone.
-3. **Line weight:** the outer contour is the same weight as its siblings on the
-   sheet (±10 %).
+3. **Line weight:** *drawn* — the outer contour is the same weight as its
+   siblings on the sheet (±10 %). *Painted* — the opposite test: if every shape
+   is ringed by a stroke of the same width, it is wrong. The line must visibly
+   swell and fade, and small things must carry none at all.
 4. **Detail budget:** count interior lines. A character side view has at most
    ~15 interior strokes (eye, lashes, mouth, nostril, ear inner, 3–5 mane
    partings, horn bands, hoof lines).
 5. **Kid test:** nothing looks hurt, scary, sharp-toothed or angry. Rivals are
    cheeky, not evil.
+6. **Face test (painted):** cover everything but the head. The expression must
+   be obvious — joy, worry, determination, delight — from the eyes, brows and
+   mouth together. A blank or averaged face fails, however well painted.
+7. **Hand test (painted):** find a perfect circle, a true arc or a dead-straight
+   edge. If you find one on a tree, a hill, a pond or a path, it was assembled
+   rather than drawn; send it back.
 
 ## 9. Production specs (for the art-generation pipeline)
 
@@ -298,10 +407,11 @@ The original block, pasted at the top of every image-model prompt:
 ### 9.2 Amendment 2026-09-19 — the pipeline as built (story-spec §8.20)
 
 - **The prompts are generated, never hand-written.** `src/game/artSheet.ts`
-  builds every block from §9.1's rules, extended for objects with no face:
-  the same plum ink, the same cel shadow, and a measured outline weight
-  (about 1 % of the subject's height). Run `pnpm art:prompts`, then copy
-  from `art-sheets/PROMPTS-*.md`.
+  builds every block from the ACTIVE style profile (§0) — not from §9.1, which
+  is history — extended for objects with no face: the same plum ink and the
+  same shading standard as a character. Run `pnpm art:prompts`, then copy from
+  `art-sheets/PROMPTS-*.md`. (The "about 1 % of the subject's height" outline
+  measure belonged to v1 and was retired with it; see §2's amendment.)
 - **Sectors are the exception to the magenta rule.** They are full-bleed
   scenes at 16:9, returned with NO magenta anywhere, and they keep the
   reference's layout exactly, because the game places moving things on them.
@@ -332,6 +442,40 @@ The original block, pasted at the top of every image-model prompt:
 - **Sizes shipped:** portrait panels at most 256 px tall (the badge shows
   them at 192), islands at most 256 px tall, intro pages 1152 × 672.
 
+### 9.4 Amendment 2026-09-20 — what the approved pair settled
+
+The first two paintings took eleven generations, and most of what they cost
+was prompt wording rather than taste. What is now pinned, and must not be
+unpinned without a new dated amendment:
+
+- **The style lives in `artStyle.ts` and nowhere else.** A profile carries its
+  own `lead` block — the two or three make-or-break rules, stated near the TOP
+  of every prompt with an exact instruction, a named substitute for the
+  painter's habit, and a consequence. Style rules buried in a mid-prompt bullet
+  list get obeyed in letter and lost in spirit; that is how v1 produced three
+  even-stroked returns in a row while following every line it was given.
+- **Every prompt builder shares the same check list.** They had drifted — a
+  sector checked its outline one way, an item only when it had no tinted part,
+  a story page not at all — and the weakest list is the one that produces the
+  bad batch. `STYLE_CHECKS` is now shared by all three.
+- **Never paint a portrait as sitting on anything.** The game fills its own
+  per-speaker badge colour behind the head and clips to a circle, so a painted
+  disc hides it and puts every character on the same wrong ground. The circle
+  is a CUT, not a shape to paint.
+- **A scene must be told it is being repainted, not tidied.** Asked only to
+  follow the reference, the painter returns the reference with smoother edges.
+  The prompt says which part is being copied (layout) and which replaced
+  (rendering), and gives a test: if it could be mistaken for the reference with
+  cleaner edges, it is not finished.
+- **Measure before re-rolling a colour.** A return that looked black-inked
+  measured `#24142c` — genuinely plum — and the *drawn* reference measured
+  `#140c1c`, darker still. One wasted generation.
+- **Style id stamping.** The slicer stamps each painting from
+  `sheet-index.json`, which the bench writes at export time, so a style change
+  (which does not re-export, because the drawings did not move) used to
+  mis-stamp every new painting as the old style. `pnpm art:prompts` now syncs
+  that field; re-slice anything painted across the change to restamp it.
+
 ## 10. From the jam build to here
 
 The jam build (Rune-icorn: Duels) drew everything procedurally in a
@@ -339,7 +483,11 @@ cel-shaded ink style: near-black 5–13 px outlines, three-band cel solids and
 a dark storm palette. The painted version keeps its **structure**, which is
 the readable poses, one shape vocabulary per element, the sky-as-scoreboard
 and the chunky plated HUD. It changes the **temperament**: plum instead of
-black ink, two tones instead of three bands, pastel instead of storm-grey,
-and friendly rivals instead of menacing ones. Until the paintings exist, the
-procedural art is the reference for layout, scale and animation. This page is
-the reference for how it should look.
+black ink, a line that varies and fades instead of a constant contour, soft
+painted shading instead of banded cel, pastel instead of storm-grey, and
+friendly rivals instead of menacing ones.
+
+Until a painting exists, the procedural art is the reference for layout, scale
+and animation — and it stays the fallback forever, because a missing painting
+must never break the game. This page is the reference for how it should look,
+and §0.1's two approved files are what "should look" means.

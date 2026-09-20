@@ -8,7 +8,6 @@
  * rules of what happens next live in `game/flow/duelFlow.ts`.
  */
 import { computed } from 'vue'
-import { PH_WIN } from '@/game/duel/config'
 import { cast, castSide } from '@/game/duel/sim'
 import { sfx } from '@/game/duel/audio'
 import { openOverlay } from '@/game/flow/scene'
@@ -18,11 +17,9 @@ import { duelBeat } from '@/use/useDuelBeat'
 import { isGamePaused } from '@/use/useGamePause'
 import { flowHud } from '@/use/useFlow'
 import { useMute } from '@/use/useMute'
-import { leaderboardEnabled } from '@/use/useLeaderboard'
 import DuelHud from '@/components/duel/DuelHud.vue'
 import DuelResult from '@/components/duel/DuelResult.vue'
 import DialogueBubbles from '@/components/story/DialogueBubbles.vue'
-import RankBadge from '@/components/atoms/RankBadge.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import { thanksLines } from '@/game/story/story'
 import { useI18n } from 'vue-i18n'
@@ -60,9 +57,6 @@ const onBook = (): void => {
   openOverlay('spellbook')
 }
 
-/** The win's rank badge rides the flourish (the old result panel is gone). */
-const showRank = computed(() =>
-  leaderboardEnabled && hud.phase === PH_WIN && (duelBeat.phase === 'flourish' || duelBeat.phase === 'toMap') && hud.wins > 0)
 const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBeat.node) : []))
 </script>
 
@@ -78,8 +72,6 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
       @options="onOptions"
       @book="onBook"
     )
-    div.win-rank(v-if="showRank")
-      RankBadge(:score="hud.wins")
     DialogueBubbles(
       v-if="thanks.length"
       :lines="thanks"
@@ -125,7 +117,9 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
     box-shadow: 0 0 0 4px #3A2340
     color: #3A2340
     font-size: clamp(22px, 3.2vw, 36px)
-    white-space: nowrap
+    // A line, not a lane: "Қандай керемет жекпе-жек!" is twice "What a duel!"
+    // and a nowrap banner with no width simply leaves the screen.
+    max-width: min(86vw, 660px)
     animation: rank-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both
   .crown
     position: absolute
@@ -144,6 +138,16 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
       width: 100%
       height: 100%
 
+// The versus end screen's pop. (It was defined beside the win-screen rank
+// badge that has moved to the map, §8.33; the badge went, this stayed.)
+@keyframes rank-in
+  from
+    opacity: 0
+    transform: translate(-50%, 12px) scale(0.8)
+  to
+    opacity: 1
+    transform: translateX(-50%)
+
 .versus-turn
   position: absolute
   inset: 0
@@ -154,19 +158,4 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
   pointer-events: auto
 
 // Under the VICTORY callout: lifetime duels won, placed on the board.
-.win-rank
-  position: absolute
-  left: 50%
-  top: 58%
-  transform: translateX(-50%)
-  pointer-events: none
-  animation: rank-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both 0.5s
-
-@keyframes rank-in
-  from
-    opacity: 0
-    transform: translate(-50%, 12px) scale(0.8)
-  to
-    opacity: 1
-    transform: translateX(-50%)
 </style>

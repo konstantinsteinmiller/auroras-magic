@@ -1,10 +1,24 @@
 <script setup lang="ts">
 /**
- * FinaleCard — the Friendship Festival's capstone (story-spec §10.19, §8.11).
- * Once, the first time the Festival's own sector is restored: the whole cast
- * together — Aurora, Umbra and all nine Guardians, cheering — under the
- * chapter's title and its one line, "Umbra isn't lonely anymore." No credits
- * scroll (§10.21). A tap anywhere closes it, and Umbra steps out onto the map.
+ * FinaleCard — the Friendship Festival's capstone (story-spec §10.19, §8.11,
+ * §8.34). Once, the first time the Festival's own sector is restored: the
+ * whole cast together — Aurora, Umbra and all nine Guardians, cheering —
+ * under the chapter's title and its one line, "Umbra isn't lonely anymore."
+ * No credits scroll (§10.21). Then Umbra steps out onto the map.
+ *
+ * IT DOES NOT CLOSE ON A STRAY TAP (owner, 2026-09-20). It used to close on a
+ * tap anywhere, and it opens during the page turn that carries the player from
+ * the restored sector to the map — so the second tap of "tap Continue, tap
+ * again", the most natural thing a child does, threw the card away before it
+ * had finished fading in. The one-time beat of the whole story was skippable
+ * by accident. Now only the SKIP button closes it, and the card holds for as
+ * long as the player wants to look.
+ *
+ * The card's own button is the one way on, and it is there from the first
+ * frame — the same promise the intro's skip makes (`IntroScene`): nobody is
+ * ever held in a scene they have already seen. It wears the double-chevron
+ * `skip` glyph rather than a forward arrow, because on a card with nowhere
+ * else to go an arrow reads as decoration.
  *
  * The portraits are the dialogue's own (`portraitUrl`), so the card needs no
  * art of its own; the confetti is CSS and rests under reduced motion.
@@ -41,7 +55,7 @@ const close = (): void => {
 </script>
 
 <template lang="pug">
-  div.finale(role="dialog" aria-modal="true" :aria-label="t('chapter.c10')" @click.stop="close")
+  div.finale(role="dialog" aria-modal="true" :aria-label="t('chapter.c10')" @click.stop @pointerdown.stop)
     div.confetti(v-if="!reducedMotion" aria-hidden="true")
       i(v-for="(c, i) in confetti" :key="i" :style="{ left: c.left, animationDelay: c.delay, background: c.hue }")
     div.card
@@ -49,8 +63,8 @@ const close = (): void => {
       div.cast(aria-hidden="true")
         img.face(v-for="f in faces" :key="f.id" :src="f.url" :class="{ star: f.star }" alt="" draggable="false")
       p.line.story-text {{ t('finale.line') }}
-      button.duel-plate.next(:aria-label="t('ui.next')" @click.stop="close")
-        GameIcon.glyph(name="forward")
+      button.duel-plate.next(:aria-label="t('ui.skip')" @click.stop="close" @pointerdown.stop)
+        GameIcon.glyph(name="skip")
 </template>
 
 <style scoped lang="sass">
@@ -107,6 +121,8 @@ const close = (): void => {
   font-size: clamp(18px, 4.6vw, 26px)
   color: #3A2340
 
+// The card's one control. It was a `forward` arrow, which on a card that has
+// nowhere else to go read as decoration; a double chevron says "skip this".
 .next
   width: 64px
   height: 64px

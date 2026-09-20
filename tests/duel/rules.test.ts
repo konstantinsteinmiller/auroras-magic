@@ -7,11 +7,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   SPELLS, comboKey, resolveSpell, dominantRune, comboEnumerationIndex, comboFromIndex, COMBO_COUNT,
-  elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, PH_DUEL, PH_WIN, PH_LOSE
+  elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, NO_EASE, PH_DUEL, PH_WIN, PH_LOSE
 } from '@/game/duel/config'
-import { FOES, shadowOf, guardianOf, tierRate } from '@/game/duel/foes'
+import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE } from '@/game/duel/foes'
+import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, onboarding, foeRate } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, dustEase, onboarding, foeRate } from '@/game/duel/sim'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -260,6 +261,23 @@ describe('the difficulty chain (§6.14–§6.15)', () => {
     expect(dreamDust(-3)).toBe(1)
   })
 
+  it('…and takes the same losses off her health and her blows', () => {
+    // The pace dial alone could not carry the child it exists for: a slower
+    // foe with the same health still out-lasts her (winRate.test.ts measured
+    // 3.6 % per attempt in chapter 9, barely moved by five losses' worth of
+    // slowing). Health ends the grind; damage decides whether the mistake was
+    // survivable.
+    expect(dustEase(0)).toEqual({ hp: 1, dmg: 1 })
+    expect(dustEase(1).hp).toBeCloseTo(0.93)
+    expect(dustEase(1).dmg).toBeCloseTo(0.92)
+    expect(dustEase(5).hp).toBeCloseTo(0.66)
+    expect(dustEase(5).dmg).toBeCloseTo(0.6)
+    // Floored at five losses — the same five the arena's motes count — so a
+    // sixth loss changes nothing a player could have been waiting for.
+    expect(dustEase(9)).toEqual(dustEase(5))
+    expect(dustEase(-3)).toEqual({ hp: 1, dmg: 1 })
+  })
+
   it('onboarding eases the first five duels', () => {
     expect(onboarding(0)).toBeCloseTo(0.7)
     expect(onboarding(5)).toBe(1)
@@ -267,13 +285,44 @@ describe('the difficulty chain (§6.14–§6.15)', () => {
   })
 
   it('a duel starts from its node: foe, magic rule, HP per side, and dust', () => {
-    resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 2 })
+    // No easing passed and no losses: the fight exactly as the roster has it.
+    resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 0 })
     expect(S.foe).toBe(guardianOf(0))
     expect(S.usesMagic).toBe(true)
     expect(S.ehpMax).toBe(115)
     expect(S.ehp).toBe(115)
     expect(S.hpMax).toBe(100)
+    expect(S.dust).toBe(1)
+    expect(S.ease).toEqual(NO_EASE)
+  })
+
+  it('two losses on the node bring the boss down a bar, and the node easing with them', () => {
+    resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 2 })
     expect(S.dust).toBeCloseTo(0.84)
+    // 115 HP × two losses of Dream Dust, rounded — the bar is a number a
+    // child reads out loud.
+    expect(S.ehpMax).toBe(Math.round(115 * dustEase(2).hp))
+    expect(S.ease.dmg).toBeCloseTo(dustEase(2).dmg)
+
+    // …and the node's own easing multiplies with it: chapter 1's boss, at her
+    // worst day, is the product of where she is in the story and how the
+    // child is doing on her.
+    resetDuel({ foe: guardianOf(0), usesMagic: true, lossStreak: 2, ease: earlyEase(4) })
+    expect(S.ease.hp).toBeCloseTo(earlyEase(4).hp * dustEase(2).hp)
+    expect(S.ease.dmg).toBeCloseTo(earlyEase(4).dmg * dustEase(2).dmg)
+    expect(S.ease.rate).toBeCloseTo(earlyEase(4).rate)
+  })
+
+  it('the player is never eased into a duel she did not lose, and versus never at all', () => {
+    resetDuel({ foe: shadowOf(0), usesMagic: false, lossStreak: 0, ease: earlyEase(30) })
+    // Chapter 7 is past the curve's teaching half but not its end…
+    expect(S.ease.hp).toBeCloseTo(earlyEase(30).hp)
+    // …and the finale is the fight as designed, for everyone.
+    resetDuel({ foe: shadowOf(9), usesMagic: true, lossStreak: 0, ease: earlyEase(49) })
+    expect(S.ease).toEqual(NO_EASE)
+    resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 4, ease: earlyEase(0), versus: true })
+    expect(S.ease).toEqual(NO_EASE)
+    expect(S.ehpMax).toBe(100)
   })
 
   it('the foe\'s rate is the product of the chain, floored, and zero in a wind-up', () => {

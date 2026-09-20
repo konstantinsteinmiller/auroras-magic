@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, STORY_SHEETS,
+  PAGE_SHEETS,
   manifestTargets, NEUTRAL_HEX, sheetRows
 } from '@/game/artSheet'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
@@ -48,7 +49,8 @@ describe('the art manifest', () => {
   it('never lets two drawables share a file or a reference', () => {
     const keyed = [...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS]
     const targets = [
-      ...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...STORY_SHEETS.map((s) => s.target), ...keyed.map((s) => s.target)
+      ...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...STORY_SHEETS.map((s) => s.target),
+      ...PAGE_SHEETS.map((s) => s.target), ...keyed.map((s) => s.target)
     ]
     expect(new Set(targets).size).toBe(targets.length)
     expect(manifestTargets().size).toBe(targets.length)
@@ -68,7 +70,9 @@ describe('the prompt documents', () => {
   it('hold one fenced block per drawable, with no stray fence inside one', () => {
     const want: Record<string, number> = {
       'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 15, 'PROMPTS-RUNES.md': 12,
-      'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4
+      'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4,
+      // Two per chapter: the book is a different shape in each orientation.
+      'PROMPTS-PAGES.md': 20
     }
     expect(Object.keys(docs).sort()).toEqual(Object.keys(want).sort())
     for (const [name, text] of Object.entries(docs)) {
@@ -95,7 +99,7 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(111)
+    expect(jobs).toHaveLength(131)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import ArtIcon from '@/components/icons/ArtIcon.vue'
+import { vFit } from '@/use/vFit'
 import { resolveIconLabel } from '@/components/icons/iconLabels'
 import type { GameIconName } from '@/components/icons/iconNames'
 
@@ -228,7 +229,11 @@ const styleVars = computed(() => {
       GameIcon.f-button__glyph.is-solo(v-else-if="iconOnly && icon" :name="icon")
       template(v-else)
         GameIcon.f-button__glyph(v-if="icon && iconPosition === 'left'" :name="icon")
-        span.f-button__text
+        //- The caption is nowrap inside a body that hides its overflow, so a
+        //- label the button cannot hold used to be CUT — no ellipsis, just a
+        //- missing tail ("SPEICHERN & SCHLIESS"). `v-fit` shrinks it to fit
+        //- instead; the width bound below is what lets it see the overflow.
+        span.f-button__text(v-fit)
           slot {{ label }}
         GameIcon.f-button__glyph(v-if="icon && iconPosition === 'right'" :name="icon")
 </template>
@@ -346,11 +351,22 @@ const styleVars = computed(() => {
 .f-button__text
   position: relative
   display: block
+  min-width: 0
+  max-width: 100%
+  overflow: hidden
+  // Room INSIDE the clip for the hard black shadow the caption wears: it is
+  // painted 3 px right and down of the ink, and `overflow: hidden` clips paint
+  // as readily as it clips glyphs. Border-box, so the button does not grow.
+  padding: 3px
   color: #fff
   font-weight: 900
   text-transform: uppercase
   font-size: var(--fbtn-font)
-  line-height: 1.15
+  // The box has to hold the whole face, not just the em square: at 1.15 the
+  // descenders were being shaved by the `overflow: hidden` above, which is the
+  // price of being able to measure the overflow. Well inside the body's
+  // `min-height`, so no button changes size over it.
+  line-height: 1.3
   white-space: nowrap
   text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000
 

@@ -315,6 +315,12 @@ button
   max-width: 100%
   overflow: hidden
   text-overflow: ellipsis
+  // `.ink-text` sets `line-height: 1`, which makes the line box exactly the
+  // font size — and the 0.28em ink outline is painted OUTSIDE the glyphs, so
+  // `overflow: hidden` was shaving the top and bottom off every caption's
+  // outline (7 px of it at 34 px). The outline needs the room the line box
+  // did not give it.
+  line-height: 1.32
 
 .gear
   width: 44px

@@ -4426,6 +4426,7 @@ rate = base(aiTier) × onboarding × dreamDust × slowEffects × phaseWindup
 - `onboarding` ramps linearly 0.7 → 1.0 over the player's first 6 duels (replaces the shipped
   one-duel `first = 0.8`).
 - `dreamDust = max(0.6, 1 − 0.08 × lossStreakOnThisNode)` — §6.15.
+- `earlyEase` — where the node sits in the STORY (see the S11 note below); `1` from chapter 10.
 - `slowEffects` — the foe-facing mode of §6.7.7's rider (`× (1 − slowPct)`), when active.
 - `phaseWindup` — `0` for 1.8s at the instant a boss crosses a phase threshold (a full accrual
   pause, not a fractional multiplier), `1` otherwise.
@@ -4446,6 +4447,33 @@ fight as a blowout.
 > chain is unchanged: onboarding, Dream Dust, the slow term and the
 > phase wind-up. The slow term is now `× (1 − eSlowPct)`, per §6.7.7.
 
+> **S11 tuning (2026-09-20, owner): the difficulty follows the story.**
+> *"The first 10 duels should be finishable by children below 9, the rest can
+> be a bit harder, but not too much."*
+>
+> `src/game/campaign/easing.ts` resolves a node into three multipliers — the
+> foe's **health**, her **rate** (into the chain above) and what her spells
+> **take off the player** — and the campaign hands them to `resetDuel` with
+> the foe, so §4.8.1's boundary holds: the duel still never reads a node. One
+> row per chapter, climbing to `1` at the Friendship Festival; chapter 1's
+> boss gets the chapter's discount twice, because she is met with a kit of
+> three runes and at a flat discount she was the hardest duel of the ten.
+>
+> Sized by measurement against a SECOND player model in
+> `tests/duel/winRate.test.ts` — a child under nine: half the drawing speed of
+> §7.2's core child, three shapes recognised in five, almost no
+> counter-picking, a thumb that fires lone runes, a beat in six looking away.
+> Before: she won duel 1 **8.9 %** of the time and chapter 1's boss **0.8 %**
+> (7.4 % across three tries). She was knocked out in 92 % of them, never timed
+> out, always with the foe in her last third — the exchange rate was wrong,
+> not her understanding. After: **83–98 %** first try across all ten, ≥ 99.8 %
+> within three.
+>
+> The curve deliberately does NOT try to carry her through chapters 6–10 on
+> the first try (measured 1–35 % there, and flattening it that far would
+> flatten the game for everyone): what carries her is Dream Dust's new dials,
+> below.
+
 ### §6.15 Dream Dust
 
 Per C13: `dreamDust = max(0.6, 1 − 0.08 × lossStreakOnThisNode)`. **Scope: per node**, tracked as a
@@ -4454,6 +4482,24 @@ ever in progress — §4's call). **Reset:** to 0 the instant that node is won; 
 nodes (losing chapter-9's boss twice does not ease chapter-1's boss). Composes into §6.14's rate
 chain multiplicatively. Floor `0.6` (a 40% rate cut) at `lossStreak ≥ 5`; already effectively
 saturated well before that per §6.21's measurements.
+
+> **S11 (2026-09-20): Dream Dust is three dials, not one.**
+> `dreamDust` above (the pace, and what the arena's motes count) is unchanged.
+> Beside it, `dustEase(streak)` takes the same losses off the foe's **health**
+> (`max(0.66, 1 − 0.07 × streak)`) and her **blows**
+> (`max(0.6, 1 − 0.08 × streak)`), multiplying with the node's own easing.
+>
+> Pace alone could not carry the child it exists for. Measured on the real
+> duel, the small child above reached chapter 9 at 3.6 % per attempt, and a
+> slower foe with the same health and the same damage still out-lasted her —
+> more tries bought her almost nothing (35.6 % across three). Health ends the
+> grind; damage decides whether the mistake was survivable. With all three,
+> **every chapter in the story clears within six tries (≥ 99.3 %)** for her,
+> while a competent player never sees any of it: she has no losses to spend.
+>
+> The floor is pinned from both sides: `tests/duel/winRate.test.ts` asserts
+> the six-try promise AND that a duel nobody touches is still a duel nobody
+> wins, at full dust.
 
 **No interaction with the ads-pass rewarded Twin Gift (F25):** Dream Dust changes the NEXT
 attempt's foe rate; a duel itself now only ever resolves to a plain win or loss (no coin payout of

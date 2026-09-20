@@ -37,7 +37,7 @@ import { computeFrame } from '@/game/restore/frame'
 import { readInsets } from '@/game/duel/layout'
 import { makeCanvas, bakeDust } from '@/game/restore/dust'
 import { sectorOf } from '@/game/map/sectors'
-import { paintSectorArt } from '@/game/map/sectorArt'
+import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { guardianOf } from '@/game/duel/foes'
 import { EMOTE_FACE } from '@/game/story/portrait'
@@ -103,6 +103,8 @@ let portrait = false
 let camX = SEC_W / 2
 let colourCv: HTMLCanvasElement | null = null
 let dustCv: HTMLCanvasElement | null = null
+/** Whether the meadow's painting was in hand when those two were baked. */
+let bakedPainted = false
 /** Which one-shot moments have fired (sounds, bursts), by key. */
 const fired = new Set<string>()
 let traceSfxT = 0
@@ -151,7 +153,14 @@ const routeAt = (s: number): [number, number] => {
  *  props move on the colour side and rest, greyed, inside the dust — as in
  *  the restore view. */
 const ensureLayers = (res: number): void => {
-  if (colourCv && dustCv) return
+  // Whether the meadow's PAINTING was in hand when these were baked. It is
+  // fetched lazily, so the first bake always draws the vectors; without this
+  // check the drawn meadow would stand for the whole intro with the painting
+  // decoded and unused. Re-baking is one canvas and only ever happens once,
+  // when it lands (`wipe.ts` guards its own bake the same way).
+  const painted = sectorPainted(0, false)
+  if (colourCv && dustCv && painted === bakedPainted) return
+  bakedPainted = painted
   const sec = sectorOf(0)
   colourCv = makeCanvas(Math.round(SEC_W * res), Math.round(SEC_H * res))
   dustCv = makeCanvas(colourCv.width, colourCv.height)

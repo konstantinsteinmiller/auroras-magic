@@ -5,8 +5,9 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  CELLS, CELL, SEC_W, SEC_H, DONE_AT, falloff, createCoverage, stamp, coverage01, cellCover,
-  isCellDone, doneCount, clearCell, cellAt, packCoverage, unpackCoverage
+  CELLS, CELL, SEC_W, SEC_H, SUB, GRID_W, GRID_H, DONE_AT, COMPLETE_AT, falloff, createCoverage, stamp,
+  coverage01, cellCover, isCellDone, doneCount, clearCell, cellAt, packCoverage, unpackCoverage,
+  FAINT_AT, STOPPED_AT, LOOKS_CLEAN_AT, lookAt, looksDone, finishProgress, type Coverage
 } from '@/game/restore/mask'
 import { seeded } from '@/game/duel/util'
 
@@ -121,5 +122,100 @@ describe('the half-brushed resume (single passes survive a relaunch)', () => {
     m.clearCell(c, 5)
     expect(m.unpackHalf(c, m.packHalf(src))).toEqual([5])
     expect(m.isCellDone(c, 5)).toBe(true)
+  })
+})
+
+describe('the graceful finish (§8.6, owner 2026-09-20)', () => {
+  /** One brush pass over the whole sector at strength `a`, sample by sample —
+   *  a stamp small enough to land on exactly one sample. `skip` leaves a
+   *  region untouched. */
+  const pass = (c: Coverage, a: number, skip?: (i: number, j: number) => boolean): void => {
+    const step = CELL / SUB
+    for (let j = 0; j < GRID_H * SUB; j++) {
+      for (let i = 0; i < GRID_W * SUB; i++) {
+        if (skip?.(i, j)) continue
+        stamp(c, (i + 0.5) * step, (j + 0.5) * step, step * 0.4, 1, a)
+      }
+    }
+  }
+  /** §8.4: one pass clears 55 % of what is there, a return pass the rest. */
+  const FIRST = 0.55
+
+  it('finishes an even haze too thin to see, though the arithmetic says 80 %', () => {
+    const c = createCoverage()
+    pass(c, FIRST)
+    pass(c, FIRST)
+    // Two first passes leave 45 % × 45 % ≈ 20 % — under the 85 % rule forever,
+    // which is exactly the dead end this rule exists to end.
+    expect(coverage01(c)).toBeCloseTo(1 - 0.45 * 0.45, 3)
+    expect(coverage01(c)).toBeLessThan(COMPLETE_AT)
+    const look = lookAt(c, STOPPED_AT)
+    expect(look.clean).toBe(1)
+    expect(looksDone(look)).toBe(true)
+    expect(finishProgress(coverage01(c), look)).toBe(1)
+  })
+
+  it('still asks for another pass over dust anybody can see', () => {
+    const c = createCoverage()
+    pass(c, FIRST)
+    expect(lookAt(c, STOPPED_AT).clean).toBe(0)
+    expect(looksDone(lookAt(c, STOPPED_AT))).toBe(false)
+    expect(looksDone(lookAt(c, FAINT_AT))).toBe(false)
+  })
+
+  it('only ends a wipe mid-stroke once nothing at all can be made out', () => {
+    const c = createCoverage()
+    pass(c, FIRST)
+    pass(c, FIRST)
+    // A 20 % haze: forgiven from a player who has stopped, not from one who is
+    // still working — they can see it, so they are left something to aim at.
+    expect(looksDone(lookAt(c, FAINT_AT))).toBe(false)
+    pass(c, FIRST)
+    expect(looksDone(lookAt(c, FAINT_AT))).toBe(true)
+  })
+
+  it('never finishes over a big visible chunk, however clean the rest is', () => {
+    const c = createCoverage()
+    // Everything hazed over twice except one 3 × 3 cell blotch (2.7 % of the
+    // sector) nobody has been near.
+    const blot = (i: number, j: number): boolean => i >= 40 && i < 52 && j >= 20 && j < 32
+    pass(c, FIRST, blot)
+    pass(c, FIRST, blot)
+    const look = lookAt(c, STOPPED_AT)
+    expect(look.clean).toBeGreaterThan(LOOKS_CLEAN_AT)
+    expect(look.chunk).toBe(1)
+    expect(looksDone(look)).toBe(false)
+    // The ring stops just short of full: it never promises a finish the chunk
+    // rule will refuse.
+    expect(finishProgress(coverage01(c), look)).toBeLessThan(1)
+    // Go over the blotch too, and the sector finishes.
+    pass(c, FIRST)
+    pass(c, FIRST)
+    expect(looksDone(lookAt(c, STOPPED_AT))).toBe(true)
+  })
+
+  it('does not mistake the hairlines between strokes for a chunk', () => {
+    const c = createCoverage()
+    // Untouched hairlines one sample wide every 24 — 4 % of the sector, and
+    // nothing solid anywhere.
+    pass(c, 0.99, (i) => i % 24 === 0)
+    const look = lookAt(c, STOPPED_AT)
+    expect(look.clean).toBeGreaterThan(LOOKS_CLEAN_AT)
+    expect(look.chunk).toBeLessThan(0.2)
+    expect(looksDone(look)).toBe(true)
+    // …while the same 4 % gathered into one place is a chunk, and is not.
+    const c2 = createCoverage()
+    pass(c2, 0.99, (i, j) => i >= 30 && i < 46 && j >= 20 && j < 34)
+    expect(lookAt(c2, STOPPED_AT).clean).toBeGreaterThan(LOOKS_CLEAN_AT)
+    expect(looksDone(lookAt(c2, STOPPED_AT))).toBe(false)
+  })
+
+  it('costs nothing per frame: the look is one pass over the lattice', () => {
+    const c = createCoverage()
+    pass(c, FIRST)
+    const t0 = performance.now()
+    for (let i = 0; i < 100; i++) lookAt(c, STOPPED_AT)
+    // 100 looks — 400 s of play at one look per 250 ms — inside a frame budget.
+    expect(performance.now() - t0).toBeLessThan(120)
   })
 })
