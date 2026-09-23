@@ -20,6 +20,26 @@
 //
 // (`rank_buy` went with the element ranks, D3.)
 //
+// ─── The first-session funnel (retention-roadmap.md item 1) ─────────────────
+//
+// §7.13's list says where a DUEL went. It cannot say whether a first-time
+// player ever reached one, and that is the number the retention pass is judged
+// by. These name the steps of a first session, and then the three places a
+// player goes when the story lets go of them:
+//
+//   session_start   once per boot     { returning, daysSinceLast, furthest, sessions }
+//   first_stroke    first rune drawn  { msSinceBoot }
+//   first_cast / first_win / first_restore   once per session each, no props
+//   dialogue_skip   the skip icon     { nodeId }
+//   tent_open       the wardrobe tent from the map
+//   keepsake_equip  something put on  { slot, cosmeticId }
+//   spellbook_open  the book, any scene
+//   node_replay     a finished node played again   { nodeId }
+//
+// `daysSinceLast` is arithmetic on two LOCAL calendar dates the device already
+// knows (`campaign/session.ts`). Nothing is fetched and no timezone name is
+// ever sent — this archive is also the Poki and YouTube Playables submission.
+//
 // ─── What happens to an event ───────────────────────────────────────────────
 //
 // Two sinks, and NEITHER of them is allowed to be load-bearing:
@@ -71,6 +91,36 @@ export type AnalyticsEvent =
   // The first-launch intro (§8.26): one start, one end (watched or skipped).
   | 'intro_start'
   | 'intro_end'
+  // ── The first-session funnel (retention item 1). Wired; see the header. ──
+  | 'session_start'
+  | 'first_stroke'
+  | 'first_cast'
+  | 'first_win'
+  | 'first_restore'
+  | 'dialogue_skip'
+  | 'tent_open'
+  | 'keepsake_equip'
+  | 'spellbook_open'
+  | 'node_replay'
+  // ── DECLARED, NOT YET FIRED. These are not dead names: each belongs to a
+  //    retention-roadmap feature that is still to be built, and the name is
+  //    settled here so the union is the ONE place event names are chosen and
+  //    a later pass does not invent a competing spelling. A grep that finds
+  //    no `track(` for one of these has found unbuilt work, not a bug.
+  /** A tap creature met for the first time — the sticker album (item 3). `{ node }` */
+  | 'sticker_collect'
+  /** A node's optional replay goal met (item 4). `{ nodeId, goal }` */
+  | 'star_earned'
+  /** The daily gift opened (item 5). Never a streak. `{ daysSinceLast, reward }` */
+  | 'daily_gift'
+  /** A rune drawn well past the acceptance threshold (item 7). `{ rune, margin }` */
+  | 'perfect_rune'
+  /** The trace-assist shown after two losses (item 8). `{ nodeId, lossStreak }` */
+  | 'help_shown'
+  /** A dress-up photo card taken (item 16). `{ slot }` */
+  | 'photo_taken'
+  /** The adaptive quality tier settled somewhere new (item 17). `{ tier, fdt }` */
+  | 'quality_tier'
 
 export type AnalyticsValue = string | number | boolean
 export type AnalyticsProps = Record<string, AnalyticsValue | undefined>

@@ -1,8 +1,8 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1790178643325,
-  "updatedAt": 1790178449093,
-  "total": 45,
+  "fetchedAt": 1790199732480,
+  "updatedAt": 1790199732573,
+  "total": 62,
   "entries": [
     {
       "rank": 1,
@@ -25,8 +25,8 @@
     {
       "rank": 4,
       "name": "Sparkly Otter 196",
-      "score": 28,
-      "flair": 15
+      "score": 30,
+      "flair": 17
     },
     {
       "rank": 5,
@@ -55,8 +55,8 @@
     {
       "rank": 9,
       "name": "Starry Pebble 353",
-      "score": 14,
-      "flair": 11
+      "score": 16,
+      "flair": 12
     },
     {
       "rank": 10,
@@ -273,6 +273,108 @@
       "name": "Merry Meadow 939",
       "score": 1,
       "flair": 4
+    },
+    {
+      "rank": 20,
+      "name": "Rosy Owl 114",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Frosty Star 959",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Gentle Pixie 481",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Glowy Wren 217",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Frosty Pixie 353",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Breezy Panda 681",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Lucky Owl 741",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Brave Meadow 178",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Silver Owl 190",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Golden Star 725",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Silver Pixie 370",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Cozy Cloud 548",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Starry Panda 982",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Frosty Rainbow 144",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Jolly Pony 348",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Golden Moon 957",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Frosty Pony 111",
+      "score": 1,
+      "flair": 1
     }
   ],
   "dist": [
@@ -285,7 +387,7 @@
       2
     ],
     [
-      28,
+      30,
       1
     ],
     [
@@ -293,7 +395,7 @@
       4
     ],
     [
-      14,
+      16,
       1
     ],
     [
@@ -310,7 +412,7 @@
     ],
     [
       1,
-      26
+      43
     ]
   ]
 }

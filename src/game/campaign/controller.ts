@@ -10,15 +10,21 @@
  *     spellbook) and reported once (`spell_discovered`, §7.13);
  *   • the boss chest's unbox grants the chapter's rune (or Signature Spell)
  *     and its keepsake — at the UNBOX, not the win (R-1b): a player may win a
- *     boss and close the game before ever opening the chest.
+ *     boss and close the game before ever opening the chest;
+ *   • a tap creature met for the first time is recorded in `creaturesMet`
+ *     (the sticker album, retention item 3) and reported once;
+ *   • a node's optional replay goal met is recorded in `stars` (retention
+ *     item 4) — on a REPLAY as much as on a first win, which is the whole
+ *     point of it.
  *
  * `sim.ts` never imports this; it only emits events.
  */
 import { onDuelEvent, lastPlayerCast } from '@/game/duel/sim'
 import { S, save } from '@/game/duel/state'
-import { nextDuelNode } from '@/game/campaign/state'
+import { nextDuelNode, NODE_COUNT } from '@/game/campaign/state'
 import { CHAPTERS, GIFTS, NODES, nodeChapter, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
 import { hasBit, setBit } from '@/game/campaign/bitset'
+import { awardStar, castEarnsStar } from '@/game/campaign/stars'
 import { clamp } from '@/game/duel/util'
 import { track } from '@/use/useAnalytics'
 import { refreshBook } from '@/use/useBook'
@@ -31,6 +37,25 @@ export const lossStreakOf = (node: number): number => S.campaign.lossStreaks[Str
 
 let installed: (() => void) | null = null
 
+/* ── The replay goal in flight (retention item 4) ──────────────────────── */
+//
+// A star is decided over a whole duel — "she cast a three-rune spell AND then
+// won" — so the controller has to carry one bit from the cast to the finish.
+// The duel that bit belongs to is named by `S.round`, which `resetDuel`
+// increments and nothing else touches: a duel abandoned halfway (the player
+// walks out to the map and comes back) starts a new round, so its half-met
+// goal cannot leak into the next attempt. No duel-start event is needed, and
+// none exists.
+let goalRound = -1
+let goalMet = false
+
+/** Open the accumulator if this event belongs to a duel we have not seen. */
+const sameDuel = (): void => {
+  if (S.round === goalRound) return
+  goalRound = S.round
+  goalMet = false
+}
+
 export const installCampaignController = (): (() => void) => {
   if (installed) return installed
   const off = onDuelEvent((e, won) => {
@@ -39,6 +64,14 @@ export const installCampaignController = (): (() => void) => {
     if (S.flow.mode === 'versus') return
     if (e === 'cast') {
       const c = lastPlayerCast()
+      sameDuel()
+      // The spell's runes, from the combo key `comboKey` built: the sorted
+      // ids, dot-joined. Parsed rather than re-derived, so the goal is judged
+      // against exactly what the sim resolved and fired.
+      if (S.flow.node >= 0 && !goalMet) {
+        const runes = c.key ? c.key.split('.').map(Number) : []
+        goalMet = castEarnsStar(S.flow.node, runes, c.count, S.foe)
+      }
       if (c.index >= 0 && !hasBit(S.campaign.combosSeen, c.index)) {
         S.campaign.combosSeen = setBit(S.campaign.combosSeen, c.index)
         save()
@@ -50,6 +83,11 @@ export const installCampaignController = (): (() => void) => {
     if (e !== 'finish') return
     const node = S.flow.node
     if (node < 0) return
+    // The star comes FIRST, and before the fresh/replay split: a replay is
+    // exactly the run it is meant to reward (C24 gives one nothing else).
+    sameDuel()
+    if (won && goalMet) awardStar(node)
+    goalMet = false
     const fresh = node === nextDuelNode(S.campaign) && node > S.campaign.furthestNode
     if (!fresh) return
     const k = String(node)
@@ -142,4 +180,34 @@ export const markDialogueSeen = (node: number): void => {
   if (node < 0 || hasBit(S.campaign.dialoguesSeen, node)) return
   S.campaign.dialoguesSeen = setBit(S.campaign.dialoguesSeen, node)
   save()
+}
+
+/* ───────────────── the creatures met (retention item 3) ───────────────── */
+//
+// A sector's tap creature pops out on a tap, forever, purely for the delight
+// of it — and it pops out in TWO places: on the map's thumbnail and on the
+// admire view straight after a restore. The album (item 3) needs to know that
+// a child has met one, so the write lives here rather than in either of them:
+// the map and the restore view both already know how to make a creature say
+// hello, and neither should have to know what the save blob or the funnel
+// wants. It is also why the album can read `creatureMet` without importing
+// the map — the campaign owns this bit, the same as every other.
+
+/** Has this sector's tap creature ever popped out for this player? */
+export const creatureMet = (node: number): boolean =>
+  node >= 0 && hasBit(S.campaign.creaturesMet, node)
+
+/**
+ * Sector `node`'s creature just said hello.
+ *
+ * Idempotent, and deliberately QUIET on every meeting after the first: a peek
+ * is re-triggerable forever and a child will tap one twenty times, so a write
+ * per tap would be twenty debounced saves and twenty `sticker_collect` events
+ * for one sticker. Only a bit that actually changes costs anything.
+ */
+export const meetCreature = (node: number): void => {
+  if (node < 0 || node >= NODE_COUNT || creatureMet(node)) return
+  S.campaign.creaturesMet = setBit(S.campaign.creaturesMet, node)
+  save()
+  track('sticker_collect', { node })
 }

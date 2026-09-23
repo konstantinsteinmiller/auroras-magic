@@ -39,8 +39,51 @@
  */
 import { RUNES, SW, SH, GY } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
-import { TAU, PI, sin, cos, rnd, min, max, clamp, atan2 } from '@/game/duel/util'
+import { TAU, PI, sin, cos, rnd as sysRnd, min, max, clamp, atan2 } from '@/game/duel/util'
 import { lookOf } from '@/game/duel/spellArt'
+
+/**
+ * THE POOL'S DICE. `sysRnd` is `Math.random` — the very stream the duel's
+ * RULES roll on. For a burst the rules themselves caused that is harmless.
+ * For one they did not cause it is not: every extra draw shifts every later
+ * roll, so an effect nobody's damage asked for would quietly change the next
+ * damage number. Hence one mutable binding and `borrowDice` below; every
+ * `rnd()` in this file reads through it and nothing else changes.
+ */
+let rnd = sysRnd
+
+/**
+ * Lend the pool a different stream for the length of one emit, then give the
+ * duel its dice back. Used by the perfect-rune sparkle (`duel/perfect.ts`),
+ * which is cosmetic and has to be provably so.
+ */
+export const borrowDice = (dice: () => number, emit: () => void): void => {
+  rnd = dice
+  try { emit() } finally { rnd = sysRnd }
+}
+
+/**
+ * THE COUNT DIMENSION of the quality tier, and why it stops at 1.
+ *
+ * `S.q` is a tier (0 / 1 / 2), not a multiplier, and this file is the one
+ * place that ever multiplied by it. Tier 2 must NOT reach these counts, for
+ * two independent reasons:
+ *
+ *   • THE DICE. Every particle costs several `rnd()` draws, and outside
+ *     `borrowDice` that is `Math.random` — the stream the duel's damage rolls
+ *     on. A tier that spawned more particles would make a strong device roll
+ *     different damage from a weak one, in the same fight, off the same save.
+ *     That is the coupling `borrowDice` exists to prevent; it is not being
+ *     reintroduced through the back door.
+ *
+ *   • THE POOL. `CAP` is 360 and the allocator is a ring, so a doubled burst
+ *     does not draw twice as much — it evicts the still-living tail of the
+ *     burst before it. More particles would make the big moments look WORSE.
+ *
+ * So the sparkle tier is spent entirely on the DRAW side (`duel/arena.ts`,
+ * `duel/chars.ts`, the rigs), where nothing rolls and nothing is evicted.
+ */
+const qCount = (): number => (S.q > 1 ? 1 : S.q)
 
 type G2D = CanvasRenderingContext2D
 
@@ -244,7 +287,7 @@ const burst = (
   x: number, y: number, n: number, spd: number, life: number, rad: number, k: number,
   c0: number, c1: number, dl = 0, spread = TAU, dir = 0, r0 = 0
 ): void => {
-  n = max(1, (n * S.q) | 0)
+  n = max(1, (n * qCount()) | 0)
   while (n--) {
     const a = dir + (rnd() - 0.5) * spread
     const ca = cos(a)
@@ -554,7 +597,7 @@ const after = (x: number, y: number, rune: number, p: number): void => {
  */
 export const fireRain = (x: number, y: number, p: number): void => {
   p = clamp(+p || 0, 0, 1)
-  let n = max(6, ((22 + 16 * p) * S.q) | 0)
+  let n = max(6, ((22 + 16 * p) * qCount()) | 0)
   while (n--) {
     sp(
       x + (rnd() - 0.5) * 270,

@@ -241,6 +241,8 @@ const SNAP: readonly VoiceArgs[] = [
 
 export type Cue =
   | 'draw' | 'snap' | 'bad' | 'cast' | 'hit' | 'guard' | 'hurt' | 'win' | 'lose' | 'ui'
+  // a rune drawn well past the accept line (retention item 7)
+  | 'perfect'
   // restoration (story-spec §8.5)
   | 'scrub' | 'chime' | 'untie' | 'unbox' | 'paint' | 'whoosh' | 'reveal'
   // the boss chest and its Sunbeam (story-spec §8.3–§8.5)
@@ -284,6 +286,19 @@ const CUES: Record<Cue, (v?: number) => void> = {
     const r = cl(id, 0, 3)
     V(...SNAP[r]!)
     V(...SNAP[r + 4]!)
+  },
+
+  /* A rune drawn well past the accept line (`duel/perfect.ts`). A BONUS
+     LAYER over `snap`, never a replacement for it: the game has to read the
+     same with the sound off, so the star burst carries the meaning and this
+     only gilds it. Three bell partials two octaves above the cues' own scale
+     degree, each softer and later than the last — a little rising twinkle
+     rather than a second, competing hit. */
+  perfect: () => {
+    const f = nf(4) * 4
+    V(SIN, f, 0, 0.5, 0.085, 1, 0.02)
+    V(SIN, f * 1.5, 0, 0.42, 0.055, 1, 0.09)
+    V(TRI, f * 2, 0, 0.3, 0.03, 1, 0.16)
   },
 
   /* Shape not recognised: a soft falling minor second. A shrug, not a slap. */

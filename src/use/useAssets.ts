@@ -218,15 +218,22 @@ export default () => {
     const art = (async () => {
       try {
         // Read from the save itself: the scene may not have loaded it yet, and
-        // a first-time player's intro pages are the very first paintings drawn.
-        const [{ preloadFirstArt }, { readCampaign }, { getState }, { CAMPAIGN_KEY }] = await Promise.all([
+        // which map page a player is on decides which paintings are first.
+        const [{ preloadFirstArt, primeIntroArt }, { readCampaign }, { getState }, { CAMPAIGN_KEY }] = await Promise.all([
           import('@/game/artPreload'),
           import('@/game/campaign/state'),
           import('@/use/useGameState'),
           import('@/keys')
         ])
         const cs = readCampaign(getState<unknown>(CAMPAIGN_KEY, null))
-        await preloadFirstArt(cs.furthestNode, cs.introSeen)
+        await preloadFirstArt(cs.furthestNode)
+        // The picture book's four pages are the tier AFTER this one, not part
+        // of it (retention-roadmap item 2 moved the book off the front of the
+        // game — it now plays at the first map with nothing owed and
+        // something won). Started here, unawaited and at low priority, so the
+        // splash never holds for them and they queue behind the paintings the
+        // first screens actually draw; they have a whole node to land in.
+        primeIntroArt(cs.introSeen)
       } catch (e) {
         console.warn('[assets] painted-art preload failed; the drawings stand in', e)
       }

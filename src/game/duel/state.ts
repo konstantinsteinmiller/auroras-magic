@@ -232,8 +232,39 @@ export interface DuelState {
   pops: Pop[]
 
   /* adaptive quality */
+  /**
+   * The quality TIER, an integer: 0 thrift, 1 the authored look, 2 sparkle.
+   *
+   *   0  cel bands, shade stripes, the aura and all but the hero hair lock are
+   *      dropped; silhouettes, proportions and poses are untouched.
+   *   1  the game as it is drawn everywhere. THE DEFAULT, and what every
+   *      reference bake and every screenshot is taken at.
+   *   2  a device with measured headroom spends it on extra DRAW work — a
+   *      denser rim of grass, more motes, wider glows, longer twinkle trails
+   *      (retention-roadmap item 17).
+   *
+   * Written ONLY by the hysteresis in `views/AppScene.vue`. Three rules every
+   * reader of this field has to keep:
+   *
+   *   • It is a tier, not a multiplier. `n * S.q` is a bug at tier 2 — see the
+   *     count cap in `duel/fx.ts`.
+   *   • Tier 2 never changes how many particles an EMITTER spawns, because
+   *     `fx.ts` rolls on the duel's own `Math.random` stream: a strong device
+   *     would then roll different damage than a weak one.
+   *   • Nothing about tier 2 may appear or vanish in one frame. Scale it on
+   *     `qx` below, never on `S.q > 1` directly.
+   */
   q: number
+  /** Smoothed FRAME INTERVAL in seconds. Sees dropped frames; on a vsync-capped
+   *  display it cannot see headroom, which is what `fw` is for. */
   fdt: number
+  /** Smoothed WORK per frame in seconds — the time spent inside the RAF
+   *  callback. The only signal that can tell a device with room to spare from
+   *  one that is merely attached to a 60 Hz panel. */
+  fw: number
+  /** The sparkle MIX, 0..1: how far tier 2's extras have faded in. Eased
+   *  towards the tier over ~1.5 s so entering or leaving never pops. */
+  qx: number
 
   /* story (story-spec §4) */
   /** The story's progress. Persisted whole as `am_campaign`. */
@@ -347,6 +378,8 @@ export const auroras_magic_state: DuelState = {
 
   q: 1,
   fdt: 0.016,
+  fw: 0.008,
+  qx: 0,
 
   campaign: defaultCampaign(),
   flow: { scene: 'boot', node: -1, mode: 'campaign', overlay: null, armed: false }
@@ -371,8 +404,15 @@ export const save = (): void => {
     [BEST_TIME_KEY]: S.best,
     [ONBOARDED_KEY]: S.intro ? 0 : 1,
     // A copy: the save layer must never hold a live reference it could see
-    // change under a debounced write.
-    [CAMPAIGN_KEY]: { ...S.campaign, giftsEquipped: [...S.campaign.giftsEquipped], lossStreaks: { ...S.campaign.lossStreaks } }
+    // change under a debounced write. Every nested container gets its own —
+    // the spread only copies the top level, and `photos` (retention item 16)
+    // is appended to in place.
+    [CAMPAIGN_KEY]: {
+      ...S.campaign,
+      giftsEquipped: [...S.campaign.giftsEquipped],
+      lossStreaks: { ...S.campaign.lossStreaks },
+      photos: [...S.campaign.photos]
+    }
   })
 }
 

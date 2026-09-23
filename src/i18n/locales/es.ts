@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Clasificación',
-    'rank': '#',
-    'player': 'Jugador',
-    'score': 'Victorias',
-    'flair': 'Progreso',
-    'empty': 'Aún no hay duelos registrados. ¡Anímate!',
-    'failed': 'No se pudo cargar la clasificación.',
-    'loading': 'Cargando…',
-    'you': 'Tú',
-    'yourRank': 'Eres el #{n} de {total}',
-    'of': 'de {n} jugadores',
-    'tabGlobal': 'Global'
+    'of': 'de {n} jugadores'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': '¡Este lugar ha florecido por completo!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} de {total} estrellas'
+  },
+
+  'daily': {
+    'open': 'Abre el regalo de hoy',
+    'stickerToast': '¡Un nuevo amigo para tu álbum!'
+  },
+
+  'album': {
+    'title': 'Álbum de pegatinas',
+    'hint': 'Toca una criatura en un lugar que ya ha florecido y su pegatina llegará al álbum.',
+    'count': '{met} de {total} encontradas',
+    'chapter': 'Capítulo {n}',
+    'found': 'Pegatina encontrada',
+    'friend': 'Un amigo rescatado',
+    'dressTab': 'Vestir',
+    'albumTab': 'Álbum de pegatinas'
+  },
+
+  'photo': {
+    'title': 'Tarjetas de foto',
+    'take': 'Tomar una foto',
+    'card': 'Tarjeta de foto {n}',
+    'empty': 'Una tarjeta de foto vacía',
+    'fullHint': 'El álbum guarda {n} tarjetas. Una foto nueva ocupa el lugar de la más antigua.'
+  },
+
   'duel': {
     'almostRune': '¡CASI {rune}!'
   },
 
   'license': {
     'denied': 'Acceso denegado: adquiere una licencia.'
+  },
+
+  'help': {
+    'auroraLine': '¡Ven, la dibujo contigo!',
+    'perfectRune': '¡Qué bien dibujada!'
   }
 }

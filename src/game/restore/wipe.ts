@@ -47,6 +47,7 @@ import {
 import { Brush, brushSize } from '@/game/restore/brush'
 import { Eraser, eraserSize } from '@/game/restore/eraser'
 import { toolOf, type ToolId } from '@/game/campaign/tables'
+import { meetCreature } from '@/game/campaign/controller'
 import { Sunbeam, beamWidth, BEAM_W, BEAM_RECHARGE } from '@/game/restore/sunbeam'
 import { computeFrame } from '@/game/restore/frame'
 import { drawPotCue, drawLandmarkTarget } from '@/game/restore/potCue'
@@ -582,6 +583,10 @@ export const restorePointerDown = (cx: number, cy: number, t: number): void => {
       peekT = 0
       sfx('peek', node % 6)
       haptic('tick')
+      // The album's second meeting place: most creatures are met HERE, the
+      // moment their sector comes back, not later on the map (retention
+      // item 3). The campaign writes only when the bit changes.
+      meetCreature(node)
     }
     return
   }

@@ -487,15 +487,32 @@ export const drawExplorerPackNear = (g: G2D, a: RigAnchors): void => {
  * both draw a fixed still in a portrait, where no clock runs between frames.
  */
 
-/** A soft round glow, three alpha steps rather than a per-frame gradient
- *  (which allocates in a draw path — see the Pet Star's baked one). */
+/**
+ * A soft round glow, three alpha steps rather than a per-frame gradient (which
+ * allocates in a draw path — see the Pet Star's baked one).
+ *
+ * The sparkle tier (retention-roadmap item 17) buys two OUTER steps, at a
+ * wider radius and a lower alpha, which is what turns a hard-stepped glow into
+ * one with a falloff. Their alpha rides `S.qx`, so the extra reach fades in
+ * and out with the tier and a keepsake never blinks.
+ */
+const SOFT_STEPS = [[1, 0.1], [0.66, 0.14], [0.36, 0.22]] as const
+const SOFT_WIDE = [[1.9, 0.045], [1.42, 0.07]] as const
 const softGlow = (g: G2D, x: number, y: number, r: number, col: string): void => {
   if (!S.q) return
-  for (const [k, al] of [[1, 0.1], [0.66, 0.14], [0.36, 0.22]] as const) {
+  g.fillStyle = col
+  if (S.qx > 0.01) {
+    for (const [k, al] of SOFT_WIDE) {
+      g.globalAlpha = al * S.qx
+      g.beginPath()
+      g.arc(x, y, r * k, 0, TAU)
+      g.fill()
+    }
+  }
+  for (const [k, al] of SOFT_STEPS) {
     g.globalAlpha = al
     g.beginPath()
     g.arc(x, y, r * k, 0, TAU)
-    g.fillStyle = col
     g.fill()
   }
   g.globalAlpha = 1

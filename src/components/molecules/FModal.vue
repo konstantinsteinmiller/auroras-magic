@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import FTabs, { type TabOption } from '@/components/atoms/FTabs.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import useSounds from '@/use/useSound'
-import { acquireModalOpen } from '@/use/useModalState'
+import { acquireMenuOpen } from '@/use/useModalState'
 
 const { t } = useI18n()
 
@@ -66,11 +66,13 @@ const attachObserver = async (): Promise<void> => {
   measureHeader()
 }
 
-// ─── Modal-open signal (CrazyGames gameplayStop/Start) ──────────────────────
+// ─── Modal-open signal (the portals' gameplayStop/Start) ────────────────────
 // Centralised here so every FModal consumer participates without per-modal
-// wiring. Refcounted; held once per open, dropped on close or unmount.
+// wiring. Refcounted; held once per open, dropped on close or unmount. Every
+// FModal is a MENU (the settings, today) — the one kind of modal that
+// also closes Poki's storybook-wide bracket (`useModalState.acquireMenuOpen`).
 let releaseModalOpen: (() => void) | null = null
-const markOpen = (): void => { if (!releaseModalOpen) releaseModalOpen = acquireModalOpen() }
+const markOpen = (): void => { if (!releaseModalOpen) releaseModalOpen = acquireMenuOpen() }
 const markClosed = (): void => { releaseModalOpen?.(); releaseModalOpen = null }
 
 watch(() => props.modelValue, (open, prev) => {

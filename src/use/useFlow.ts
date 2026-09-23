@@ -27,3 +27,17 @@ export const flowHud = reactive<{
   mode: 'campaign',
   turning: false
 })
+
+/**
+ * The cold boot's opening (retention-roadmap item 2): node 0's opener, printed
+ * over the arena while the ghost trace already loops, instead of a dialogue
+ * scene standing in front of it. One flag for the whole sequence — which beat
+ * of it is up is the component's own business.
+ *
+ * It is CHROME state, not flow state — the scene is the duel either way, and
+ * nothing about the sim, the bracket or the save depends on it — so it lives
+ * beside the mirror rather than in `S.flow`. It never outlives the duel it
+ * was raised over: the first stroke, the skip icon, the last beat running
+ * out, or leaving the scene all put it away (`flow/nodes.ts`).
+ */
+export const openingHud = reactive({ live: false })

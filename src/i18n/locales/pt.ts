@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Classificação',
-    'rank': '#',
-    'player': 'Jogador',
-    'score': 'Vitórias',
-    'flair': 'Progresso',
-    'empty': 'Ainda não há duelos. Comece você!',
-    'failed': 'Não foi possível carregar a classificação.',
-    'loading': 'Carregando…',
-    'you': 'Você',
-    'yourRank': 'Você é #{n} de {total}',
-    'of': 'de {n} jogadores',
-    'tabGlobal': 'Global'
+    'of': 'de {n} jogadores'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Este lugar está todo florido!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} de {total} estrelas'
+  },
+
+  'daily': {
+    'open': 'Abra o presente de hoje',
+    'stickerToast': 'Um novo amigo para o seu álbum!'
+  },
+
+  'album': {
+    'title': 'Álbum de figurinhas',
+    'hint': 'Toque em uma criatura num lugar que voltou a florir e a figurinha dela vai para o álbum.',
+    'count': '{met} de {total} encontradas',
+    'chapter': 'Capítulo {n}',
+    'found': 'Figurinha encontrada',
+    'friend': 'Um amigo resgatado',
+    'dressTab': 'Vestir',
+    'albumTab': 'Álbum de figurinhas'
+  },
+
+  'photo': {
+    'title': 'Cartões de foto',
+    'take': 'Tirar uma foto',
+    'card': 'Cartão de foto {n}',
+    'empty': 'Um cartão de foto vazio',
+    'fullHint': 'O álbum guarda {n} cartões. Uma foto nova ocupa o lugar da mais antiga.'
+  },
+
   'duel': {
     'almostRune': 'QUASE {rune}!'
   },
 
   'license': {
     'denied': 'Acesso negado: adquira uma licença.'
+  },
+
+  'help': {
+    'auroraLine': 'Vem — eu desenho com você!',
+    'perfectRune': 'Que desenho lindo!'
   }
 }

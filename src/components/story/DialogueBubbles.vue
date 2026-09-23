@@ -20,6 +20,14 @@
  *
  * `skippable` shows the skip icon: the second time a player meets these
  * lines, never the first (C12).
+ *
+ * `overArena` is the cold boot's opening (retention-roadmap item 2): the same
+ * leaf, the same portrait, the same babble — but laid over a LIVE duel rather
+ * than in front of one. There it takes no taps (every one belongs to the
+ * canvas and the rune being drawn on it), turns no page, skips the chapter
+ * title, and leaves the keyboard to the duel. It ADVANCES ITSELF, because the
+ * tap that would turn a page is the tap that starts a rune; and it is put
+ * away from outside, by whoever raised it — at whichever beat it has reached.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { firstLoadAdSettled } from '@/use/useFirstLoadInterstitial'
@@ -30,18 +38,38 @@ import { portraitUrl } from '@/game/story/portrait'
 import { chatter, sfx } from '@/game/duel/audio'
 import { dipTo, fading, DIP_PAGE } from '@/game/flow/transition'
 import { isGamePaused } from '@/use/useGamePause'
+import { track } from '@/use/useAnalytics'
 import Picto from '@/components/story/Picto.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 
-const props = defineProps<{ lines: readonly Bubble[]; node: number; skippable?: boolean }>()
+const props = defineProps<{ lines: readonly Bubble[]; node: number; skippable?: boolean; overArena?: boolean }>()
 const emit = defineEmits<{ done: [] }>()
 const { t } = useI18n()
 
 /** C12's minimum dwell per beat, ms. */
 const DWELL_MS = 600
 
-/** A chapter's first node opens on the chapter's title page (index -1). */
-const titled = computed(() => nodePosInChapter(props.node) === 0)
+/**
+ * How long a beat holds itself over the arena before the next one, ms.
+ *
+ * Not a new number: it is the picture book's SHORTEST page (`intro.ts`
+ * `BEAT_LEN`, 3.4–4.4 s), which is this game's authored pace for a wordless
+ * story beat carried by pictures and babble — the briskest one it already
+ * uses, because nothing here should feel like a wall of text to a child who
+ * cannot read it. Copied rather than imported: `intro.ts` pulls the sectors,
+ * the rig and the fx pool, and none of that belongs in the duel's chunk.
+ *
+ * Three beats at this pace is about ten seconds if nobody touches the game —
+ * a shade under the eleven `help.ts` gives ONE line over the same arena, and
+ * moot for anyone who draws, since the first stroke takes the whole sequence
+ * with it. The foe forms nothing until then (`sim.ts`: the onboarding holds
+ * her), so none of it is time taken out of a fight.
+ */
+const ARENA_HOLD_MS = 3400
+
+/** A chapter's first node opens on the chapter's title page (index -1) —
+ *  except over the arena, where the duel is already the page. */
+const titled = computed(() => !props.overArena && nodePosInChapter(props.node) === 0)
 const chapter = computed(() => nodeChapter(props.node))
 const chapterName = computed(() => t(`chapter.${CHAPTERS[chapter.value]?.slug ?? 'c1'}`))
 const stars = computed(() => chapter.value + 1)
@@ -61,6 +89,9 @@ const tick = (): void => {
   const now = performance.now()
   if (!isGamePaused.value) dwell.value += now - last
   last = now
+  // The same clock that gates a page turn also turns the arena's beats over,
+  // so an ad or a hidden tab can never eat one of them either.
+  if (props.overArena && dwell.value >= ARENA_HOLD_MS) selfAdvance()
 }
 
 const show = (): void => {
@@ -80,6 +111,7 @@ const finish = (): void => {
 }
 
 const advance = (): void => {
+  if (props.overArena) return
   if (finished || !ready.value || isGamePaused.value || fading()) return
   if (i.value >= props.lines.length - 1) {
     finish()
@@ -89,9 +121,34 @@ const advance = (): void => {
   dipTo(() => { i.value++ }, DIP_PAGE)
 }
 
+/**
+ * The arena's own advance: the next beat simply arrives, and the last one
+ * ends the sequence.
+ *
+ * NO PAGE TURN. The turn swings a picture of the whole canvas away, and the
+ * canvas here is a duel somebody may be drawing on — the beat exchanges
+ * itself on the leaf instead, with the leaf's own entrance (it is re-keyed on
+ * `i`, so the animation plays again rather than the words swapping in place).
+ */
+const selfAdvance = (): void => {
+  if (finished) return
+  if (i.value >= props.lines.length - 1) {
+    finish()
+    return
+  }
+  i.value++
+  // Rewound HERE and not only in the `watch` that babbles: that watcher runs
+  // on Vue's flush, and any tick landing before it would find the hold still
+  // expired and turn a second beat over. Three bubbles would go by in one.
+  dwell.value = 0
+}
+
 const skip = (): void => {
   if (finished) return
   sfx('ui')
+  // How often the story is walked past, per node: the one number that says
+  // whether the words are read or endured (retention item 1).
+  track('dialogue_skip', { nodeId: props.node })
   finish()
 }
 
@@ -108,7 +165,8 @@ watch(i, show)
 const open = ref(false)
 let alive = true
 onMounted(() => {
-  window.addEventListener('keydown', onKey)
+  // Over the arena the keyboard is the duel's: Space and Enter cast.
+  if (!props.overArena) window.addEventListener('keydown', onKey)
   if (titled.value) i.value = -1
   void firstLoadAdSettled().then(() => {
     if (!alive) return
@@ -125,8 +183,8 @@ onUnmounted(() => {
 </script>
 
 <template lang="pug">
-  div.dialogue(@click="advance")
-    div.dim
+  div.dialogue(:class="{ 'over-arena': overArena }" @click="advance")
+    div.dim(v-if="!overArena")
     template(v-if="open")
       //- The chapter's title page.
       div.leaf.title-leaf(v-if="title" role="status" aria-live="polite")
@@ -135,13 +193,14 @@ onUnmounted(() => {
           span.star(v-for="s in stars" :key="s") ★
         div.dog-ear(v-if="ready" aria-hidden="true")
       //- A story beat: the words on the page, the speaker inset beside them.
-      div.leaf(v-else-if="line" :class="left ? 'from-left' : 'from-right'")
+      div.leaf(v-else-if="line" :key="i" :class="left ? 'from-left' : 'from-right'")
         img.portrait(:src="portrait" alt="" draggable="false")
         div.words(role="status" aria-live="polite")
           div.pictos
             Picto.picto(v-for="p in line.pictos" :key="p" :name="p")
           p.story-text(v-if="text") {{ text }}
-        div.dog-ear(v-if="ready" aria-hidden="true")
+        //- The dog-ear says "turn me". Over the arena nothing turns.
+        div.dog-ear(v-if="ready && !overArena" aria-hidden="true")
     button.skip.duel-plate(
       v-if="skippable"
       :aria-label="t('ui.next')"
@@ -159,6 +218,34 @@ onUnmounted(() => {
   -webkit-tap-highlight-color: transparent
   user-select: none
   -webkit-user-select: none
+
+// OVER A LIVE DUEL, the sheet is not there at all as far as the pointer is
+// concerned: a finger that lands on the leaf is a finger starting a rune, and
+// the cast button and the corner icons underneath stay pressable. Only the
+// skip icon takes a press of its own.
+.dialogue.over-arena
+  pointer-events: none
+  cursor: default
+  // Seated a little tighter than a story page: it is a caption on a game in
+  // progress, not the page itself. The trailing end is kept clear for the
+  // skip icon that sits on it.
+  .leaf
+    bottom: calc(env(safe-area-inset-bottom) + 2vh)
+    padding: 12px 18px
+    padding-right: 74px
+    // The motion tokens, so a player who asked for less gets less without a
+    // second rule here (`theme.sass`, `useAccessibility`).
+    animation: opening-in var(--am-dur-enter) var(--am-ease-pop) both
+  // THE SKIP RIDES THE LEAF over the arena, instead of the screen's top-right
+  // corner where the dialogue keeps it: that corner is the duel's — the foe's
+  // name plate and her three rune slots — and on a phone held upright the
+  // icon lands squarely on top of them.
+  .skip
+    pointer-events: auto
+    cursor: pointer
+    top: auto
+    right: calc(env(safe-area-inset-right) + 3vw + 9px)
+    bottom: calc(env(safe-area-inset-bottom) + 2vh + 9px)
 
 // Just enough shade under the words for them to read on any page.
 .dim
@@ -288,6 +375,15 @@ onUnmounted(() => {
     transform: translate(0, 0)
   50%
     transform: translate(-3px, -3px)
+
+// The opening leaf arriving over a duel that is already on screen.
+@keyframes opening-in
+  from
+    opacity: 0
+    transform: translateY(18px)
+  to
+    opacity: 1
+    transform: none
 
 @media (prefers-reduced-motion: reduce)
   .dog-ear

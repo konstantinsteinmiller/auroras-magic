@@ -5,9 +5,9 @@
  * It owns the ONE `<canvas>`, the one `getContext`, the one RAF and every
  * pointer/keyboard listener, for every scene. It runs `load()` (and with it
  * the schema-2 migration) BEFORE the first scene is chosen, then boots
- * straight into the story: a fresh save meets the picture-book intro and
- * then node 1's dialogue, a pending
- * gift boots onto the map — never a menu.
+ * straight into the story: a fresh save lands in node 0's duel with the
+ * opening line over it, a pending gift boots onto the map — never a menu,
+ * and never a cutscene in front of the first stroke (retention item 2).
  *
  * Each frame dispatches on `S.flow.scene`: the duel steps its fixed-timestep
  * sim and draws the arena; the gift, pots and wipe step and draw the restore
@@ -28,17 +28,18 @@ import { updateFx } from '@/game/duel/fx'
 import { updateSim, strokeStart, strokeMove, strokeEnd, cast, castSide, onDuelEvent } from '@/game/duel/sim'
 import { initAudio, tickAudio, sfx, setAmbience } from '@/game/duel/audio'
 import { gotoScene, arm, openOverlay, closeOverlay, type SceneId } from '@/game/flow/scene'
-import { installGameplayBracket, bracketLive } from '@/game/flow/bracket'
+import { installGameplayBracket, bracketLive, pokiBracketLive } from '@/game/flow/bracket'
 import { dipTo, stepTransition, drawTransition, fading, __flushTransition } from '@/game/flow/transition'
 import { installDuelFlow, retry, leaveDuel, startDuel, openVersus, startVersus } from '@/game/flow/duelFlow'
 import { versusHud, updateVersusWide } from '@/use/useVersus'
-import { bootScene, playNode, playIntro } from '@/game/flow/nodes'
+import { bootScene, playNode, playIntro, openGift, closeOpening } from '@/game/flow/nodes'
 import { duelPageState } from '@/game/duel/duelPage'
 import {
   updateIntro, drawIntro, introResize, introPointerDown, skipIntro, playFromIntro, introState, INTRO_LEN
 } from '@/game/story/intro'
 import { introHud } from '@/use/useIntroHud'
 import { installCampaignController } from '@/game/campaign/controller'
+import { beginSession, noteFirstCast, noteFirstStroke } from '@/game/campaign/session'
 import { pendingSectorNode } from '@/game/campaign/state'
 import {
   beginRestore, updateRestore, drawRestore, restoreResize, restorePointerDown, restorePointerMove,
@@ -50,7 +51,7 @@ import {
 } from '@/game/map/map'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
 import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDuelHud'
-import { flowHud } from '@/use/useFlow'
+import { flowHud, openingHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
 import { restoreHud } from '@/use/useRestoreHud'
 import { isGamePaused, acquireAppPause } from '@/use/useGamePause'
@@ -58,13 +59,13 @@ import { acquireModalOpen } from '@/use/useModalState'
 import { registerQaAdTap, breakQaAdChain } from '@/use/useQaAdTrigger'
 import { runeGift, closeRuneGift } from '@/use/useRuneGift'
 import { signalGameplayLoaded } from '@/use/useCrazyGames'
-import { syncGameplayLifecycle } from '@/use/useGameplayLifecycle'
+import { syncGameplayLifecycle, syncPokiGameplay } from '@/use/useGameplayLifecycle'
 import { haptic } from '@/use/useHaptics'
 import { trackRecognition, exposeAnalytics, track } from '@/use/useAnalytics'
 import { frameStart, frameEnd } from '@/use/usePerfProbe'
+import { stepQuality } from '@/game/duel/quality'
 import { isDebug } from '@/use/useMatch'
 import { useMusic } from '@/use/useSound'
-import { leaderboardLive } from '@/use/useLeaderboard'
 import { SPELLBOOK } from '@/game/duel/config'
 import GameScene from '@/views/GameScene.vue'
 import MapScene from '@/views/MapScene.vue'
@@ -76,7 +77,6 @@ import VersusSetup from '@/views/VersusSetup.vue'
 import IntroScene from '@/views/IntroScene.vue'
 import SpellBook from '@/components/duel/SpellBook.vue'
 import OptionsModal from '@/components/organisms/OptionsModal.vue'
-import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
 import RuneGift from '@/components/story/RuneGift.vue'
 import { drawWardrobe, updateWardrobe, wardrobeResize } from '@/game/cosmetics/wardrobe'
 import { primeWardrobeArt } from '@/game/artPreload'
@@ -93,7 +93,6 @@ let rafId = 0
 
 const { startBattleMusic, stopBattleMusic, isMusicPlaying } = useMusic()
 const keyboard = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
-const boardOpen = ref(false)
 
 /* ─────────────────────────────── viewport ─────────────────────────────── */
 
@@ -133,7 +132,7 @@ const wake = (e?: Event): void => {
 /* ───────────────────────────────── input ──────────────────────────────── */
 
 const scene = (): SceneId => S.flow.scene
-const blocked = (): boolean => isGamePaused.value || S.flow.overlay !== null || boardOpen.value || fading()
+const blocked = (): boolean => isGamePaused.value || S.flow.overlay !== null || fading()
 
 const zoneCallout = (e = false): [number, number] => {
   // In local versus a refusal shows over the half its player draws on.
@@ -181,8 +180,15 @@ const onPointerDown = (e: PointerEvent): void => {
       // One finger per side: a second finger on the same half is ignored.
       if (side ? S.edraw : S.draw) return
       strokeSide.set(e.pointerId, side)
+      noteFirstStroke()
       strokeStart(x, y, side)
-    } else strokeStart(x, y)
+    } else {
+      // The funnel's second step, at the moment a finger actually starts
+      // drawing — not when the duel opened (retention item 1). A refused
+      // second finger in versus above never reaches here, so it never counts.
+      noteFirstStroke()
+      strokeStart(x, y)
+    }
   } else if (sc === 'unbox' || sc === 'wipe') restorePointerDown(e.clientX, e.clientY, e.timeStamp)
   else if (sc === 'map') mapPointerDown(e.clientX, e.clientY, e.timeStamp)
   else if (sc === 'intro') introPointerDown(e.clientX, e.clientY)
@@ -259,13 +265,15 @@ const onMapTap = (t: MapTarget): void => {
   if (blocked()) return
   if (t.kind === 'gift') {
     sfx('ui')
-    openSector(t.node)
+    // The first one plays the picture book in front of it (§8.26).
+    openGift(t.node)
   } else if (t.kind === 'creature') {
     peekCreature(t.node)
   } else if (t.kind === 'umbra') {
     greetUmbra()
   } else if (t.kind === 'tent') {
     sfx('ui')
+    track('tent_open')
     // The tent's own paintings start on the wire under the dip, so the room
     // has usually decoded by the time it is on screen (a no-op, and no
     // request, with the art layer off).
@@ -289,7 +297,6 @@ const onKeyDown = (e: KeyboardEvent): void => {
     if (k === 'Escape') closeOverlay()
     return
   }
-  if (boardOpen.value) return
   const sc = scene()
   if (sc === 'duel' && S.versus) {
     // Local versus on one keyboard: Space casts for player 1, Enter for 2.
@@ -356,8 +363,13 @@ const onAnyPress = (e: PointerEvent): void => {
 // it away again, quietly — it is never presented as a missed chance (§8.2).
 watch(() => flowHud.scene, (sc) => {
   if (sc !== 'map') withdrawTwinGift()
-  // After the finale, Umbra is visiting somewhere new each time (§8.11).
-  else wanderOnMapOpen()
+  else {
+    // After the finale, Umbra is visiting somewhere new each time (§8.11).
+    wanderOnMapOpen()
+  }
+  // The opener belongs to the duel it was laid over, and to no other scene:
+  // leaving takes whatever is left of it with us.
+  if (sc !== 'duel') closeOpening()
 })
 
 /* ─────────────────────────── global overlays ─────────────────────────── */
@@ -382,18 +394,28 @@ const STEP = 1 / 120 // fixed physics step: an identical duel at 30 or 144 Hz
 let acc = 0
 let prev = 0
 
+/* ───────────────────────── adaptive quality (S.q) ─────────────────────── */
+//
+// The controller itself is `game/duel/quality.ts` — its header carries the
+// reasoning, and `tests/duel/quality.test.ts` pins the two non-negotiables.
+// It lives out there rather than in this file because it is the one piece of
+// the loop whose rules are worth a test, and a rule inside a `.vue` file is a
+// rule nobody can call.
+
+/** What the previous frame spent inside this callback. Seeded with a plausible
+ *  60 Hz figure so the first frames neither win nor lose the tier outright. */
+let lastWork = 0.008
+
 const frame = (now: number): void => {
   rafId = requestAnimationFrame(frame)
+  const t0 = performance.now()
   frameStart(now)
   const raw = prev ? (now - prev) / 1000 : 0.016
   prev = now
   // Clamp: a backgrounded tab returns a huge dt that would teleport shots.
   const dt = Math.min(Math.max(raw, 0), 0.25)
 
-  // Adaptive quality with hysteresis, so it settles instead of oscillating.
-  S.fdt += (raw - S.fdt) * 0.1
-  if (S.fdt > 0.024 && S.q > 0) S.q = 0
-  else if (S.fdt < 0.015 && S.q < 1) S.q = 1
+  stepQuality(raw, lastWork, dt)
 
   syncOverlayLock()
   const paused = isGamePaused.value
@@ -450,6 +472,11 @@ const frame = (now: number): void => {
   }
   syncHud(paused ? 0 : dt)
   frameEnd()
+  // Read once, at the very end, so `lastWork` is this callback's whole cost.
+  // A frame that ran while the tab was hidden or an ad was up is not evidence
+  // about the device, so a stalled frame is discarded rather than smoothed in.
+  const spent = (performance.now() - t0) / 1000
+  if (spent < 0.25) lastWork = spent
 }
 
 /* ──────────────────────────────── lifecycle ───────────────────────────── */
@@ -462,6 +489,9 @@ onMounted(() => {
   g = cv.getContext('2d', { alpha: false })
   // The save first, the migration with it — then the first scene (I-11).
   load()
+  // …and between the two, the session is counted: `session_start` reports the
+  // progress this boot INHERITED, so it has to be read before the story moves.
+  beginSession()
   refreshBook()
   resize()
   offs.push(installCampaignController())
@@ -469,14 +499,21 @@ onMounted(() => {
   offs.push(installGameplayBracket())
   setMapTapHandler(onMapTap)
   offs.push(onDuelEvent((e, _won, info) => {
-    if (e === 'stroke' && info) trackRecognition(info)
-    else if (e === 'rune') {
+    if (e === 'stroke' && info) {
+      trackRecognition(info)
+      // The player is drawing, so the opener folds away at whatever beat it
+      // had reached — nobody is made to wait for Umbra's reply (retention
+      // item 2). `stroke` and not the pointer: a stray tap is not an attempt,
+      // and must not take the story with it.
+      closeOpening()
+    } else if (e === 'rune') {
       haptic('tick')
       if (!firstRuneTracked) {
         firstRuneTracked = true
         track('first_rune', { onboarding: !!S.intro })
       }
-    } else if (e === 'hurt') haptic('impact')
+    } else if (e === 'cast') noteFirstCast()
+    else if (e === 'hurt') haptic('impact')
   }))
   bootScene()
   if (S.flow.scene === 'map') {
@@ -550,8 +587,12 @@ onMounted(() => {
       goto: (sc: SceneId, n = -1) => gotoScene(sc, n),
       duel: (n: number) => startDuel(n),
       leave: leaveDuel,
+      /** Is the cold boot's opening line still over the arena? */
+      opening: () => openingHud.live,
       /** What the portals were last told: is gameplay live? */
       live: bracketLive,
+      /** …and what Poki was told, whose bracket spans the storybook. */
+      pokiLive: pokiBracketLive,
       /** Close Options / the spellbook, whatever their buttons are called. */
       closeOverlay,
       /** …and open one, in any locale (the buttons' labels are translated). */
@@ -689,6 +730,7 @@ onUnmounted(() => {
   releaseOverlay?.()
   stopBattleMusic()
   syncGameplayLifecycle(false)
+  syncPokiGameplay(false)
 })
 </script>
 
@@ -699,7 +741,7 @@ onUnmounted(() => {
     //- While cleaning, the sponge IS the cursor: the system arrow is hidden.
     canvas.world(ref="canvas" :class="{ 'tool-cursor': restoreHud.phase === 'wipe' }")
     GameScene(v-if="flowHud.scene === 'duel'" :keyboard="keyboard")
-    MapScene(v-else-if="flowHud.scene === 'map'" @board="boardOpen = true")
+    MapScene(v-else-if="flowHud.scene === 'map'")
     DialogueScene(v-else-if="flowHud.scene === 'dialogue'")
     WardrobeScene(v-else-if="flowHud.scene === 'wardrobe'")
     VersusSetup(v-else-if="flowHud.scene === 'versusSetup'")
@@ -709,7 +751,6 @@ onUnmounted(() => {
       WipeScene(@back="leaveRestore" @continue="continueRestore")
     SpellBook(v-if="overlayOpen === 'spellbook'" @close="closeOverlay")
     OptionsModal(:is-open="overlayOpen === 'options'" @close="closeOverlay")
-    LeaderboardModal(v-if="leaderboardLive" v-model="boardOpen" :score="hud.wins")
     //- A chest has just given a new rune (§8.30): the reveal, and how to draw it.
     RuneGift(v-if="runeGift.rune >= 0" :rune="runeGift.rune" @close="closeRuneGift")
 </template>

@@ -209,17 +209,7 @@ export default {
 
   'leaderboard': {
     'title': 'Sıralama',
-    'rank': '#',
-    'player': 'Oyuncu',
-    'score': 'Galibiyet',
-    'flair': 'İlerleme',
-    'empty': 'Henüz düello yok. İlk sen ol!',
-    'failed': 'Sıralamaya ulaşılamadı.',
-    'loading': 'Yükleniyor…',
-    'you': 'Sen',
-    'yourRank': '{total} oyuncu arasında #{n} sıradasın',
-    'of': '/ {n} oyuncu',
-    'tabGlobal': 'Dünya'
+    'of': '/ {n} oyuncu'
   },
 
   'a11y': {
@@ -521,11 +511,44 @@ export default {
     'claimedToast': 'Burası baştan başa çiçek açtı!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {total} yıldızdan {n} tane'
+  },
+
+  'daily': {
+    'open': 'Bugünün hediyesini aç',
+    'stickerToast': 'Albümüne yeni bir dost geldi!'
+  },
+
+  'album': {
+    'title': 'Çıkartma Albümü',
+    'hint': 'Yeniden çiçek açan bir yerdeki yaratığa dokun, çıkartması albüme gelsin.',
+    'count': '{total} taneden {met} bulundu',
+    'chapter': '{n}. Bölüm',
+    'found': 'Bulunan çıkartma',
+    'friend': 'Kurtarılmış bir dost',
+    'dressTab': 'Giydirme',
+    'albumTab': 'Çıkartma albümü'
+  },
+
+  'photo': {
+    'title': 'Fotoğraf kartları',
+    'take': 'Fotoğraf çek',
+    'card': '{n}. fotoğraf kartı',
+    'empty': 'Boş bir fotoğraf kartı',
+    'fullHint': 'Albümde {n} kart durur. Yeni fotoğraf en eskisinin yerine geçer.'
+  },
+
   'duel': {
     'almostRune': 'NEREDEYSE {rune}!'
   },
 
   'license': {
     'denied': 'Erişim reddedildi: lütfen bir lisans satın al.'
+  },
+
+  'help': {
+    'auroraLine': 'Gel — birlikte çizelim!',
+    'perfectRune': 'Çok güzel çizdin!'
   }
 }

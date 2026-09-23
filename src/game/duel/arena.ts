@@ -370,21 +370,36 @@ export const drawSky = (g: G2D, t: number, overPage = false): void => {
  * already hold four seeded randoms each, so `P` doubles as the tuft jitter
  * table. Time comes from `S.t`.
  */
-const grass = (): void => {
-  const n = S.q > 0.6 ? 40 : 22
+const tufts = (n: number, from: number, phase: number, scale: number): void => {
   BP()
   for (let i = n; i--;) {
-    const o = P[i]!
-    const a = PI + (PI * (i + o[0] / 430)) / n
+    const o = P[from + i]!
+    const a = PI + (PI * (i + phase + o[0] / 430)) / n
     const x = CX + cos(a) * RX * 0.94
     const y = TY + sin(a) * 30 + 6
-    const h = o[2] * o[3] * 1.4
+    const h = o[2] * o[3] * 1.4 * scale
     const w = h / 9
     const s = o[1] / 16 - 22 + sin(S.t * 1.6 + x * 0.05) * 4
     D.moveTo(x - w, y)
     D.quadraticCurveTo(x, y - h * 0.85, x + s, y - h)
     D.quadraticCurveTo(x + w + s * 0.4, y - h * 0.4, x + w, y)
   }
+}
+
+const grass = (): void => {
+  // The sparkle tier's UNDERSTOREY (item 17): a second, shorter rank of tufts
+  // sitting between the first, in the darker tone, so a strong device gets a
+  // rim that looks planted rather than dotted. Drawn FIRST and separately —
+  // one more path and fill — because the main rank's angles are derived from
+  // its own `n`, and growing that would slide every existing tuft sideways.
+  // It fades on `S.qx`, so the tier arrives as grass growing in.
+  if (S.qx > 0.01) {
+    AL(S.qx * 0.85)
+    tufts(34, 40, 0.5, 0.62)
+    FL(TH.tuftDark)
+    AL(1)
+  }
+  tufts(S.q > 0.6 ? 40 : 22, 0, 0, 1)
   FL(L > 0.4 ? TH.tuftDark : TH.tuft)
 }
 
@@ -564,6 +579,10 @@ export const drawIsland = (g: G2D): void => {
 /** Foreground weather — rain while losing, drifting motes while winning. */
 export const drawWeather = (g: G2D, t: number): void => {
   sync(g)
+  // NOT a tier multiplier — a BOUND. `P` holds exactly 96 seeded particles and
+  // every loop below indexes it directly, so anything over 1 here would walk
+  // off the end of the table. The sparkle tier spends itself on `S.qx` a few
+  // lines down instead, inside what the table can carry.
   const q = clamp(S.q || 1, 0.3, 1)
   const rain = clamp(1 - K * 2.2, 0, 1)
   SV()
@@ -585,9 +604,13 @@ export const drawWeather = (g: G2D, t: number): void => {
 
   if (W > 0.03) {
     D.fillStyle = '#fed'
-    for (let i = (44 * q) | 0; i--;) {
+    // The first `motes` are the authored drift. The sparkle tier adds 28 more
+    // (72 of the table's 96), each one's alpha scaled by the mix so they
+    // twinkle into existence rather than appearing between two frames.
+    const motes = (44 * q) | 0
+    for (let i = S.qx > 0.01 ? motes + 28 : motes; i--;) {
       const o = P[i]!
-      AL(W * (0.25 + 0.18 * (1 + sin(t * 1.7 + o[0]))))
+      AL(W * (0.25 + 0.18 * (1 + sin(t * 1.7 + o[0]))) * (i < motes ? 1 : S.qx))
       D.fillRect((o[0] + t * o[3] * 22) % SW, o[1], 2.4, 2.4)
     }
   }

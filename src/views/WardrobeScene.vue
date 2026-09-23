@@ -21,6 +21,14 @@
  * While the Mane Color Palette is worn, a row of eight swatches opens under
  * the mane slot: tap one and her mane takes it, instantly. Each swatch is a
  * colour AND a micro-glyph (§3.11), never hue alone.
+ *
+ * THE TENT HAS TWO PAGES (retention items 3 and 16). The shelf is one; the
+ * sticker album — with the dress-up photo cards at the top of it — is the
+ * other, and a rail of two picture tabs sits over both. The album is a SHEET
+ * over the whole scene rather than a second panel beside the shelf: sixty
+ * cells cannot share a phone's short side with the diorama, and while it is
+ * up the shelf's measurement is withdrawn so Aurora stands in the middle of
+ * the tent she is being photographed in.
  */
 import { computed, onBeforeUnmount, onMounted, ref, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -30,13 +38,27 @@ import { backfillKeepsakes } from '@/game/campaign/controller'
 import { sfx } from '@/game/duel/audio'
 import { leaveWardrobe } from '@/game/flow/restoreFlow'
 import { admire, setWardrobeShelf } from '@/game/cosmetics/wardrobe'
-import { itemIconUrl, swatchIconUrl, slotIconUrl } from '@/game/cosmetics/icons'
+import { itemIconUrl, swatchIconUrl, slotIconUrl, tentTabUrl } from '@/game/cosmetics/icons'
 import { MANE_SWATCHES, maneSwatchIndex, ownManeColours } from '@/game/cosmetics/rig-cosmetics'
 import { haptic } from '@/use/useHaptics'
+import { track } from '@/use/useAnalytics'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import SceneCorner from '@/components/story/SceneCorner.vue'
+import AlbumPanel from '@/components/album/AlbumPanel.vue'
 
 const { t, te } = useI18n()
+
+/** Which of the tent's two pages is up. Opens on the shelf, always: the
+ *  wardrobe is what the tent is FOR, and the album is where it leads. */
+type TentPage = 'dress' | 'album'
+const page = ref<TentPage>('dress')
+
+const tentTabs = computed(() => (['dress', 'album'] as const).map((p) => ({
+  page: p,
+  on: page.value === p,
+  icon: tentTabUrl(p),
+  label: t(p === 'dress' ? 'album.dressTab' : 'album.albumTab')
+})))
 /** Bumped on every equip so the tiles re-read the save's slots. */
 const rev = ref(0)
 const shelfEl = ref<HTMLElement | null>(null)
@@ -113,7 +135,12 @@ const toggle = (s: CosmeticSlot, id: number): void => {
   rev.value++
   sfx(on ? 'paint' : 'ui', 1)
   haptic('reward')
-  if (on) admire(id)
+  // Only the putting ON is measured (retention item 1): taking something off
+  // is half of a swap, and counting both would double every change of mind.
+  if (on) {
+    track('keepsake_equip', { slot: s, cosmeticId: id })
+    admire(id)
+  }
 }
 
 const pick = (i: number): void => {
@@ -139,6 +166,22 @@ const measure = (): void => {
   setWardrobeShelf(r.left, r.top, r.width)
 }
 let ro: ResizeObserver | null = null
+/** Follow the shelf element, which the album tab takes away and gives back. */
+const observeShelf = (): void => {
+  ro?.disconnect()
+  ro = null
+  if (typeof ResizeObserver === 'undefined' || !shelfEl.value) return
+  ro = new ResizeObserver(measure)
+  ro.observe(shelfEl.value)
+}
+
+const showPage = (p: TentPage): void => {
+  if (page.value === p) return
+  page.value = p
+  sfx('ui')
+  haptic('tick')
+}
+
 onMounted(() => {
   // A save from before the second shelf existed has opened chests that now
   // carry keepsakes; hand those over rather than show them as missed.
@@ -146,13 +189,24 @@ onMounted(() => {
   const first = COSMETIC_SLOTS.find((s) => cosmeticsIn(s).some(owns))
   if (first) slot.value = first
   measure()
-  if (typeof ResizeObserver !== 'undefined' && shelfEl.value) {
-    ro = new ResizeObserver(measure)
-    ro.observe(shelfEl.value)
-  }
+  observeShelf()
   window.addEventListener('resize', measure)
 })
 watch([palette, slot], () => nextTick(measure))
+// The album takes the whole scene, so the shelf's box is withdrawn while it
+// is up — otherwise Aurora would keep standing clear of a shelf that is not
+// there, off to one side of a photo nobody can see her in.
+watch(page, async (p) => {
+  if (p === 'album') {
+    ro?.disconnect()
+    ro = null
+    setWardrobeShelf(0, 0, 0)
+    return
+  }
+  await nextTick()
+  measure()
+  observeShelf()
+})
 onBeforeUnmount(() => {
   ro?.disconnect()
   window.removeEventListener('resize', measure)
@@ -165,7 +219,19 @@ onBeforeUnmount(() => {
     button.duel-plate.back-btn(:aria-label="t('a11y.backToMap')" @click.stop="back")
       GameIcon.glyph(name="back")
     SceneCorner
-    div.shelf(ref="shelfEl")
+    div.tent-tabs(role="tablist")
+      button.tent-tab(
+        v-for="p in tentTabs"
+        :key="p.page"
+        role="tab"
+        :class="{ on: p.on }"
+        :aria-selected="p.on"
+        :aria-label="p.label"
+        @click.stop="showPage(p.page)"
+      )
+        img(:src="p.icon" alt="" draggable="false")
+    AlbumPanel(v-if="page === 'album'")
+    div.shelf(v-else ref="shelfEl")
       div.tabs(role="tablist" :aria-label="t('a11y.wardrobeSlots')")
         button.tab(
           v-for="tab in tabs"
@@ -231,6 +297,45 @@ button
   .glyph
     width: 30px
     height: 30px
+
+// The tent's two page tabs, over everything: the shelf she is dressed from
+// and the album her stickers live in. Top centre, clear of the back button —
+// and above the album sheet, which covers the scene while it is up.
+.tent-tabs
+  position: absolute
+  z-index: 2
+  left: 50%
+  transform: translateX(-50%)
+  top: calc(env(safe-area-inset-top) + 12px)
+  display: flex
+  gap: 10px
+  padding: 5px
+  border-radius: 18px
+  background: var(--am-paper)
+  border: 4px solid var(--am-ink)
+  box-shadow: var(--am-shadow-chip)
+
+.tent-tab
+  width: 52px
+  height: 52px
+  padding: 5px
+  border: 3px solid transparent
+  border-radius: 13px
+  background: transparent
+  display: flex
+  align-items: center
+  justify-content: center
+  transition: transform var(--am-dur-press) var(--am-ease-out), background var(--am-dur-press) var(--am-ease-out)
+  img
+    width: 100%
+    height: 100%
+    -webkit-user-drag: none
+    pointer-events: none
+  &.on
+    background: var(--am-paper-sunken)
+    border-color: var(--am-ink)
+  &:active
+    transform: scale(0.94)
 
 // The shelf: on the right in landscape, the lower part in portrait. One
 // slot's keepsakes at a time — at most four — in a single row, under the

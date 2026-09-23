@@ -211,17 +211,7 @@ export default {
 
   'leaderboard': {
     'title': 'Classement',
-    'rank': '#',
-    'player': 'Joueur',
-    'score': 'Victoires',
-    'flair': 'Progression',
-    'empty': 'Aucun duel enregistré pour l\'instant. À toi de jouer !',
-    'failed': 'Impossible de joindre le classement.',
-    'loading': 'Chargement…',
-    'you': 'Toi',
-    'yourRank': 'Tu es #{n} sur {total}',
-    'of': 'sur {n} joueurs',
-    'tabGlobal': 'Mondial'
+    'of': 'sur {n} joueurs'
   },
 
   'a11y': {
@@ -521,11 +511,44 @@ export default {
     'claimedToast': 'Cet endroit est en pleine floraison !'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} sur {total} étoiles'
+  },
+
+  'daily': {
+    'open': 'Ouvre le cadeau du jour',
+    'stickerToast': 'Un nouvel ami pour ton album !'
+  },
+
+  'album': {
+    'title': 'Album d’autocollants',
+    'hint': 'Touche une créature dans un endroit qui a refleuri : son autocollant rejoint l’album.',
+    'count': '{met} sur {total} trouvés',
+    'chapter': 'Chapitre {n}',
+    'found': 'Autocollant trouvé',
+    'friend': 'Un ami sauvé',
+    'dressTab': 'Habillage',
+    'albumTab': 'Album d’autocollants'
+  },
+
+  'photo': {
+    'title': 'Cartes photo',
+    'take': 'Prendre une photo',
+    'card': 'Carte photo {n}',
+    'empty': 'Une carte photo vide',
+    'fullHint': 'L’album garde {n} cartes. Une nouvelle photo prend la place de la plus ancienne.'
+  },
+
   'duel': {
     'almostRune': 'PRESQUE {rune} !'
   },
 
   'license': {
     'denied': 'Accès refusé : veuillez acheter une licence.'
+  },
+
+  'help': {
+    'auroraLine': 'Viens — je la dessine avec toi !',
+    'perfectRune': 'Joliment dessinée !'
   }
 }

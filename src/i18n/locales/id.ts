@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Papan Peringkat',
-    'rank': '#',
-    'player': 'Pemain',
-    'score': 'Menang',
-    'flair': 'Kemajuan',
-    'empty': 'Belum ada duel. Jadilah yang pertama!',
-    'failed': 'Tidak dapat memuat papan peringkat.',
-    'loading': 'Memuat…',
-    'you': 'Kamu',
-    'yourRank': 'Kamu #{n} dari {total}',
-    'of': 'dari {n} pemain',
-    'tabGlobal': 'Global'
+    'of': 'dari {n} pemain'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Tempat ini mekar sepenuhnya!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} dari {total} bintang'
+  },
+
+  'daily': {
+    'open': 'Buka hadiah hari ini',
+    'stickerToast': 'Teman baru untuk albummu!'
+  },
+
+  'album': {
+    'title': 'Album Stiker',
+    'hint': 'Ketuk makhluk di tempat yang sudah mekar kembali, dan stikernya akan masuk ke album.',
+    'count': '{met} dari {total} ditemukan',
+    'chapter': 'Bab {n}',
+    'found': 'Stiker ditemukan',
+    'friend': 'Teman yang diselamatkan',
+    'dressTab': 'Berdandan',
+    'albumTab': 'Album stiker'
+  },
+
+  'photo': {
+    'title': 'Kartu foto',
+    'take': 'Ambil foto',
+    'card': 'Kartu foto {n}',
+    'empty': 'Kartu foto kosong',
+    'fullHint': 'Album menyimpan {n} kartu. Foto baru menggantikan yang paling lama.'
+  },
+
   'duel': {
     'almostRune': 'HAMPIR {rune}!'
   },
 
   'license': {
     'denied': 'Akses ditolak: silakan beli lisensi.'
+  },
+
+  'help': {
+    'auroraLine': 'Sini — kita gambar sama-sama!',
+    'perfectRune': 'Gambarnya bagus sekali!'
   }
 }

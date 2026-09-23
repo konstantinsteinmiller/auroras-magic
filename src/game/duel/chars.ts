@@ -37,6 +37,14 @@
  * but the hero hair lock; silhouette, proportions and poses are unchanged. The
  * limb bounce rim survives every quality level — without it Umbra's four black
  * legs fuse into one unreadable mass.
+ *
+ * Everything here BRANCHES on `S.q`; nothing multiplies by it, so the sparkle
+ * tier (2) draws the authored look and no count is silently doubled. What tier
+ * 2 adds — the outer spark ring on a forming rune, the wider dread halo —
+ * rides `S.qx`, the eased mix, so it grows in over a second and a half instead
+ * of arriving between two frames. Lock counts and cel band counts stay where
+ * the art authored them: three bands ARE the look; four are a different
+ * drawing, not a better one.
  */
 import { FOES, type FoePalette } from '@/game/duel/foes'
 import { drawItem, type ItemSpec } from '@/game/artItem'
@@ -649,11 +657,15 @@ const rigSpec = (part: keyof typeof RIG_ART, unit: number, shape: () => void): I
     const g0 = g
     const tones = [CO, SH, RM, MD]
     const q = S.q
+    const qx = S.qx
     g = ctx
     // The reference is painted in the accent the mask is derived from, in the
     // same four-step relationship the rig shades with — and always at full
-    // quality, whatever the device the bench happens to be running on.
+    // quality, whatever the device the bench happens to be running on. Pinned
+    // to tier 1 exactly, never 2: a sheet is what the painter paints over, so
+    // it must be the same drawing on every machine that bakes it.
     S.q = 1
+    S.qx = 0
     CO = accent.base
     SH = accent.shade
     RM = accent.lite
@@ -668,6 +680,7 @@ const rigSpec = (part: keyof typeof RIG_ART, unit: number, shape: () => void): I
     g.restore()
     ;[CO, SH, RM, MD] = tones as [string, string, string, string]
     S.q = q
+    S.qx = qx
     g = g0
   }
 })
@@ -829,8 +842,15 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
 
   // The foe's dread aura: stacked low-alpha ellipses, no shadowBlur needed.
   if (D && S.q && !F && !st.onKey) {
-    g.globalAlpha = 0.07
     g.fillStyle = GL
+    // Sparkle tier: one more, wider ring of the same stack, so the dread
+    // reaches further out into the dark instead of stopping at the body.
+    if (S.qx > 0.01) {
+      g.globalAlpha = 0.045 * S.qx
+      el(-2, by - 4, 78, 72)
+      g.fill()
+    }
+    g.globalAlpha = 0.07
     el(-2, by - 6, 54, 52)
     g.fill()
     g.globalAlpha = 1
@@ -1112,6 +1132,26 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       const r2 = 20 - form * 15
       el(tx + cos(a2) * r2, ty + sin(a2) * r2 * 0.7, 1 + 2.4 * form, 1 + 2.4 * form)
       g.fill()
+    }
+    // Sparkle tier (item 17): an outer ring turning the other way, and a soft
+    // halo under it. The halo is stacked low-alpha ellipses rather than more
+    // `shadowBlur` — blur is the most expensive thing on this canvas and the
+    // one Firefox charges double for, so the tier buys reach, not radius.
+    if (S.qx > 0.01) {
+      g.globalAlpha = min(1, form + rear * 0.3) * S.qx
+      g.shadowBlur = 0
+      for (let i = 0; i < 3; i++) {
+        const a2 = -t * 1.7 + i * 2.1 + 1.05
+        const r2 = 34 - form * 19
+        el(tx + cos(a2) * r2, ty + sin(a2) * r2 * 0.7, 0.8 + 1.9 * form, 0.8 + 1.9 * form)
+        g.fill()
+      }
+      for (let i = 0; i < 3; i++) {
+        g.globalAlpha = min(1, form + rear * 0.3) * S.qx * (0.1 - i * 0.025)
+        const r2 = (9 + 15 * form) * (1 + i * 0.7)
+        el(tx, ty, r2, r2)
+        g.fill()
+      }
     }
     g.restore() // restore() puts shadowBlur back for us
   }

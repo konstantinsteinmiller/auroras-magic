@@ -209,17 +209,7 @@ export default {
 
   'leaderboard': {
     'title': 'Ranglijst',
-    'rank': '#',
-    'player': 'Speler',
-    'score': 'Gewonnen',
-    'flair': 'Voortgang',
-    'empty': 'Nog geen duels. Wees de eerste!',
-    'failed': 'Kan de ranglijst niet bereiken.',
-    'loading': 'Laden…',
-    'you': 'Jij',
-    'yourRank': 'Je bent #{n} van {total}',
-    'of': 'van {n} spelers',
-    'tabGlobal': 'Wereldwijd'
+    'of': 'van {n} spelers'
   },
 
   'a11y': {
@@ -519,11 +509,44 @@ export default {
     'claimedToast': 'Deze plek staat in volle bloei!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} van {total} sterren'
+  },
+
+  'daily': {
+    'open': 'Open het cadeau van vandaag',
+    'stickerToast': 'Een nieuw vriendje voor je album!'
+  },
+
+  'album': {
+    'title': 'Stickeralbum',
+    'hint': 'Tik op een dier op een plek die weer bloeit, en zijn sticker komt in het album.',
+    'count': '{met} van {total} gevonden',
+    'chapter': 'Hoofdstuk {n}',
+    'found': 'Sticker gevonden',
+    'friend': 'Een gered vriendje',
+    'dressTab': 'Aankleden',
+    'albumTab': 'Stickeralbum'
+  },
+
+  'photo': {
+    'title': 'Fotokaarten',
+    'take': 'Maak een foto',
+    'card': 'Fotokaart {n}',
+    'empty': 'Een lege fotokaart',
+    'fullHint': 'Het album heeft plek voor {n} kaarten. Een nieuwe foto vervangt de oudste.'
+  },
+
   'duel': {
     'almostRune': 'BIJNA {rune}!'
   },
 
   'license': {
     'denied': 'Toegang geweigerd: koop een licentie.'
+  },
+
+  'help': {
+    'auroraLine': 'Kom — ik teken hem met jou!',
+    'perfectRune': 'Prachtig getekend!'
   }
 }

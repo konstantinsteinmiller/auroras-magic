@@ -31,6 +31,7 @@ import { resetFx } from '@/game/duel/fx'
 import { resetAudio, sfx } from '@/game/duel/audio'
 import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
+import { noteFirstWin } from '@/game/campaign/session'
 import { earlyEase } from '@/game/campaign/easing'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
@@ -39,6 +40,8 @@ import { dipTo } from '@/game/flow/transition'
 import { setArenaGift } from '@/game/restore/gift'
 import { beginDuelPage, resetDuelPage, stashDuelClearing } from '@/game/duel/duelPage'
 import { resetHudMirrors } from '@/use/useDuelHud'
+import { closeHelp, installDuelHelp, openHelp } from '@/game/duel/help'
+import { installPerfectSparkle, resetPerfectMark } from '@/game/duel/perfect'
 import { useMusic } from '@/use/useSound'
 import { isInterstitialReady, showMidgameAd } from '@/use/useAds'
 import { canShowInterstitial, markInterstitialShown } from '@/use/useAdGate'
@@ -79,6 +82,12 @@ export const startDuel = (n: number): void => {
   beginDuelPage(n)
   resetAudio()
   resetHudMirrors()
+  resetPerfectMark()
+  // Visible help after two losses (retention item 8). Called for EVERY duel,
+  // due or not, so the last duel's help can never follow the player into the
+  // next one — and before the first frame, so a retry opens with the ghost
+  // already there rather than a beat later.
+  openHelp(n, lossStreakOf(n))
   duelBeat.phase = 'fight'
   duelBeat.node = n
   gen++
@@ -117,6 +126,8 @@ const maybeShowInterstitial = async (trigger: 'win' | 'loss'): Promise<void> => 
 /** The arena set for a versus match: both duelists at full HP, the
  *  Festival's island (chapter 10's theme — where the two became friends). */
 const prepVersus = (): void => {
+  closeHelp()
+  resetPerfectMark()
   resetFx()
   setArenaGift(false)
   resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 0, versus: true })
@@ -193,6 +204,9 @@ const onFinish = async (won: boolean): Promise<void> => {
   })
   void flushSaveNow()
   if (won) {
+    // The funnel's fourth step (retention item 1): a replay counts, because
+    // "did this session end in a win" is the question, not "was it new".
+    noteFirstWin()
     haptic('reward')
     // What her spells blew off the page travels with her into the wipe
     // (§8.29). Only a WON duel leaves it: a loss changes nothing.
@@ -276,6 +290,7 @@ export const leaveDuel = (): void => {
     return
   }
   track('duel_abandon', { nodeId: S.flow.node, wasReplay: replay })
+  closeHelp()
   gen++
   S.resultUp = false
   duelBeat.phase = 'idle'
@@ -293,8 +308,17 @@ export const installDuelFlow = (): (() => void) => {
   const stop = onDuelEvent((e, won) => {
     if (e === 'finish') void onFinish(!!won)
   })
+  // The perfect-rune sparkle listens to the same sim (retention item 7). It
+  // is installed from here rather than from the scene so that everything the
+  // duel's own flow subscribes to is turned on in one place.
+  const stopSparkle = installPerfectSparkle()
+  // …and the after-two-losses help closes itself on the sim's own `finish`
+  // (retention item 8), for the same reason.
+  const stopHelp = installDuelHelp()
   off = () => {
     stop()
+    stopSparkle()
+    stopHelp()
     off = null
   }
   return off

@@ -139,6 +139,37 @@ export const runeForNode = (n: number): number | null => {
 }
 
 /**
+ * The runes a player is CERTAIN to hold arriving at node `n`: the two she
+ * starts with, plus every rune a chest before it has handed over (§8.30). A
+ * bitmask, like `S.campaign.runesUnlocked`.
+ *
+ * The schedule, not the save — which is the point. Anything derived from a
+ * node (a replay goal, a difficulty read, the win-rate harness's kit) has to
+ * ask what that node can be played WITH, and a save answers a different
+ * question: a player replaying node 3 with all twelve runes in hand would
+ * make node 3's own goal look reachable when, on the run that matters, it
+ * was not.
+ */
+export const runesHeldBy = (n: number): number => {
+  let held = STARTING_RUNES
+  for (let k = 0; k < Math.min(n, CHAPTER_COUNT * NODES_PER_CHAPTER); k++) {
+    const r = runeForNode(k)
+    if (r !== null) held |= 1 << r
+  }
+  return held
+}
+
+/** The newest rune a chest had handed over before node `n`, or null at the
+ *  very first node, where the starting pair is all there is. */
+export const newestRuneBy = (n: number): number | null => {
+  for (let k = Math.min(n, CHAPTER_COUNT * NODES_PER_CHAPTER) - 1; k >= 0; k--) {
+    const r = runeForNode(k)
+    if (r !== null) return r
+  }
+  return null
+}
+
+/**
  * The rune the NEXT chest owes this player — the one to tease in the
  * spellbook (§8.30). It is whatever `runeForNode` owes at the first node from
  * `from` on that she has not been given yet, or null once she holds them all.

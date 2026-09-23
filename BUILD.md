@@ -25,6 +25,14 @@ src/  ──vite build──►  dist-<platform>/  ──tools/pack──►  au
 | `pnpm build:web` | No portal flag; the plain web build, packed. |
 | `pnpm pack -- --platform=<p> [--dist=dir] [--iterations=100] [--strict]` | Re-run stage 2 on an existing build. |
 
+> **`data/leaderboard-snapshot.json` is a build output living in the source
+> tree.** Its vite plugin refreshes it on every build AND on every dev-server
+> start, and `vitest` rewrites it too — so it turns up modified in `git status`
+> after work that never went near the leaderboard, and a careless `git add -A`
+> commits a re-seeded board. Record its md5 before a build or a test run and
+> restore it afterwards, or leave it out of the commit. It is only meant to
+> change when `pnpm leaderboard:snapshot` is run deliberately.
+
 ## Stage 1 — terser in Vite (`vite.config.ts` → `build.terserOptions`)
 
 Kept from the jam config: multiple compress passes (3; the jam build used 12,

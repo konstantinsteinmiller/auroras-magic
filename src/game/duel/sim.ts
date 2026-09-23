@@ -53,6 +53,10 @@ const HORN_Y = GY + HDY
  * Moments the scene must react to — the portal bracket, haptics, the result
  * flow. The sim stays free of Vue and of every platform module; the scene
  * subscribes.
+ *
+ * `stroke` carries a `StrokeInfo` for every finished player stroke, and `rune`
+ * carries the same record again when that stroke was STORED — versus' second
+ * hand reports neither.
  */
 export type DuelEvent = 'rune' | 'cast' | 'hurt' | 'hit' | 'finish' | 'stroke' | 'phase'
 /** A miss scoring at least this is named as a near-miss (§5.12). Junk sits
@@ -143,15 +147,22 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
   // passes over a 32-point stroke, once per pointer release.
   const f = strokeFeatures(p)
   const [best, sc] = rawScore(p, active)
-  if (!e) {
-    emit('stroke', undefined, {
-      success: r >= 0,
-      rune: r >= 0 ? r : best,
-      ec: f?.ec ?? 0,
-      turn: f?.turn ?? 0,
-      margin: sc - 0.78
-    })
-  }
+  // The SAME record rides both events: `stroke` (every release, telemetry) and,
+  // if the shape landed, `rune`. The perfect-rune sparkle (`duel/perfect.ts`)
+  // needs the margin at the moment the rune is STORED — after the queue-full
+  // refusal, which is not a rune the player gets to keep — and handing the
+  // existing object on costs nothing and keeps every judgement about it
+  // outside these rules.
+  const info: StrokeInfo | undefined = e
+    ? undefined
+    : {
+        success: r >= 0,
+        rune: r >= 0 ? r : best,
+        ec: f?.ec ?? 0,
+        turn: f?.turn ?? 0,
+        margin: sc - 0.78
+      }
+  if (info) emit('stroke', undefined, info)
   p.length = 0
   if (r < 0) {
     // The ONLY visual sign a stroke was rejected — muted players need it.
@@ -183,7 +194,7 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
   S.landed++
   S.snap = { r: rune, t: 0 }
   sfx('snap', rune)
-  emit('rune')
+  emit('rune', undefined, info)
   if (S.intro && S.introStep < 1) {
     S.introStep = 1
     S.introT = 0

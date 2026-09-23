@@ -17,6 +17,9 @@
 //   --times            print how long the probe takes per screen
 //   --server URL       drive this dev server instead of starting one
 //   --port N           port for a server this run starts itself
+//   --out FILE         where the raw rows go (default: findings.json here).
+//                      Two runs sharding the locale list between them would
+//                      otherwise overwrite each other's rows.
 //
 // ── What counts as "does not fit" ──
 //
@@ -42,7 +45,11 @@
 // bundle's obfuscator pass changes nothing a box measures. But the port must
 // be OURS — another game's dev server answers a GET happily, and you end up
 // auditing someone else's app. The title is checked before anything is
-// measured.
+// measured. And OUR OWN NAME IS NOT ENOUGH EITHER: a `vite preview` of some
+// earlier session's `dist-*` scratchpad serves the same title out of a build
+// that no longer matches the tree, so a fix can be made, re-run and come back
+// unchanged twice over. Reuse therefore also demands vite's dev client in the
+// HTML (`servesUs`) and skips `preview` processes in the port scan.
 //
 // SCROLLERS ARE NOT OVERFLOWS. `.f-tabs` scrolls sideways by design and the
 // spellbook's list scrolls down by design; both report scrollWidth or
@@ -59,6 +66,23 @@
 // ad-blocker explainer. All three set their copy as wrapping `story-text` in a
 // box with a `max-width`, which is the shape that cannot overflow; the screens
 // that broke are the ones that paint a fixed size into a fixed box.
+//
+// WHAT IT CANNOT MEASURE, on screens it does visit: a string that is never
+// PRINTED. The probe walks the DOM and reads text nodes, so a sentence that
+// only ever exists as an `aria-label` over a canvas or an icon has no box for
+// it to compare against, and no run of this tool can tell you whether it
+// fits. Those strings are spoken, not laid out, so there is nothing to fit —
+// but they must not be counted as covered either:
+//
+//   star.tabLabel        the chapter tab is PAINTED (`game/map/badge.ts`
+//                        draws `★ n/5` as a glyph and a numeral); the label
+//                        is the spoken version of that picture.
+//   daily.open           a bare tap target laid over the canvas gift.
+//   album.chapter/found/friend/dressTab/albumTab, photo.title/take/card/empty
+//                        picture tabs, baked sticker cells and photo cards.
+//
+// The album's own measurable copy is its title, its count line, its hint and
+// `photo.fullHint`; the daily gift's is `daily.stickerToast`.
 //
 // A MODAL IS MODAL. While a dialog is up it covers the scene on purpose, so
 // the audit measures inside the dialog and nowhere else. Without that, every
@@ -95,6 +119,7 @@ const HEADED = flag('headed')
 const TIMES = flag('times')
 const PORT = Number(arg('port', String(5250 + Math.floor(Math.random() * 400))))
 const SHOT_DIR = resolve(HERE, 'shots')
+const OUT = resolve(ROOT, arg('out', resolve(HERE, 'findings.json')))
 
 /* ── the in-page probe ────────────────────────────────────────────────────
  *
@@ -488,22 +513,35 @@ const CONTRAST_PROBE = () => {
 // answers the HTML and then hangs every module request, which reads exactly
 // like a dead app and costs a run to diagnose. The owner usually has one
 // running already — that one is the app, and it is never ours to stop.
-const servesUs = async (url) => {
+//
+// …AND A PREVIEW IS NOT A DEV SERVER. `vite preview` answers `/` with the same
+// `<title>` out of a BUILT folder that may be weeks old and may belong to a
+// different working tree altogether — this machine usually has two or three of
+// them up, serving other sessions' `dist-*` scratchpads. The title check alone
+// let one of those win the port scan, and a whole sweep measured a stale
+// bundle: every fix made in the source tree came back unchanged, twice, before
+// anybody looked at the command line behind the port. So reuse asks the page
+// itself whether it is a dev server — vite's own client shim is injected into
+// the HTML it serves and into nothing else.
+const servesUs = async (url, mustBeDev = true) => {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
-    return /<title>\s*Auroras Magic/i.test(await res.text())
+    const html = await res.text()
+    if (!/<title>\s*Auroras Magic/i.test(html)) return false
+    return mustBeDev ? /\/@vite\/client/.test(html) : true
   } catch {
     return false
   }
 }
 
-/** Ports that a vite process of THIS project is listening on. */
+/** Ports that a vite DEV server of this project is listening on. */
 const runningServers = () => {
   if (process.platform !== 'win32') return []
   try {
     const out = execFileSync('powershell', ['-NoProfile', '-Command',
       "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\"" +
-      " | Where-Object { $_.CommandLine -like '*vite*' } | ForEach-Object {" +
+      " | Where-Object { $_.CommandLine -like '*vite*' -and $_.CommandLine -notlike '*preview*' }" +
+      " | ForEach-Object {" +
       " Get-NetTCPConnection -State Listen -OwningProcess $_.ProcessId -ErrorAction SilentlyContinue" +
       " | Select-Object -ExpandProperty LocalPort }"], { encoding: 'utf8' })
     return [...new Set(out.split(/\s+/).map(Number).filter((n) => n > 0))]
@@ -537,7 +575,12 @@ ${log}`)
 const resolveServer = async () => {
   const given = arg('server', '')
   if (given) {
-    if (!await servesUs(given)) throw new Error(`${given} does not serve Auroras Magic`)
+    if (!await servesUs(given, false)) throw new Error(`${given} does not serve Auroras Magic`)
+    // A hand-given URL is taken at its word — but say so if it is a preview of
+    // a build, because then the run measures whatever was compiled, not what
+    // is on disk.
+    if (!await servesUs(given, true)) process.stderr.write(`! ${given} is not a dev server — it serves a BUILD
+`)
     return { base: given.replace(/\/$/, ''), proc: null }
   }
   for (const port of runningServers()) {
@@ -566,7 +609,18 @@ const STEPS = [
   {
     id: 'intro',
     need: '.intro-scene .skip',
-    go: async (p) => { await p.evaluate(() => window.__intro?.step(3)) }
+    // THE PICTURE BOOK IS NO LONGER WHERE A SESSION STARTS (owner, 2026-09-23,
+    // `flow/nodes.ts`): it now sits between the first win and the first sponge
+    // and is raised by the tap on a waiting gift, so a cold boot lands on the
+    // map or a dialogue. This step used to rely on booting INTO it, and the
+    // day that changed both intro steps started reporting "not reached" in
+    // twenty-one languages — a silent loss of the whole scene's copy, which is
+    // the failure mode this tool exists to prevent. Ask for it by name.
+    go: async (p) => {
+      await p.evaluate(() => window.__intro?.play())
+      await p.waitForFunction(() => window.__flow.state().scene === 'intro', null, { timeout: 15000 }).catch(() => {})
+      await p.evaluate(() => window.__intro?.step(3))
+    }
   },
   {
     id: 'intro-play',
@@ -684,21 +738,9 @@ const STEPS = [
     }
   },
   {
-    id: 'leaderboard',
-    need: '.f-modal',
-    go: async (p) => {
-      const b = p.locator('.map-scene .corner button').nth(2)
-      if (await b.count()) await b.click({ timeout: 4000 }).catch(() => {})
-    }
-  },
-  {
     id: 'wardrobe',
     need: '.wardrobe-scene',
     go: async (p) => {
-      // The board is a `v-model` on the app root with no QA hook: close it the
-      // way a player does, or it rides along over every later screen.
-      const x = p.locator('.f-modal__close')
-      if (await x.count()) await x.first().click({ timeout: 4000 }).catch(() => {})
       await p.evaluate(() => {
         const c = window.__campaign.state()
         c.giftsOwned = 0x3ff
@@ -738,6 +780,130 @@ const STEPS = [
       await p.evaluate(() => window.__versus.start())
       await p.waitForFunction(() => window.__flow.state().scene === 'duel', null, { timeout: 15000 }).catch(() => {})
       await p.evaluate(() => { window.__S.queue = [0, 5]; window.__S.equeue = [1, 4] })
+    }
+  },
+
+  /* ── the retention pass's four surfaces (2026-09) ──────────────────────
+   *
+   * APPENDED rather than woven in. Each of these four needs a save state the
+   * seventeen steps above do not produce — a loss streak, a spent calendar
+   * day, a full album — and writing that state into the middle of the tour
+   * would change the screens the older steps measure. At the end it can only
+   * change screens that are already behind us.
+   *
+   * A SMALL BITSET, written by hand. `S.campaign`'s sets are base64 bytes
+   * (`campaign/bitset.ts`), and there is no `setBit` on `window` — so the
+   * three of them these steps need are built in the page. Fifty nodes is
+   * seven bytes. */
+  {
+    id: 'duel-help',
+    // Aurora's note after two losses on a node (`components/duel/
+    // DuelHelpNote.vue`, raised by `game/duel/help.ts`). Its `.line` is the
+    // one genuinely tight box the pass added: two lines at `max-height:
+    // 2.5em`, with `overflow: hidden` — exactly the shape rule 1 can see.
+    need: '.help-note .line',
+    go: async (p) => {
+      // `duelFlow` reads `lossStreakOf(n)` ONCE, as the duel starts, so the
+      // streak has to be on the save before `__gotoNode` and not after.
+      //
+      // …and the HUD suppresses the note for the whole of the three-beat
+      // ONBOARDING (`S.intro`), which a QA profile has never finished. That
+      // is the right behaviour — a first-timer is not being told she has
+      // lost twice — and it is also why this step used to measure nothing.
+      await p.evaluate(() => {
+        window.__campaign.state().lossStreaks = { 0: 2 }
+        window.__S.intro = 0
+      })
+      await p.evaluate(() => window.__gotoNode(0))
+      await p.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 15000 })
+      // The note leaves after eleven DUEL seconds or the first rune landed
+      // (`helpNoteUp`), and getting here spends some of them. Winding the
+      // duel's own clock back is what keeps the card on screen long enough
+      // to be measured; it moves no box.
+      await p.evaluate(() => { window.__S.intro = 0; window.__S.dur = 0; window.__S.landed = 0 })
+    }
+  },
+  {
+    id: 'map-daily',
+    // The daily gift (`game/map/dailyGift.ts`).
+    //
+    // `daily.open` is an aria-label on a bare tap target laid over the canvas
+    // — it has no text node, so there is nothing in the DOM to measure and
+    // the audit says so rather than pretending to cover it. The line this
+    // step IS here for is `daily.stickerToast`, which only the STICKER branch
+    // raises: so everything restored has already bloomed (no bloom left to
+    // give) and no creature has been met yet.
+    //
+    // `giftDay` is the day the gift was last TAKEN; 0 is "never", which is
+    // what makes one due without waiting for midnight.
+    need: '.map-scene .bloom-toast',
+    go: async (p) => {
+      await p.evaluate(() => {
+        const bits = (n) => {
+          const b = new Uint8Array(7)
+          for (let i = 0; i < n; i++) b[i >> 3] |= 1 << (i & 7)
+          return btoa(String.fromCharCode(...b))
+        }
+        const c = window.__campaign.state()
+        c.furthestNode = 3
+        c.sectorsDone = bits(4)
+        c.blooms = bits(4)
+        c.creaturesMet = bits(0)
+        c.giftDay = 0
+        // The gift waits beside the node the book opens on — `furthestNode`
+        // + 1 — so the map is focused there or the present is off the page.
+        window.__flow.goto('map', 4)
+      })
+      await p.waitForSelector('.map-scene button.daily', { timeout: 10000 })
+      // By event, not by pointer. The present is placed from the canvas's own
+      // geometry and on a short viewport it can sit under the chapter ribbon,
+      // which makes a real click land on the ribbon instead.
+      await p.locator('.map-scene button.daily').dispatchEvent('click')
+      // BOTH rewards print into `.bloom-toast` — the bloom raises the map's
+      // own `bloom.claimedToast` — so the marker alone cannot tell which one
+      // is on screen, and a step that quietly measured the OLD string would
+      // report this surface as covered. A creature met is the sticker
+      // branch's own footprint.
+      const met = await p.evaluate(() => {
+        let n = 0
+        const b = atob(window.__campaign.state().creaturesMet)
+        for (let i = 0; i < b.length; i++) for (let x = b.charCodeAt(i); x; x >>= 1) n += x & 1
+        return n
+      })
+      if (!met) throw new Error('the daily gift gave a bloom, not a sticker')
+    }
+  },
+  {
+    id: 'album',
+    // The tent's second page (`components/album/AlbumPanel.vue`) with the
+    // photo cards at the top of it (`PhotoCard.vue`).
+    //
+    // FULL, deliberately: `album.count` is at its widest when both of its
+    // numbers have two digits, and a full album is also the only state that
+    // puts every sticker cell and every gold friend frame on the page at
+    // once. `album.chapter`, `album.found`, `album.friend`, `album.dressTab`,
+    // `album.albumTab`, `photo.title`, `photo.take`, `photo.card` and
+    // `photo.empty` are all aria-labels on canvases and icon buttons — read
+    // aloud, never printed — so what is measurable here is the title, the
+    // count line, the album hint and `photo.fullHint`.
+    need: '.album-panel .count',
+    go: async (p) => {
+      await p.evaluate(() => {
+        const c = window.__campaign.state()
+        c.giftsOwned = 0x3ff
+        c.creaturesMet = btoa(String.fromCharCode(...new Uint8Array(7).fill(255)))
+        c.rescued = 0x3ff
+        window.__flow.goto('wardrobe', 4)
+      })
+      await p.waitForSelector('.wardrobe-scene .tent-tab', { timeout: 10000 })
+      await p.locator('.wardrobe-scene .tent-tab').nth(1).click({ timeout: 4000 })
+      // Two cards taken, so a filled card and an empty one are both on the
+      // page — they are the same box, and a full row is what `photo.fullHint`
+      // sits under.
+      for (let i = 0; i < 2; i++) {
+        await p.locator('.album-panel .pose').click({ timeout: 4000 }).catch(() => {})
+        await p.waitForTimeout(80)
+      }
     }
   }
 ]
@@ -908,6 +1074,6 @@ if (skipped.length) {
   for (const s of skipped) per.set(s.step, (per.get(s.step) ?? 0) + 1)
   console.log(`\nnot reached: ${[...per].map(([k, n]) => `${k}×${n}`).join(', ')}`)
 }
-writeFileSync(resolve(HERE, 'findings.json'), JSON.stringify(findings, null, 1))
-console.log(`\nraw → tools/locale-fit/findings.json`)
+writeFileSync(OUT, JSON.stringify(findings, null, 1))
+console.log(`\nraw → ${OUT}`)
 process.exit(rows.length || (CONTRAST && contrastRows.some((f) => f.kind === 'LOWCONTRAST')) ? 1 : 0)

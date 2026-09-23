@@ -209,17 +209,7 @@ export default {
 
   'leaderboard': {
     'title': 'Ranking',
-    'rank': '#',
-    'player': 'Gracz',
-    'score': 'Wygrane',
-    'flair': 'Postęp',
-    'empty': 'Jeszcze nikt nie zagrał. Zacznij!',
-    'failed': 'Nie udało się wczytać rankingu.',
-    'loading': 'Wczytywanie…',
-    'you': 'Ty',
-    'yourRank': 'Jesteś #{n} z {total}',
-    'of': 'z {n} graczy',
-    'tabGlobal': 'Światowy'
+    'of': 'z {n} graczy'
   },
 
   'a11y': {
@@ -520,11 +510,44 @@ export default {
     'claimedToast': 'To miejsce jest w pełnym rozkwicie!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} z {total} gwiazdek'
+  },
+
+  'daily': {
+    'open': 'Otwórz dzisiejszy prezent',
+    'stickerToast': 'Nowy przyjaciel do twojego albumu!'
+  },
+
+  'album': {
+    'title': 'Album z naklejkami',
+    'hint': 'Dotknij stworzenia w miejscu, które znów rozkwitło, a jego naklejka trafi do albumu.',
+    'count': 'Znaleziono {met} z {total}',
+    'chapter': 'Rozdział {n}',
+    'found': 'Znaleziona naklejka',
+    'friend': 'Uratowany przyjaciel',
+    'dressTab': 'Ubieranie',
+    'albumTab': 'Album z naklejkami'
+  },
+
+  'photo': {
+    'title': 'Karty ze zdjęciami',
+    'take': 'Zrób zdjęcie',
+    'card': 'Karta ze zdjęciem {n}',
+    'empty': 'Pusta karta ze zdjęciem',
+    'fullHint': 'Album mieści {n} kart. Nowe zdjęcie zajmuje miejsce najstarszego.'
+  },
+
   'duel': {
     'almostRune': 'PRAWIE {rune}!'
   },
 
   'license': {
     'denied': 'Odmowa dostępu: kup licencję.'
+  },
+
+  'help': {
+    'auroraLine': 'Chodź — narysuję ją z tobą!',
+    'perfectRune': 'Pięknie narysowana!'
   }
 }

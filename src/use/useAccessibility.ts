@@ -14,7 +14,7 @@
  *
  * Both are persisted like the haptics toggle, and re-read on a hydrate bump.
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getState, setState } from '@/use/useGameState'
 import { saveDataVersion } from '@/use/useSaveStatus'
 import { TRACE_ASSIST_KEY, REDUCED_MOTION_KEY } from '@/keys'
@@ -50,6 +50,28 @@ export const setReducedMotion = (on: boolean): void => {
   reducedMotion.value = on
   setState(REDUCED_MOTION_KEY, on)
 }
+
+/* ── the per-duel override (retention item 8) ─────────────────────────────
+ *
+ * After two losses on a node the duel turns the ghost on BY ITSELF
+ * (`game/duel/help.ts`). That is help for one fight, not a preference the
+ * child expressed, so it must never reach the save: a player who has never
+ * opened Options must still find "Show rune guides" switched OFF afterwards,
+ * and the ghost must be gone from the next duel she wins her way into.
+ *
+ * Hence a second, transient ref that is OR-ed with the setting rather than
+ * written into it. `setTraceAssist` (Options) and `setDuelTraceAssist` (the
+ * duel) can never overwrite each other, and only the first one persists.
+ */
+const duelTraceAssist = ref(false)
+
+/** Turn the ghost on for the duel on screen. Transient by contract: nothing
+ *  here calls `setState`. */
+export const setDuelTraceAssist = (on: boolean): void => { duelTraceAssist.value = on }
+
+/** What the renderer should actually draw: the saved setting, or this duel's
+ *  own help. The setting stays the thing Options reads and writes. */
+export const traceAssistNow = computed<boolean>(() => traceAssist.value || duelTraceAssist.value)
 
 /**
  * Publish the setting to CSS as `html.am-reduced`.

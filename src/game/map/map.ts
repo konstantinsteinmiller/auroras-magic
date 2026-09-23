@@ -31,6 +31,7 @@
 import { S } from '@/game/duel/state'
 import { hasBit, getPaintPick } from '@/game/campaign/bitset'
 import { pendingSectorNode } from '@/game/campaign/state'
+import { meetCreature } from '@/game/campaign/controller'
 import { CHAPTERS, CHAPTER_COUNT, NODES_PER_CHAPTER, nodeChapter, nodeIsBoss, LAST_BUILT_NODE, toolOf } from '@/game/campaign/tables'
 import { sectorOf } from '@/game/map/sectors'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
@@ -38,14 +39,16 @@ import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
 import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
-import { BADGE_ART, badgeFrame, paintBadge } from '@/game/map/badge'
+import { BADGE_ART, badgeFrame, paintBadge, paintStarSticker } from '@/game/map/badge'
+import { hasStar } from '@/game/campaign/stars'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
 import { readInsets } from '@/game/duel/layout'
-import { clamp, seeded, sin, TAU, PI } from '@/game/duel/util'
-import { mapHud } from '@/use/useMapHud'
+import { clamp, ease, lerp, seeded, sin, TAU, PI } from '@/game/duel/util'
+import { mapHud, rankInset } from '@/use/useMapHud'
 import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
+import { dailyGift, drawDaily } from '@/game/map/dailyGift'
 import { drawBloom } from '@/game/map/bloom'
 import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
 import { spriteFor, onArtChanged } from '@/game/art'
@@ -53,9 +56,10 @@ import { pageArtId, frontPageArtId } from '@/game/artIds'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
 import { drawBookmark, drawDogEar, drawSpine, drawTurned, shadeTurnEdge, turnAngle, turnWidth } from '@/game/flow/pageTurn'
-import { drawUnicorn, type Face } from '@/game/duel/chars'
+import { drawUnicorn, RIG_HEIGHT, type Face } from '@/game/duel/chars'
+import { guardianOf, type FoePalette } from '@/game/duel/foes'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
-import { drawFxUnder, drawFxOver, sparkleBurst } from '@/game/duel/fx'
+import { drawFxUnder, drawFxOver, sparkleBurst, trail, glint } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { haptic } from '@/use/useHaptics'
 
@@ -227,7 +231,7 @@ const thumbOf = (n: number): Thumb => {
  *  buttons along the bottom in portrait, the tab ribbon down the right in
  *  landscape. The camera may scroll the last page past it, and a focused
  *  node is centred in the view that is left — so no pulsing node is ever
- *  stuck under a button (a tap there would open the leaderboard). */
+ *  stuck under a button (a tap there would open the options or the book). */
 const CHROME_BOTTOM = 96
 const CHROME_RIGHT = 64
 /** Portrait: the chapter ribbon runs across the TOP, and the page starts
@@ -312,7 +316,16 @@ const settleTurn = (done: boolean): void => {
   turnP = 0
   turnHeld = false
   dropSwing()
+  if (done && wayLanding >= 0) landWayOn()
+  wayLanding = -1
   publish()
+}
+
+/** A page turned by the player's own hand — a corner or a chapter tab. */
+const turnByHand = (to: number): boolean => {
+  if (!startTurn(to)) return false
+  handTurned = true
+  return true
 }
 
 /** Open the book at node `n`'s page (or the current node's). */
@@ -333,7 +346,8 @@ export const focusMap = (n = -1, animate = false): void => {
 
 /** Turn to chapter `c`'s page (the tab ribbon). */
 export const showChapter = (c: number): void => {
-  startTurn(clamp(c + 1, 0, PAGE_COUNT - 1))
+  dropNextUp()
+  turnByHand(clamp(c + 1, 0, PAGE_COUNT - 1))
 }
 
 /* ---------------------------------------------------------------- input */
@@ -375,6 +389,10 @@ export const peekCreature = (n: number): void => {
   peeks.set(n, T)
   sfx('peek', n % 6)
   haptic('tick')
+  // …and the album remembers it was met (retention item 3). The campaign owns
+  // that bit and only writes when it changes, so a child tapping the same
+  // creature all afternoon costs nothing.
+  meetCreature(n)
 }
 /** A restored sector's tap spot on screen: [x, y, radius], CSS px. */
 const tapScreen = (n: number): [number, number, number] | null => {
@@ -429,6 +447,12 @@ const hitTest = (x: number, y: number): MapTarget | null => {
 }
 
 export const mapPointerDown = (x: number, y: number, t: number): void => {
+  // The first touch ends the "next up" peek: the player is steering now, and
+  // a page that turns itself under a finger is the camera fight item 6 is
+  // explicitly not allowed to start.
+  dropNextUp()
+  // …and the front page is not idle: its self-turn counts untouched time.
+  wayT = 0
   pressed = true
   dragging = false
   downX = lastX = x
@@ -477,7 +501,10 @@ export const mapPointerUp = (x: number, y: number, t: number): void => {
     // fast nudge is a child steadying the tablet, not a turn.
     const flick = turnP > 0.12 && (turnDir > 0 ? dragV < -520 : dragV > 520)
     turnTo = turnP > 0.32 || flick ? 1 : 0
-    if (turnTo === 1) sfx('page')
+    if (turnTo === 1) {
+      sfx('page')
+      handTurned = true
+    }
   }
   dragV = 0
   dragging = false
@@ -490,21 +517,433 @@ const tapCorner = (x: number, y: number): boolean => {
   const r = pageRect(page)
   const s = earSize() * 1.25
   if (y < r.y + r.h - s || y > r.y + r.h + s * 0.4) return false
-  if (x > r.x + r.w - s && page < PAGE_COUNT - 1) return startTurn(page + 1)
-  if (x < r.x + s && page > 0) return startTurn(page - 1)
+  if (x > r.x + r.w - s && page < PAGE_COUNT - 1) return turnByHand(page + 1)
+  if (x < r.x + s && page > 0) return turnByHand(page - 1)
   return false
+}
+
+/* ────────────────── "next up", after a restore (item 4 of the map's
+ *                    reward loop; retention-roadmap item 6) ────────────── */
+//
+// The moment a sector turns to colour is the moment most likely to end a
+// session, so the book shows where the story goes next: it settles on the
+// sector just restored, holds a beat, then opens the page the NEXT node is
+// on and gives that node's badge one wiggle — the same ±4° shake an unopened
+// gift does, because a child already knows that shake means "this one".
+//
+// It is a peek, not a cutscene. Nothing here gates input: the whole beat is
+// one page turn and one wiggle, and the first touch on the book cancels it
+// (`mapPointerDown`) so a child who taps straight through is never fighting
+// the camera. There is no peek at the finale — node 49 has nothing after it.
+const NEXT_UP_HOLD = 0.8
+/** How long the wiggle and the boss flash last, from the hold on. */
+const NEXT_UP_LIFE = 2.4
+/** The Guardian's shadow fades up and out over this, inside the hold. */
+const NEXT_UP_FLASH = 1.1
+/** A silhouette: one deep plum in all ten palette slots, so the rig comes out
+ *  as a shape rather than a character standing on a card. */
+const GUARDIAN_SHADOW = Array.from({ length: 10 }, () => '#2a1636') as unknown as FoePalette
+
+let nextUpNode = -1
+let nextUpAt = 0
+/** The page has been opened; the wiggle runs from here. */
+let nextUpTurned = false
+
+/** Stop peeking: the player has taken the book over. */
+const dropNextUp = (): void => { nextUpNode = -1 }
+
+/**
+ * Sector `from` was just restored — peek at whatever comes after it.
+ *
+ * Called by the restore flow once the camera is back on the map. Silent at
+ * the last built node, which is the finale: there is nothing to point at, and
+ * pointing at nothing reads as the game having lost its place.
+ */
+export const peekNextUp = (from: number): void => {
+  const next = from + 1
+  if (from < 0 || next > LAST_BUILT_NODE) {
+    dropNextUp()
+    return
+  }
+  nextUpNode = next
+  nextUpAt = T
+  nextUpTurned = false
+}
+
+/** 0..1 of the peek's wiggle for node `n`, or 0 when it is not the one. */
+const nextUpK = (n: number): number => {
+  if (nextUpNode !== n || !nextUpTurned) return 0
+  const u = T - nextUpAt - NEXT_UP_HOLD
+  return u >= 0 && u < NEXT_UP_LIFE ? 1 : 0
+}
+
+/** The Guardian's shadow on a boss card, 0 … 1 … 0 over `NEXT_UP_FLASH`. */
+const nextUpShadow = (n: number): number => {
+  if (!nextUpK(n) || !nodeIsBoss(n)) return 0
+  const u = T - nextUpAt - NEXT_UP_HOLD
+  return u < NEXT_UP_FLASH ? sin((u / NEXT_UP_FLASH) * PI) : 0
+}
+
+/** Test/QA seam: which node is being peeked at, or -1. */
+export const peekingNextUp = (): number => nextUpNode
+
+/* ──────────────── the front page's way on (owner, 2026-09-23) ─────────── */
+//
+// The front page is where the book lies open when nothing has opened it
+// anywhere else — above all right after the very first duel, which a cold
+// boot goes straight into. Its only way on was a folded corner, and a child
+// who has never turned this book's pages does not see one: the owner found
+// the cover "staying up forever". So, for a player who has not yet turned a
+// page by hand this session:
+//
+//   • A RAINBOW SWIPE crosses the page: a fingertip presses beside the folded
+//     corner — which lifts — and sweeps the page over from right to left,
+//     trailing colour and sparkles. The gesture itself, shown; no words.
+//   • ONCE A SESSION, a front page left untouched for `WAY_AUTO` seconds turns
+//     itself to the page the player is up to (her gift's, or her next node's)
+//     and sparkles there, so nobody can be left on the cover.
+//
+// Any page turned by hand — a drag, a corner, a chapter tab — ends both for
+// the session: she knows the way, and a front page she opens on purpose (the
+// wardrobe lives there) is hers to stay on. The self-turn is a single page
+// turn a child can interrupt with one touch, never a camera she has to fight.
+const WAY_AUTO = 8
+/** The swipe fades in this long after the page comes up (or is let go of). */
+const WAY_IN = 1.1
+/** One swipe and the rest after it, seconds. */
+const WAY_CYCLE = 2.8
+/** Inside a cycle: the press, the sweep, the lift. */
+const WAY_PRESS = 0.35
+const WAY_SWEEP = 1.2
+const WAY_LIFT = 0.4
+/** Seconds the front page has been up and untouched. */
+let wayT = 0
+/** The front page was up last frame (so a return to it starts afresh). */
+let wayWas = false
+/** The player has turned a page herself this session. */
+let handTurned = false
+/** The book has turned itself once this session. */
+let wayAutoUsed = false
+/** The node a self-turn is carrying her to, until the page lands. */
+let wayLanding = -1
+/** When the next sparkle leaves the swipe's fingertip. */
+let wayFx = 0
+
+type Rect = { x: number; y: number; w: number; h: number }
+
+/** Is the front page showing its way on right now? */
+const wayOn = (): boolean => page === 0 && !turning() && !handTurned && S.flow.scene === 'map'
+
+/** The node the book should open at: the gift waiting, or the next node. */
+const wayOnNode = (): number => pendingSectorNode(S.campaign) ?? clamp(S.campaign.furthestNode + 1, 0, LAST_BUILT_NODE)
+
+/** The swipe's clock: the moment inside its cycle, or -1 while it has not
+ *  faded in yet. Held still under reduced motion (§3.11) — a swipe drawn
+ *  once, mid-stroke, still says which way the page goes. */
+const wayU = (): number => {
+  if (wayT < WAY_IN) return -1
+  return reducedMotion.value ? WAY_PRESS + WAY_SWEEP * 0.7 : (wayT - WAY_IN) % WAY_CYCLE
+}
+
+/** The swipe's path at 0..1 over the front page's rect `r`: in from the
+ *  fore-edge side, bowing up, and across toward the spine — the way a page
+ *  is pulled over. Always in the open sky (in portrait the scene is only the
+ *  page's bottom 40 %), so it never hides Aurora or the tent. */
+const wayAt = (r: Rect, f: number): [number, number] => {
+  const yb = r.y + r.h * (portrait ? 0.44 : 0.36)
+  const x0 = r.x + r.w * (portrait ? 0.86 : 0.88)
+  const y0 = yb
+  const x1 = r.x + r.w * (portrait ? 0.14 : 0.2)
+  const y1 = yb - r.w * 0.035
+  const cx = lerp(x0, x1, 0.45)
+  const cy = yb - r.w * 0.13
+  const a = (1 - f) * (1 - f)
+  const m = 2 * f * (1 - f)
+  const c = f * f
+  return [a * x0 + m * cx + c * x1, a * y0 + m * cy + c * y1]
+}
+
+/** Head and tail of the swipe (0..1 along the path) at cycle time `u`. */
+const wayEnds = (u: number): [number, number] => {
+  const head = ease(clamp((u - WAY_PRESS) / WAY_SWEEP, 0, 1))
+  const tail = ease(clamp((u - WAY_PRESS - 0.2) / (WAY_SWEEP + WAY_LIFT - 0.2), 0, 1))
+  return [head, reducedMotion.value ? 0.08 : tail]
+}
+
+const stepWayOn = (dt: number): void => {
+  const on = wayOn()
+  if (on && !wayWas) wayT = 0
+  wayWas = on
+  if (!on) return
+  if (!pressed) wayT += dt
+  if (!wayAutoUsed && wayT >= WAY_AUTO) {
+    wayAutoUsed = true
+    const n = wayOnNode()
+    if (startTurn(pageOfNode(n))) wayLanding = n
+    return
+  }
+  // Sparkles shed off the fingertip while it sweeps.
+  const u = wayU()
+  if (u < WAY_PRESS || u > WAY_PRESS + WAY_SWEEP || reducedMotion.value) return
+  wayFx -= dt
+  if (wayFx > 0) return
+  wayFx = 0.035
+  const [head] = wayEnds(u)
+  const [x, y] = wayAt(pageRect(0), head)
+  trail(x, y, head)
+  if (Math.random() < 0.35) glint(x, y, 5 + Math.random() * 5, 0, (Math.random() - 0.5) * 40, -30 - Math.random() * 40)
+}
+
+/** The self-turn landed: sparkle on what she is up to (her gift, or the
+ *  next node's badge), so the page she was carried to says why. */
+const landWayOn = (): void => {
+  const n = wayLanding
+  if (n < 0) return
+  if (pendingSectorNode(S.campaign) === n) {
+    const [gx, gy, gs] = giftScreen(n)
+    sparkleBurst(gx, gy - gs * 0.4, 0.9)
+  } else {
+    const [mx, my] = markerScreen(n)
+    sparkleBurst(mx, my, 0.8)
+  }
+}
+
+/** How far the swipe lifts the folded corner, 0..1: it rises as the
+ *  fingertip presses and settles as the sweep carries on. */
+const wayLift = (): number => {
+  if (!wayOn()) return 0
+  const u = wayU()
+  if (u < 0) return 0
+  if (reducedMotion.value) return 0.6
+  return u < WAY_PRESS ? ease(u / WAY_PRESS) : 1 - ease(clamp((u - WAY_PRESS) / 0.8, 0, 1))
+}
+
+/** The swipe's ribbon, top stripe to bottom — the page's own rainbow, turned
+ *  up bright enough to be seen across the room. */
+const WAY_STRIPES = ['#ff6f9f', '#ffa24a', '#ffd84a', '#6fdc7a', '#5cb8ff', '#a883ff'] as const
+const WAY_INK = '#3A2340'
+/** The ribbon's spine, sampled once per frame (tail → head), and its normals. */
+const WAY_N = 28
+const wayPts = new Float32Array((WAY_N + 1) * 4)
+
+/**
+ * A white cartoon glove with its index finger out — the universal "put your
+ * finger here" — its fingertip at (0, 0), pointing up, `u` a finger's width.
+ * Drawn as one silhouette: every part stroked fat in ink first, then every
+ * part filled over it, so the outline runs round the whole hand and never
+ * between its parts.
+ */
+const drawGlove = (g: G2D, u: number): void => {
+  const parts = (): void => {
+    // The index finger, rounded at its tip.
+    g.beginPath()
+    g.roundRect(-0.46 * u, 0, 0.92 * u, 2.5 * u, 0.46 * u)
+    g.moveTo(0, 0)
+    // The three curled fingers, as knuckles along the palm's top.
+    g.moveTo(1.2 * u, 2.05 * u)
+    g.arc(0.8 * u, 2.05 * u, 0.4 * u, 0, TAU)
+    g.moveTo(1.8 * u, 2.2 * u)
+    g.arc(1.42 * u, 2.2 * u, 0.38 * u, 0, TAU)
+    g.moveTo(2.3 * u, 2.45 * u)
+    g.arc(1.96 * u, 2.45 * u, 0.34 * u, 0, TAU)
+    // The palm.
+    g.moveTo(2.25 * u, 3.1 * u)
+    g.ellipse(0.9 * u, 3.1 * u, 1.35 * u, 1.05 * u, 0, 0, TAU)
+    // The thumb, reaching up the index finger's side.
+    g.moveTo(-0.2 * u, 2.2 * u)
+    g.ellipse(-0.55 * u, 2.65 * u, 0.36 * u, 0.62 * u, -0.6, 0, TAU)
+  }
+  const cuff = (): void => {
+    g.beginPath()
+    g.roundRect(0.05 * u, 3.75 * u, 1.75 * u, 0.75 * u, 0.3 * u)
+  }
+  const ink = Math.max(2, u * 0.2)
+  g.lineJoin = 'round'
+  g.lineWidth = ink * 2
+  g.strokeStyle = WAY_INK
+  parts()
+  g.stroke()
+  cuff()
+  g.stroke()
+  g.fillStyle = '#ffffff'
+  parts()
+  g.fill()
+  g.fillStyle = '#d9c8ff'
+  cuff()
+  g.fill()
+  // The creases between the curled fingers, and the nail's shine.
+  g.lineWidth = ink * 0.7
+  g.lineCap = 'round'
+  g.beginPath()
+  g.moveTo(1.12 * u, 2.2 * u)
+  g.lineTo(1.1 * u, 2.6 * u)
+  g.moveTo(1.72 * u, 2.4 * u)
+  g.lineTo(1.68 * u, 2.75 * u)
+  g.stroke()
+  g.beginPath()
+  g.ellipse(-0.08 * u, 0.42 * u, 0.13 * u, 0.2 * u, 0, 0, TAU)
+  g.fillStyle = 'rgba(58,35,64,0.12)'
+  g.fill()
+}
+
+/** The rainbow swipe over the front page's rect `r`. */
+const drawWayOn = (g: G2D, r: Rect): void => {
+  if (!wayOn()) return
+  const u = wayU()
+  if (u < 0) return
+  const fade = clamp((wayT - WAY_IN) / 0.45, 0, 1)
+  const [head, tail] = wayEnds(u)
+  // The hand: down with the press, up and away with the lift.
+  const lift = clamp((u - WAY_PRESS - WAY_SWEEP) / WAY_LIFT, 0, 1)
+  const hand = reducedMotion.value ? 1 : ease(clamp(u / (WAY_PRESS * 0.7), 0, 1)) * (1 - lift)
+  if (fade <= 0 || (hand <= 0 && head - tail < 0.01)) return
+  // Sized off the page's short side — but never below half its long one, or
+  // a phone held upright (a page ~390 px wide) gets a hand smaller than the
+  // finger it is asking for.
+  const side = Math.max(Math.min(r.w, r.h), Math.max(r.w, r.h) * 0.45)
+  const W = clamp(side * 0.075, 16, 52)
+  g.save()
+  g.globalAlpha = fade
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  // THE RIBBON: six stripes laid side by side along the swipe, as a rainbow
+  // is — widest at the hand and drawn to a point at the tail, so it reads as
+  // a comet the hand is pulling across the page. A soft white halo lifts it
+  // off a pale sky; a thin ink edge ties it to the book's drawn line.
+  const span = head - tail
+  if (span > 0.004) {
+    for (let i = 0; i <= WAY_N; i++) {
+      const [x, y] = wayAt(r, tail + (span * i) / WAY_N)
+      wayPts[i * 4] = x
+      wayPts[i * 4 + 1] = y
+    }
+    for (let i = 0; i <= WAY_N; i++) {
+      const a = Math.max(0, i - 1)
+      const b = Math.min(WAY_N, i + 1)
+      const dx = wayPts[b * 4]! - wayPts[a * 4]!
+      const dy = wayPts[b * 4 + 1]! - wayPts[a * 4 + 1]!
+      const d = Math.hypot(dx, dy) || 1
+      // The half-width rides along the normal: a point at the tail, full at
+      // the head (a square root, so the comet fattens quickly and then holds).
+      const hw = (W / 2) * Math.sqrt(i / WAY_N)
+      // The normal that points UP while the swipe runs right to left, so
+      // the first stripe is the outer one, as it is in a rainbow.
+      wayPts[i * 4 + 2] = (dy / d) * hw
+      wayPts[i * 4 + 3] = (-dx / d) * hw
+    }
+    const band = (f0: number, f1: number): void => {
+      g.beginPath()
+      for (let i = 0; i <= WAY_N; i++) {
+        const o = i * 4
+        const x = wayPts[o]! + wayPts[o + 2]! * f0
+        const y = wayPts[o + 1]! + wayPts[o + 3]! * f0
+        if (i) g.lineTo(x, y)
+        else g.moveTo(x, y)
+      }
+      for (let i = WAY_N; i >= 0; i--) {
+        const o = i * 4
+        g.lineTo(wayPts[o]! + wayPts[o + 2]! * f1, wayPts[o + 1]! + wayPts[o + 3]! * f1)
+      }
+      g.closePath()
+    }
+    // The halo, then the ink edge, then the stripes over both.
+    band(-1.7, 1.7)
+    g.fillStyle = 'rgba(255,255,255,0.45)'
+    g.fill()
+    band(-1, 1)
+    g.lineWidth = Math.max(1.5, W * 0.06)
+    g.strokeStyle = 'rgba(58,35,64,0.55)'
+    g.stroke()
+    const n = WAY_STRIPES.length
+    for (let j = 0; j < n; j++) {
+      // A hair of overlap, so no paper shows between two stripes.
+      band(-1 + (2 * j) / n - 0.01, -1 + (2 * (j + 1)) / n + 0.01)
+      g.fillStyle = WAY_STRIPES[j]!
+      g.fill()
+    }
+    // A sheen along the top stripes: the ribbon is satin, not paint.
+    band(-0.62, -0.42)
+    g.fillStyle = 'rgba(255,255,255,0.4)'
+    g.fill()
+  }
+  if (hand > 0) {
+    const [hx, hy] = wayAt(r, head)
+    // The press: two rings rippling out from the fingertip as it lands.
+    if (!reducedMotion.value && u < WAY_PRESS + 0.45) {
+      for (let k2 = 0; k2 < 2; k2++) {
+        const k = clamp((u - k2 * 0.12) / (WAY_PRESS + 0.33), 0, 1)
+        if (k <= 0 || k >= 1) continue
+        g.beginPath()
+        g.arc(hx, hy, W * (0.35 + k * 1.3), 0, TAU)
+        g.lineWidth = Math.max(2, W * 0.12 * (1 - k))
+        g.strokeStyle = WAY_STRIPES[(k2 * 3) % WAY_STRIPES.length]!
+        g.globalAlpha = fade * (1 - k)
+        g.stroke()
+      }
+    }
+    // The glove, tipped toward the way it is going. It sits a touch smaller
+    // while pressed and rises off the page with the lift.
+    const press = u >= WAY_PRESS * 0.7 && u < WAY_PRESS + WAY_SWEEP ? 0.93 : 1
+    const s = side * 0.031 * lerp(0.7, 1, hand) * press
+    g.globalAlpha = fade * clamp(hand * 1.3, 0, 1)
+    g.save()
+    g.translate(hx + lift * s * 0.8, hy - lift * s * 1.4)
+    g.rotate(-0.35 - lift * 0.15)
+    // Its shadow on the paper, falling down-right, lifting away with it.
+    g.save()
+    g.translate(s * (0.5 + lift * 0.8), s * (0.55 + lift * 1.1))
+    g.fillStyle = 'rgba(58,35,64,0.11)'
+    g.beginPath()
+    g.ellipse(0.9 * s, 2.6 * s, 1.6 * s, 1.8 * s, 0, 0, TAU)
+    g.fill()
+    g.restore()
+    drawGlove(g, s)
+    g.restore()
+  }
+  g.restore()
+}
+
+/** Test seam: a new session, as far as the front page's way on is concerned. */
+export const __resetWayOn = (): void => {
+  wayT = 0
+  wayWas = false
+  handTurned = false
+  wayAutoUsed = false
+  wayLanding = -1
 }
 
 /* --------------------------------------------------------------- update */
 
 export const updateMap = (dt: number): void => {
   T += dt
+  stepWayOn(dt)
   stepTwin(dt, twinGift.node >= 0 ? twinScreen(twinGift.node) : null)
+  // The peek's one page turn, a beat after the restored sector settled.
+  if (nextUpNode >= 0) {
+    const u = T - nextUpAt
+    if (!nextUpTurned && u >= NEXT_UP_HOLD) {
+      nextUpTurned = true
+      const p = pageOfNode(nextUpNode)
+      // Already on the right page (the usual case: the next node is the next
+      // card along) — then the wiggle alone is the whole peek.
+      if (p !== page && !turning()) startTurn(p)
+      const [mx, my] = markerScreen(nextUpNode)
+      sparkleBurst(mx, my, 0.8)
+    }
+    if (u >= NEXT_UP_HOLD + NEXT_UP_LIFE) dropNextUp()
+  }
   // A bloom just landed: celebrate it where it is.
   if (twinGift.bloomed >= 0) {
     const s = slotOf(twinGift.bloomed)
     sparkleBurst(sx(s.x), sy(s.y), 1.2)
     twinGift.bloomed = -1
+  }
+  // The daily gift's sticker landed on a sector (item 5): the same beat, on
+  // its own channel, because it is not a bloom and the map must not say so.
+  if (dailyGift.celebrate >= 0) {
+    const s = slotOf(dailyGift.celebrate)
+    sparkleBurst(sx(s.x), sy(s.y), 1.2)
+    dailyGift.celebrate = -1
   }
   if (turning() && !turnHeld) {
     const step = dt / 0.42
@@ -554,6 +993,14 @@ const giftScreen = (n: number): [number, number, number] => {
 const twinScreen = (n: number): [number, number, number] => {
   const s = slotOf(n)
   return [sx(s.x + s.w * 0.5 - s.w * 0.07), sy(s.y + s.h * 0.5 + s.h * 0.06), Math.max(52, s.h * ms * 0.34)]
+}
+
+/** The daily gift stands at the LOWER-LEFT corner, the Twin Gift's mirror
+ *  (item 5): the two are different offers and must never be one shape in two
+ *  places, nor ever overlap on a card that carries both. */
+const dailyScreen = (n: number): [number, number, number] => {
+  const s = slotOf(n)
+  return [sx(s.x - s.w * 0.5 + s.w * 0.07), sy(s.y + s.h * 0.5 + s.h * 0.06), Math.max(48, s.h * ms * 0.3)]
 }
 
 /** The wardrobe tent stands on the hub knoll once there is something to wear. */
@@ -997,6 +1444,22 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
   if (st === 'locked') g.globalAlpha = 0.45
   const th = thumbOf(n)
   g.drawImage(th.cv, x, y, w, h)
+  // A boss is next (item 6): her Guardian's shadow rises on the card and is
+  // gone in a second — who is waiting, without a word and without a screen.
+  const shade = nextUpShadow(n)
+  if (shade > 0) {
+    g.save()
+    // Absolute, not multiplied: the card under it is a LOCKED one and already
+    // at 45 %, and a flash that inherits the fade is a smudge.
+    g.globalAlpha = shade * 0.6
+    const k = (h * 0.82) / RIG_HEIGHT
+    g.translate(x + w * 0.5, y + h * 0.94)
+    g.scale(k, k)
+    // `onKey` because a card is not the arena: no contact shadow, no dread
+    // aura — just the silhouette, inside the card's own clip.
+    drawUnicorn(g, 0, 0, 1, { foe: guardianOf(nodeChapter(n)), skin: GUARDIAN_SHADOW, onKey: true }, T)
+    g.restore()
+  }
   // A restored sector's props keep moving on the map (§8.8) — up to a cap,
   // past which they rest on their first frame (§9.5's ≤ 16).
   // A bloomed sector's extra life rides the same budget (§8.8.5): extra props
@@ -1026,6 +1489,16 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
     if (bloomed) drawBloom(g, n, live ? Td + n * 0.9 : 0)
   }
   g.restore()
+  // The replay star (item 4), pressed onto the card's top-right corner —
+  // OUTSIDE the picture's clip, so it sits on the mount like a sticker and
+  // never covers the sector. Only a node that has been played shows one.
+  if (st === 'done') {
+    const sr = Math.max(7, h * 0.12)
+    g.save()
+    g.translate(x + w - b * 0.4, y - b * 0.2)
+    paintStarSticker(g, sr, hasStar(n))
+    g.restore()
+  }
 }
 
 const drawMarker = (g: G2D, n: number): void => {
@@ -1048,6 +1521,11 @@ const drawMarker = (g: G2D, n: number): void => {
   const f = badgeFrame(st, nodeIsBoss(n))
   g.save()
   g.translate(x, y)
+  // The "next up" peek (item 6): the badge takes the unopened gift's own
+  // shake, so the invitation is a shape the player has already learned. A
+  // one-shot reward beat, so it runs on `T` and not on the ambient `Td` —
+  // reduced motion silences the loops, not the moments (§3.11).
+  if (nextUpK(n)) g.rotate(giftShake(T - nextUpAt - NEXT_UP_HOLD))
   if (!drawItem(g, BADGE_ART, r, f)) paintBadge(g, r, f)
   g.restore()
 }
@@ -1103,6 +1581,10 @@ const drawWorld = (g: G2D): void => {
   if (twinGift.node >= 0) {
     const [x, y, s] = twinScreen(twinGift.node)
     if (x > -s && x < vw + s && y > -s && y < vh + s * 1.5) drawTwin(g, x, y, s, Td)
+  }
+  if (dailyGift.node >= 0) {
+    const [x, y, s] = dailyScreen(dailyGift.node)
+    if (x > -s && x < vw + s && y > -s && y < vh + s * 1.5) drawDaily(g, x, y, s, Td)
   }
 }
 
@@ -1197,6 +1679,26 @@ const pageTone = (p: number): string => {
   return tone
 }
 
+/**
+ * Where the ribbon hangs (its centre, CSS px): just LEFT of the rank badge
+ * printed in the page's top-right corner, so the badge reads as sitting right
+ * of the bookmark (owner, 2026-09-23). The badge's width comes back from the
+ * DOM (`mapHud.rankW`) — only it knows how long the placing is in the player's
+ * language — and the ribbon moves to make room rather than the badge wrapping
+ * or sliding under it. With no badge on the page it keeps its old place near
+ * the fore-edge. Held upright, it never hangs further in than 56 % of the
+ * page: the first beat card's frame ends at ~49 %, and the ribbon is long
+ * enough to reach it there (in landscape the top row starts below its tail).
+ */
+const bookmarkX = (r: { x: number; y: number; w: number; h: number }, bw: number): number => {
+  const home = r.x + r.w * 0.86
+  const badge = mapHud.rankW
+  if (badge <= 0) return home
+  const gap = Math.max(6, bw * 0.4)
+  const beside = r.x + r.w - rankInset(r.h) - badge - gap - bw / 2
+  return clamp(beside, r.x + r.w * (portrait ? 0.56 : 0.2), home)
+}
+
 const drawBook = (g: G2D): void => {
   const r = pageRect(page)
   // The binding sits in the gutter beside the page — a band, not a slab: on
@@ -1206,15 +1708,19 @@ const drawBook = (g: G2D): void => {
   const mark = currentChapter() + 1
   if (page === mark && !turning()) {
     const wash = PAGE_WASH[currentChapter()] ?? PAGE_WASH[0]!
-    drawBookmark(g, r.x + r.w * 0.86, r.y - r.h * 0.035, r.h * 0.16, Math.max(14, r.h * 0.05), wash[1]!, Td)
+    const bw = Math.max(14, r.h * 0.05)
+    drawBookmark(g, bookmarkX(r, bw), r.y - r.h * 0.035, r.h * 0.16, bw, wash[1]!, Td)
   }
   if (!turning()) {
     const s = earSize()
     const hint = reducedMotion.value ? 0.35 : 0.35 + 0.35 * (0.5 + 0.5 * sin(Td * 2))
     const tone = pageTone(page)
     const art = pageArt(page)
-    if (page < PAGE_COUNT - 1) drawDogEar(g, r.x, r.y, r.w, r.h, 1, s, hint, tone, art)
+    // On the front page the swipe lifts the corner it is showing off.
+    const lift = wayLift()
+    if (page < PAGE_COUNT - 1) drawDogEar(g, r.x, r.y, r.w, r.h, 1, s * (1 + lift * 0.2), hint + lift * 0.8, tone, art)
     if (page > 0) drawDogEar(g, r.x, r.y, r.w, r.h, -1, s, hint, tone, art)
+    drawWayOn(g, r)
   }
   // Where in the book this page is: one dot per page along the foot.
   const dr = Math.max(2.5, r.h * 0.008)
@@ -1291,6 +1797,17 @@ const publish = (): void => {
     const tw = mapHud.twin
     if (!tw || tw.x !== bx || tw.y !== by || tw.size !== size) mapHud.twin = { x: bx, y: by, size }
   } else if (mapHud.twin) mapHud.twin = null
+  // The daily gift's own tap target (item 5), on the same terms: it is what
+  // makes the gift reachable by keyboard and readable by a screen reader,
+  // which a canvas tap never is, and it steps aside while a page turns.
+  if (dailyGift.node >= 0 && !turning()) {
+    const [x, y, s] = dailyScreen(dailyGift.node)
+    const size = Math.max(64, Math.round(s * 1.25))
+    const bx = Math.round(x - size / 2)
+    const by = Math.round(y - s * 0.4 - size / 2)
+    const d = mapHud.daily
+    if (!d || d.x !== bx || d.y !== by || d.size !== size) mapHud.daily = { x: bx, y: by, size }
+  } else if (mapHud.daily) mapHud.daily = null
   // Umbra's line follows her from page to page, and ends on its own.
   if (mapHud.umbraSay) {
     const wh = wanderHome()
@@ -1338,7 +1855,11 @@ export const qaMap = {
   turn: (): { from: number; to: number; p: number } | null =>
     (turning() ? { from: turnFrom, to: page, p: turnP } : null),
   toPage: (p: number): boolean => startTurn(p),
-  state: nodeState
+  state: nodeState,
+  /** The front page's way on: is the swipe showing, how long the page has
+   *  sat untouched, and whether the book has turned itself yet. */
+  way: (): { on: boolean; t: number; handTurned: boolean; autoUsed: boolean } =>
+    ({ on: wayOn(), t: wayT, handTurned, autoUsed: wayAutoUsed })
 }
 
 /**

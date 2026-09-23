@@ -265,17 +265,7 @@ export default {
 
   'leaderboard': {
     'title': 'Leaderboard',
-    'rank': '#',
-    'player': 'Player',
-    'score': 'Duels won',
-    'flair': 'Progress',
-    'empty': 'No duels posted yet. Be the first!',
-    'failed': 'Couldn\'t reach the leaderboard.',
-    'loading': 'Loading…',
-    'you': 'You',
-    'yourRank': 'You are #{n} of {total}',
-    'of': 'of {n} players',
-    'tabGlobal': 'Global'
+    'of': 'of {n} players'
   },
 
   // ─── Restoration (story-spec §8) ──────────────────────────────────────────
@@ -284,6 +274,9 @@ export default {
   'a11y': {
     'backToMap': 'Back to map',
     'wardrobeSlots': 'Places to dress',
+    // Read over an unearned keepsake in the wardrobe AND over an unmet
+    // sticker in the album (`album.toFind` was a second copy of this exact
+    // sentence in all 21 locales, and is gone).
     'keepsakeToFind': 'Still to find'
   },
 
@@ -595,6 +588,50 @@ export default {
     'claimedToast': 'This place is in full bloom!'
   },
 
+  // The replay stars (retention item 4). Nothing about them is READ on
+  // screen: the map draws a star on the card and `★ 3/5` on the chapter tab,
+  // both glyph and number. This is the spoken version of that tab, for a
+  // screen reader — the only place the feature needs words at all.
+  'star': {
+    'tabLabel': '{name} — {n} of {total} stars'
+  },
+
+  // The daily gift (retention item 5). Never a streak: nothing here counts
+  // days, threatens a loss, or mentions tomorrow.
+  'daily': {
+    'open': 'Open today’s gift',
+    'stickerToast': 'A new friend for your album!'
+  },
+
+  // ─── The tent's second page: the sticker album (retention item 3) ─────────
+  // Almost all of this is read aloud rather than printed: the album is a page
+  // of drawings, and a child who cannot read yet must be able to fill it. The
+  // hint is the one line meant for the grown-up reading over their shoulder.
+  // An unmet sticker reads `a11y.keepsakeToFind` — the same sentence the
+  // wardrobe already reads over an unearned keepsake, not a second copy.
+  'album': {
+    'title': 'Sticker Album',
+    'hint': 'Tap a creature on a place you have brought back, and its sticker comes home.',
+    'count': '{met} of {total} found',
+    'chapter': 'Chapter {n}',
+    'found': 'Sticker found',
+    'friend': 'A rescued friend',
+    'dressTab': 'Dressing up',
+    'albumTab': 'Sticker album'
+  },
+
+  // ─── The dress-up photo cards, kept in the album (retention item 16) ──────
+  // `fullHint` takes `{n}` rather than spelling the number out: `PHOTO_SLOTS`
+  // (`game/campaign/state.ts`) owns how many cards there are, and a numeral
+  // written into prose in 21 languages is 21 places to forget when it moves.
+  'photo': {
+    'title': 'Photo cards',
+    'take': 'Take a photo',
+    'card': 'Photo card {n}',
+    'empty': 'An empty photo card',
+    'fullHint': 'The album keeps {n} cards. A new photo takes the oldest one’s place.'
+  },
+
   // The near-miss callout (§5.12): shouted like the other callouts; the
   // rune's name is upper-cased by the locale at render time.
   'duel': {
@@ -603,5 +640,20 @@ export default {
 
   'license': {
     'denied': 'Access Denied: Please purchase a license.'
+  },
+
+  // ─── Help a child can SEE (retention roadmap items 7 and 8) ───────────────
+  //
+  // `auroraLine` is what Aurora says when a second loss on a node lights the
+  // rune ghost for her. It is a reading BONUS — the picto beside it and the
+  // glowing shape in the box carry the whole meaning for the three-year-olds
+  // this exists for — so it must never be the only place the offer is made.
+  // Tone: a friend leaning over with a crayon. It never counts the losses,
+  // never says the word lose, and is never about the player.
+  'help': {
+    'auroraLine': "Here — I'll draw it with you!",
+    // The little star on a rune slot, for a stroke drawn well past the
+    // recogniser's line. Spoken, because it is the reward itself.
+    'perfectRune': 'Beautifully drawn!'
   }
 }

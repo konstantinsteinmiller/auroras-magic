@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Classifica',
-    'rank': '#',
-    'player': 'Giocatore',
-    'score': 'Vittorie',
-    'flair': 'Progresso',
-    'empty': 'Ancora nessun duello. Inizia tu!',
-    'failed': 'Impossibile raggiungere la classifica.',
-    'loading': 'Caricamento…',
-    'you': 'Tu',
-    'yourRank': 'Sei #{n} su {total}',
-    'of': 'su {n} giocatori',
-    'tabGlobal': 'Globale'
+    'of': 'su {n} giocatori'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Questo posto è in piena fioritura!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} di {total} stelle'
+  },
+
+  'daily': {
+    'open': 'Apri il regalo di oggi',
+    'stickerToast': 'Un nuovo amico per il tuo album!'
+  },
+
+  'album': {
+    'title': 'Album degli adesivi',
+    'hint': 'Tocca una creatura in un luogo che è tornato a fiorire e il suo adesivo arriva nell’album.',
+    'count': '{met} su {total} trovati',
+    'chapter': 'Capitolo {n}',
+    'found': 'Adesivo trovato',
+    'friend': 'Un amico salvato',
+    'dressTab': 'Vestirsi',
+    'albumTab': 'Album degli adesivi'
+  },
+
+  'photo': {
+    'title': 'Carte foto',
+    'take': 'Scatta una foto',
+    'card': 'Carta foto {n}',
+    'empty': 'Una carta foto vuota',
+    'fullHint': 'L’album tiene {n} carte. Una foto nuova prende il posto della più vecchia.'
+  },
+
   'duel': {
     'almostRune': 'QUASI {rune}!'
   },
 
   'license': {
     'denied': 'Accesso negato: acquista una licenza.'
+  },
+
+  'help': {
+    'auroraLine': 'Vieni — la disegno con te!',
+    'perfectRune': 'Disegnata benissimo!'
   }
 }

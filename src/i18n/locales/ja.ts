@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'ランキング',
-    'rank': '#',
-    'player': 'プレイヤー',
-    'score': '勝利数',
-    'flair': '進行度',
-    'empty': 'まだ記録がありません。最初の一人になろう！',
-    'failed': 'ランキングに接続できません。',
-    'loading': '読み込み中…',
-    'you': 'あなた',
-    'yourRank': '{total} 人中 #{n} 位',
-    'of': '/ {n} 人',
-    'tabGlobal': '世界'
+    'of': '/ {n} 人'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'この場所が花でいっぱいになったよ！'
   },
 
+  'star': {
+    'tabLabel': '{name} — ほし {total} こ中 {n} こ'
+  },
+
+  'daily': {
+    'open': 'きょうのプレゼントを開けよう',
+    'stickerToast': 'アルバムにあたらしいおともだち！'
+  },
+
+  'album': {
+    'title': 'シールアルバム',
+    'hint': 'もとにもどした場所で生きものをタップすると、そのシールがアルバムにやってくるよ。',
+    'count': '{total} こ中 {met} こみつけた',
+    'chapter': 'チャプター {n}',
+    'found': 'みつけたシール',
+    'friend': 'たすけたおともだち',
+    'dressTab': 'きせかえ',
+    'albumTab': 'シールアルバム'
+  },
+
+  'photo': {
+    'title': 'フォトカード',
+    'take': 'しゃしんをとる',
+    'card': 'フォトカード {n}',
+    'empty': 'からっぽのフォトカード',
+    'fullHint': 'アルバムにはカードが{n}まいまで。あたらしいしゃしんは、いちばんふるいカードとこうたいするよ。'
+  },
+
   'duel': {
     'almostRune': 'もう少しで{rune}！'
   },
 
   'license': {
     'denied': 'アクセスが拒否されました：ライセンスをご購入ください。'
+  },
+
+  'help': {
+    'auroraLine': 'いっしょにかこう！',
+    'perfectRune': 'じょうずにかけたね！'
   }
 }

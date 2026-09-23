@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RUNES } from '@/game/duel/config'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import { registerHot, releaseHot, setRingLength } from '@/use/useDuelHud'
@@ -29,7 +30,16 @@ const props = defineProps<{
   forming?: boolean
   /** The rune being formed (-1 = not chosen yet → a '?' sigil). */
   formRune?: number
+  /**
+   * The perfect-rune twinkle (retention item 7): a token that bumps each time
+   * THIS slot earns one, 0 for none. It is the `:key` of the mark, so a slot
+   * that sparkles twice in a row plays the animation twice instead of sitting
+   * on a finished one.
+   */
+  sparkle?: number
 }>()
+
+const { t } = useI18n()
 
 const ring = ref<SVGCircleElement | null>(null)
 const ghost = ref<HTMLElement | null>(null)
@@ -95,6 +105,22 @@ onUnmounted(unbind)
           :stroke-dashoffset="RING_LEN"
           transform="rotate(-90)"
         )
+    //- A neat rune's twinkle, just off the slot's top corner. One shot: it
+    //- keeps its motion under reduced motion, which mutes AMBIENT loops only.
+    svg.slot-spark(
+      v-if="sparkle"
+      :key="sparkle"
+      viewBox="-10 -10 20 20"
+      role="img"
+      :aria-label="t('help.perfectRune')"
+    )
+      path(
+        d="M0 -9 Q1.5 -1.5 9 0 Q1.5 1.5 0 9 Q-1.5 1.5 -9 0 Q-1.5 -1.5 0 -9 Z"
+        fill="var(--am-gold)"
+        stroke="var(--am-ink)"
+        stroke-width="2.2"
+        stroke-linejoin="round"
+      )
 </template>
 
 <style scoped lang="sass">
@@ -135,6 +161,35 @@ onUnmounted(unbind)
 .slot-sigil
   font-size: 32px
   color: var(--duel-lavender)
+
+// The perfect twinkle. It sits OUTSIDE the plate (top-trailing corner) so it
+// never covers the glyph that names the rune, and it is purely additive: with
+// the sound off the star burst on the stage and this mark are what say
+// "that one was neat".
+.slot-spark
+  position: absolute
+  left: 76%
+  bottom: 70%
+  width: 52%
+  height: 52%
+  overflow: visible
+  pointer-events: none
+  transform-origin: 50% 50%
+  animation: slot-spark 0.72s ease-out forwards
+
+@keyframes slot-spark
+  0%
+    opacity: 0
+    transform: scale(0.2) rotate(-28deg)
+  28%
+    opacity: 1
+    transform: scale(1.18) rotate(6deg)
+  55%
+    opacity: 1
+    transform: scale(0.94) rotate(0deg)
+  100%
+    opacity: 0
+    transform: scale(1.05) rotate(10deg)
 
 .slot-ring
   // the forming ring takes its stroke from here — 7.06:1 on the slot's well

@@ -161,7 +161,25 @@ that book's OWN campaign; both are kept.
 - The bookmark is ONLY on the front page, never mid-chapter: swapping books
   in the middle of a chapter is how a child loses a place.
 
-### 3.4 Failure modes to design against
+### 3.4 What it reports
+
+Four events, named to match the existing set in `use/useAnalytics.ts`
+(`intro_start`, `wipe_complete`, `keepsake_equip`, …) and consumed by
+retention item 20's *Measure* block:
+
+| event | payload | answers |
+|---|---|---|
+| `path_offered` | `{ replay: boolean }` | how many players reach the choice at all, and how many are existing players meeting it through the front-page bookmark |
+| `path_lifted` | `{ path, msSinceOffered }` | taps that try a page on — the numerator for "did anyone hold?" |
+| `path_chosen` | `{ path, msSinceOffered, lifts }` | the split, the time to commit, and how many times they changed their mind first |
+| `path_switched` | `{ from, to, furthestNode }` | the front-page bookmark doing its retention job |
+
+**And one session property, `path`, on every event the game already sends.**
+Without it every number after this ships is an average of two different games
+— which is the single easiest way to make item 1's whole funnel unreadable.
+Add it the day phase 1 starts, not at the end.
+
+### 3.5 Failure modes to design against
 
 | Risk | Mitigation |
 |---|---|

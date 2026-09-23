@@ -68,21 +68,40 @@ export const rewardLive = computed(() =>
 
 const { startBattleMusic } = useMusic()
 
+/**
+ * Sector `n` blooms, and the map says so.
+ *
+ * The bloom ITSELF, with none of the offer around it: the bit, the save, the
+ * reveal chime and the celebration the map picks up from `bloomed`. Pulled
+ * out because a bloom now arrives two ways — the Twin Gift's rewarded hold
+ * below, and the daily gift (`map/dailyGift.ts`, retention item 5) which has
+ * no ad and no hold at all. What a bloom LOOKS like must not depend on which
+ * door it came through, and reporting is left to the caller, because the two
+ * doors are two different events.
+ *
+ * Idempotent: a sector already bloomed keeps its one bloom (50 at most, D3).
+ */
+export const landBloom = (n: number): boolean => {
+  if (n < 0 || bloomed(n)) return false
+  S.campaign.blooms = setBit(S.campaign.blooms, n)
+  save()
+  twinGift.bloomed = n
+  twinGift.rev++
+  sfx('reveal')
+  haptic('reward')
+  void flushSaveNow()
+  return true
+}
+
 /** The hold completed: play the ad; on success, the sector blooms. */
 export const claimTwinGift = async (): Promise<void> => {
   if (!rewardLive.value) return
   const node = twinGift.node
   try {
     await claimReward(() => {
-      S.campaign.blooms = setBit(S.campaign.blooms, node)
-      save()
+      landBloom(node)
       twinGift.node = -1
-      twinGift.bloomed = node
-      twinGift.rev++
-      sfx('reveal')
-      haptic('reward')
       track('reward_claim', { sectorId: node, kind: 'bloom' })
-      void flushSaveNow()
     })
   } finally {
     startBattleMusic()

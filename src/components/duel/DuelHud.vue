@@ -12,6 +12,7 @@ import HpBar from '@/components/duel/HpBar.vue'
 import RuneSlot from '@/components/duel/RuneSlot.vue'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import DuelPopups from '@/components/duel/DuelPopups.vue'
+import DuelHelpNote from '@/components/duel/DuelHelpNote.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import { vFit } from '@/use/vFit'
 import { STARTING_RUNES } from '@/game/campaign/tables'
@@ -72,7 +73,15 @@ const castLabel = computed(() => {
   // with a space bar drawn next to it, saying it twice.
   return t('hud.cast')
 })
-const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length)
+/**
+ * Aurora's after-two-losses note (retention item 8). It stands WHERE the
+ * "draw a rune!" nudge stands and suppresses it, because two messages in one
+ * place is no message: hers says the same thing and shows the shape as well.
+ */
+const help = computed(() => (duel.value && !hud.intro && !versus.value ? hud.help : 0))
+const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length && !help.value)
+/** The perfect-rune twinkle (retention item 7), for the slot that earned it. */
+const sparkleOf = (i: number): number => (hud.perfectSlot === i ? hud.perfect : 0)
 // Onboarding teaches one player; a versus match never shows it.
 const introBeat = computed(() => (duel.value && hud.intro && !hud.book && !versus.value ? hud.introStep : -1))
 
@@ -131,6 +140,23 @@ const zoneBottomCaption = computed(() => {
   return { left: `${z.x + z.w / 2}px`, top: `${z.y + z.h - Math.min(34, z.h * 0.14)}px` }
 })
 const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w * 0.062))))
+/**
+ * Portrait: the note sits across the top of the drawing pad, where the nudge
+ * it replaces was. `--hn` is the card's own unit — the pad's width over the
+ * 540 stage units the landscape card gets — capped so it never eats more than
+ * a fifth of the pad's height on a squat screen.
+ */
+const helpStyle = computed(() => {
+  const z = L.value.zonePx
+  const hn = Math.min(z.w / 540, (z.h * 0.3) / 80)
+  return {
+    left: `${z.x + z.w / 2}px`,
+    top: `${z.y + 6}px`,
+    width: `${540 * hn}px`,
+    height: `${80 * hn}px`,
+    '--hn': `${hn}px`
+  }
+})
 </script>
 
 <template lang="pug">
@@ -150,10 +176,15 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
 
       div.abs(:aria-label="t('hud.yourRunes')" role="list")
         div.abs(v-for="i in slots" :key="'p' + i" role="listitem" :style="box(30 + i * 64, 80, 60, 60)")
-          RuneSlot(:rune="hud.queue[i]")
+          RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)")
       div.abs(:aria-label="t('hud.foeRunes')" role="list")
         div.abs(v-for="i in slots" :key="'e' + i" role="listitem" :style="box(1190 - i * 64, 80, 60, 60)")
           RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune")
+
+      //- Aurora's help, on the stage's own coordinates: centred above the
+      //- drawing box, clear of both slot rows (which end at x 222 / 1000).
+      div.abs.help-slot(v-if="help" :key="help" :style="box(370, 106, 540, 80)")
+        DuelHelpNote
 
       span.abs.ink-text.breathe(v-if="showDrawHint && !versus" :style="[at(640, 142, 30), { color: 'var(--am-shout)' }]") {{ t('hud.drawARune') }}
       //- Local versus: each half invites its own player.
@@ -236,13 +267,16 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         div.port-row.slots
           div.port-slots(role="list" :aria-label="t('hud.yourRunes')")
             div.port-slot(v-for="i in slots" :key="'p' + i" role="listitem")
-              RuneSlot(:rune="hud.queue[i]")
+              RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)")
           div.port-weak(v-if="weakTo >= 0" role="img" :aria-label="weakLabel")
             RuneGlyph.port-weak-glyph(:rune="weakTo")
             span.ink-text(style="color: var(--am-mint)" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
           div.port-slots.rev(role="list" :aria-label="t('hud.foeRunes')")
             div.port-slot(v-for="i in slots" :key="'e' + i" role="listitem")
               RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune")
+
+      div.port-help(v-if="help" :key="help" :style="helpStyle")
+        DuelHelpNote
 
       span.fixed-caption.ink-text.breathe(v-if="showDrawHint" :style="[zoneCaption, { color: 'var(--am-shout)', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
       span.fixed-caption.ink-text(v-if="introBeat === 0" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
@@ -446,6 +480,14 @@ button
 .fixed-caption
   position: absolute
   transform: translate(-50%, -50%)
+
+// Landscape: the card lives in the stage layer, so one stage unit IS its unit.
+.help-slot
+  --hn: 1px
+
+.port-help
+  position: absolute
+  transform: translateX(-50%)
 
 .port-bottom
   position: absolute

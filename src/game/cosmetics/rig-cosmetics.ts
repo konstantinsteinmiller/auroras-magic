@@ -33,7 +33,7 @@ import { ITEM_ART } from '@/game/artIds'
 // and the dependency runs ONE WAY, because a cycle between two modules of
 // top-level `const` records is a TDZ crash at import time.
 import {
-  HEAD_DRAW_X, NECK_DRAW_X, BACK_DRAW_X, COMPANION_DRAW_X, TRAIL_DRAW_X, SKIN_PAL_X
+  HEAD_DRAW_X, NECK_DRAW_X, BACK_DRAW_X, COMPANION_DRAW_X, TRAIL_DRAW_X, SKIN_PAL_X, TRAIL_STYLES
 } from '@/game/cosmetics/rig-accessories'
 
 type G2D = CanvasRenderingContext2D
@@ -444,6 +444,47 @@ export const drawHoofTrail = (g: G2D, a: RigAnchors): void => {
   }
 }
 
+/**
+ * A trail's STILL, for a photo card (retention item 16).
+ *
+ * Every trail in the game — this one and the three on the second shelf — is a
+ * pooled emitter on a shared clock: the STREAM is the keepsake. A card is one
+ * frozen frame, so asking the emitter for it would do two wrong things at
+ * once: draw whatever happened to be in the pool at that instant, and restart
+ * that pool, which the live diorama behind the album is still drawing from.
+ *
+ * So a still is its own little drawing — the same shapes, in the same
+ * colours, settled around her hooves. Returns undefined for a slug with no
+ * trail, exactly as the live registry does.
+ */
+const STILL_TRAIL: readonly (readonly number[])[] = [
+  [-12, -8, 7], [-34, -22, 5.5], [-52, -42, 4.2], [-26, -48, 3.4], [-62, -16, 4.6], [-6, -30, 3.6]
+]
+const trailStill = (slug: string): ((g: G2D, a: RigAnchors) => void) | undefined => {
+  const st = TRAIL_STYLES[slug]
+  const shape = st ? st.shape : slug === 'hoofTrailVfx' ? sparklePath : null
+  if (!shape) return undefined
+  const cols = st ? st.cols : TRAIL_COLS
+  const alpha = st ? st.alpha : 1
+  return (g: G2D, a: RigAnchors): void => {
+    const [hx, hy] = a.hoofFront
+    g.lineJoin = 'round'
+    g.globalAlpha = alpha
+    for (let c = 0; c < cols.length; c++) {
+      g.beginPath()
+      let any = false
+      for (let i = 0; i < STILL_TRAIL.length; i++) {
+        if (i % cols.length !== c) continue
+        const s = STILL_TRAIL[i]!
+        shape(g, hx + a.facing * s[0]!, hy + s[1]!, s[2]!, i * 0.8)
+        any = true
+      }
+      if (any) inkFill(g, cols[c]!, 2.4)
+    }
+    g.globalAlpha = 1
+  }
+}
+
 /* ----------------------------- the Pet Star --------------------------- */
 /*
  * Chapter 9's keepsake: a small, chubby five-point star with a face, who
@@ -581,6 +622,23 @@ export const drawPetStar = (g: G2D, a: RigAnchors): void => {
     y = starY(a.tailStage[1], t) - sin(sp * PI) * 14
     // The twinkle trail: where it floated a moment ago.
     if (S.q) {
+      // The sparkle tier (item 17) carries the trail three beats further back.
+      // Their own path, so the authored four keep exactly the alpha they had,
+      // and they SHRINK in on `S.qx` rather than fading up — a trail that
+      // faded in would break art-style.md §6 on the way to obeying it.
+      if (S.qx > 0.01) {
+        g.beginPath()
+        for (let j = 5; j <= 7; j++) {
+          const tj = t - j * 0.11
+          sparklePath(
+            g, starX(a.tailStage[0], f, tj), starY(a.tailStage[1], tj) + 2,
+            STAR_R * (0.12 - (j - 5) * 0.03) * S.qx, tj * 3
+          )
+        }
+        g.globalAlpha = 0.4
+        g.fillStyle = '#fff4b8'
+        g.fill()
+      }
       g.beginPath()
       for (let j = 1; j <= 4; j++) {
         const tj = t - j * 0.11
@@ -869,23 +927,38 @@ export const equippedHeadDraw = (): ((g: G2D) => void) | undefined => {
   return def && def.slot === 'head' ? HEAD_DRAW[def.slug] : undefined
 }
 
-/** The slug equipped in a slot, or undefined. */
-const slugIn = (slot: typeof COSMETIC_SLOTS[number]): string | undefined => {
-  const id = equippedIn(slot)
+/**
+ * The slug worn in a slot of ANY outfit.
+ *
+ * An outfit is just the seven cosmetic ids — usually `S.campaign.giftsEquipped`,
+ * but a photo card (retention item 16) redraws her from the outfit its RECIPE
+ * names, which may be nothing like what she has on today. Everything below
+ * that used to read the save directly reads an outfit instead, and the live
+ * helpers pass the save's own.
+ */
+const slugOf = (eq: readonly number[], slot: typeof COSMETIC_SLOTS[number]): string | undefined => {
+  const id = eq[COSMETIC_SLOTS.indexOf(slot)] ?? -1
   const def = id >= 0 ? COSMETICS[id] : undefined
   return def && def.slot === slot ? def.slug : undefined
 }
 
-/** The saved swatch, clamped (a hand-edited save can hold anything). */
-export const maneSwatchIndex = (): number => {
-  const i = S.campaign.maneSwatch | 0
-  return i >= 0 && i < MANE_SWATCHES.length ? i : 0
+/** The slug equipped in a slot right now, or undefined. */
+const slugIn = (slot: typeof COSMETIC_SLOTS[number]): string | undefined =>
+  slugOf(S.campaign.giftsEquipped, slot)
+
+/** A swatch index from anywhere (a save, a recipe), clamped into the row. */
+const swatchOf = (i: number): number => {
+  const n = i | 0
+  return n >= 0 && n < MANE_SWATCHES.length ? n : 0
 }
 
-/** The mane override worn right now, if the Mane Color Palette is on and a
- *  swatch other than her own is picked. */
-const maneWorn = (): ManeSwatch['mane'] =>
-  slugIn('mane') === 'colorPicker' ? MANE_SWATCHES[maneSwatchIndex()]!.mane : null
+/** The saved swatch, clamped (a hand-edited save can hold anything). */
+export const maneSwatchIndex = (): number => swatchOf(S.campaign.maneSwatch)
+
+/** The mane override an outfit wears, if the Mane Color Palette is on in it
+ *  and a swatch other than her own is picked. */
+const maneWorn = (eq: readonly number[], swatch: number): ManeSwatch['mane'] =>
+  slugOf(eq, 'mane') === 'colorPicker' ? MANE_SWATCHES[swatch]!.mane : null
 
 /** The mane `[base, streak]` a swatch 0 shows: the worn skin's own. */
 export const ownManeColours = (): readonly [string, string] => {
@@ -900,20 +973,20 @@ type Hooks = Pick<PoseState, 'afterHead' | 'afterMane' | 'beforeTorso' | 'afterT
 let hooks: Hooks | null = null
 const hooksFrom = new Int16Array(8)
 
-const composeHooks = (): Hooks => {
-  const head = slugIn('head')
-  const neck = slugIn('neck')
-  const back = slugIn('back')
-  const skin = slugIn('skin')
+const composeHooks = (eq: readonly number[], swatch: number, still: boolean): Hooks => {
+  const head = slugOf(eq, 'head')
+  const neck = slugOf(eq, 'neck')
+  const back = slugOf(eq, 'back')
+  const skin = slugOf(eq, 'skin')
   const wings = back ? BACK_DRAW[back] : undefined
   const necklace = neck ? NECK_DRAW[neck] : undefined
   const near = wings?.[1]
-  const trailSlug = slugIn('trail')
-  const companionSlug = slugIn('companion')
-  const trail = trailSlug ? TRAIL_DRAW[trailSlug] : undefined
+  const trailSlug = slugOf(eq, 'trail')
+  const companionSlug = slugOf(eq, 'companion')
+  const trail = trailSlug ? (still ? trailStill(trailSlug) : TRAIL_DRAW[trailSlug]) : undefined
   const star = companionSlug ? COMPANION_DRAW[companionSlug] : undefined
   const dream = skin === 'pastelTheme'
-  const mane = maneWorn()
+  const mane = maneWorn(eq, swatch)
   return {
     afterHead: head ? HEAD_DRAW[head] : undefined,
     // The near wing lies over the mane; the neck item goes on last, on top.
@@ -973,9 +1046,22 @@ export const equippedHooks = (): Hooks => {
     same = false
     hooksFrom[7] = sw
   }
-  if (!same || !hooks) hooks = composeHooks()
+  if (!same || !hooks) hooks = composeHooks(eq, sw, false)
   return hooks
 }
+
+/**
+ * The same composition for an outfit that is NOT the one she has on — a photo
+ * card's recipe (retention item 16), which names the seven cosmetic ids and
+ * the mane swatch it was taken in.
+ *
+ * Uncached on purpose: `equippedHooks` is called once per frame and caches for
+ * that; this is called once per card bake, and a second cache keyed on seven
+ * ids would cost more than the compose it saves. `still` swaps every pooled
+ * emitter for its frozen twin — see `trailStill`.
+ */
+export const outfitHooks = (equipped: readonly number[], swatch: number, still = false): Hooks =>
+  composeHooks(equipped, swatchOf(swatch), still)
 
 /**
  * A key naming everything that changes how she looks (for caches of baked

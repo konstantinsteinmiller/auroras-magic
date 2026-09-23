@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Bảng xếp hạng',
-    'rank': '#',
-    'player': 'Người chơi',
-    'score': 'Thắng',
-    'flair': 'Tiến độ',
-    'empty': 'Chưa có trận nào. Hãy là người đầu tiên!',
-    'failed': 'Không thể tải bảng xếp hạng.',
-    'loading': 'Đang tải…',
-    'you': 'Bạn',
-    'yourRank': 'Bạn hạng #{n} trên {total}',
-    'of': 'trên {n} người chơi',
-    'tabGlobal': 'Toàn cầu'
+    'of': 'trên {n} người chơi'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Nơi này đã nở hoa rực rỡ!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} trên {total} ngôi sao'
+  },
+
+  'daily': {
+    'open': 'Mở quà hôm nay',
+    'stickerToast': 'Một người bạn mới cho cuốn album!'
+  },
+
+  'album': {
+    'title': 'Album hình dán',
+    'hint': 'Chạm vào một sinh vật ở nơi đã nở hoa trở lại, hình dán của nó sẽ về album.',
+    'count': 'Đã tìm được {met}/{total}',
+    'chapter': 'Chương {n}',
+    'found': 'Đã tìm được hình dán',
+    'friend': 'Một người bạn đã được cứu',
+    'dressTab': 'Thay đồ',
+    'albumTab': 'Album hình dán'
+  },
+
+  'photo': {
+    'title': 'Thẻ ảnh',
+    'take': 'Chụp một tấm ảnh',
+    'card': 'Thẻ ảnh {n}',
+    'empty': 'Một thẻ ảnh trống',
+    'fullHint': 'Album giữ được {n} thẻ. Ảnh mới sẽ thay chỗ tấm cũ nhất.'
+  },
+
   'duel': {
     'almostRune': 'SUÝT NỮA LÀ {rune}!'
   },
 
   'license': {
     'denied': 'Từ chối truy cập: vui lòng mua giấy phép.'
+  },
+
+  'help': {
+    'auroraLine': 'Lại đây, mình vẽ cùng bạn nhé!',
+    'perfectRune': 'Vẽ đẹp quá!'
   }
 }

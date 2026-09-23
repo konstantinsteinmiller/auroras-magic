@@ -41,3 +41,32 @@ export const acquireModalOpen = (): (() => void) => {
     releasePause()
   }
 }
+
+// ─── Menus: the modals that are NOT the game ────────────────────────────────
+//
+// Every modal holds the simulation still, but not every modal takes the player
+// out of the game. The settings are a menu. The rune-gift
+// ceremony is a moment IN the storybook, and Poki's bracket stays open through
+// it (owner, 2026-09-23). So a menu is counted apart, and a modal that is one
+// says so by acquiring through here: it holds the same app pause and modal
+// count as any other, plus this flag. Every FModal is a menu.
+
+const menuCount = ref(0)
+
+/** True while at least one menu (a blocking FModal) is open. */
+export const isMenuOpen = computed(() => menuCount.value > 0)
+
+/** Mark a MENU as open: `acquireModalOpen` plus the menu flag. The flag is
+ *  raised before the modal count moves, so a synchronous watcher on the count
+ *  never sees this menu open as a plain modal. */
+export const acquireMenuOpen = (): (() => void) => {
+  menuCount.value += 1
+  const releaseModal = acquireModalOpen()
+  let released = false
+  return (): void => {
+    if (released) return
+    released = true
+    menuCount.value = Math.max(0, menuCount.value - 1)
+    releaseModal()
+  }
+}

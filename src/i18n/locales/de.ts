@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Bestenliste',
-    'rank': '#',
-    'player': 'Spieler',
-    'score': 'Siege',
-    'flair': 'Fortschritt',
-    'empty': 'Noch keine Duelle eingetragen. Sei als Erstes dabei!',
-    'failed': 'Bestenliste nicht erreichbar.',
-    'loading': 'Lädt…',
-    'you': 'Du',
-    'yourRank': 'Du bist #{n} von {total}',
-    'of': 'von {n} Spielern',
-    'tabGlobal': 'Global'
+    'of': 'von {n} Spielern'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Dieser Ort steht in voller Blüte!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {n} von {total} Sternen'
+  },
+
+  'daily': {
+    'open': 'Öffne das heutige Geschenk',
+    'stickerToast': 'Ein neuer Freund für dein Album!'
+  },
+
+  'album': {
+    'title': 'Stickeralbum',
+    'hint': 'Tippe ein Wesen an einem Ort an, der wieder blüht — sein Sticker landet im Album.',
+    'count': '{met} von {total} gefunden',
+    'chapter': 'Kapitel {n}',
+    'found': 'Sticker gefunden',
+    'friend': 'Ein geretteter Freund',
+    'dressTab': 'Anziehen',
+    'albumTab': 'Stickeralbum'
+  },
+
+  'photo': {
+    'title': 'Fotokarten',
+    'take': 'Foto machen',
+    'card': 'Fotokarte {n}',
+    'empty': 'Eine leere Fotokarte',
+    'fullHint': 'Das Album hat Platz für {n} Karten. Ein neues Foto ersetzt das älteste.'
+  },
+
   'duel': {
     'almostRune': 'FAST {rune}!'
   },
 
   'license': {
     'denied': 'Zugriff verweigert: Bitte erwerbe eine Lizenz.'
+  },
+
+  'help': {
+    'auroraLine': 'Komm — ich male sie mit dir!',
+    'perfectRune': 'Wunderschön gemalt!'
   }
 }

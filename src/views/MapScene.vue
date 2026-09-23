@@ -2,8 +2,10 @@
 /**
  * MapScene — the `map` scene's DOM chrome (story-spec §3.5.1, §3.9, §8.10):
  * the chapter-tab ribbon (one tap to any reached page), the options gear and
- * the spellbook (global overlays), and the leaderboard on live builds. The
- * world itself is drawn by `game/map/map.ts` into the one canvas.
+ * the spellbook (global overlays), and the rank badge printed on the page —
+ * which is the whole leaderboard, as far as the player is concerned (owner,
+ * 2026-09-23: there is no board to open). The world itself is drawn by
+ * `game/map/map.ts` into the one canvas.
  *
  * Zero-UI: no words on screen. Every control's name is an aria-label; a
  * chapter tab reads its chapter's name.
@@ -15,15 +17,17 @@
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CHAPTERS } from '@/game/campaign/tables'
+import { CHAPTERS, NODES_PER_CHAPTER } from '@/game/campaign/tables'
+import { starsInChapter } from '@/game/campaign/stars'
 import { showChapter } from '@/game/map/map'
 import { openOverlay } from '@/game/flow/scene'
 import { sfx } from '@/game/duel/audio'
-import { mapHud } from '@/use/useMapHud'
+import { mapHud, rankInset } from '@/use/useMapHud'
 import { twinHoldStart, twinHoldCancel } from '@/game/map/twinGift'
+import { dailyGift, offerDailyGift, openDailyGift, withdrawDailyGift } from '@/game/map/dailyGift'
 import { bookHud } from '@/use/useBook'
 import { twinGift } from '@/use/useDuelRewards'
-import { leaderboardLive, leaderboardEnabled } from '@/use/useLeaderboard'
+import { leaderboardEnabled, ensureBoard } from '@/use/useLeaderboard'
 import { S } from '@/game/duel/state'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import RankBadge from '@/components/atoms/RankBadge.vue'
@@ -31,10 +35,31 @@ import FinaleCard from '@/components/story/FinaleCard.vue'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
 import { openVersus } from '@/game/flow/duelFlow'
 
-const emit = defineEmits<{ board: [] }>()
 const { t } = useI18n()
 
-const tabs = computed(() => CHAPTERS.map((c, i) => ({ i, slug: c.slug, open: i <= mapHud.reached })))
+/**
+ * The ribbon's tabs, and each opened chapter's replay stars (item 4) as
+ * `★ 3/5` — a glyph and a number, because nothing on this map is read.
+ *
+ * The count is taken once, when the scene mounts, and needs no reactive
+ * mirror: a star is only ever earned at the end of a DUEL, and getting back
+ * to the map from a duel unmounts and remounts this component. A revision
+ * counter here would fire for something that cannot happen while it is on
+ * screen.
+ */
+const tabs = computed(() => CHAPTERS.map((c, i) => ({
+  i,
+  slug: c.slug,
+  open: i <= mapHud.reached,
+  stars: starsInChapter(i)
+})))
+const STAR_TOTAL = NODES_PER_CHAPTER
+
+/** A tab's spoken name: the chapter, plus its stars once it is open. */
+const tabLabel = (c: { i: number; slug: string; open: boolean; stars: number }): string =>
+  c.open
+    ? t('star.tabLabel', { name: t(`chapter.${c.slug}`), n: c.stars, total: STAR_TOTAL })
+    : t(`chapter.${c.slug}`)
 
 /* The ribbon scrolls on a narrow screen (10 tabs never fit 320 px at the 44 px
  * floor): keep the page in view's tab visible as the map pans. */
@@ -59,18 +84,62 @@ watch(() => mapHud.visible, async (i) => {
  * given — so the badge's honest "…" would sit on the page forever.
  */
 const showRank = computed(() => leaderboardEnabled && !mapHud.front && S.wins > 0)
+/**
+ * RIGHT OF THE BOOKMARK (owner, 2026-09-23). The badge is pinned into the
+ * page's top-right corner, level with the ribbon's upper half, and the ribbon
+ * is hung just left of it — `map.ts` reads the badge's width (`mapHud.rankW`,
+ * published below) and places itself by it. So it is the RIBBON that makes
+ * room, whatever length "of 45 players" comes to in the player's language, and
+ * the pair can never overlap. `rankInset` is the one formula both sides share.
+ */
 const rankStyle = computed(() => {
   const p = mapHud.page
-  const inset = Math.max(10, Math.round(p.h * 0.035))
+  const inset = rankInset(p.h)
   return {
     right: `${Math.round(window.innerWidth - (p.x + p.w) + inset)}px`,
-    // Under the bookmark's tail. `map.ts` hangs it from `y - h * 0.035` for
-    // `h * 0.16`, so it ends at `y + h * 0.125`; this clears that. Move one
-    // and move the other.
-    top: `${Math.round(p.y + p.h * 0.135)}px`,
-    maxWidth: `${Math.round(p.w * 0.34)}px`
+    top: `${Math.round(p.y + inset)}px`,
+    // Never more than most of the page: on the narrowest phone the ribbon
+    // still has somewhere to hang to its left.
+    maxWidth: `${Math.round(p.w * 0.62)}px`
   }
 })
+/** Held upright the page is ~390 px wide, and the whole pair pushes the ribbon
+ *  over the first beat card's corner: the placing alone, as §8.33 had it. */
+const rankCompact = computed(() => mapHud.portrait)
+
+/* The badge's width, for the ribbon (see `rankStyle`). Observed rather than
+ * measured once: the number lands a beat after the plate (`…` → `#20`), and a
+ * language switch changes the tail. */
+const rankEl = ref<HTMLElement | null>(null)
+let rankRo: ResizeObserver | null = null
+const publishRankW = (el: HTMLElement): void => {
+  const w = Math.ceil(el.getBoundingClientRect().width)
+  if (mapHud.rankW !== w) mapHud.rankW = w
+}
+watch(rankEl, (el) => {
+  rankRo?.disconnect()
+  rankRo = null
+  if (!el) {
+    mapHud.rankW = 0
+    return
+  }
+  publishRankW(el)
+  if (typeof ResizeObserver !== 'undefined') {
+    rankRo = new ResizeObserver(() => publishRankW(el))
+    rankRo.observe(el)
+  }
+}, { flush: 'post' })
+onBeforeUnmount(() => {
+  rankRo?.disconnect()
+  rankRo = null
+  mapHud.rankW = 0
+})
+
+/* The one live read of the board per page load. It was the leaderboard
+ * modal's to make, and the modal is gone: the badge is the board now. After a
+ * win `reportRun` asks as well; either way it happens once a session, and on a
+ * baked build (Poki, Yandex, Playgama) it does nothing at all. */
+watch(showRank, (on) => { if (on) void ensureBoard() }, { immediate: true })
 
 const tab = (i: number): void => {
   sfx('ui')
@@ -119,6 +188,44 @@ watch(() => twinGift.rev, () => {
 })
 onBeforeUnmount(() => window.clearTimeout(toastTimer))
 
+/* ── The daily gift (retention item 5) ───────────────────────────────────
+ *
+ * Offered HERE, on the scene's mount, because "the first map visit" is what
+ * this component IS: the map scene mounts once per visit and the offer is a
+ * date comparison, so asking on every visit costs nothing and needs no
+ * separate notion of a session.
+ *
+ * Opened through a real button laid over the canvas, the way the Twin Gift's
+ * hold target is: one tap, no hold — it is a present, not a reward ad.
+ */
+offerDailyGift(mapHud.visible)
+// …and taken in again when the map closes, so the next visit re-homes it: a
+// sector restored in between moves the node the book opens on, and a present
+// left standing beside the old one would be sitting on last session's card.
+// Nothing is lost by this — the latch only moves when the gift is OPENED.
+onBeforeUnmount(withdrawDailyGift)
+
+const dailyStyle = computed(() => {
+  const d = mapHud.daily
+  return d ? { left: `${d.x}px`, top: `${d.y}px`, width: `${d.size}px`, height: `${d.size}px` } : {}
+})
+const dailySay = ref<string | null>(null)
+let dailyTimer = 0
+const openDaily = (): void => {
+  const d = mapHud.daily
+  if (!d) return
+  openDailyGift(d.x + d.size / 2, d.y + d.size / 2, mapHud.visible)
+  // The sticker beat says so in words; the bloom raises the map's own toast
+  // through `landBloom`, and must not raise a second one on top of it.
+  if (dailyGift.say) {
+    dailySay.value = dailyGift.say
+    dailyGift.say = null
+    window.clearTimeout(dailyTimer)
+    dailyTimer = window.setTimeout(() => { dailySay.value = null }, 2800)
+  }
+}
+onBeforeUnmount(() => window.clearTimeout(dailyTimer))
+
 /* The finale card closes onto the map, where Umbra is now visiting (§8.11). */
 const closeFinale = (): void => {
   mapHud.finale = false
@@ -144,11 +251,12 @@ const twinStyle = computed(() => {
         :key="c.slug"
         :class="{ open: c.open, here: c.i === mapHud.visible }"
         :disabled="!c.open"
-        :aria-label="t(`chapter.${c.slug}`)"
+        :aria-label="tabLabel(c)"
         :aria-current="c.i === mapHud.visible ? 'page' : undefined"
         @click.stop="tab(c.i)"
       )
         span.num(aria-hidden="true") {{ c.i + 1 }}
+        span.stars(v-if="c.open" aria-hidden="true") ★{{ c.stars }}/{{ STAR_TOTAL }}
     button.twin(
       v-if="mapHud.twin"
       :style="twinStyle"
@@ -163,10 +271,19 @@ const twinStyle = computed(() => {
       @blur="twinHoldCancel"
       @contextmenu.prevent
     )
-    div.rank(v-if="showRank" :style="rankStyle")
-      RankBadge(:score="S.wins" :compact="mapHud.portrait")
+    button.daily(
+      v-if="mapHud.daily"
+      :style="dailyStyle"
+      :aria-label="t('daily.open')"
+      @click.stop="openDaily"
+      @contextmenu.prevent
+    )
+    div.rank(v-if="showRank" ref="rankEl" :style="rankStyle")
+      RankBadge(:score="S.wins" :compact="rankCompact")
     transition(name="toast")
       div.bloom-toast.story-text(v-if="toast" role="status") {{ t('bloom.claimedToast') }}
+    transition(name="toast")
+      div.bloom-toast.story-text(v-if="dailySay" role="status") {{ t(dailySay) }}
     transition(name="say")
       div.umbra-say.story-text(v-if="mapHud.umbraSay" :key="mapHud.umbraSay.key" :style="sayStyle" role="status") {{ t(mapHud.umbraSay.key) }}
     FinaleCard(v-if="mapHud.finale" @close="closeFinale")
@@ -175,8 +292,6 @@ const twinStyle = computed(() => {
         GameIcon.glyph(name="settings")
       button.duel-plate.icon(:class="{ 'book-new': bookHud.hasNew }" :aria-label="t('hud.spellbook')" @click.stop="book")
         GameIcon.glyph(name="book")
-      button.duel-plate.icon(v-if="leaderboardLive" :aria-label="t('leaderboard.title')" @click.stop="emit('board')")
-        GameIcon.glyph(name="leaderboard")
       button.duel-plate.icon.versus(v-if="mapHud.versus" :aria-label="t('versus.play')" @click.stop="versus")
         GameIcon.glyph(name="squad")
 </template>
@@ -271,6 +386,10 @@ button
   width: 44px
   height: 44px
   border-radius: 12px
+  // The chapter number over its star count: two lines inside the 44 px
+  // floor (§3.4), so the tab stays a 44 px target and the ribbon's height
+  // does not change.
+  flex-direction: column
   // The one literal §7 keeps: there is no token for a locked tint, and the
   // value was measured against `--am-ink-3` (4.89:1) for exactly this tab.
   background: #CFC3DE
@@ -291,6 +410,14 @@ button
     color: var(--am-on-accent)
   &:disabled
     cursor: default
+  // The stars inherit the tab's own ink, so every state keeps the contrast
+  // that state was measured at — a tab never writes a colour of its own.
+  > .stars
+    font-size: 10px
+    line-height: 1
+    margin-top: 2px
+    letter-spacing: -0.02em
+    opacity: 0.9
 
 .twin
   position: absolute
@@ -301,6 +428,16 @@ button
   -webkit-touch-callout: none
   &:active
     transform: none
+
+// The daily gift's tap target: invisible, over the gift the canvas draws.
+// It keeps the press-scale every other button has — the gift itself is what
+// the player sees move, and the two together read as one thing being pressed.
+.daily
+  position: absolute
+  background: transparent
+  border-radius: 50%
+  user-select: none
+  -webkit-touch-callout: none
 
 .bloom-toast
   position: absolute
@@ -323,13 +460,15 @@ button
   opacity: 0
   transform: translate(-50%, -10px)
 
-// The placing, printed on the page (§8.33). Pinned to the paper rather than
-// to the screen, so it reads as part of the book; `pageRect` puts every page
-// in the same place, so it never chases a turning page.
+// The placing, printed on the page (§8.33), right of the bookmark. Pinned to
+// the paper rather than to the screen, so it reads as part of the book;
+// `pageRect` puts every page in the same place, so it never chases a turning
+// page. One line always: the ribbon beside it is placed by its width.
 .rank
   position: absolute
   display: flex
   justify-content: flex-end
+  white-space: nowrap
   pointer-events: none
   animation: rank-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both
   // No `:deep()` dress-up here any more. `RankBadge` used to be drawn for a

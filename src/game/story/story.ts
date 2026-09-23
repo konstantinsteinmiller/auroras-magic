@@ -236,6 +236,26 @@ export const dialogueFor = (n: number): readonly Bubble[] => {
   return tmpl(ch, pos)
 }
 
+/** The node a cold boot opens on: the first duel of the campaign. */
+export const OPENING_NODE = 0
+
+/**
+ * What a cold boot prints OVER the arena instead of playing as a scene in
+ * front of it (retention-roadmap item 2).
+ *
+ * The WHOLE opener, not an extract: a stranger's first ten seconds decide
+ * whether there is a second minute, but what cost those seconds was never the
+ * three bubbles — it was standing in front of the game holding a tap hostage
+ * for each one. Laid over a duel that is already drawable they cost nobody
+ * anything: they turn themselves over, the first stroke takes whichever one
+ * is up away with it, and a child who never waits never learns they were
+ * there. So Umbra still floats in and still answers, which is the entire
+ * point of the beat — the forest is asleep, and somebody did it on purpose.
+ *
+ * Only the chapter title page is dropped, because the arena is the page.
+ */
+export const openingLines = (): readonly Bubble[] => dialogueFor(OPENING_NODE)
+
 /** A boss's thank-you, played in the arena after she is befriended (§3.2.3). */
 export const thanksLines = (n: number): readonly Bubble[] => (nodeIsBoss(n) ? THANKS[nodeChapter(n)] ?? [] : [])
 

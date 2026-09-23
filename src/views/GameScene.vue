@@ -6,6 +6,12 @@
  * every listener. What is left here is genuinely ABOUT one duel: the HUD, the
  * boss's thank-you bubbles, the rank badge on a win, and the loss beat. The
  * rules of what happens next live in `game/flow/duelFlow.ts`.
+ *
+ * Two of those beats are story bubbles over the arena rather than a scene in
+ * front of it: a boss's thank-you when she is befriended, and — on a cold
+ * boot — the campaign's opener, laid over node 0's duel while the ghost trace
+ * loops and turning its own three beats over (retention-roadmap item 2).
+ * Neither takes a tap from the canvas.
  */
 import { computed } from 'vue'
 import { cast, castSide } from '@/game/duel/sim'
@@ -15,13 +21,14 @@ import { retry, toMap, finishThanks } from '@/game/flow/duelFlow'
 import { hud } from '@/use/useDuelHud'
 import { duelBeat } from '@/use/useDuelBeat'
 import { isGamePaused } from '@/use/useGamePause'
-import { flowHud } from '@/use/useFlow'
+import { flowHud, openingHud } from '@/use/useFlow'
+import { closeOpening } from '@/game/flow/nodes'
 import { useMute } from '@/use/useMute'
 import DuelHud from '@/components/duel/DuelHud.vue'
 import DuelResult from '@/components/duel/DuelResult.vue'
 import DialogueBubbles from '@/components/story/DialogueBubbles.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
-import { thanksLines } from '@/game/story/story'
+import { thanksLines, openingLines } from '@/game/story/story'
 import { useI18n } from 'vue-i18n'
 import { versusHud } from '@/use/useVersus'
 import TurnSideways from '@/components/story/TurnSideways.vue'
@@ -58,6 +65,9 @@ const onBook = (): void => {
 }
 
 const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBeat.node) : []))
+// The cold boot's opener, and only while the fight itself is on: a flourish,
+// a sting or a thank-you is a beat of its own and owns the screen.
+const opening = computed(() => (openingHud.live && duelBeat.phase === 'fight' ? openingLines() : []))
 </script>
 
 <template lang="pug">
@@ -77,6 +87,18 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
       :lines="thanks"
       :node="duelBeat.node"
       @done="finishThanks"
+    )
+    //- The cold boot's opening (retention item 2). `skippable` from the first
+    //- frame, unlike a dialogue page: there is no page to turn here, so the
+    //- icon is the only way to put the sequence away without drawing — and it
+    //- puts away the whole of it, not the beat that happens to be up.
+    DialogueBubbles(
+      v-if="opening.length"
+      :lines="opening"
+      :node="duelBeat.node"
+      over-arena
+      skippable
+      @done="closeOpening"
     )
     //- Local versus: the result is both players' together (§2.2 rule 21) —
     //- a crown over whoever won, one line for both, never a lone spotlight.

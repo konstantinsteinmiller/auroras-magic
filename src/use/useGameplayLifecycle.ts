@@ -102,10 +102,62 @@ export const isGameplayLive = (i: GameplayLiveInputs): boolean =>
   && !i.platformPaused
   && !i.awaitingInput
 
+// ─── Poki: the storybook is the game (owner, 2026-09-23) ────────────────────
+//
+// On Poki the bracket is NOT the narrow rule above. The map is a storybook the
+// player turns and plays with, not a level select; the dialogue, the picture
+// book, the gift, the cleaning, dressing Aurora in the tent and the sticker
+// album (and the bath time to come) are all the game. Closing the bracket every
+// time a duel ended told Poki the player had left the game while she was still
+// in it. So on Poki the bracket stays open across every scene and closes only
+// for:
+//
+//   • a MENU — the settings, the spellbook, any FModal (`menuOpen`). A
+//     modal that is part of the story, like the rune-gift ceremony, is not one;
+//   • an AD — `adShowing` still pauses the game and silences it, exactly as
+//     before, and the stop reaches the SDK before `commercialBreak` does,
+//     because `useAds` raises the flag before it calls the provider and the
+//     bracket watches it synchronously;
+//   • the tab hidden or the portal paused — nobody is playing a page nobody
+//     can see, and `gameplayStart()` holds a screen wake lock;
+//   • no touch yet — Poki rejects a `gameplayStart()` nobody asked for, and
+//     conversion-to-play is measured on the first one.
+//
+// CrazyGames and Playgama keep `isGameplayLive`: that ruling was Poki's.
+
+export interface PokiLiveInputs {
+  scene: LiveScene
+  /** Settings, the spellbook or another FModal menu is open. */
+  menuOpen: boolean
+  adShowing: boolean
+  visibilityHidden: boolean
+  platformPaused: boolean
+  awaitingInput: boolean
+}
+
+/** Is the player in the game, as Poki counts it? */
+export const isPokiGameplayLive = (i: PokiLiveInputs): boolean =>
+  i.scene !== 'boot'
+  && !i.menuOpen
+  && !i.adShowing
+  && !i.visibilityHidden
+  && !i.platformPaused
+  && !i.awaitingInput
+
+/** Report Poki's bracket. A no-op on every other build; idempotent on Poki,
+ *  where `pokiGameplayStart/Stop` collapse repeats and defer a start that lands
+ *  inside the SDK's 50 ms window. */
+export const syncPokiGameplay = (live: boolean): void => {
+  if (import.meta.env.VITE_APP_POKI !== 'true') return
+  if (live) pokiGameplayStart()
+  else pokiGameplayStop()
+}
+
 /**
- * Report whether gameplay is live. Idempotent on every platform: each portal
- * arm collapses a repeat of the state it is already in, so callers may fire it
- * as often as their reactive source changes.
+ * Report whether gameplay is live — the narrow rule, for CrazyGames and
+ * Playgama. Idempotent on every platform: each portal arm collapses a repeat
+ * of the state it is already in, so callers may fire it as often as their
+ * reactive source changes. Poki is told separately (`syncPokiGameplay`).
  */
 /**
  * What the portals were last TOLD — not what the game is doing.
@@ -120,12 +172,6 @@ let reported = false
 export const syncGameplayLifecycle = (live: boolean): void => {
   reported = live
   syncCrazyGameplay(live)
-
-  if (import.meta.env.VITE_APP_POKI === 'true') {
-    if (live) pokiGameplayStart()
-    else pokiGameplayStop()
-  }
-
   syncPlaygamaGameplay(live)
 }
 
@@ -161,7 +207,9 @@ const syncPlaygamaGameplay = (live: boolean): void => {
 export const __gameplayFanoutIdle = (): Promise<void> => playgamaChain
 
 /**
- * A new play began while the player never stopped playing.
+ * A new play began while the player never stopped playing. The narrow arms
+ * only: Poki's bracket spans the whole storybook, so there is no play there to
+ * hand over — and a gratuitous stop/start pair is exactly its bad event.
  *
  * Nothing watching the live flag can see a handover that happens inside one
  * tick (it reads true on both sides), so such a handover says it by hand:

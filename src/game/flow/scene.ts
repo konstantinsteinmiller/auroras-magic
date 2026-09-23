@@ -11,6 +11,7 @@
 import { S } from '@/game/duel/state'
 import { flowHud } from '@/use/useFlow'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
+import { track } from '@/use/useAnalytics'
 
 export type SceneId =
   | 'boot' | 'intro' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe'
@@ -42,6 +43,11 @@ export const gotoScene = (scene: SceneId, node = -1, mode: 'campaign' | 'versus'
 export const openOverlay = (o: OverlayId): void => {
   S.flow.overlay = o
   flowHud.overlay = o
+  // The spellbook is reported HERE rather than at its three buttons (the duel
+  // HUD's, the map's, and the keyboard's `?`): one event for one thing opening
+  // is what an engagement funnel can be read with. Options is not measured —
+  // it is settings, not play.
+  if (o === 'spellbook') track('spellbook_open')
   reconcileGameplayBracket()
 }
 

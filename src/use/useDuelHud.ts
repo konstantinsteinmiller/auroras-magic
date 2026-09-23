@@ -14,6 +14,8 @@
 
 import { reactive, shallowRef } from 'vue'
 import { S, POP_LIFE, type Pop } from '@/game/duel/state'
+import { perfectSlot, perfectToken } from '@/game/duel/perfect'
+import { helpNoteUp, helpToken } from '@/game/duel/help'
 import { HP_MAX, MAX_RUNES, PH_DUEL, type Rune } from '@/game/duel/config'
 import { spellOf } from '@/game/duel/sim'
 import type { SpellNameParts } from '@/use/useSpellName'
@@ -40,6 +42,17 @@ export interface HudState {
   ecast: SpellNameParts | null
   /** Lifetime duels won: the leaderboard's score. */
   wins: number
+  /**
+   * The perfect-rune sparkle (retention item 7). `perfect` is a token that
+   * bumps on every perfect rune — the slot's twinkle is keyed on it, so the
+   * same slot can sparkle twice — and `perfectSlot` is where it landed. Both
+   * live in `game/duel/perfect.ts`, outside `S`, so no rule can read them.
+   */
+  perfect: number
+  perfectSlot: number
+  /** Aurora's after-two-losses note (retention item 8): the help token while
+   *  the line is up, 0 when it is not. */
+  help: number
 }
 
 export const hud = reactive<HudState>({
@@ -56,7 +69,10 @@ export const hud = reactive<HudState>({
   eRune: -1,
   cast: null,
   ecast: null,
-  wins: 0
+  wins: 0,
+  perfect: 0,
+  perfectSlot: -1,
+  help: 0
 })
 
 /** Callouts on screen. Membership is reactive; the motion is a CSS animation. */
@@ -161,6 +177,14 @@ export const syncHud = (dt: number): void => {
     } else hud.ecast = null
   }
   if (hud.wins !== S.wins) hud.wins = S.wins
+  // Two int compares for the two retention beats that do not live in `S`.
+  const pt = perfectToken()
+  if (hud.perfect !== pt) {
+    hud.perfect = pt
+    hud.perfectSlot = perfectSlot()
+  }
+  const help = helpNoteUp() ? helpToken() : 0
+  if (hud.help !== help) hud.help = help
 
   // ── callouts: age while the game runs, publish membership changes ──
   const list = hudPops.value

@@ -7,7 +7,7 @@
  * onboarding trace. The HUD, the callouts and the result panel are Vue
  * components layered over this canvas — see `components/duel/`.
  */
-import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
+import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
 import { drawCloth } from '@/game/map/map'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
@@ -21,11 +21,12 @@ import { LAYOUT, PORTRAIT_WIN, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
-import { traceAssist } from '@/use/useAccessibility'
+import { traceAssistNow } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
 import { FOES } from '@/game/duel/foes'
 import { decoyX } from '@/game/duel/sim'
 import { STARTING_RUNES } from '@/game/campaign/tables'
+import { helpOn } from '@/game/duel/help'
 
 type G2D = CanvasRenderingContext2D
 
@@ -518,8 +519,26 @@ const newestRune = (): number => {
   const extra = (S.campaign.runesUnlocked & ~STARTING_RUNES) >>> 0
   return extra ? 31 - Math.clz32(extra) : -1
 }
-const drawAssistTrace = (g: G2D, t: number): void => {
-  const k = newestRune()
+/**
+ * …and which rune the ghost draws when the help came from two losses rather
+ * than from Options (retention item 8). A chapter-1 player has no rune newer
+ * than the two she started with, so `newestRune` is -1 and the setting's own
+ * answer would be to draw NOTHING — which is exactly the child this help
+ * exists for, left with an empty box. She gets the rune this foe fears if she
+ * owns it (the HUD already names it), and otherwise the first rune she was
+ * ever given.
+ */
+const helpRune = (): number => {
+  const newest = newestRune()
+  if (newest >= 0) return newest
+  const own = (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
+  const fe = FOES[S.foe]?.element ?? -1
+  const c = fe >= 0 ? CTR[fe] ?? -1 : -1
+  if (c >= 0 && (own >> c) & 1) return c
+  return own ? 31 - Math.clz32(own & -own) : -1
+}
+const drawAssistTrace = (g: G2D, t: number, help: boolean): void => {
+  const k = help ? helpRune() : newestRune()
   if (k < 0) return
   const [cx, cy] = zoneCentre()
   const R = zoneSpan() * 0.26
@@ -913,5 +932,5 @@ export const render = (g: G2D): void => {
   if (S.draw && S.portrait) drawStroke(g)
   if (S.versus) return
   if (S.intro && !S.book && S.phase === PH_DUEL && S.introStep < 1) drawIntroTrace(g, t)
-  else if (traceAssist.value && !S.book && S.phase === PH_DUEL && S.landed === 0) drawAssistTrace(g, t)
+  else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0) drawAssistTrace(g, t, helpOn())
 }

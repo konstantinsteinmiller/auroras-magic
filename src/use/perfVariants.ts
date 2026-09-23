@@ -60,7 +60,13 @@ export const activeVariants = (): string[] => [...flags]
 
 // ─── Variants ───────────────────────────────────────────────────────────────
 //
-// None yet. A perf experiment adds ONE flag here (`export const X =
-// perfFlag('x')`), branches on it at module scope, measures both arms with
-// `pnpm perf:ab`, and records the verdict in PERF-LEDGER.md — then deletes the
-// losing arm and its flag.
+// None right now. The last two — `quality-legacy` and `sparkle-legacy`, the
+// baseline arms of the adaptive-quality experiments of 2026-09-23 — were
+// deleted when both of their B arms shipped, per step 5 above. What they
+// compared, and every number, is in PERF-LEDGER.md; the two lines the legacy
+// arm ran are quoted in `game/duel/quality.ts`'s header.
+//
+// A perf experiment adds ONE flag here (`export const X = perfFlag('x')`),
+// branches on it at module scope, measures both arms with `pnpm perf:ab`, and
+// records the verdict in PERF-LEDGER.md — then deletes the losing arm and its
+// flag.

@@ -15,9 +15,10 @@
 import { S, save } from '@/game/duel/state'
 import { COSMETIC_SLOTS, COSMETICS, FINALE_NODE, nodeIsBoss } from '@/game/campaign/tables'
 import { onUnboxComplete, type ChestGrant } from '@/game/campaign/controller'
+import { noteFirstRestore } from '@/game/campaign/session'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, DIP_ZOOM } from '@/game/flow/transition'
-import { focusMap } from '@/game/map/map'
+import { focusMap, peekNextUp } from '@/game/map/map'
 import { admire } from '@/game/cosmetics/wardrobe'
 import { triggerHappytime } from '@/use/useCrazyGames'
 import { gamePixHappyMoment } from '@/utils/gamepixPlugin'
@@ -64,6 +65,10 @@ export const onUnboxed = (n: number): ChestGrant => {
 /** The restore loop handed control back (restored, or the player left). */
 export const onRestoreFinished = (why: RestoreEnd): void => {
   const n = lastNode
+  // The funnel's last step (retention item 1): a sector actually brought back
+  // to colour, which is the reward loop's own close and the furthest a first
+  // session usually gets.
+  if (why === 'restored') noteFirstRestore()
   const keepsake = why === 'restored' ? lastGrant.cosmetic : null
   // The wardrobe is the next screen when a chest gave one: its room goes on
   // the wire now, under the dip, the way a sector's painting does.
@@ -93,7 +98,13 @@ export const onRestoreFinished = (why: RestoreEnd): void => {
       mapHud.finale = true
       return
     }
-    if (why === 'restored') offerTwinGift(n)
+    if (why === 'restored') {
+      offerTwinGift(n)
+      // …and, a beat after the zoom-out has settled, the book shows what
+      // comes next (retention item 6). Silent at the finale, and cancelled by
+      // the first touch — it must never cost a child a tap.
+      peekNextUp(n)
+    }
   }, DIP_ZOOM)
 }
 
@@ -108,7 +119,12 @@ export const leaveWardrobe = (): void => {
   admiringKeepsake = false
   dipTo(() => {
     gotoScene('map')
-    if (onward) focusMap(-1, true)
+    if (!onward) return
+    focusMap(-1, true)
+    // A boss chest's keepsake takes the restore's own "next up" peek with it:
+    // the beat belongs to every restore, and this is the one that detours
+    // through the wardrobe on its way back to the book (item 6).
+    peekNextUp(lastNode)
   }, 0.4)
 }
 

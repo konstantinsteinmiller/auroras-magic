@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': '排行榜',
-    'rank': '#',
-    'player': '玩家',
-    'score': '胜场',
-    'flair': '进度',
-    'empty': '还没有记录，快来成为第一个吧！',
-    'failed': '无法连接排行榜。',
-    'loading': '加载中…',
-    'you': '你',
-    'yourRank': '你在 {total} 人中排第 #{n}',
-    'of': '/ {n} 人',
-    'tabGlobal': '全球'
+    'of': '/ {n} 人'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': '这里开满了鲜花！'
   },
 
+  'star': {
+    'tabLabel': '{name} — {total} 颗星中的 {n} 颗'
+  },
+
+  'daily': {
+    'open': '打开今天的礼物',
+    'stickerToast': '相册里多了一位新朋友！'
+  },
+
+  'album': {
+    'title': '贴纸相册',
+    'hint': '在已经恢复的地方点一点小动物，它的贴纸就会回到相册里。',
+    'count': '已找到 {met}/{total}',
+    'chapter': '第 {n} 章',
+    'found': '已找到的贴纸',
+    'friend': '救回来的朋友',
+    'dressTab': '装扮',
+    'albumTab': '贴纸相册'
+  },
+
+  'photo': {
+    'title': '照片卡',
+    'take': '拍一张照片',
+    'card': '照片卡 {n}',
+    'empty': '空的照片卡',
+    'fullHint': '相册里放得下{n}张卡。拍了新照片，最旧的那张就会让位。'
+  },
+
   'duel': {
     'almostRune': '差一点就是{rune}！'
   },
 
   'license': {
     'denied': '访问被拒绝：请购买许可证。'
+  },
+
+  'help': {
+    'auroraLine': '来，我陪你一起画！',
+    'perfectRune': '画得真漂亮！'
   }
 }

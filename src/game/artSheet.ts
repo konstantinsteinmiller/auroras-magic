@@ -2471,6 +2471,13 @@ const STYLE_CORE = [
   // all 237 targets REPAINT. This is a prompt-builder rule, like the magenta
   // ground and the neutral regions, and it applies from the next generation.
   '· NO LINE INSIDE THE SHAPE. The drawn line belongs to the OUTSIDE of a thing, where it turns away from what is behind it. Inside its own silhouette one part meets another through a CHANGE OF PAINT — a different colour, a soft edge, a shadow that follows the form — and never through a drawn stroke. No outlined windows, planks, panels, petals, scales or straps, and no spoke or rib drawn as a line: a spoke is a painted bar, a pane is painted glass, a plank is a painted seam.',
+  // Paid for on the first four re-rolls of this pass: the rule above was read
+  // as "remove the small dark details". The festival stage came back without
+  // its candles, its moon, its stars or its banner, and the geode hall
+  // without its cave. Taking the LINE away is not taking the THING away — and
+  // "nothing may be left out" did not cover it, because its own list names
+  // buildings, towers and bridges, which are the big things.
+  '· TAKING THE LINE AWAY MUST NOT TAKE THE THING AWAY. Every candle, star, moon, medallion, windowpane, curtain fold, bolt, pebble, ribbon and handle in the reference is STILL THERE in your picture, the same size and in the same place. Only HOW it is made changes: painted as a shape with its own colour and its own soft shadow, instead of traced as an outline. A picture with fewer things in it than the reference is wrong, and no amount of lovely painting excuses it.',
   `· AVOID — this is exactly how earlier attempts went wrong: ${ACTIVE_STYLE.avoid.join(', ')}.`
 ].join('\n')
 
@@ -2494,7 +2501,8 @@ const STYLE_CHECKS = [
   '· It looks drawn by hand, not assembled: soft colour variation inside the shapes, and no shape that is a perfect circle, arc or straight edge.',
   // The check that makes the painter LOOK, the way "compare the two heaviest
   // lines" does for the outside: name the parts the habit reaches for.
-  '· LOOK INSIDE EACH THING and count the drawn lines there — windows, doors, planks, panes, spokes, ribs, petals, straps, seams. The answer must be ZERO: every one of them is painted, not outlined. Paint out any you find.'
+  '· LOOK INSIDE EACH THING and count the drawn lines there — windows, doors, planks, panes, spokes, ribs, petals, straps, seams. The answer must be ZERO: every one of them is painted, not outlined. Paint out any you find.',
+  '· COUNT THE THINGS, not just the lines. Put your picture beside the reference and check off every small object in it — the candles, the stars, the medallions, the panes, the folds. One missing means start again: softening a picture by emptying it is the wrong trade.'
 ]
 
 /**

@@ -15,6 +15,14 @@
  *     survives the migration.
  *
  * Idempotent: once `am_schema` is 2 it returns at once.
+ *
+ * ADDING A CAMPAIGN FIELD DOES NOT BUMP THE SCHEMA, and the retention pass
+ * (six new fields, `state.ts`) did not. A schema number here answers "is this
+ * blob a different SHAPE that has to be rewritten", and a new field is not:
+ * `readCampaign` is total, so an older blob reads the field as its default and
+ * the next `save()` writes it out. Both paths already go through that reader —
+ * this migration on a Step-1 blob, `load()` on every other — so there is
+ * nothing a bump would do except make every schema-2 save look stale.
  */
 import { getState, setState, removeState } from '@/use/useGameState'
 import { SCHEMA_KEY, CAMPAIGN_KEY, COINS_KEY, UPGRADES_KEY, SPELLS_SEEN_KEY } from '@/keys'

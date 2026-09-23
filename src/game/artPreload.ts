@@ -25,9 +25,16 @@
  *     page changing;
  *   • the gifts and the sponge, which that page and the first sector show;
  *   • the twelve runes, which the first duel's HUD shows;
- *   • a first-time player's intro pages (§8.26) — the intro is the very
- *     first thing they see — and Aurora's, Umbra's and the chapter
- *     creature's portraits, which the first dialogue shows.
+ *   • Aurora's, Umbra's and the chapter creature's portraits, which the first
+ *     dialogue shows.
+ *
+ * NOT the intro's four pages any more. They were held because the picture
+ * book WAS the first screen; retention-roadmap item 2 moved it to the first
+ * map reached with nothing owed and something won — the far side of a whole
+ * node — so on a cold boot they are four full-page 1152 × 672 paintings held
+ * in front of a duel that never draws one of them. They now go out behind the
+ * first stage at `'low'` priority (`primeIntroArt`), which is a whole duel,
+ * gift and wipe of runway before the book can play.
  *
  * Everything else streams in behind play: a page's thumbnails as it is
  * drawn, a sector's full painting when its gift is tapped. With the layer off
@@ -44,12 +51,11 @@ import {
 const isPortrait = (): boolean =>
   typeof window !== 'undefined' && window.innerHeight > window.innerWidth
 
-/** The first screens' paintings, for a save whose furthest node is `furthest`
- *  and that has (or has not yet) seen the intro. */
 /** The props worth holding the splash for: the ones on screen everywhere. */
 const FIRST_PROPS = [PROP_ART.twinkle, PROP_ART.butterfly, PROP_ART.pennant, PROP_ART.mote, PROP_ART.puff, PROP_ART.flag]
 
-export const firstArtWants = (furthest: number, introSeen = true): ArtWant[] => {
+/** The first screens' paintings, for a save whose furthest node is `furthest`. */
+export const firstArtWants = (furthest: number): ArtWant[] => {
   const chapter = Math.floor(Math.max(0, Math.min(49, furthest + 1)) / 5)
   const items = [ITEM_ART.tent, ITEM_ART.gift, ITEM_ART.boxGift, ITEM_ART.chest, ITEM_ART.sponge]
   // The chapter's creature strip is the one after the eleven named speakers.
@@ -61,7 +67,6 @@ export const firstArtWants = (furthest: number, introSeen = true): ArtWant[] => 
     // duel's letterbox all lay the book on it now — so a late arrival is the
     // entire surround changing under the player's hands.
     ['page', 'cover-cloth'] as ArtWant,
-    ...(introSeen ? [] : STORY_PANELS.map((_, i): ArtWant => ['story', storyPanelId(i)])),
     // The page those five thumbnails are printed ON. It is the largest single
     // thing the first screen shows, so letting it stream in behind the splash
     // is the most visible pop-in the map can have — the whole sheet changes
@@ -101,10 +106,33 @@ export const primeWardrobeArt = (): void => {
   void artSettled(WARDROBE_RUG.kind, WARDROBE_RUG.id, 'high')
 }
 
+/**
+ * Start the picture book's four pages (§8.26, as amended by §8.26a) — BEHIND
+ * the splash rather than under it.
+ *
+ * They used to be in the hold above, and had to be: the book was the very
+ * first screen a new save saw. It is not any more. It plays when the first
+ * gift is opened (`flow/nodes.ts` `openGift`), between the first win and the
+ * first cleaning. So the earliest a page can be drawn is a whole duel after
+ * the splash, and holding four opaque 1152 × 672 paintings in front of the
+ * first stroke buys nothing at all.
+ *
+ * Fired instead once the first stage has settled, at `'low'` priority, so
+ * they queue behind everything the player is actually looking at and still
+ * have that whole duel to land in. A miss keeps the drawing, as everywhere.
+ *
+ * Only for a player who has not seen it: `introSeen` is the same field the
+ * trigger reads, so a returning player fetches nothing.
+ */
+export const primeIntroArt = (introSeen: boolean): void => {
+  if (introSeen) return
+  for (let i = 0; i < STORY_PANELS.length; i++) void artSettled('story', storyPanelId(i), 'low')
+}
+
 /** Hold for the first screens' paintings. Never rejects; a no-op with the layer off. */
 export const preloadFirstArt = async (
-  furthest: number, introSeen = true, onProgress?: (done: number, total: number) => void
+  furthest: number, onProgress?: (done: number, total: number) => void
 ): Promise<void> => {
   if (!artOverridesEnabled()) return
-  await preloadArtOverrides(firstArtWants(furthest, introSeen), onProgress)
+  await preloadArtOverrides(firstArtWants(furthest), onProgress)
 }

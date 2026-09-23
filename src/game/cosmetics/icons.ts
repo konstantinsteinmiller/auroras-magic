@@ -520,10 +520,9 @@ const SLOT_DRAW: Readonly<Record<CosmeticSlot, (g: G2D) => void>> = {
   }
 }
 
-/** A slot tab's glyph, as a data URL (baked once, like the item badges). */
-export const slotIconUrl = (slot: CosmeticSlot): string => {
+/** Bake one 128 px glyph to a data URL, once, under `key`. */
+const glyphUrl = (key: string, draw: (g: G2D) => void): string => {
   void iconArtRev.value
-  const key = `slot:${slot}`
   const hit = cache.get(key)
   if (hit) return hit
   if (typeof document === 'undefined') return ''
@@ -531,11 +530,85 @@ export const slotIconUrl = (slot: CosmeticSlot): string => {
   cv.width = cv.height = 128
   const g = cv.getContext('2d')
   if (!g) return ''
-  SLOT_DRAW[slot](g)
+  draw(g)
   const url = cv.toDataURL()
   cache.set(key, url)
   return url
 }
+
+/** A slot tab's glyph, as a data URL (baked once, like the item badges). */
+export const slotIconUrl = (slot: CosmeticSlot): string => glyphUrl(`slot:${slot}`, SLOT_DRAW[slot])
+
+/* --------------------------- the tent's two pages --------------------- */
+/*
+ * The wardrobe tent holds two things now (retention item 3): the shelf she is
+ * dressed from, and the album her stickers and photo cards live in. Their
+ * tabs are drawn in the same flat, one-ink style as the slot tabs above and
+ * for the same reason — a tab that looks like a keepsake gets tapped as one —
+ * and they carry no text at all, only an `aria-label` (§8.2).
+ */
+
+/** The shelf: a coat hanger, which is what a wardrobe looks like from across
+ *  a room, at every age and in every language. */
+const dressTab = (g: G2D): void => {
+  g.lineJoin = g.lineCap = 'round'
+  g.beginPath()
+  g.moveTo(64, 46)
+  g.quadraticCurveTo(64, 26, 50, 26)
+  g.quadraticCurveTo(38, 26, 38, 38)
+  g.lineWidth = 8
+  g.strokeStyle = INK
+  g.stroke()
+  g.beginPath()
+  g.moveTo(64, 44)
+  g.lineTo(18, 88)
+  g.lineTo(110, 88)
+  g.closePath()
+  tabInk(g, '#ffd36b')
+}
+
+/** The album: a page with four stickers stuck on it. */
+const albumTab = (g: G2D): void => {
+  g.lineJoin = g.lineCap = 'round'
+  g.beginPath()
+  g.roundRect(20, 18, 88, 94, 10)
+  tabInk(g, '#fff6e2')
+  const dots: readonly (readonly [number, number, string])[] = [
+    [46, 44, '#ff9ecf'], [82, 44, '#9fd8ff'], [46, 84, '#9ff0d0'], [82, 84, '#c7a6ff']
+  ]
+  for (const [x, y, col] of dots) {
+    g.beginPath()
+    g.arc(x, y, 14, 0, TAU)
+    tabInk(g, col, 5)
+  }
+}
+
+const TAB_DRAW: Readonly<Record<'dress' | 'album', (g: G2D) => void>> = { dress: dressTab, album: albumTab }
+
+/** One of the tent's two page tabs, as a data URL. */
+export const tentTabUrl = (tab: 'dress' | 'album'): string => glyphUrl(`tent:${tab}`, TAB_DRAW[tab])
+
+/** The album's "pose" button: a little camera. Never a share glyph — the card
+ *  never leaves the device (item 16, Poki/Playables). */
+export const poseIconUrl = (): string => glyphUrl('pose', (g) => {
+  g.lineJoin = g.lineCap = 'round'
+  g.beginPath()
+  g.moveTo(44, 34)
+  g.lineTo(84, 34)
+  g.lineTo(90, 46)
+  g.lineTo(38, 46)
+  g.closePath()
+  tabInk(g, '#ffb3da', 6)
+  g.beginPath()
+  g.roundRect(14, 42, 100, 70, 14)
+  tabInk(g, '#9fd8ff')
+  g.beginPath()
+  g.arc(64, 78, 26, 0, TAU)
+  tabInk(g, '#fff6e2', 6)
+  g.beginPath()
+  g.arc(64, 78, 11, 0, TAU)
+  tabInk(g, '#ffd36b', 5)
+})
 
 /** Every slot, in shelf order — the tab strip. */
 export const SLOT_TABS: readonly CosmeticSlot[] = COSMETIC_SLOTS

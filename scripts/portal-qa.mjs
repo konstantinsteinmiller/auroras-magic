@@ -19,11 +19,13 @@
 //
 // Exits non-zero on the first failed check, so CI can gate on it.
 //
-// THE STORY BUILD (story-spec §11.15). A fresh profile boots into the
-// first-launch intro (§8.26) and then chapter 1's dialogue, not a duel: the
-// battery checks the intro holds silent under the first-load ad, skips it the
-// way a player would, and enters a duel through the QA hook `__gotoNode(0)`
-// (dialogue skipped). After the shared mute/pause/menu checks
+// THE STORY BUILD (story-spec §11.15, as amended by §8.26a and §8.26b). A
+// fresh profile boots STRAIGHT INTO chapter 1's duel, with the opener's three
+// bubbles printed over the arena as chrome, turning themselves over
+// (retention-roadmap item 2) — no dialogue scene, and no picture book, which
+// now plays at the first tap on a waiting gift (§8.26b). The battery asserts that boot, marks the book seen so the
+// scene tour below cannot trigger it, and enters a duel through the QA hook
+// `__gotoNode(0)` (dialogue skipped). After the shared mute/pause/menu checks
 // it tours every scene of §11.2's table and asserts the bracket per scene
 // (`__flow.live()`): live in the duel and the wipe only. Then happytime's
 // placement (at the boss chest's unbox, never at a win) and the Twin Gift's
@@ -600,7 +602,29 @@ try {
   }
   check('game booted (a fresh save opens on the story)', booted,
     booted ? `scene=${await ev('window.__campaignPhase ? window.__campaignPhase() : "?"')}` : '')
-  if (booted) check('a fresh save opens on the intro (§8.26)', await ev('window.__campaignPhase()') === 'intro')
+  if (booted) {
+    // NOTHING STANDS IN FRONT OF NODE 0 any more (retention-roadmap item 2).
+    // A fresh save boots straight into chapter 1's duel and prints the
+    // opener's first bubble over the arena as chrome — same scene, no
+    // dialogue, no picture book. The 19 s intro (§8.26) has moved to the
+    // first gift opened, in front of the first cleaning, so asserting
+    // `scene === 'intro'` here is asserting the boot order that was removed.
+    for (let i = 0; i < 40 && await ev('window.__campaignPhase()') !== 'duel'; i++) await sleep(250)
+    check('a fresh save opens on the DUEL, not a cutscene (§8.26)',
+      await ev('window.__campaignPhase()') === 'duel', `scene=${await ev('window.__campaignPhase()')}`)
+    check("node 0's opener is chrome over the arena", await ev('window.__flow.opening()') === true)
+    // ── Immunise the rest of the battery against the picture book ─────────
+    //
+    // §8.26's trigger is now `openGift()`: the first tap on a waiting gift
+    // plays the book before the first cleaning. The battery opens sectors
+    // through `__wipe` / `__toInvite`, which call `openSector` directly and
+    // never meet it — but a check that ever taps a gift on the map would
+    // raise the book mid-tour ("bracket off — on the map — scene=intro").
+    // That is luck, not a contract. Marking it seen (in
+    // memory; no `save()`, so the save on disk is untouched) keeps every
+    // check below measuring the scene it names.
+    await ev('(() => { window.__campaign.state().introSeen = true })()')
+  }
   if (!booted) {
     console.log('  body    : ' + await ev('document.body.innerText.slice(0,300)'))
     console.log('  hooks   : ' + await ev('JSON.stringify({ S: typeof window.__S, cheat: (function(){ try { return localStorage.getItem("cheat") } catch (e) { return String(e) } })(), canvas: !!document.querySelector("canvas.duel-canvas"), globals: Object.keys(window).filter(function (k) { return k.indexOf("__") === 0 }), lsIsNative: (function(){ try { return Object.prototype.toString.call(window.localStorage) } catch (e) { return String(e) } })(), keys: (function(){ try { var o=[]; for (var i=0;i<localStorage.length;i++) o.push(localStorage.key(i)); return o } catch (e) { return String(e) } })() })'))
@@ -640,8 +664,12 @@ try {
     }
     return false
   }
-  // The intro plays once the loader and any first-load ad are done; a player
-  // who skips it lands on chapter 1's dialogue, and it counts as seen.
+  // DEAD ON A COLD BOOT since retention item 2 moved the picture book off the
+  // front of the game, and doubly so now the boot check marks it seen — kept
+  // because it is the only place the intro's own contract (it runs once the
+  // loader and any first-load ad are done, Skip lands on a dialogue, and
+  // either way it counts as seen) is asserted against a real portal build, and
+  // it costs one hook read to leave armed for a build that boots into it again.
   const intro = JSON.parse(await ev('JSON.stringify(window.__intro ? window.__intro.state() : null)'))
   if (intro?.running) {
     await sleep(600)
@@ -874,6 +902,11 @@ try {
   check('menu open → simulation FROZEN', opened === 'clicked' && menuStart === menuEnd,
     `${opened}; ${menuStart} → ${menuEnd}`)
 
+  // Poki's bracket spans the storybook, and a menu is one of the few things
+  // that closes it (owner, 2026-09-23). Computed on every build; only Poki's
+  // SDK is told, so the rule itself is provable here on any platform.
+  check("menu open → Poki's bracket closed", await ev('window.__flow.pokiLive()') === false)
+
   const menuAudio = JSON.parse(await ev('JSON.stringify(window.__qa.audioState())'))
   check('menu open → audio suspended', menuAudio.count > 0 && menuAudio.allPaused,
     JSON.stringify(menuAudio))
@@ -885,11 +918,15 @@ try {
   // ── The bracket, per scene (§11.2, §12.2.3) ─────────────────────────────
   //
   // Read off the app's own reconciler (`__flow.live()`), so every platform
-  // gets the proof, not only the one whose stub logs the bracket.
+  // gets the proof, not only the one whose stub logs the bracket. Poki's own
+  // bracket (`__flow.pokiLive()`) is live in EVERY one of these scenes — the
+  // storybook is the game there, and only a menu, an ad, a hidden tab or a
+  // portal pause closes it (owner, 2026-09-23).
   const live = () => ev('window.__flow.live()')
   const scene = async (label, want) => {
     const got = await live()
     check(`bracket ${want ? 'LIVE' : 'off'} — ${label}`, got === want, `scene=${await phase()}`)
+    check(`Poki's bracket LIVE — ${label}`, await ev('window.__flow.pokiLive()') === true, `scene=${await phase()}`)
   }
   await ev('window.__gotoNode(1)')
   await waitScene('duel')

@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': '순위표',
-    'rank': '#',
-    'player': '플레이어',
-    'score': '승리',
-    'flair': '진행도',
-    'empty': '아직 기록이 없어요. 첫 번째가 되어 보세요!',
-    'failed': '순위표에 연결할 수 없어요.',
-    'loading': '불러오는 중…',
-    'you': '나',
-    'yourRank': '{total}명 중 #{n}위',
-    'of': '/ {n}명',
-    'tabGlobal': '전 세계'
+    'of': '/ {n}명'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': '이곳에 꽃이 활짝 피었어요!'
   },
 
+  'star': {
+    'tabLabel': '{name} — 별 {total}개 중 {n}개'
+  },
+
+  'daily': {
+    'open': '오늘의 선물을 열어 보세요',
+    'stickerToast': '앨범에 새 친구가 왔어요!'
+  },
+
+  'album': {
+    'title': '스티커 앨범',
+    'hint': '다시 피어난 곳에서 친구를 톡 누르면, 그 스티커가 앨범에 들어와요.',
+    'count': '{total}개 중 {met}개 찾음',
+    'chapter': '{n}장',
+    'found': '찾은 스티커',
+    'friend': '구해 준 친구',
+    'dressTab': '꾸미기',
+    'albumTab': '스티커 앨범'
+  },
+
+  'photo': {
+    'title': '사진 카드',
+    'take': '사진 찍기',
+    'card': '사진 카드 {n}',
+    'empty': '비어 있는 사진 카드',
+    'fullHint': '앨범에는 카드 {n}장이 들어가요. 새 사진은 가장 오래된 카드 자리에 놓여요.'
+  },
+
   'duel': {
     'almostRune': '거의 {rune}!'
   },
 
   'license': {
     'denied': '접근이 거부되었습니다: 라이선스를 구매해 주세요.'
+  },
+
+  'help': {
+    'auroraLine': '자, 같이 그려 봐요!',
+    'perfectRune': '정말 예쁘게 그렸어요!'
   }
 }

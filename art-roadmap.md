@@ -714,6 +714,103 @@ stand, cast, hurt, low hp, win, lose .5, lose 1, form — across Aurora, Umbra
 and a foe palette, art on and off. With no painting present the two renders
 are byte-identical, which is how the refactor was proved to change nothing.
 
+## Step 4f — The interior-outline pass, 2026-09-23
+
+Owner: *"paint all currently drawn assets without the painted assets having
+outlines inside the asset."* The style block already forbade an even outline
+AROUND everything; what came back instead was a picture whose outsides were
+softly drawn and whose INSIDES were a diagram — every window, plank, panel,
+stone course, tent seam, lantern pane and medallion traced at one weight.
+
+The rule now lives in `STYLE_CORE` and its check in `STYLE_CHECKS`
+(`artSheet.ts`), so every prompt in the game carries it. It is a
+prompt-BUILDER rule rather than a `artStyle.ts` one on purpose: a profile's id
+is stamped on every painting made under it, so editing one would mark all 259
+targets REPAINT, and the owner asked for offenders only.
+
+**MEASURE IT, DO NOT EYEBALL IT.** `interior-ink.mjs` (session scratchpad)
+blurs the luminance and counts pixels where `blur − L` clears a threshold: a
+LINE is a dark ridge, a shadow MASS is not, because a blur follows a mass and
+not a line. Reported as a percentage of the interior — inside the alpha,
+eroded so the silhouette's own line is never counted, and a full-bleed scene
+is all interior. The fifty sectors spread from 0.62 % to 5.58 %, and the top
+and bottom of that ranking match what the eye says without being told:
+Terra's Geode Hall has every stone of its arch outlined; Moon Bridge has
+almost no interior line at all.
+
+**The bar is 3.4 %**, which is where the knee is. That was 25 sectors, all
+re-rolled. FOUR sheets over the bar were deliberately left alone: the intro's
+story panels, because `story/intro-1` is one of the two owner-approved
+canonical style references (art-style.md §0.1) and a re-roll is a fresh dice
+throw.
+
+**THE PROPS, ONE AT A TIME, DID PAY — 7 of 10 kept.** Same rule, same
+measurement, but each one rolled, measured against its own before figure,
+looked at, and kept or put back before the next:
+
+| prop | ink | verdict |
+| --- | --- | --- |
+| cave lantern | 10.16 → 7.12 | bars painted instead of outlined — kept |
+| cable car | 8.16 → 0.55 | panes painted; reads the same at play size — kept |
+| gondola | 6.51 → 1.28 | window painted; checked on the wheel — kept |
+| canoe | 5.76 → 1.30 | gunwale painted; checked on the lake — kept |
+| buoy | 5.43 → 3.95 | stripes painted as bands — kept |
+| mine cart | 5.11 → 3.09 | plank seams painted, rivets and gems intact — kept |
+| water wheel | 2.23 → 1.90 | spokes painted as bars — kept |
+| far sailboat | 6.70 → 6.80 | came back the same picture — put back |
+| paper lantern | 0.76 → 1.25 | inkier, and grew a hanging loop the game draws — put back |
+| windsock | 1.07 → 1.37 | inkier, and the cone changed shape — put back |
+
+**WHY A PROP WINS WHERE A SECTOR LOSES.** A prop is ONE object with a short
+brief and nothing to drop; a sector is a whole scene with fifty things in it,
+and "paint it instead of outlining it" gives the painter fifty chances to lose
+one. Re-roll props freely, one at a time. Re-roll a sector only when you are
+going to look at it.
+
+Two things to watch when doing this by hand: a prop that only CHANGES (the
+sailboat) is not an improvement and should go back, because the next roll is
+another dice throw; and always check a keyed sprite AT PLAY SIZE before
+believing an ink win — the cable car lost nearly all its outline and turned
+out to read exactly as before at 56 px, which is the only size that matters.
+
+The metric does NOT compare across sizes — a small keyed sprite has a high
+perimeter-to-interior ratio and the erosion cannot pay for it — so the props
+were judged by eye off a contact sheet. Ten props were flagged that way and all ten were run; the table above is
+what came back.
+
+**THE BULK RE-ROLL DOES NOT PAY, AND THAT IS THE RESULT OF THIS STEP.** Six
+of the 25 were run before the pass was stopped:
+
+| sector | ink | what happened |
+| --- | --- | --- |
+| 4-5 Terra's Geode Hall | 5.58 | softer lines, but the CAVE became a meadow — restored |
+| 10-5 Festival Stage | 5.04 | softer lines, but lost its candles, moon, stars and banner — restored |
+| 5-5 Echo's Mirror Palace | 4.88 | restored |
+| 8-4 Sled Hill | 4.51 | restored |
+| 10-3 Lantern Market | 4.46 → 5.23 | INKIER by the metric, and the sunset became daylight — restored |
+| 4-4 Lantern Bridge | 4.46 → 3.47 | better on the metric AND richer to look at — **kept** |
+
+One clear win in six. Two failure modes, both of them expensive:
+
+- **The detail goes with the line.** "No line inside the shape" is read as
+  "remove the small dark details" — the candles, the moon, the stars, the
+  ribbon. `STYLE_CORE` now carries *TAKING THE LINE AWAY MUST NOT TAKE THE
+  THING AWAY*, naming the small things, and `STYLE_CHECKS` a *COUNT THE
+  THINGS* check. The existing "nothing may be left out" clause did not cover
+  it, because its own list names buildings, towers and bridges.
+- **The mood drifts.** A cave becomes a meadow, a sunset becomes noon. The
+  colour clause is already as strong as words get; this is the dice.
+
+**So: the rule stays in the prompt and every NEW painting carries it** — the
+17 creatures and the 5 rig parts were all painted under it — **but the
+shipped catalogue is not worth re-rolling in bulk.** Do the rest one at a
+time, look at each, and keep only what wins on both the metric AND the eye.
+A re-roll is a fresh dice throw: re-measure every return against its own
+before figure, and put a loser back from
+`art-sheets/painted/replaced/<stem>.<stamp>.jpg` (copy it over
+`painted/<stem>.jpg`, then `POST /api/slice?stem=<stem>` — no generation
+spent). That recovery path was used five times in one hour here and it works.
+
 ## Step 5 — The remaining nine chapters (63 sheets)
 
 45 sectors + 18 pages. The bulk of the work and the most mechanical: the

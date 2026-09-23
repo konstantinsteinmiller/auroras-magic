@@ -6452,9 +6452,20 @@ The owner asked for *"an Intro cutscene … that introduces the game to
 first-time players, preferably mostly text free, with cute unicorn sounds"*.
 As built:
 
+> **Superseded in part by §8.26a (2026-09-23, retention-roadmap item 2):**
+> WHEN it plays. A brand-new save no longer boots into it — it boots into
+> node 0's duel, and the picture book plays at the first map reached with
+> nothing owed and something won — and since §8.26b (owner, the same day)
+> between the first win and the first cleaning. Everything else in this section stands as
+> written: the pages, the sounds, the ad hold, the closed bracket, the Skip
+> and Play controls, the paint-ready contract, and `introSeen`. The "Who sees
+> it" bullet below and the portal-QA counts at the end are the record of the
+> 2026-09-19 build, not of today's.
+
 - **Who sees it.**
   - A brand-new save boots into it (`bootScene` → `playIntro`), then carries
-    on exactly as a boot would: into chapter 1's first dialogue.
+    on exactly as a boot would: into chapter 1's first dialogue. *(Superseded
+    — see §8.26a; the boot now goes straight to node 0's duel.)*
   - Watching it to the end, pressing Play, and skipping it all count as seen
     (`S.campaign.introSeen`, saved at once).
   - A save from before the intro existed counts as seen as soon as it has any
@@ -6544,6 +6555,171 @@ As built:
     - CrazyGames pre-release 26/26 and full 41/41;
     - GameMonetize (dummy id, env only) 36/36.
 
+### §8.26a Amendment, 2026-09-23 — the picture book is no longer at the boot
+
+**What §8.26 said, and no longer describes:** *"A brand-new save boots into it
+(`bootScene` → `playIntro`), then carries on exactly as a boot would: into
+chapter 1's first dialogue."* That is the boot order retention-roadmap item 2
+removed. It is kept above as the record of the 2026-09-19 build; this section
+is the current truth.
+
+**What the boot does now.** Nothing stands in front of node 0. A brand-new
+save lands on chapter 1's duel with the ghost trace already looping in the
+drawing box, and the opener's bubbles printed over the arena as
+chrome — pointer-transparent, pausing nothing, folded away by the first real
+stroke, the skip icon, or leaving the scene (`flow/nodes.ts` `openOnArena` /
+`closeOpening`, `use/useFlow.ts` `openingHud`). It still waits for
+`firstLoadAdSettled()`, so C30's mandatory ad still covers a calm arena.
+
+**When the picture book plays instead.** At the first map reached with
+NOTHING OWED and something already won — `furthestNode ≥ 0` and no pending
+sector — which is the far side of a whole node: duel, gift, wipe, the colour
+coming back (`flow/nodes.ts` `mapOpened`, called by the map scene). Two
+moments it deliberately is not:
+
+- a BOOT. Every session's first stroke is the number item 2 moves, and a
+  returning player's second session must not become her first one again;
+- the map with a GIFT still waiting. Nineteen seconds of picture book between
+  a child and the present she just won is the worst placement in the game.
+
+**Why.** Measured, headless Chrome on a private profile, a fresh save per run,
+off item 1's `first_stroke.msSinceBoot`: **≈24 s → ≈1.3 s** to a drawable
+prompt (a patient first-timer took 23.8–24.6 s before; even one mashing skip
+took 6.0 s). Item 2's target of "under 10 s" is unreachable with a 19.4 s
+cutscene in front of the game.
+
+**What did NOT change.** The pages, their order and their timings; the three
+synth cues; the ad hold; the closed gameplay bracket (scene `intro`, never
+live); Skip and Play; Options → "Watch the intro"; the paint-ready contract of
+§8.27; and `introSeen` — its semantics, its migration, and the rule that a
+returning player is never sent back through it — are all exactly as §8.26
+describes them.
+
+**Two consequences — one accepted, one overturned by the owner the same day:**
+
+- a brand-new player meets the duel before the story: **accepted**;
+- the first build showed **bubble 1 only**, leaving Umbra's reply and Aurora's
+  answer in the locale files where no player would see them. **Overturned
+  (owner, 2026-09-23): all three print,** turning themselves over.
+  `openingLines()` is now simply `dialogueFor(OPENING_NODE)` — the whole
+  opener minus the chapter title page, because the arena is the page.
+
+  The pace is `ARENA_HOLD_MS = 3400`, which is not a new number: it is the
+  picture book's SHORTEST page (`intro.ts` `BEAT_LEN`, 3.4–4.4 s), this game's
+  authored pace for a wordless beat carried by pictures and babble. Three
+  beats run 10.2 s untouched — just under the 11 s `duel/help.ts` gives ONE
+  line over the same arena (`NOTE_S`) — and none of it is time taken out of a
+  fight, because `sim.ts` holds the foe through onboarding and she forms
+  nothing until the first stroke. It rides the existing dwell clock, which
+  already skips `isGamePaused`, so an ad or a hidden tab cannot eat a beat;
+  there is no `dipTo`, because a page turn swings a picture of the whole
+  canvas away and that canvas is a duel somebody may be drawing on.
+
+  Re-measured: 1,679 / 1,901 / 2,013 ms to the first drawable prompt, and
+  splash → prompt still **0 ms in every run of both arms** — the opener is not
+  in the critical path at all, since the component does not mount until
+  `GameScene` renders and its clock does not start until the first-load ad
+  settles.
+
+The skip icon moved onto the leaf over the arena: in the screen's top-right
+corner it sat squarely on the foe's name plate and rune slots on a phone held
+upright.
+
+**Knock-on corrections this amendment carries:**
+
+- **The splash no longer holds for the intro's four pages** (amends §8.27's
+  "Pipeline changes" bullet and `game/artPreload.ts`). They were held because
+  the book was the first screen; it is now a minute or more away, so four
+  opaque 1152 × 672 paintings in front of the first stroke buy nothing. They
+  go out behind the first stage at `fetchPriority: 'low'`
+  (`artPreload.primeIntroArt`, fired from `use/useAssets.ts` once
+  `preloadFirstArt` has settled), which is a whole duel, gift and wipe of
+  runway before a page can be drawn. The splash still holds for Aurora's,
+  Umbra's and the chapter creature's portraits, and for everything else
+  §8.27 lists.
+- **`scripts/portal-qa.mjs`** asserted `scene === 'intro'` at boot, which
+  failed on every platform from the moment item 2 landed. It now asserts the
+  duel plus `__flow.opening()`, and marks the book seen straight after boot —
+  the bracket tour drives `__gotoNode(1)` then `__flow.goto("map", 1)`, which
+  satisfies `mapOpened`'s trigger exactly, and the tour was reading
+  `scene=intro` where it says "on the map". (Nothing failed on it, because
+  `updateIntro` only runs from the intro scene's own draw loop; a book raised
+  by a hook that never yields a frame simply froze on page one. Luck, not a
+  contract.)
+- **§7.7's session and campaign model is unaffected.** It never counted the
+  intro: node time is dialogue + duel + gift/unbox + wipe + reveal, and the
+  19.4 s book was never inside any of those figures. The campaign total
+  (≈55.1 min) and the ≈2.0-chapters-per-10-minute session figure stand.
+
+**Verified (2026-09-23):**
+
+- `tests/campaign/opening.test.ts` and `tests/campaign/intro.test.ts`: the
+  boot order, the over-arena opener, and who sees the book;
+- portal QA, against the built bundles:
+  - CrazyGames pre-release **25/25** (was 23/24 against the stale assertion);
+  - GameMonetize (the shipping id from `.env.gamemonetize.local`) **35/35**
+    (was 33/34). One run of it reported a one-frame `7.167 → 7.183` on "menu
+    open → simulation FROZEN"; it passes on a re-run and on crazy-web, and is
+    the click-to-pause frame boundary, not this change.
+
+### §8.26b Owner ruling, 2026-09-23 — the book before the first cleaning; the gift's card; the cover's way on
+
+The owner played §8.26a's build from a fresh save and found three things.
+
+**1. The picture book came too late.** Played at the first map with nothing
+owed, it told the story of Umbra's dust and Aurora's sponge to a child who
+had already won a duel AND cleaned a sector — it explained what she had
+already done. Ruling: it plays **before the very first cleaning**, so the
+player knows why the cleaning matters. As built, `flow/nodes.ts` `openGift`
+is the player's one door into a waiting gift (the map's gift, its card, and
+Enter): while `introSeen` is false it plays the book first and its end — Play
+or Skip — opens the very gift that was tapped (`playIntro(replay, then)`).
+Not at the win itself: the gift is the reward, and the tap on it is the
+child saying she is ready. A save that boots with the gift waiting and the
+book unseen meets it at the same tap. `mapOpened` is gone; no scene raises
+the book on its own, and no boot does. The harness doors (`__wipe.start`,
+`__toInvite`) still call `openSector` directly and never meet it.
+
+**2. A press on the gift's CARD started a duel.** The present is a small
+target on a big card; `hitTest` resolved the rest of the card (and its badge)
+as the node, and a won node is practice (C24) — so the owner was sent back
+into the duel he had just won, and again after winning it, and never reached
+the cleaning. Not the tutorial: any pending sector did it. `playNode` now
+opens the gift for the pending node; practice resumes once its sector is
+restored.
+
+**3. The front page "stayed up forever".** Node 0 is entered over the arena
+(§8.26a) and never focuses the book, so the first win lands on the front
+page — the cover, with the gift out of sight a page over — and its only way
+on was a folded corner a first-timer does not see. As built (`map.ts`, "the
+front page's way on"), for a player who has not turned a page by hand this
+session:
+
+- a **rainbow swipe**: a white glove presses beside the folded corner (which
+  lifts, with a two-colour ripple), then sweeps right to left across the sky,
+  pulling a six-stripe rainbow ribbon that tapers to a point and sheds
+  sparkles — the gesture, shown; no words. It fades in 1.1 s after the page
+  comes up (or is let go of) and repeats every 2.8 s. Under reduced motion it
+  is one still frame, mid-swipe. It is drawn in the open sky in both
+  orientations, never over Aurora or the tent;
+- **once a session**, a front page left untouched for **8 s** turns itself to
+  the page the player is up to (her waiting gift's, or her next node's) and
+  sparkles on the gift or the badge when it lands. A finger on the page stops
+  the clock; release starts it from zero.
+
+Any page turned by hand — a drag, a corner, a chapter tab — ends both for the
+session: she knows the way, and the wardrobe lives on that page, so being
+there is her choice.
+
+**Verified:** `tests/campaign/opening.test.ts` (the book before the first
+cleaning, Skip still going on into it, never twice, never at a boot; a
+pending card opens the gift every time) and `tests/map/frontPage.test.ts`
+(8 s, once, never for a hand-turner, a touch is not idleness); full suite
+1072 passed. A built bundle in headless Chrome from a fresh save, 1280×720
+and 430×932: win node 0 → front page with the swipe → self-turn at 8.0 s onto
+chapter 1's page → a press on the gift card's badge → the picture book →
+Play → the gift's invite, `introSeen` true, no page errors.
+
 ### §8.27 Owner request, 2026-09-19 — every drawing paint-ready, in one pinned style
 
 *"Prepare all art assets to be painted with our art-generation-pipeline … keep
@@ -6593,7 +6769,10 @@ style later."* As built:
   - `itemPrompt` takes per-sheet overrides: what it is NOT, the view, a noun,
     a keep rule, the character block.
   - The preload holds the splash for a first-time player's intro pages, and
-    for Aurora's, Umbra's and the chapter creature's portraits.
+    for Aurora's, Umbra's and the chapter creature's portraits. *(§8.26a
+    (2026-09-23) supersedes the intro pages half: the book no longer plays at
+    the boot, so its four pages moved out of the hold and go out behind the
+    first stage at low priority. The portraits are unchanged.)*
 - **Known limits:**
   - Aurora's painted portrait is her bare self. While she wears anything a
     portrait shows (a crown, a necklace or scarf, a skin, a mane colour), the
@@ -6970,6 +7149,33 @@ browser, chapters 1–10 on desktop and phone, landscape and portrait, against
 both dusty and fully restored beat cards; 809 tests.
 
 ### §8.33 Owner request, 2026-09-20 — the placing goes on the page
+
+> **Owner ruling, 2026-09-23: the badge IS the leaderboard, and it sits right
+> of the bookmark.** *"Remove the leaderboard besides the leaderboard-badge,
+> which is the intended way of showing the leaderboard and should be visible
+> on the storybook page, right of the bookmark."* As built:
+> - **The top-100 board is gone** — `LeaderboardModal.vue`, the map corner's
+>   leaderboard button, `boardOpen` in `AppScene`, the locale-fit tour's step,
+>   and the ten strings only it printed (`leaderboard.rank/player/score/flair/
+>   empty/failed/loading/you/yourRank/tabGlobal`, all 21 locales). What stays:
+>   `leaderboard.title` (the badge's spoken name) and `leaderboard.of`, the
+>   Worker, posting (`reportRun`), the baked boards, the identity. The live
+>   board is still read once a session — the modal used to ask; now the map
+>   asks when the badge first shows (`ensureBoard`, a no-op after the first
+>   read and on baked builds), and `reportRun` after a win, as before.
+> - **Right of the bookmark.** The badge pins to the page's top-right corner
+>   (`rankInset` in `use/useMapHud.ts`, level with the ribbon's upper half)
+>   and the RIBBON makes room: `MapScene` publishes the badge's width
+>   (`mapHud.rankW`, a ResizeObserver) and `map.ts` `bookmarkX` hangs the
+>   ribbon just left of it, so no locale's "of N players" can wrap or slide
+>   under it. With no badge the ribbon keeps its old 86 %. Held upright the
+>   badge stays `compact` (`#20`) and the ribbon never hangs further in than
+>   56 % of the page, clear of the first beat card.
+> - Verified on a built bundle, first win → chapter 1's page: 1280×720 en/de,
+>   764×385 ru, 430×932 and 320×658 portrait — badge right of the ribbon,
+>   nothing overlapping, the corner holding only Options and the Spellbook.
+>
+> The bullets below are the 2026-09-20 build ("under the bookmark's tail").
 
 *"The leaderboard badge on the win-screen is barely visible, that needs to be
 placed at a better place, maybe in the top-right corner of the storybook."*
@@ -9169,6 +9375,28 @@ Read as of the owner's 2026-09-18 ads pass (F25), working tree, uncommitted:
 ---
 
 ### §11.2 The gameplay bracket, per scene
+
+> **Poki ruling (owner, 2026-09-23): on Poki the bracket spans the storybook.**
+> The table below is still the bracket CrazyGames and Playgama hear. Poki hears
+> its own (`isPokiGameplayLive` in `use/useGameplayLifecycle.ts`, reported by
+> the same reconciler, `flow/bracket.ts`, memoised on its own): LIVE in every
+> scene past `boot` — the map, the dialogue, the picture book, the gift, the
+> wipe, the wardrobe (dressing, the sticker album, the bath time to come),
+> versus setup, and the duel's flourish, sting and result panel — because the
+> book is the game, not a menu. It closes ONLY for a **menu** (Options, the
+> Spellbook; every FModal now acquires through
+> `useModalState.acquireMenuOpen`; the rune-gift ceremony still holds the game
+> still but is not a menu), an **ad** (`isAdShowing` — raised by `useAds`
+> before it calls the provider, so the stop reaches the SDK before
+> `commercialBreak`/`rewardedBreak`; the game and its sound still pause
+> exactly as before), a hidden tab, a portal pause, and no touch yet.
+> `restartGameplayBracket` no longer reaches Poki. Verified on the built Poki
+> bundle against a recording SDK stub: one `gameplayStart` on the first touch;
+> no stop across a won duel, the map, the picture book, the cleaning and the
+> tent; stop/start pairs only around the rewarded ad, Options and the
+> Spellbook; no start inside 50 ms of a stop. Tests:
+> `tests/platforms/pokiStorybookBracket.test.ts`; `scripts/portal-qa.mjs`
+> asserts `__flow.pokiLive()` per scene of its tour.
 
 Ratifies C7, and — after M12/I-5 — corrects how it is driven and exactly
 where the boundary sits. Two changes from the first draft:

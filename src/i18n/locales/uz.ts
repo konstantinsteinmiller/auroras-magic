@@ -208,17 +208,7 @@ export default {
 
   'leaderboard': {
     'title': 'Reyting',
-    'rank': '#',
-    'player': 'O\'yinchi',
-    'score': 'G\'alabalar',
-    'flair': 'Rivojlanish',
-    'empty': 'Hali duellar yo\'q. Birinchi bo\'l!',
-    'failed': 'Reytingga ulanib bo\'lmadi.',
-    'loading': 'Yuklanmoqda…',
-    'you': 'Sen',
-    'yourRank': '{total} ta o\'yinchi ichida #{n}-o\'rindasan',
-    'of': '/ {n} o\'yinchi',
-    'tabGlobal': 'Jahon'
+    'of': '/ {n} o\'yinchi'
   },
 
   'a11y': {
@@ -518,11 +508,44 @@ export default {
     'claimedToast': 'Bu joy gullab-yashnadi!'
   },
 
+  'star': {
+    'tabLabel': '{name} — {total} yulduzdan {n} ta'
+  },
+
+  'daily': {
+    'open': 'Bugungi sovg‘ani och',
+    'stickerToast': 'Albomingga yangi do‘st qo‘shildi!'
+  },
+
+  'album': {
+    'title': 'Stikerlar albomi',
+    'hint': 'Qayta gullagan joydagi jonivorga teg — uning stikeri albomga keladi.',
+    'count': '{total} tadan {met} tasi topildi',
+    'chapter': '{n}-bob',
+    'found': 'Topilgan stiker',
+    'friend': 'Qutqarilgan do‘st',
+    'dressTab': 'Kiyintirish',
+    'albumTab': 'Stikerlar albomi'
+  },
+
+  'photo': {
+    'title': 'Foto kartalar',
+    'take': 'Suratga ol',
+    'card': '{n}-foto karta',
+    'empty': 'Bo‘sh foto karta',
+    'fullHint': 'Albomga {n} ta karta sig‘adi. Yangi surat eng eskisining o‘rnini egallaydi.'
+  },
+
   'duel': {
     'almostRune': 'DEYARLI {rune}!'
   },
 
   'license': {
     'denied': 'Kirish rad etildi: iltimos, litsenziya sotib oling.'
+  },
+
+  'help': {
+    'auroraLine': 'Kel, birga chizamiz!',
+    'perfectRune': 'Juda chiroyli chizildi!'
   }
 }

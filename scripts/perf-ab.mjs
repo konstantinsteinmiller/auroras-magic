@@ -31,11 +31,25 @@
 //   --frames <n>      frames recorded per run                   (default 600)
 //   --metric <k>      workP95 | workP50 | intervalP95           (workP95)
 //   --chrome <path>   Chrome executable
+//   --drive <name>    scenario to play while recording: `none` (default, the
+//                     scene the page happens to boot into) or `duel`
+//   --mobile 1        915x412 DPR 2 touch, the mid-range Android proxy
+//   --quiet <pct>     hold each rep until the box is below this CPU load (55)
 //
 // The page must publish `window.__perf` and set `window.__perfDone`; both come
 // free from `installPerfProbe` in `src/use/usePerfProbe.ts`.
+//
+// ── Why `--drive duel` exists ──
+//
+// Without it this runner records whatever the page boots into, which for a
+// fresh profile is a splash and then a story beat: a scene with almost no
+// draw work in it. Every duel-side experiment then A/B's the SAME idle screen
+// under two flags and reports a confident null. The driver loads a finished
+// save, walks into the finale duel, resets the probe once the fight is up so
+// the boot is not in the sample, and casts a fresh pair of runes every 600 ms
+// for the whole recording — the worst realistic moment the skill asks for.
 
-import { spawn } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -58,6 +72,41 @@ const FRAMES = Number(arg('frames', 600))
 const METRIC = arg('metric', 'workP95')
 const PORT = Number(arg('port', 9400 + Math.floor(Math.random() * 400)))
 const PROFILE = arg('profile', mkdtempSync(join(tmpdir(), 'perf-ab-')))
+const DRIVE = arg('drive', 'none')
+const MOBILE = arg('mobile', '0') === '1'
+const QUIET = Number(arg('quiet', 55))
+
+/* ─── Contention gate ───────────────────────────────────────────────────────
+ *
+ * Ported from `perf-builds.mjs`, which learned it the expensive way: this
+ * machine hosts other agent sessions, and one of them starting a test run
+ * mid-experiment collapsed every rep after it — in BOTH arms, which reads as
+ * a result and is an artefact. Interleaving protects against slow drift, not
+ * against a neighbour who starts compiling halfway through rep 3.
+ *
+ * So a rep does not start until the box is quiet, and each rep also carries
+ * the load it ran at, so a rep that went ahead anyway can be thrown out after
+ * the fact rather than believed.
+ */
+const cpuLoad = () => {
+  try {
+    return Number(execFileSync('powershell', ['-NoProfile', '-Command',
+      '(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average'],
+      { encoding: 'utf8' }).trim())
+  } catch { return 0 }
+}
+const waitQuiet = async (maxPct = QUIET, maxWaitMs = 12 * 60 * 1000) => {
+  if (maxPct >= 100) return 0
+  const until = Date.now() + maxWaitMs
+  let calm = 0
+  while (Date.now() < until) {
+    const l = cpuLoad()
+    if (l <= maxPct) { if (++calm >= 2) return l } else { calm = 0; console.log(`  … waiting for a quiet machine (cpu ${l}%)`) }
+    await sleep(4000)
+  }
+  console.log('  ! gave up waiting for a quiet machine — treat this run as suspect')
+  return -1
+}
 
 const withQs = (base, qs) => {
   const u = new URL(base)
@@ -75,7 +124,7 @@ const ARMS = [
   ['B_test', withQs(BASE, B_QS), B_QS]
 ]
 
-const chrome = spawn(CHROME, [
+const CHROME_ARGS = [
   `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${PROFILE}`,
   '--no-first-run', '--no-default-browser-check', '--disable-extensions',
@@ -85,11 +134,21 @@ const chrome = spawn(CHROME, [
   '--disable-background-timer-throttling',
   '--disable-renderer-backgrounding',
   '--disable-backgrounding-occluded-windows',
-  '--window-size=520,1000',
+  MOBILE ? '--window-size=940,500' : '--window-size=520,1000',
   'about:blank'
-], { stdio: 'ignore' })
+]
+const chrome = spawn(CHROME, CHROME_ARGS, { stdio: 'ignore' })
 
 const api = `http://127.0.0.1:${PORT}/json`
+
+/** Bring a dead browser back on the same debugging port. */
+let browser = chrome
+const relaunch = async () => {
+  try { browser.kill() } catch { /* already gone */ }
+  await sleep(1500)
+  browser = spawn(CHROME, CHROME_ARGS, { stdio: 'ignore' })
+  await waitForChrome()
+}
 
 const waitForChrome = async () => {
   for (let i = 0; i < 160; i++) {
@@ -125,6 +184,71 @@ const connect = wsUrl => {
   return { ws, ready, send }
 }
 
+/* ─── the duel driver ──────────────────────────────────────────────────────
+ *
+ * Runs in the page. Every step is idempotent and polls rather than assuming,
+ * because under a 4x throttle a scene change takes longer than any fixed wait
+ * anyone would have guessed. The QA hooks it uses (`__campaign`, `__flow`,
+ * `__gotoNode`, `__S`, `__cast`) are the ones `AppScene.vue` exposes on a dev
+ * server, a debug build, or when `__AM_QA__` was set before boot.
+ */
+const DUEL_SETUP = `(async () => {
+  const wait = async (fn, ms) => {
+    const end = Date.now() + ms
+    while (Date.now() < end) { if (fn()) return true; await new Promise(r => setTimeout(r, 120)) }
+    return false
+  }
+  if (!await wait(() => window.__flow && window.__campaign && window.__S && window.__gotoNode, 90000)) return 'no hooks'
+  const c = window.__campaign.state()
+  c.furthestNode = 48
+  c.sectorsDone = btoa(String.fromCharCode(255, 255, 255, 255, 255, 255, 1))
+  c.runesUnlocked = 0xfff
+  c.signaturesUnlocked = 3
+  c.versusUnlocked = true
+  c.finaleSeen = false
+  // Every keepsake ON. The rig cosmetics (the Pet Star's twinkle trail, the
+  // soft glows) draw only when they are worn, and a scenario that leaves them
+  // in the drawer prices a duellist nobody who has finished the game plays.
+  c.giftsOwned = 0x3ff
+  c.giftsEquipped = [0, 1, 2, 8, 3, 5, 6]
+  window.__S.wins = 60
+  window.__gotoNode(49)
+  if (!await wait(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), 60000)) return 'no duel'
+  // Arm it the way a player would, or the foe holds her first rune forever.
+  window.__arm?.()
+  // A FIXED settle, the same in both arms, and long enough for the adaptive
+  // quality controller to finish climbing (its dwell is 3 s, plus the
+  // smoothers). Without it an arm that ends at tier 2 spends a third of its
+  // recording at tier 1 and the measured cost of the tier is diluted by
+  // however fast the machine happened to boot.
+  await new Promise(r => setTimeout(r, 14000))
+  // The boot, the fade and the first bake are not what this experiment is
+  // about. Everything recorded from here is a frame of the fight.
+  window.__perfProbe.reset()
+  window.__abTick = 0
+  window.__abTierAtStart = window.__S.q
+  // Sample the tier while the arm records. An arm whose number is a blend of
+  // two tiers is not a measurement of either, so the run has to say so.
+  window.__abFlips = 0
+  window.__abTierMin = window.__S.q
+  let last = window.__S.q
+  window.__abWatch = setInterval(() => {
+    const q = window.__S.q
+    if (q !== last) { window.__abFlips++; last = q }
+    if (q < window.__abTierMin) window.__abTierMin = q
+  }, 100)
+  window.__abCast = setInterval(() => {
+    try {
+      const S = window.__S
+      S.hp = S.hpMax; S.ehp = S.ehpMax
+      const kits = [[0, 5], [11, 4], [6, 2], [3, 8], [10, 7], [9, 1]]
+      S.queue = [...kits[(window.__abTick++) % kits.length]]
+      window.__cast()
+    } catch { /* a frame between scenes */ }
+  }, 600)
+  return 'ok'
+})()`
+
 const runOnce = async url => {
   const t = await (await fetch(`${api}/new?about:blank`, { method: 'PUT' })).json()
   const { ws, ready, send } = connect(t.webSocketDebuggerUrl)
@@ -133,20 +257,49 @@ const runOnce = async url => {
     await send('Page.enable')
     await send('Runtime.enable')
     await send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })
+    if (MOBILE) {
+      await send('Emulation.setDeviceMetricsOverride',
+        { width: 915, height: 412, deviceScaleFactor: 2, mobile: true })
+      await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+      await send('Emulation.setUserAgentOverride', { userAgent:
+        'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36' })
+    }
+    // Announce the harness BEFORE the document exists: the QA hooks are
+    // installed at boot, so a flag set after navigation is set too late.
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__AM_QA__ = true' })
     await send('Page.navigate', { url })
+    // A stale server from another project answers this port just as happily.
+    if (!(await waitTitle(send))) throw new Error(`the page at ${url} is not Auroras Magic`)
+    if (DRIVE === 'duel') {
+      const r = await send('Runtime.evaluate',
+        { expression: DUEL_SETUP, awaitPromise: true, returnByValue: true })
+      if (r?.result?.value !== 'ok') throw new Error(`driver failed: ${r?.result?.value ?? '?'}`)
+    }
     for (let i = 0; i < 1200; i++) {
       await sleep(500)
       const r = await send('Runtime.evaluate', {
-        expression: 'window.__perfDone ? JSON.stringify(window.__perf) : ""',
+        expression: 'window.__perfDone ? JSON.stringify({ ...window.__perf, tier: window.__S?.q ?? null, tier0: window.__abTierAtStart ?? null, tierMin: window.__abTierMin ?? null, flips: window.__abFlips ?? 0, mix: +(window.__S?.qx ?? 0).toFixed(2), scene: window.__flow?.state().scene ?? null }) : ""',
         returnByValue: true
       })
       if (r?.result?.value) return JSON.parse(r.result.value)
     }
     throw new Error(`run did not finish: ${url}`)
   } finally {
+    await send('Runtime.evaluate', { expression: 'clearInterval(window.__abCast); clearInterval(window.__abWatch)' }).catch(() => {})
     ws.close()
     await fetch(`${api}/close/${t.id}`).catch(() => {})
   }
+}
+
+/** Refuse to measure somebody else's app. A server left running by another
+ *  project serves this port without complaint and the numbers look fine. */
+const waitTitle = async send => {
+  for (let i = 0; i < 240; i++) {
+    const r = await send('Runtime.evaluate', { expression: 'document.title', returnByValue: true })
+    if (/Auroras Magic/i.test(r?.result?.value ?? '')) return true
+    await sleep(250)
+  }
+  return false
 }
 
 const median = a => {
@@ -175,7 +328,19 @@ for (let rep = 0; rep < REPS; rep++) {
   // drift to whichever arm runs first as a free win.
   const order = rep % 2 === 0 ? ARMS : [...ARMS].reverse()
   for (const [name, url, qs] of order) {
-    const r = await runOnce(url)
+    const load = await waitQuiet()
+    // Chrome does occasionally fall over mid-session on a loaded machine, and
+    // a crashed browser in rep 3 must not throw away reps 1 and 2. One retry,
+    // on a freshly launched browser, and the rep is simply redone.
+    let r
+    try {
+      r = await runOnce(url)
+    } catch (e) {
+      console.log(`  ! rep failed (${e.message}); relaunching the browser`)
+      await relaunch()
+      r = await runOnce(url)
+    }
+    r.load = load
     // An unrecognised flag is silently false, which yields a clean, confident,
     // completely worthless A-versus-A result. Refuse to produce one.
     for (const f of wanted(qs)) {
@@ -185,9 +350,11 @@ for (let rep = 0; rep < REPS; rep++) {
     }
     runs[name].push(r)
     console.log(`rep ${String(rep + 1).padStart(2)} ${name}  ` +
-      `workP50=${r.workP50.toFixed(3)}  workP95=${r.workP95.toFixed(3)}  ` +
+      `workP50=${r.workP50.toFixed(3)}  workP95=${r.workP95.toFixed(3)}  workP99=${r.workP99.toFixed(3)}  ` +
       `intervalP95=${r.intervalP95.toFixed(2)}  longTasks=${r.longTasks}  ` +
-      `heap=${(r.heapSlope / 1024).toFixed(1)}KB/f`)
+      `heap=${(r.heapSlope / 1024).toFixed(1)}KB/f` +
+      (r.tier === null || r.tier === undefined ? '' : `  q=${r.tier0}→${r.tier} (min ${r.tierMin}, ${r.flips} flips) qx=${r.mix} [${r.scene}]`) +
+      `  cpu=${r.load}%`)
   }
 }
 
@@ -235,5 +402,5 @@ if (iB > iA * 1.05) {
 }
 console.log('\nRecord this run in PERF-LEDGER.md, then delete the losing branch and its flag.')
 
-chrome.kill()
+browser.kill()
 process.exit(0)
