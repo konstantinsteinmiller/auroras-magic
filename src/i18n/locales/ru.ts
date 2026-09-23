@@ -169,6 +169,14 @@ export default {
       'confirm': 'Выйти',
       'cancel': 'Остаться'
     },
+    'resetProgress': {
+      'label': 'Сбросить прогресс',
+      'title': 'Начать всю историю заново?',
+      'body': 'Всё, что помнит игра, вернётся к началу: карта, руны, сувениры и твои настройки.',
+      'keptNote': 'Твоё место в таблице лидеров останется прежним.',
+      'confirm': 'Сбросить',
+      'cancel': 'Оставить'
+    },
     'parents': {
       'title': 'Для родителей',
       'aboutBody': 'В Auroras Magic нет чата, общения с незнакомцами и отслеживания местоположения. Аккаунт для игры не нужен.',
@@ -215,7 +223,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Назад к карте'
+    'backToMap': 'Назад к карте',
+    'wardrobeSlots': 'Места для наряда',
+    'keepsakeToFind': 'Ещё не найдено'
   },
 
   'restore': {
@@ -470,7 +480,32 @@ export default {
     'pastelTheme': 'Тема «Пастельная мечта»',
     'winterScarf': 'Уютный зимний шарф',
     'petStar': 'Звёздочка-питомец',
+    'acornCap': 'Шапочка-жёлудь',
+    'bubbleTrail': 'След из пузырьков',
+    'petCloud': 'Облачко-друг',
+    'explorerGoggles': 'Очки исследователя',
+    'petFirefly': 'Светлячок-друг',
+    'butterflyWings': 'Крылья бабочки',
+    'explorerPack': 'Рюкзак исследователя',
+    'frostTrail': 'Морозный след',
+    'moonlitLook': 'Лунный образ',
+    'starTiara': 'Звёздная тиара',
+    'bowTie': 'Бабочка',
+    'moonPendant': 'Кулон-луна',
+    'petalTrail': 'След из лепестков',
+    'sunsetLook': 'Закатный образ',
     'versusMode': 'Дружный дуэт'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Голова',
+    'neck': 'Шея',
+    'back': 'Спина',
+    'companion': 'Друг',
+    'trail': 'След копыт',
+    'mane': 'Грива',
+    'skin': 'Шёрстка'
   },
 
   'place': {

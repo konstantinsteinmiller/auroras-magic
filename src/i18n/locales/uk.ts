@@ -169,6 +169,14 @@ export default {
       'confirm': 'Вийти',
       'cancel': 'Залишитися'
     },
+    'resetProgress': {
+      'label': 'Скинути прогрес',
+      'title': 'Почати всю історію спочатку?',
+      'body': 'Усе, що пам’ятає гра, повернеться до початку: карта, руни, сувеніри й твої налаштування.',
+      'keptNote': 'Твоє місце в таблиці лідерів залишиться незмінним.',
+      'confirm': 'Скинути',
+      'cancel': 'Залишити'
+    },
     'parents': {
       'title': 'Для батьків',
       'aboutBody': 'В Auroras Magic немає чату, спілкування з незнайомцями та відстеження місцезнаходження. Обліковий запис для гри не потрібен.',
@@ -215,7 +223,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Назад до мапи'
+    'backToMap': 'Назад до мапи',
+    'wardrobeSlots': 'Місця для вбрання',
+    'keepsakeToFind': 'Ще не знайдено'
   },
 
   'restore': {
@@ -470,7 +480,32 @@ export default {
     'pastelTheme': 'Тема «Пастельна мрія»',
     'winterScarf': 'Затишний зимовий шарф',
     'petStar': 'Зірочка-улюбленець',
+    'acornCap': 'Шапочка-жолудь',
+    'bubbleTrail': 'Слід із бульбашок',
+    'petCloud': 'Хмаринка-друг',
+    'explorerGoggles': 'Окуляри дослідника',
+    'petFirefly': 'Світлячок-друг',
+    'butterflyWings': 'Крила метелика',
+    'explorerPack': 'Рюкзак дослідника',
+    'frostTrail': 'Морозний слід',
+    'moonlitLook': 'Місячний образ',
+    'starTiara': 'Зоряна тіара',
+    'bowTie': 'Метелик',
+    'moonPendant': 'Кулон-місяць',
+    'petalTrail': 'Слід із пелюсток',
+    'sunsetLook': 'Надвечірній образ',
     'versusMode': 'Дружний дует'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Голова',
+    'neck': 'Шия',
+    'back': 'Спина',
+    'companion': 'Друг',
+    'trail': 'Слід копит',
+    'mane': 'Грива',
+    'skin': 'Шерстка'
   },
 
   'place': {

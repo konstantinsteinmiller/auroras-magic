@@ -168,6 +168,14 @@ export default {
       'confirm': 'Rời đi',
       'cancel': 'Ở lại'
     },
+    'resetProgress': {
+      'label': 'Đặt lại tiến trình',
+      'title': 'Bắt đầu lại toàn bộ câu chuyện?',
+      'body': 'Mọi thứ trò chơi ghi nhớ sẽ trở về ban đầu: bản đồ, các rune, kỷ vật và cài đặt của bạn.',
+      'keptNote': 'Vị trí của bạn trên bảng xếp hạng vẫn giữ nguyên.',
+      'confirm': 'Đặt lại',
+      'cancel': 'Giữ lại'
+    },
     'parents': {
       'title': 'Dành cho phụ huynh',
       'aboutBody': 'Auroras Magic không có tính năng trò chuyện, không tiếp xúc với người lạ và không sử dụng vị trí. Không cần tài khoản để chơi.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Quay lại bản đồ'
+    'backToMap': 'Quay lại bản đồ',
+    'wardrobeSlots': 'Nơi để thay đồ',
+    'keepsakeToFind': 'Vẫn chưa tìm thấy'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Chủ Đề Giấc Mơ Pastel',
     'winterScarf': 'Khăn Quàng Mùa Đông Ấm Áp',
     'petStar': 'Ngôi Sao Thú Cưng',
+    'acornCap': 'Mũ hạt sồi',
+    'bubbleTrail': 'Vệt bong bóng',
+    'petCloud': 'Mây bạn nhỏ',
+    'explorerGoggles': 'Kính thám hiểm',
+    'petFirefly': 'Đom đóm bạn nhỏ',
+    'butterflyWings': 'Cánh bướm',
+    'explorerPack': 'Ba lô thám hiểm',
+    'frostTrail': 'Vệt băng giá',
+    'moonlitLook': 'Vẻ ánh trăng',
+    'starTiara': 'Vương miện sao',
+    'bowTie': 'Nơ cổ',
+    'moonPendant': 'Mặt dây chuyền mặt trăng',
+    'petalTrail': 'Vệt cánh hoa',
+    'sunsetLook': 'Vẻ hoàng hôn',
     'versusMode': 'Đôi Bạn Thân'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Đầu',
+    'neck': 'Cổ',
+    'back': 'Lưng',
+    'companion': 'Bạn nhỏ',
+    'trail': 'Vệt móng',
+    'mane': 'Bờm',
+    'skin': 'Bộ lông'
   },
 
   'place': {

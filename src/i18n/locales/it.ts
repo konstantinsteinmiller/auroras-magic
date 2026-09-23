@@ -168,6 +168,14 @@ export default {
       'confirm': 'Esci',
       'cancel': 'Resta'
     },
+    'resetProgress': {
+      'label': 'Azzera i progressi',
+      'title': 'Ricominciare tutta la storia?',
+      'body': 'Tutto ciò che il gioco ricorda torna all’inizio: la mappa, le rune, i ricordi e le tue impostazioni.',
+      'keptNote': 'Il tuo posto in classifica resta invariato.',
+      'confirm': 'Azzera',
+      'cancel': 'Tieni'
+    },
     'parents': {
       'title': 'Per i genitori',
       'aboutBody': 'Auroras Magic non ha chat, né contatti con sconosciuti, né localizzazione. Per giocare non serve alcun account.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Torna alla mappa'
+    'backToMap': 'Torna alla mappa',
+    'wardrobeSlots': 'Punti da vestire',
+    'keepsakeToFind': 'Ancora da trovare'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Tema Sogno pastello',
     'winterScarf': 'Calda sciarpa invernale',
     'petStar': 'Stella da compagnia',
+    'acornCap': 'Cappello di ghianda',
+    'bubbleTrail': 'Scia di bolle',
+    'petCloud': 'Nuvoletta amica',
+    'explorerGoggles': 'Occhialoni da esploratore',
+    'petFirefly': 'Lucciola amica',
+    'butterflyWings': 'Ali di farfalla',
+    'explorerPack': 'Zaino da esploratore',
+    'frostTrail': 'Scia di brina',
+    'moonlitLook': 'Look lunare',
+    'starTiara': 'Tiara stellata',
+    'bowTie': 'Papillon',
+    'moonPendant': 'Ciondolo luna',
+    'petalTrail': 'Scia di petali',
+    'sunsetLook': 'Look al tramonto',
     'versusMode': 'Duo dell’amicizia'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Testa',
+    'neck': 'Collo',
+    'back': 'Schiena',
+    'companion': 'Amico',
+    'trail': 'Scia',
+    'mane': 'Criniera',
+    'skin': 'Manto'
   },
 
   'place': {

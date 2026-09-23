@@ -262,6 +262,14 @@ describe('the baked snapshot is the bottom rung, reached only on failure', () =>
     })
 
     await lb.reportRun(3, 100)
+    // Asserted on its own, because `reportRun` swallows every error it meets:
+    // without this, "the first record never went out at all" and "the second
+    // was correctly throttled" both end with one write missing and look
+    // identical. This line says which. (It is also the one precondition the
+    // case rests on — a leftover `am_submitted_score` above 9 would throttle
+    // all three and leave `writes` empty.)
+    expect(sent.filter((u) => u.endsWith('/score')), 'the first record must post').toHaveLength(1)
+
     await lb.reportRun(7, 100)                      // throttled away
     await lb.reportRun(9, 100, { force: true })     // the run ended
 

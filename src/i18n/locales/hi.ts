@@ -168,6 +168,14 @@ export default {
       'confirm': 'छोड़ें',
       'cancel': 'रुकें'
     },
+    'resetProgress': {
+      'label': 'प्रगति रीसेट करें',
+      'title': 'पूरी कहानी फिर से शुरू करें?',
+      'body': 'खेल जो कुछ भी याद रखता है, सब शुरुआत पर लौट जाएगा: नक्शा, रून, यादगारें और तुम्हारी सेटिंग्स।',
+      'keptNote': 'लीडरबोर्ड पर तुम्हारी जगह वैसी ही रहेगी।',
+      'confirm': 'रीसेट करें',
+      'cancel': 'रखें'
+    },
     'parents': {
       'title': 'माता-पिता के लिए',
       'aboutBody': 'Auroras Magic में कोई चैट नहीं है, अजनबियों से कोई संपर्क नहीं होता और लोकेशन का उपयोग नहीं किया जाता। खेलने के लिए किसी खाते की ज़रूरत नहीं है।',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'मानचित्र पर वापस'
+    'backToMap': 'मानचित्र पर वापस',
+    'wardrobeSlots': 'सजाने की जगहें',
+    'keepsakeToFind': 'अभी मिलना बाकी'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'पेस्टल सपनों की थीम',
     'winterScarf': 'सर्दी का गरम मफ़लर',
     'petStar': 'पालतू तारा',
+    'acornCap': 'बलूत की टोपी',
+    'bubbleTrail': 'बुलबुलों की लकीर',
+    'petCloud': 'बादल दोस्त',
+    'explorerGoggles': 'खोजी चश्मा',
+    'petFirefly': 'जुगनू दोस्त',
+    'butterflyWings': 'तितली के पंख',
+    'explorerPack': 'खोजी बस्ता',
+    'frostTrail': 'पाले की लकीर',
+    'moonlitLook': 'चाँदनी रूप',
+    'starTiara': 'तारा मुकुट',
+    'bowTie': 'बो टाई',
+    'moonPendant': 'चाँद का लॉकेट',
+    'petalTrail': 'पंखुड़ियों की लकीर',
+    'sunsetLook': 'सूर्यास्त रूप',
     'versusMode': 'दोस्ती की जोड़ी'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'सिर',
+    'neck': 'गर्दन',
+    'back': 'पीठ',
+    'companion': 'दोस्त',
+    'trail': 'खुरों की लकीर',
+    'mane': 'अयाल',
+    'skin': 'खाल'
   },
 
   'place': {

@@ -171,6 +171,14 @@ export default {
       'confirm': 'Quitter',
       'cancel': 'Rester'
     },
+    'resetProgress': {
+      'label': 'Réinitialiser la progression',
+      'title': 'Recommencer toute l’histoire ?',
+      'body': 'Tout ce que le jeu retient revient au début : la carte, les runes, les souvenirs et tes réglages.',
+      'keptNote': 'Ta place dans le classement reste inchangée.',
+      'confirm': 'Réinitialiser',
+      'cancel': 'Garder'
+    },
     'parents': {
       'title': 'Pour les parents',
       'aboutBody': 'Auroras Magic ne comporte ni chat, ni contact avec des inconnus, ni géolocalisation. Aucun compte n’est nécessaire pour jouer.',
@@ -217,7 +225,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Retour à la carte'
+    'backToMap': 'Retour à la carte',
+    'wardrobeSlots': 'Endroits à habiller',
+    'keepsakeToFind': 'Encore à trouver'
   },
 
   'restore': {
@@ -471,7 +481,32 @@ export default {
     'pastelTheme': 'Thème Rêve pastel',
     'winterScarf': 'Écharpe d’hiver douillette',
     'petStar': 'Étoile de compagnie',
+    'acornCap': 'Chapeau de gland',
+    'bubbleTrail': 'Traînée de bulles',
+    'petCloud': 'Nuage compagnon',
+    'explorerGoggles': 'Lunettes d\'explorateur',
+    'petFirefly': 'Luciole compagnon',
+    'butterflyWings': 'Ailes de papillon',
+    'explorerPack': 'Sac d\'explorateur',
+    'frostTrail': 'Traînée de givre',
+    'moonlitLook': 'Allure lunaire',
+    'starTiara': 'Diadème étoile',
+    'bowTie': 'Nœud papillon',
+    'moonPendant': 'Pendentif lune',
+    'petalTrail': 'Traînée de pétales',
+    'sunsetLook': 'Allure crépusculaire',
     'versusMode': 'Duo de l’amitié'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Tête',
+    'neck': 'Cou',
+    'back': 'Dos',
+    'companion': 'Ami',
+    'trail': 'Traînée',
+    'mane': 'Crinière',
+    'skin': 'Pelage'
   },
 
   'place': {

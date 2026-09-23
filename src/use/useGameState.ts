@@ -174,6 +174,29 @@ export const removeState = (key: string): void => {
   schedulePersist()
 }
 
+/**
+ * Replace the WHOLE blob, keeping only the fields named in `keep`.
+ *
+ * The one writer that can make a field go away. `removeState` deletes one key
+ * at a time and `setStates` only ever merges, so neither can express "wipe
+ * this save" — and a reset built out of them would leave behind exactly the
+ * fields nobody remembered to name, which is the half-reset a player reports
+ * as "it kept my runes".
+ *
+ * Inverted on purpose: an ALLOW-list of what survives, so a field added to
+ * `keys.ts` next month is wiped by a reset by default. A deny-list would keep
+ * it, silently, and nothing would fail.
+ *
+ * Persists immediately rather than on the debounce — the caller's next move is
+ * a flush and a reload, and a 200 ms timer does not survive either.
+ */
+export const replaceGameState = (keep: readonly string[] = []): void => {
+  const next: Record<string, any> = {}
+  for (const k of keep) if (gameState.value[k] !== undefined) next[k] = gameState.value[k]
+  gameState.value = next
+  flushPersist()
+}
+
 /** Re-read from localStorage. Called by the SaveManager hydrate bridge
  *  (`useSaveStatus.bumpSaveDataVersion`) so cloud-sourced updates land
  *  in-memory BEFORE any composable's `saveDataVersion` watcher re-reads its

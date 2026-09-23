@@ -168,6 +168,14 @@ export default {
       'confirm': 'Sair',
       'cancel': 'Ficar'
     },
+    'resetProgress': {
+      'label': 'Redefinir progresso',
+      'title': 'Começar toda a história de novo?',
+      'body': 'Tudo o que o jogo lembra volta ao começo: o mapa, as runas, as lembranças e as suas configurações.',
+      'keptNote': 'Seu lugar no placar continua o mesmo.',
+      'confirm': 'Redefinir',
+      'cancel': 'Manter'
+    },
     'parents': {
       'title': 'Para os pais',
       'aboutBody': 'Auroras Magic não tem chat, nem contato com estranhos, nem uso de localização. Não é preciso criar conta para jogar.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Voltar ao mapa'
+    'backToMap': 'Voltar ao mapa',
+    'wardrobeSlots': 'Lugares para vestir',
+    'keepsakeToFind': 'Ainda por encontrar'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Tema Sonho pastel',
     'winterScarf': 'Cachecol de inverno quentinho',
     'petStar': 'Estrela de estimação',
+    'acornCap': 'Chapéu de bolota',
+    'bubbleTrail': 'Rasto de bolhas',
+    'petCloud': 'Nuvem amiga',
+    'explorerGoggles': 'Óculos de explorador',
+    'petFirefly': 'Vaga-lume amigo',
+    'butterflyWings': 'Asas de borboleta',
+    'explorerPack': 'Mochila de explorador',
+    'frostTrail': 'Rasto de gelo',
+    'moonlitLook': 'Visual do luar',
+    'starTiara': 'Tiara de estrela',
+    'bowTie': 'Laço',
+    'moonPendant': 'Pendente de lua',
+    'petalTrail': 'Rasto de pétalas',
+    'sunsetLook': 'Visual do pôr do sol',
     'versusMode': 'Dupla da amizade'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Cabeça',
+    'neck': 'Pescoço',
+    'back': 'Costas',
+    'companion': 'Amigo',
+    'trail': 'Rasto',
+    'mane': 'Crina',
+    'skin': 'Pelagem'
   },
 
   'place': {

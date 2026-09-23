@@ -169,6 +169,14 @@ export default {
       'confirm': 'Çık',
       'cancel': 'Kal'
     },
+    'resetProgress': {
+      'label': 'İlerlemeyi sıfırla',
+      'title': 'Tüm hikâye baştan başlasın mı?',
+      'body': 'Oyunun hatırladığı her şey başa döner: harita, rünler, hatıralar ve ayarların.',
+      'keptNote': 'Skor tablosundaki yerin aynı kalır.',
+      'confirm': 'Sıfırla',
+      'cancel': 'Koru'
+    },
     'parents': {
       'title': 'Ebeveynler İçin',
       'aboutBody': 'Auroras Magic oyununda sohbet, yabancılarla iletişim ve konum takibi yoktur. Oynamak için hesap gerekmez.',
@@ -215,7 +223,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Haritaya dön'
+    'backToMap': 'Haritaya dön',
+    'wardrobeSlots': 'Giydirme yerleri',
+    'keepsakeToFind': 'Hâlâ bulunacak'
   },
 
   'restore': {
@@ -471,7 +481,32 @@ export default {
     'pastelTheme': 'Pastel Rüya Teması',
     'winterScarf': 'Sıcacık Kış Atkısı',
     'petStar': 'Evcil Yıldız',
+    'acornCap': 'Meşe palamudu şapka',
+    'bubbleTrail': 'Baloncuk izi',
+    'petCloud': 'Bulut dostu',
+    'explorerGoggles': 'Kâşif gözlüğü',
+    'petFirefly': 'Ateşböceği dostu',
+    'butterflyWings': 'Kelebek kanatları',
+    'explorerPack': 'Kâşif çantası',
+    'frostTrail': 'Kırağı izi',
+    'moonlitLook': 'Ay ışığı görünümü',
+    'starTiara': 'Yıldız tacı',
+    'bowTie': 'Papyon',
+    'moonPendant': 'Ay kolyesi',
+    'petalTrail': 'Yaprak izi',
+    'sunsetLook': 'Gün batımı görünümü',
     'versusMode': 'Dostluk İkilisi'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Baş',
+    'neck': 'Boyun',
+    'back': 'Sırt',
+    'companion': 'Dost',
+    'trail': 'Toynak izi',
+    'mane': 'Yele',
+    'skin': 'Post'
   },
 
   'place': {

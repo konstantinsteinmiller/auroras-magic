@@ -18,6 +18,12 @@ import {
   drawFlowerCrown, drawSeashellNecklace, drawWingsFar, drawWingsNear, drawScarfAt, drawStarBody,
   sparklePath, MANE_SWATCHES, UMBRA_LOOK, PASTEL_DREAM, type SwatchGlyph
 } from '@/game/cosmetics/rig-cosmetics'
+import {
+  drawAcornCap, drawStarTiara, drawExplorerGoggles, drawBowTie, drawMoonPendant,
+  drawFlutterFar, drawFlutterNear, drawExplorerPackFar, drawExplorerPackNear,
+  drawPetCloud, drawPetFirefly, MOONLIT_LOOK, SUNSET_LOOK, TRAIL_STYLES
+} from '@/game/cosmetics/rig-accessories'
+import { COSMETIC_SLOTS, type CosmeticSlot } from '@/game/campaign/tables'
 import { drawUnicorn, type Face, type RigAnchors } from '@/game/duel/chars'
 import type { FoePalette } from '@/game/duel/foes'
 import { TAU, PI, sin, cos } from '@/game/duel/util'
@@ -209,7 +215,107 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
     g.translate(62, 68)
     g.rotate(-0.12)
     drawStarBody(g, 46, false, false)
+  },
+
+  /* --------------------------- the second shelf --------------------------- */
+  // Every badge below draws the item's OWN function — the same code the rig
+  // runs — rather than a second picture of it, so a shelf tile can never
+  // drift away from what she is about to put on.
+
+  // Head space, re-centred on the badge: `centreHead` puts the item's middle
+  // where the crown's is and fills the tile with it.
+  acornCap: (g) => centreHead(g, -9, -17, 1.7, drawAcornCap),
+  starTiara: (g) => centreHead(g, 1, -25, 1.5, drawStarTiara),
+  explorerGoggles: (g) => centreHead(g, 0, -22, 1.6, drawExplorerGoggles),
+  bowTie: (g) => {
+    g.translate(1, -30)
+    g.scale(1.9, 1.9)
+    drawBowTie(g, NECK_UP)
+  },
+  moonPendant: (g) => {
+    g.translate(0, -51)
+    g.scale(2, 2)
+    drawMoonPendant(g, NECK_UP)
+  },
+  butterflyWings: (g) => {
+    g.translate(12, -2)
+    g.scale(0.56, 0.56)
+    drawFlutterFar(g, BADGE_ANCHORS)
+    drawFlutterNear(g, BADGE_ANCHORS)
+  },
+  // The satchel is the item; the bedroll is the detail. Framed on the bag,
+  // because a badge framed on both came back as a picture of a green log.
+  explorerPack: (g) => {
+    g.translate(6.8, -39.8)
+    g.scale(0.62, 0.62)
+    drawExplorerPackFar(g, BADGE_ANCHORS)
+    drawExplorerPackNear(g, BADGE_ANCHORS)
+  },
+  // Stage-space companions: the anchors are chosen so the float curve lands
+  // the creature on the badge's middle at t = 0.6.
+  petCloud: (g) => {
+    badgeSpace(g)
+    zoomBadge(g, 2.1)
+    drawPetCloud(g, { ...BADGE_ANCHORS, portrait: false, t: 0.6, tailStage: [78, 110] })
+  },
+  petFirefly: (g) => {
+    badgeSpace(g)
+    zoomBadge(g, 2.4)
+    drawPetFirefly(g, { ...BADGE_ANCHORS, portrait: false, t: 0.6, bodyStage: [26, 75] })
+  },
+  petalTrail: (g) => trailBadge(g, 'petalTrail'),
+  frostTrail: (g) => trailBadge(g, 'frostTrail'),
+  bubbleTrail: (g) => trailBadge(g, 'bubbleTrail'),
+  moonlitLook: (g) => headIn(g, MOONLIT_LOOK, '#e2ecff'),
+  sunsetLook: (g) => headIn(g, SUNSET_LOOK, '#ffe4cc')
+}
+
+/** Draw a head-space item with its own middle (hx, hy) on the badge's. */
+const centreHead = (g: G2D, hx: number, hy: number, k: number, draw: (g: G2D) => void): void => {
+  g.translate(1, -19)
+  g.scale(k, k)
+  g.translate(-hx, -hy)
+  draw(g)
+}
+
+/** Scale about the badge's middle, in badge pixels. */
+const zoomBadge = (g: G2D, k: number): void => {
+  g.translate(64, 64)
+  g.scale(k, k)
+  g.translate(-64, -64)
+}
+
+/**
+ * A trail's badge: a rising cluster of its own shape in its own colours,
+ * biggest at the bottom — the comet's tail the Sparkly Hoof-trail's badge
+ * makes out of sparkles, made out of petals, flakes or bubbles instead.
+ */
+const TRAIL_PTS: readonly (readonly [number, number, number])[] = [
+  [40, 96, 17], [72, 74, 13], [30, 52, 11], [86, 36, 9.5], [56, 22, 7.5], [100, 96, 8]
+]
+const trailBadge = (g: G2D, slug: string): void => {
+  const st = TRAIL_STYLES[slug]
+  if (!st) return
+  badgeSpace(g)
+  g.lineJoin = 'round'
+  g.globalAlpha = st.alpha
+  for (let c = 0; c < st.cols.length; c++) {
+    g.beginPath()
+    let any = false
+    for (let i = 0; i < TRAIL_PTS.length; i++) {
+      if (i % st.cols.length !== c) continue
+      const [x, y, r] = TRAIL_PTS[i]!
+      st.shape(g, x, y, r, i * 0.8)
+      any = true
+    }
+    if (!any) continue
+    g.lineWidth = 4
+    g.strokeStyle = INK
+    g.stroke()
+    g.fillStyle = st.cols[c]!
+    g.fill()
   }
+  g.globalAlpha = 1
 }
 
 const cache = new Map<string, string>()
@@ -290,6 +396,149 @@ export const itemIconUrl = (slug: string, ghost = false): string => {
   if (url) cache.set(key, url)
   return url
 }
+
+/* ------------------------------ slot tabs ----------------------------- */
+/*
+ * The shelf holds 23 keepsakes now, which is three times what a 3 × 3 grid
+ * ever fitted — so the shelf is a row of SLOT tabs over the one slot's
+ * items. A tab is a place on her, not an item: a crown band for the head, a
+ * cord for the neck, a wing for the back. Deliberately flatter and quieter
+ * than an item badge (one ink line, one accent), because a tab that looks
+ * like a keepsake gets tapped as one.
+ *
+ * Zero-text, like everything else in this scene (§8.2): the tab's name is
+ * its `aria-label`, read aloud, never printed.
+ */
+
+/** Stroke then fill the current path, in the tab's flat style. */
+const tabInk = (g: G2D, fill: string, w = 7): void => {
+  g.lineJoin = g.lineCap = 'round'
+  g.lineWidth = w
+  g.strokeStyle = INK
+  g.stroke()
+  g.fillStyle = fill
+  g.fill()
+}
+
+const SLOT_DRAW: Readonly<Record<CosmeticSlot, (g: G2D) => void>> = {
+  // A crown band with three points: the place on her head, not any one hat.
+  head: (g) => {
+    g.beginPath()
+    g.moveTo(18, 86)
+    g.lineTo(28, 40)
+    g.lineTo(48, 62)
+    g.lineTo(64, 28)
+    g.lineTo(80, 62)
+    g.lineTo(100, 40)
+    g.lineTo(110, 86)
+    g.closePath()
+    tabInk(g, '#ffd36b')
+  },
+  // A cord round a throat, with one bead hanging off it.
+  neck: (g) => {
+    g.beginPath()
+    g.moveTo(24, 34)
+    g.quadraticCurveTo(64, 96, 104, 34)
+    g.lineWidth = 8
+    g.strokeStyle = INK
+    g.lineCap = 'round'
+    g.stroke()
+    g.beginPath()
+    g.arc(64, 82, 15, 0, TAU)
+    tabInk(g, '#9fd8ff')
+  },
+  // One wing, the way both back items root it.
+  back: (g) => {
+    g.beginPath()
+    g.moveTo(96, 96)
+    g.bezierCurveTo(70, 88, 34, 70, 24, 34)
+    g.quadraticCurveTo(52, 44, 58, 30)
+    g.quadraticCurveTo(70, 56, 84, 56)
+    g.quadraticCurveTo(84, 76, 96, 96)
+    g.closePath()
+    tabInk(g, '#e2d6fa')
+  },
+  // A little friend: a star with a face, which every companion is.
+  companion: (g) => {
+    g.beginPath()
+    for (let i = 0; i < 10; i++) {
+      const a = -PI / 2 + (i * PI) / 5
+      const r = i & 1 ? 20 : 46
+      const x = 64 + cos(a) * r
+      const y = 64 + sin(a) * r
+      if (i) g.lineTo(x, y)
+      else g.moveTo(x, y)
+    }
+    g.closePath()
+    tabInk(g, '#ffd84a')
+    g.beginPath()
+    for (const ex of [54, 76]) {
+      g.moveTo(ex + 4, 58)
+      g.arc(ex, 58, 4, 0, TAU)
+    }
+    g.fillStyle = INK
+    g.fill()
+  },
+  // What she leaves behind her: three specks on a rising diagonal.
+  trail: (g) => {
+    sparkles(g, [[36, 96, 18], [70, 62, 13], [98, 32, 9]], '#fff09a')
+  },
+  // A lock of hair: three strands with a wave in them.
+  mane: (g) => {
+    g.lineJoin = g.lineCap = 'round'
+    for (const [x, col] of [[38, '#fc3'], [64, '#ffd36b'], [90, '#fc3']] as const) {
+      g.beginPath()
+      g.moveTo(x, 22)
+      g.bezierCurveTo(x - 20, 52, x + 20, 76, x - 6, 106)
+      g.lineWidth = 15
+      g.strokeStyle = INK
+      g.stroke()
+      g.lineWidth = 8
+      g.strokeStyle = col
+      g.stroke()
+    }
+  },
+  // Her coat itself: one disc, two coats — which is the whole choice here.
+  skin: (g) => {
+    g.beginPath()
+    g.arc(64, 64, 42, -PI / 2, PI / 2)
+    g.closePath()
+    g.fillStyle = '#3c4aa6'
+    g.fill()
+    g.beginPath()
+    g.arc(64, 64, 42, PI / 2, -PI / 2)
+    g.closePath()
+    g.fillStyle = '#ffeecc'
+    g.fill()
+    g.beginPath()
+    g.arc(64, 64, 42, 0, TAU)
+    g.moveTo(64, 22)
+    g.lineTo(64, 106)
+    g.lineWidth = 7
+    g.strokeStyle = INK
+    g.stroke()
+  }
+}
+
+/** A slot tab's glyph, as a data URL (baked once, like the item badges). */
+export const slotIconUrl = (slot: CosmeticSlot): string => {
+  void iconArtRev.value
+  const key = `slot:${slot}`
+  const hit = cache.get(key)
+  if (hit) return hit
+  if (typeof document === 'undefined') return ''
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 128
+  const g = cv.getContext('2d')
+  if (!g) return ''
+  SLOT_DRAW[slot](g)
+  const url = cv.toDataURL()
+  cache.set(key, url)
+  return url
+}
+
+/** Every slot, in shelf order — the tab strip. */
+export const SLOT_TABS: readonly CosmeticSlot[] = COSMETIC_SLOTS
 
 /* ------------------------------ swatches ------------------------------ */
 

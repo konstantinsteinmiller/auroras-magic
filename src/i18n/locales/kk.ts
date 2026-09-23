@@ -168,6 +168,14 @@ export default {
       'confirm': 'Шығу',
       'cancel': 'Қалу'
     },
+    'resetProgress': {
+      'label': 'Барысты ысыру',
+      'title': 'Бүкіл оқиғаны қайтадан бастайсың ба?',
+      'body': 'Ойын есінде сақтаған бәрі басына оралады: карта, руналар, естеліктер және баптауларың.',
+      'keptNote': 'Көшбасшылар кестесіндегі орның сол күйінде қалады.',
+      'confirm': 'Ысыру',
+      'cancel': 'Сақтау'
+    },
     'parents': {
       'title': 'Ата-аналарға',
       'aboutBody': 'Auroras Magic ойынында чат жоқ, бейтаныс адамдармен байланыс жоқ және орналасқан жер анықталмайды. Ойнау үшін аккаунт қажет емес.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Картаға оралу'
+    'backToMap': 'Картаға оралу',
+    'wardrobeSlots': 'Киіндіру орындары',
+    'keepsakeToFind': 'Әлі табылмаған'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Пастель арман тақырыбы',
     'winterScarf': 'Жылы қысқы шарф',
     'petStar': 'Еркетай жұлдызша',
+    'acornCap': 'Емен жаңғағы қалпақ',
+    'bubbleTrail': 'Көпіршік ізі',
+    'petCloud': 'Бұлт досы',
+    'explorerGoggles': 'Зерттеуші көзілдірігі',
+    'petFirefly': 'Отшыбын досы',
+    'butterflyWings': 'Көбелек қанаттары',
+    'explorerPack': 'Зерттеуші дорбасы',
+    'frostTrail': 'Аяз ізі',
+    'moonlitLook': 'Ай сәулелі бейне',
+    'starTiara': 'Жұлдыз тәжі',
+    'bowTie': 'Көбелек галстук',
+    'moonPendant': 'Ай кулоны',
+    'petalTrail': 'Гүл жапырағының ізі',
+    'sunsetLook': 'Кешкі шапақ бейнесі',
     'versusMode': 'Достық жұбы'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Бас',
+    'neck': 'Мойын',
+    'back': 'Арқа',
+    'companion': 'Дос',
+    'trail': 'Тұяқ ізі',
+    'mane': 'Жал',
+    'skin': 'Жүн'
   },
 
   'place': {

@@ -168,6 +168,14 @@ export default {
       'confirm': '나가기',
       'cancel': '계속하기'
     },
+    'resetProgress': {
+      'label': '진행 상황 초기화',
+      'title': '이야기를 처음부터 다시 시작할까?',
+      'body': '게임이 기억하는 모든 것이 처음으로 돌아가. 지도, 룬, 기념품 그리고 설정까지.',
+      'keptNote': '순위표에서의 자리는 그대로 남아.',
+      'confirm': '초기화',
+      'cancel': '유지'
+    },
     'parents': {
       'title': '보호자 안내',
       'aboutBody': 'Auroras Magic에는 채팅, 낯선 사람과의 교류, 위치 정보 사용이 없습니다. 계정 없이 플레이할 수 있습니다.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': '지도로 돌아가기'
+    'backToMap': '지도로 돌아가기',
+    'wardrobeSlots': '꾸밀 곳',
+    'keepsakeToFind': '아직 찾지 못함'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': '파스텔 꿈 테마',
     'winterScarf': '포근한 겨울 목도리',
     'petStar': '반려 별',
+    'acornCap': '도토리 모자',
+    'bubbleTrail': '비눗방울 자국',
+    'petCloud': '구름 친구',
+    'explorerGoggles': '탐험가 고글',
+    'petFirefly': '반딧불이 친구',
+    'butterflyWings': '나비 날개',
+    'explorerPack': '탐험가 가방',
+    'frostTrail': '서리 자국',
+    'moonlitLook': '달빛 모습',
+    'starTiara': '별 티아라',
+    'bowTie': '나비넥타이',
+    'moonPendant': '달 목걸이',
+    'petalTrail': '꽃잎 자국',
+    'sunsetLook': '노을 모습',
     'versusMode': '우정 듀오'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': '머리',
+    'neck': '목',
+    'back': '등',
+    'companion': '친구',
+    'trail': '발자국',
+    'mane': '갈기',
+    'skin': '털빛'
   },
 
   'place': {

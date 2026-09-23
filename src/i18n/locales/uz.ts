@@ -168,6 +168,14 @@ export default {
       'confirm': 'Chiqish',
       'cancel': 'Qolish'
     },
+    'resetProgress': {
+      'label': 'Progressni tiklash',
+      'title': 'Butun hikoyani boshidan boshlaymizmi?',
+      'body': 'O‘yin eslab qolgan hamma narsa boshiga qaytadi: xarita, runalar, esdaliklar va sozlamalaring.',
+      'keptNote': 'Reyting jadvalidagi o‘rning o‘zgarmaydi.',
+      'confirm': 'Tiklash',
+      'cancel': 'Saqlash'
+    },
     'parents': {
       'title': 'Ota-onalar uchun',
       'aboutBody': 'Auroras Magic o‘yinida chat yo‘q, begonalar bilan aloqa yo‘q va joylashuv aniqlanmaydi. O‘ynash uchun hisob ochish shart emas.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Xaritaga qaytish'
+    'backToMap': 'Xaritaga qaytish',
+    'wardrobeSlots': 'Kiyintirish joylari',
+    'keepsakeToFind': 'Hali topilmagan'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Pastel orzular mavzusi',
     'winterScarf': 'Issiq qishki sharf',
     'petStar': 'Erkatoy yulduzcha',
+    'acornCap': 'Eman yong‘og‘i qalpoq',
+    'bubbleTrail': 'Pufakchalar izi',
+    'petCloud': 'Bulut do‘st',
+    'explorerGoggles': 'Tadqiqotchi ko‘zoynagi',
+    'petFirefly': 'Yoritqich do‘st',
+    'butterflyWings': 'Kapalak qanotlari',
+    'explorerPack': 'Tadqiqotchi ryukzagi',
+    'frostTrail': 'Qirov izi',
+    'moonlitLook': 'Oy nuri ko‘rinishi',
+    'starTiara': 'Yulduz toji',
+    'bowTie': 'Kapalak galstuk',
+    'moonPendant': 'Oy kuloni',
+    'petalTrail': 'Gulbarglar izi',
+    'sunsetLook': 'Shom ko‘rinishi',
     'versusMode': 'Do‘stlik jufti'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Bosh',
+    'neck': 'Bo‘yin',
+    'back': 'Orqa',
+    'companion': 'Do‘st',
+    'trail': 'Tuyoq izi',
+    'mane': 'Yol',
+    'skin': 'Jun'
   },
 
   'place': {

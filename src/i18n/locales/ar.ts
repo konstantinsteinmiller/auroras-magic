@@ -168,6 +168,14 @@ export default {
       'confirm': 'مغادرة',
       'cancel': 'البقاء'
     },
+    'resetProgress': {
+      'label': 'إعادة ضبط التقدّم',
+      'title': 'هل تبدأ القصة كلها من جديد؟',
+      'body': 'كل ما تتذكره اللعبة سيعود إلى البداية: الخريطة والرونات والتذكارات وإعداداتك.',
+      'keptNote': 'مركزك في لوحة المتصدرين يبقى كما هو.',
+      'confirm': 'إعادة الضبط',
+      'cancel': 'الاحتفاظ'
+    },
     'parents': {
       'title': 'لأولياء الأمور',
       'aboutBody': 'لا تتضمن لعبة Auroras Magic أي محادثة أو تواصل مع غرباء، ولا تستخدم الموقع الجغرافي. ولا يلزم إنشاء حساب للعب.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'العودة إلى الخريطة'
+    'backToMap': 'العودة إلى الخريطة',
+    'wardrobeSlots': 'أماكن التزيين',
+    'keepsakeToFind': 'لم يُعثر عليها بعد'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'سمة أحلام الباستيل',
     'winterScarf': 'وشاح شتوي دافئ',
     'petStar': 'نجمة أليفة',
+    'acornCap': 'قبعة البلوط',
+    'bubbleTrail': 'أثر الفقاعات',
+    'petCloud': 'غيمة صديقة',
+    'explorerGoggles': 'نظارات المستكشف',
+    'petFirefly': 'يراعة صديقة',
+    'butterflyWings': 'أجنحة فراشة',
+    'explorerPack': 'حقيبة المستكشف',
+    'frostTrail': 'أثر الصقيع',
+    'moonlitLook': 'إطلالة ضوء القمر',
+    'starTiara': 'تاج النجمة',
+    'bowTie': 'ربطة عنق فراشة',
+    'moonPendant': 'قلادة القمر',
+    'petalTrail': 'أثر البتلات',
+    'sunsetLook': 'إطلالة الغروب',
     'versusMode': 'ثنائي الصداقة'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'الرأس',
+    'neck': 'الرقبة',
+    'back': 'الظهر',
+    'companion': 'صديق',
+    'trail': 'أثر الحوافر',
+    'mane': 'العرف',
+    'skin': 'الفراء'
   },
 
   'place': {

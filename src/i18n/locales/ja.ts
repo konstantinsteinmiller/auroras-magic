@@ -168,6 +168,14 @@ export default {
       'confirm': 'やめる',
       'cancel': '続ける'
     },
+    'resetProgress': {
+      'label': 'データをリセット',
+      'title': 'はじめから やりなおす？',
+      'body': 'ゲームが おぼえていることは すべて さいしょに もどります。マップ、ルーン、おもいで、そして せっていも。',
+      'keptNote': 'ランキングの じゅんいは そのままです。',
+      'confirm': 'リセット',
+      'cancel': 'やめる'
+    },
     'parents': {
       'title': '保護者の方へ',
       'aboutBody': 'Auroras Magic には、チャット機能や知らない人との交流はなく、位置情報も使用しません。プレイにアカウントは必要ありません。',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': '地図に戻る'
+    'backToMap': '地図に戻る',
+    'wardrobeSlots': 'きせかえのばしょ',
+    'keepsakeToFind': 'まだみつかっていない'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'パステルドリームテーマ',
     'winterScarf': 'ぬくぬく冬のマフラー',
     'petStar': 'ペットのお星さま',
+    'acornCap': 'どんぐりのぼうし',
+    'bubbleTrail': 'シャボンのあしあと',
+    'petCloud': 'くものおともだち',
+    'explorerGoggles': 'たんけんゴーグル',
+    'petFirefly': 'ホタルのおともだち',
+    'butterflyWings': 'ちょうちょのはね',
+    'explorerPack': 'たんけんリュック',
+    'frostTrail': 'こおりのあしあと',
+    'moonlitLook': 'ムーンライトのすがた',
+    'starTiara': 'スターティアラ',
+    'bowTie': 'ちょうネクタイ',
+    'moonPendant': 'つきのペンダント',
+    'petalTrail': 'はなびらのあしあと',
+    'sunsetLook': 'ゆうやけのすがた',
     'versusMode': 'なかよしコンビ'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'あたま',
+    'neck': 'くび',
+    'back': 'せなか',
+    'companion': 'おともだち',
+    'trail': 'あしあと',
+    'mane': 'たてがみ',
+    'skin': 'けなみ'
   },
 
   'place': {

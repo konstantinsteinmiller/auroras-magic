@@ -1,76 +1,71 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.0/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
-  "formatter": {
-    "enabled": true,
-    "formatWithErrors": false,
-    "indentStyle": "tab",
-    "indentWidth": 2,
-    "lineWidth": 120,
-    "lineEnding": "lf",
-    "attributePosition": "multiline"
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "single",
-      "semicolons": "asNeeded",
-      "trailingCommas": "es5",
-      "arrowParentheses": "asNeeded"
-    }
-  },
-  "html": {
-    "experimentalFullSupportEnabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": {
-        "noElseReturn": "error"
-      },
-      "style": {
-        "useTemplate": "error",
-        "useBlockStatements": "error",
-        "noMultiSpaces": "error"
-      },
-      "suspicious": {
-        "noConsoleLog": "warn",
-        "noDebugger": "warn"
-      },
-      "nursery": {
-        "useVueHyphenatedAttributes": "error",
-        "useVueConsistentVBindStyle": "error",
-        "useVueConsistentVOnStyle": "off",
-        "useVueValidVHtml": "off",
-        "noVueReservedProps": "error",
-        "useVueMainComponentNames": "off"
-      },
-      "correctness": {
-        "noUnusedVariables": "warn"
-      }
-    }
-  },
-  "overrides": [
-    {
-      "include": [
-        "*.vue"
-      ],
-      "linter": {
-        "rules": {
-          "style": {
-            "useNamingConvention": {
-              "options": {
-                "strictCase": false
-              }
-            }
-          },
-          "nursery": {
-            "useVueMainComponentNames": "off"
-          }
-        }
-      }
-    }
-  ]
+	"$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"formatter": {
+		"enabled": true,
+		"formatWithErrors": false,
+		"indentStyle": "space",
+		"indentWidth": 2,
+		"lineWidth": 120,
+		"lineEnding": "lf",
+		"attributePosition": "multiline"
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "single",
+			"semicolons": "asNeeded",
+			"trailingCommas": "es5",
+			"arrowParentheses": "asNeeded"
+		}
+	},
+	// MUST STAY FALSE. Turning it on makes Biome parse the <style> blocks
+	// inside .vue files, and every one of ours is `lang="sass"` — indented
+	// Sass, which Biome cannot parse at all. It produced 7,916 parse errors
+	// plus ~8,600 bogus CSS findings (it reads a `// comment` as a type
+	// selector), i.e. 16,583 of 16,655 total, which is why nobody could use
+	// the linter. Off, Biome still lints every <script> block normally.
+	"html": {
+		"experimentalFullSupportEnabled": false
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"useTemplate": "error",
+				"noUselessElse": "error",
+				"useBlockStatements": "off"
+			},
+			"suspicious": {
+				"noDebugger": "warn",
+				"noConsole": { "level": "warn", "options": { "allow": ["log"] } }
+			},
+			"nursery": {
+				"useVueHyphenatedAttributes": "error",
+				"useVueConsistentVBindStyle": "error",
+				"useVueConsistentVOnStyle": "off",
+				"useVueValidVHtml": "off"
+			},
+			"correctness": {
+				"noUnusedVariables": "warn",
+				"noVueReservedProps": "error"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.vue"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useNamingConvention": {
+							"options": {
+								"strictCase": false
+							}
+						}
+					}
+				}
+			}
+		}
+	]
 }

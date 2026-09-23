@@ -221,6 +221,18 @@ export default {
     },
     // The "For Parents" tab (story-spec §2.7). Written for the adult reader:
     // full sentences are fine here, unlike anywhere else in the game.
+    // Start the whole story again (`useResetProgress`). `keptNote` is the
+    // reassurance, and it is load-bearing copy rather than politeness: the
+    // leaderboard row is the server's and a client cannot delete it, so the
+    // dialog must not imply otherwise.
+    'resetProgress': {
+      'label': 'Reset progress',
+      'title': 'Start the whole story again?',
+      'body': 'Everything the game remembers goes back to the beginning: the map, the runes, the keepsakes — and your settings.',
+      'keptNote': 'Your place on the leaderboard stays as it is.',
+      'confirm': 'Reset',
+      'cancel': 'Keep'
+    },
     'parents': {
       'title': 'For Parents',
       'aboutBody': 'Auroras Magic has no chat, no strangers, and no location. No account is needed to play.',
@@ -270,7 +282,9 @@ export default {
   // The restore view is zero-UI: every string here is READ ALOUD (aria-labels
   // on icon-only controls), never painted on screen.
   'a11y': {
-    'backToMap': 'Back to map'
+    'backToMap': 'Back to map',
+    'wardrobeSlots': 'Places to dress',
+    'keepsakeToFind': 'Still to find'
   },
 
   'restore': {
@@ -540,7 +554,32 @@ export default {
     'pastelTheme': 'Pastel Dream Theme',
     'winterScarf': 'Cozy Winter Scarf',
     'petStar': 'Pet Star',
+    'acornCap': 'Acorn Cap',
+    'bubbleTrail': 'Bubble Trail',
+    'petCloud': 'Pet Cloud',
+    'explorerGoggles': 'Explorer Goggles',
+    'petFirefly': 'Pet Firefly',
+    'butterflyWings': 'Butterfly Wings',
+    'explorerPack': 'Explorer Pack',
+    'frostTrail': 'Frosty Trail',
+    'moonlitLook': 'Moonlit Look',
+    'starTiara': 'Star Tiara',
+    'bowTie': 'Bow Tie',
+    'moonPendant': 'Moon Pendant',
+    'petalTrail': 'Petal Trail',
+    'sunsetLook': 'Sunset Look',
     'versusMode': 'Friendship Duo'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Head',
+    'neck': 'Neck',
+    'back': 'Back',
+    'companion': 'Friend',
+    'trail': 'Hoof trail',
+    'mane': 'Mane',
+    'skin': 'Coat'
   },
 
   'place': {

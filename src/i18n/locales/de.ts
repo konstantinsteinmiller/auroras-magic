@@ -168,6 +168,14 @@ export default {
       'confirm': 'Verlassen',
       'cancel': 'Bleiben'
     },
+    'resetProgress': {
+      'label': 'Fortschritt zurücksetzen',
+      'title': 'Die ganze Geschichte neu beginnen?',
+      'body': 'Alles, woran sich das Spiel erinnert, beginnt wieder von vorn: die Karte, die Runen, die Andenken — und deine Einstellungen.',
+      'keptNote': 'Dein Platz in der Bestenliste bleibt erhalten.',
+      'confirm': 'Zurücksetzen',
+      'cancel': 'Behalten'
+    },
     'parents': {
       'title': 'Für Eltern',
       'aboutBody': 'Auroras Magic hat keinen Chat, keinen Kontakt zu Fremden und keine Standortermittlung. Zum Spielen ist kein Konto nötig.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Zurück zur Karte'
+    'backToMap': 'Zurück zur Karte',
+    'wardrobeSlots': 'Stellen zum Anziehen',
+    'keepsakeToFind': 'Noch zu finden'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Pastelltraum-Design',
     'winterScarf': 'Kuscheliger Winterschal',
     'petStar': 'Haustier-Stern',
+    'acornCap': 'Eichelmütze',
+    'bubbleTrail': 'Seifenblasenspur',
+    'petCloud': 'Wolken-Freund',
+    'explorerGoggles': 'Forscherbrille',
+    'petFirefly': 'Glühwürmchen-Freund',
+    'butterflyWings': 'Schmetterlingsflügel',
+    'explorerPack': 'Forscherrucksack',
+    'frostTrail': 'Frostspur',
+    'moonlitLook': 'Mondlicht-Look',
+    'starTiara': 'Sternendiadem',
+    'bowTie': 'Fliege',
+    'moonPendant': 'Mondanhänger',
+    'petalTrail': 'Blütenblattspur',
+    'sunsetLook': 'Sonnenuntergangs-Look',
     'versusMode': 'Freundschafts-Duo'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Kopf',
+    'neck': 'Hals',
+    'back': 'Rücken',
+    'companion': 'Freund',
+    'trail': 'Hufspur',
+    'mane': 'Mähne',
+    'skin': 'Fell'
   },
 
   'place': {

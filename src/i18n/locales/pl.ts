@@ -169,6 +169,14 @@ export default {
       'confirm': 'Wyjdź',
       'cancel': 'Zostań'
     },
+    'resetProgress': {
+      'label': 'Zresetuj postępy',
+      'title': 'Zacząć całą historię od nowa?',
+      'body': 'Wszystko, co gra pamięta, wróci na początek: mapa, runy, pamiątki i twoje ustawienia.',
+      'keptNote': 'Twoje miejsce w rankingu pozostanie bez zmian.',
+      'confirm': 'Zresetuj',
+      'cancel': 'Zachowaj'
+    },
     'parents': {
       'title': 'Dla rodziców',
       'aboutBody': 'W Auroras Magic nie ma czatu, kontaktu z nieznajomymi ani śledzenia lokalizacji. Do gry nie jest potrzebne konto.',
@@ -215,7 +223,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Wróć do mapy'
+    'backToMap': 'Wróć do mapy',
+    'wardrobeSlots': 'Miejsca do ubrania',
+    'keepsakeToFind': 'Jeszcze do znalezienia'
   },
 
   'restore': {
@@ -470,7 +480,32 @@ export default {
     'pastelTheme': 'Motyw „Pastelowy sen”',
     'winterScarf': 'Przytulny zimowy szalik',
     'petStar': 'Gwiezdny pupil',
+    'acornCap': 'Czapeczka z żołędzia',
+    'bubbleTrail': 'Ślad z baniek',
+    'petCloud': 'Chmurka-przyjaciel',
+    'explorerGoggles': 'Gogle odkrywcy',
+    'petFirefly': 'Świetlik-przyjaciel',
+    'butterflyWings': 'Skrzydła motyla',
+    'explorerPack': 'Plecak odkrywcy',
+    'frostTrail': 'Szronowy ślad',
+    'moonlitLook': 'Księżycowy look',
+    'starTiara': 'Gwiezdny diadem',
+    'bowTie': 'Muszka',
+    'moonPendant': 'Wisiorek z księżycem',
+    'petalTrail': 'Ślad z płatków',
+    'sunsetLook': 'Look o zachodzie słońca',
     'versusMode': 'Przyjacielski duet'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Głowa',
+    'neck': 'Szyja',
+    'back': 'Grzbiet',
+    'companion': 'Przyjaciel',
+    'trail': 'Ślad kopytek',
+    'mane': 'Grzywa',
+    'skin': 'Sierść'
   },
 
   'place': {

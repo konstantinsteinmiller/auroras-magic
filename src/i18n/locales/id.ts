@@ -168,6 +168,14 @@ export default {
       'confirm': 'Keluar',
       'cancel': 'Tetap di sini'
     },
+    'resetProgress': {
+      'label': 'Atur ulang progres',
+      'title': 'Mulai seluruh cerita dari awal?',
+      'body': 'Semua yang diingat game kembali ke awal: peta, rune, kenang-kenangan, dan pengaturanmu.',
+      'keptNote': 'Posisimu di papan peringkat tetap sama.',
+      'confirm': 'Atur ulang',
+      'cancel': 'Simpan'
+    },
     'parents': {
       'title': 'Untuk Orang Tua',
       'aboutBody': 'Auroras Magic tidak memiliki fitur obrolan, tidak ada interaksi dengan orang asing, dan tidak menggunakan lokasi. Tidak perlu akun untuk bermain.',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Kembali ke peta'
+    'backToMap': 'Kembali ke peta',
+    'wardrobeSlots': 'Tempat berdandan',
+    'keepsakeToFind': 'Belum ditemukan'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'Tema Mimpi Pastel',
     'winterScarf': 'Syal Hangat Musim Dingin',
     'petStar': 'Bintang Peliharaan',
+    'acornCap': 'Topi biji ek',
+    'bubbleTrail': 'Jejak gelembung',
+    'petCloud': 'Awan sahabat',
+    'explorerGoggles': 'Kacamata penjelajah',
+    'petFirefly': 'Kunang-kunang sahabat',
+    'butterflyWings': 'Sayap kupu-kupu',
+    'explorerPack': 'Ransel penjelajah',
+    'frostTrail': 'Jejak embun beku',
+    'moonlitLook': 'Gaya rembulan',
+    'starTiara': 'Tiara bintang',
+    'bowTie': 'Dasi kupu-kupu',
+    'moonPendant': 'Liontin bulan',
+    'petalTrail': 'Jejak kelopak',
+    'sunsetLook': 'Gaya senja',
     'versusMode': 'Duo Persahabatan'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Kepala',
+    'neck': 'Leher',
+    'back': 'Punggung',
+    'companion': 'Teman',
+    'trail': 'Jejak kuku',
+    'mane': 'Surai',
+    'skin': 'Bulu'
   },
 
   'place': {

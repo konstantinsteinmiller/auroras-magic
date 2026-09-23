@@ -168,6 +168,14 @@ export default {
       'confirm': 'ออก',
       'cancel': 'อยู่ต่อ'
     },
+    'resetProgress': {
+      'label': 'รีเซ็ตความคืบหน้า',
+      'title': 'เริ่มเรื่องราวทั้งหมดใหม่ไหม?',
+      'body': 'ทุกอย่างที่เกมจดจำจะกลับไปเริ่มต้นใหม่ ทั้งแผนที่ รูน ของที่ระลึก และการตั้งค่าของคุณ',
+      'keptNote': 'อันดับของคุณบนกระดานผู้นำจะยังคงเดิม',
+      'confirm': 'รีเซ็ต',
+      'cancel': 'เก็บไว้'
+    },
     'parents': {
       'title': 'สำหรับผู้ปกครอง',
       'aboutBody': 'Auroras Magic ไม่มีระบบแชท ไม่มีการติดต่อกับคนแปลกหน้า และไม่ใช้ข้อมูลตำแหน่ง ไม่ต้องมีบัญชีก็เล่นได้',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'กลับไปที่แผนที่'
+    'backToMap': 'กลับไปที่แผนที่',
+    'wardrobeSlots': 'ที่สำหรับแต่งตัว',
+    'keepsakeToFind': 'ยังหาไม่พบ'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': 'ธีมความฝันพาสเทล',
     'winterScarf': 'ผ้าพันคอฤดูหนาวแสนอุ่น',
     'petStar': 'ดาวน้อยคู่ใจ',
+    'acornCap': 'หมวกลูกโอ๊ก',
+    'bubbleTrail': 'รอยฟองสบู่',
+    'petCloud': 'เมฆคู่ใจ',
+    'explorerGoggles': 'แว่นนักสำรวจ',
+    'petFirefly': 'หิ่งห้อยคู่ใจ',
+    'butterflyWings': 'ปีกผีเสื้อ',
+    'explorerPack': 'เป้นักสำรวจ',
+    'frostTrail': 'รอยน้ำค้างแข็ง',
+    'moonlitLook': 'ลุคแสงจันทร์',
+    'starTiara': 'มงกุฎดาว',
+    'bowTie': 'หูกระต่าย',
+    'moonPendant': 'จี้พระจันทร์',
+    'petalTrail': 'รอยกลีบดอกไม้',
+    'sunsetLook': 'ลุคยามเย็น',
     'versusMode': 'คู่หูเพื่อนรัก'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'หัว',
+    'neck': 'คอ',
+    'back': 'หลัง',
+    'companion': 'เพื่อน',
+    'trail': 'รอยกีบ',
+    'mane': 'แผงคอ',
+    'skin': 'ขน'
   },
 
   'place': {

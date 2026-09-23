@@ -168,6 +168,14 @@ export default {
       'confirm': '离开',
       'cancel': '留下'
     },
+    'resetProgress': {
+      'label': '重置进度',
+      'title': '要重新开始整个故事吗？',
+      'body': '游戏记住的一切都会回到最初：地图、符文、纪念品，还有你的设置。',
+      'keptNote': '你在排行榜上的名次保持不变。',
+      'confirm': '重置',
+      'cancel': '保留'
+    },
     'parents': {
       'title': '家长须知',
       'aboutBody': 'Auroras Magic 没有聊天功能，不会接触陌生人，也不使用位置信息。无需账号即可游玩。',
@@ -214,7 +222,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': '返回地图'
+    'backToMap': '返回地图',
+    'wardrobeSlots': '可以打扮的地方',
+    'keepsakeToFind': '还没找到'
   },
 
   'restore': {
@@ -468,7 +478,32 @@ export default {
     'pastelTheme': '粉彩梦幻主题',
     'winterScarf': '暖暖的冬日围巾',
     'petStar': '宠物星星',
+    'acornCap': '橡果小帽',
+    'bubbleTrail': '泡泡足迹',
+    'petCloud': '云朵伙伴',
+    'explorerGoggles': '探险护目镜',
+    'petFirefly': '萤火虫伙伴',
+    'butterflyWings': '蝴蝶翅膀',
+    'explorerPack': '探险背包',
+    'frostTrail': '霜花足迹',
+    'moonlitLook': '月光造型',
+    'starTiara': '星星头冠',
+    'bowTie': '蝴蝶结',
+    'moonPendant': '月亮吊坠',
+    'petalTrail': '花瓣足迹',
+    'sunsetLook': '夕阳造型',
     'versusMode': '友谊搭档'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': '头部',
+    'neck': '脖子',
+    'back': '背部',
+    'companion': '伙伴',
+    'trail': '足迹',
+    'mane': '鬃毛',
+    'skin': '毛色'
   },
 
   'place': {

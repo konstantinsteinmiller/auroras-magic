@@ -169,6 +169,14 @@ export default {
       'confirm': 'Verlaten',
       'cancel': 'Blijven'
     },
+    'resetProgress': {
+      'label': 'Voortgang wissen',
+      'title': 'Het hele verhaal opnieuw beginnen?',
+      'body': 'Alles wat het spel onthoudt begint opnieuw: de kaart, de runen, de aandenkens en je instellingen.',
+      'keptNote': 'Je plek op het scorebord blijft zoals die is.',
+      'confirm': 'Wissen',
+      'cancel': 'Houden'
+    },
     'parents': {
       'title': 'Voor ouders',
       'aboutBody': 'Auroras Magic heeft geen chat, geen contact met vreemden en geen locatiebepaling. Er is geen account nodig om te spelen.',
@@ -215,7 +223,9 @@ export default {
   },
 
   'a11y': {
-    'backToMap': 'Terug naar de kaart'
+    'backToMap': 'Terug naar de kaart',
+    'wardrobeSlots': 'Plekken om aan te kleden',
+    'keepsakeToFind': 'Nog te vinden'
   },
 
   'restore': {
@@ -469,7 +479,32 @@ export default {
     'pastelTheme': 'Pasteldroom-thema',
     'winterScarf': 'Knusse wintersjaal',
     'petStar': 'Sterrenvriendje',
+    'acornCap': 'Eikelmutsje',
+    'bubbleTrail': 'Bellenspoor',
+    'petCloud': 'Wolkenvriendje',
+    'explorerGoggles': 'Ontdekkersbril',
+    'petFirefly': 'Glimwormvriendje',
+    'butterflyWings': 'Vlindervleugels',
+    'explorerPack': 'Ontdekkersrugzak',
+    'frostTrail': 'Vorstspoor',
+    'moonlitLook': 'Maanlicht-look',
+    'starTiara': 'Sterrentiara',
+    'bowTie': 'Vlinderdasje',
+    'moonPendant': 'Maanhanger',
+    'petalTrail': 'Bloemblaadjesspoor',
+    'sunsetLook': 'Zonsondergang-look',
     'versusMode': 'Vriendschapsduo'
+  },
+
+  // The wardrobe's slot tabs — a PLACE on her, not a category.
+  'slot': {
+    'head': 'Hoofd',
+    'neck': 'Hals',
+    'back': 'Rug',
+    'companion': 'Vriendje',
+    'trail': 'Hoefspoor',
+    'mane': 'Manen',
+    'skin': 'Vacht'
   },
 
   'place': {
