@@ -80,7 +80,23 @@ const load = async (opts: {
     ...(await importOriginal<typeof import('@/use/leaderboardSnapshot')>()),
     boardSnapshot: snapshot
   }))
-  return await import('@/use/useLeaderboard')
+  const lb = await import('@/use/useLeaderboard')
+
+  // Start every case from a save with NOTHING posted.
+  //
+  // `useGameState` persists on a 200 ms trailing debounce, and
+  // `vi.resetModules()` does not cancel the timer the PREVIOUS instance
+  // scheduled — it still holds a live closure over `localStorage`. So a blob
+  // written by the case before (`reportRun` stores the score it just posted)
+  // could land between the reset and this import, and `buildInitial` would
+  // read it as `am_submitted_score`. `reportRun` only writes when
+  // `score > posted`, so the whole case then went quiet and the assertions
+  // failed with "no writes at all" — intermittently, and only under the load
+  // of a full-suite run.
+  const state = await import('@/use/useGameState')
+  state.__resetGameState()
+
+  return lb
 }
 
 const names = (lb: { leaderboard: { value: { entries: { name: string }[] } | null } }): string[] =>

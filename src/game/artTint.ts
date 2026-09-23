@@ -193,7 +193,15 @@ export const accentMask = (
  */
 export const liftTint = (hex: string): string => {
   const n = Number.parseInt(NEUTRAL.base.slice(1), 16)
-  const c = Number.parseInt(hex.replace('#', '').slice(0, 6), 16)
+  const raw = hex.replace('#', '')
+  // `#fec` IS `#ffeecc`. Every palette in `map/kit*.ts` is written in the long
+  // form, so this went unnoticed until the duel rig — whose palettes
+  // (`chars.PAL`, `foes.ts`) are all written short — asked to be tinted:
+  // `parseInt('fec', 16)` is 0x000FEC, and Aurora's cream coat came out deep
+  // blue. Anything that is not three or six hex digits (a `rainbow()` hsl,
+  // say) falls through to the guard below and is used unlifted.
+  const full = raw.length === 3 ? raw.replace(/./g, (d) => d + d) : raw.slice(0, 6)
+  const c = /^[0-9a-f]{6}$/i.test(full) ? Number.parseInt(full, 16) : NaN
   if (!Number.isFinite(c)) return hex
   const ch = (s: number): number => Math.min(255, Math.round((((c >> s) & 255) * 255) / ((n >> s) & 255)))
   return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`

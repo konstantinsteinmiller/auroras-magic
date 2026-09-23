@@ -43,7 +43,7 @@ import {
   STORY_PANELS, storyPanelId, PORTRAIT_SETS, portraitArtId, ISLAND_SLUGS, islandArtId,
   KEEPSAKE_ICON_SLUGS, keepsakeArtId, pageArtId, frontPageArtId, PROP_ART,
   wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG, BRAND_LOGO, BRAND_MASCOT,
-  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, type PortraitEmote, type PropName, type CreatureName
+  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, type PortraitEmote, type PropName, type CreatureName, type RigPart
 } from '@/game/artIds'
 import { ACTIVE_STYLE } from '@/game/artStyle'
 
@@ -202,7 +202,7 @@ export const SECTOR_SHEETS: readonly SectorSheet[] = SECTOR_SLUGS.map((_, n) => 
 /* ───────────────────────────────────────────────────── items and runes ── */
 
 export interface ItemSheet {
-  name: ItemName | `rune:${number}` | `portrait:${string}` | `island:${number}` | `keepsake:${string}` | `worldUi:${string}` | `prop:${PropName}` | `creature:${CreatureName}` | `wardrobe:${string}` | `brand:${string}`
+  name: ItemName | `rune:${number}` | `portrait:${string}` | `island:${number}` | `keepsake:${string}` | `worldUi:${string}` | `prop:${PropName}` | `creature:${CreatureName}` | `rig:${RigPart}` | `wardrobe:${string}` | `brand:${string}`
   kind: ArtKind
   id: string
   title: string
@@ -525,6 +525,77 @@ const creature = (
 /** The line every creature strip needs: the panels are ONE animal. */
 const samePose = (what: string, only: string): string =>
   `It is the SAME ${what} in every panel — the same shape, the same size, the same colours, standing in the same place on the panel, the same distance from the top. ONLY ${only} changes. If the panels were flipped through quickly it must look like one ${what} moving, not like two different ones.`
+
+/**
+ * THE DUELISTS' OWN PARTS (`artIds.RIG_ART`, §9.7). Unlike every other family
+ * these are not WHOLE THINGS: each is one piece of a chibi unicorn, and the
+ * rig assembles them. Three rules follow from that and they lead every
+ * prompt, because none of them is true of anything else in the catalogue.
+ *
+ * 1. NO OUTLINE AT ALL. The rig inks each group as one continuous silhouette
+ *    and fills the parts inside it; a part carrying its own line puts one
+ *    everywhere two masses meet, which is exactly the seam the rig exists to
+ *    avoid. This is the only family painted with no ink whatsoever.
+ * 2. THE SILHOUETTE IS FIXED. The painting is clipped to the drawn path, so
+ *    a shape that wanders is simply cut off. The reference's outline is the
+ *    contract, not a suggestion.
+ * 3. IT IS A NEUTRAL. Twenty characters wear this rig, so every sheet is
+ *    painted in the reference's pale grey and `artTint` multiplies the coat,
+ *    the horn or the hoof colour through it.
+ */
+const rigPart = (
+  part: RigPart, title: string, blurb: string, light: string, extra: Partial<ItemSheet> = {}
+): ItemSheet => {
+  const { kind, id } = RIG_ART[part]
+  return {
+    name: `rig:${part}` as const,
+    kind, id, title, frames: 1, anchor: 'centre' as const, panels: [], blurb,
+    colour: 'ALL of it keeps the pale neutral grey the reference is drawn in (see below). This part belongs to twenty different characters and the game gives each of them their own colour, so the painting carries the LIGHT and none of the hue.',
+    tinted: 'the whole part, edge to edge. There is no second colour on it',
+    keep: [
+      'IT IS A PIECE OF A CHARACTER, NOT A WHOLE ONE — one part of a small chibi unicorn, about the size of a thumb on screen, seen from the side.',
+      `· HOW IT IS LIT — ${light} Soft-edged, painted, like gouache: a bounce of light along the shaded rim, a soft core shadow, and the light side warmer and brighter. No hard cel mask, no banding.`,
+      // Measured, after the first roll: the returns went from 0 to 246 in
+      // value, and the game TINTS them by MULTIPLYING a coat colour through.
+      // Multiply can only darken, so every shadow the painter puts in is
+      // shadow the character can never get back — a cream unicorn came out
+      // grey. The shading has to be SHALLOW, and the colour comes later.
+      '· KEEP IT LIGHT AND KEEP IT SHALLOW. The whole part stays in the top third of the value range: the brightest place is near white and the DEEPEST shadow is still a light grey, no darker than a pencil tone. The game multiplies each character’s own colour through this painting, so anything you darken is darkness that character is stuck with — a pale cream one comes out grey. Model the form with a gentle turn, not with contrast.',
+      '· IT IS A NEUTRAL GREY, and a WARM-NEUTRAL one: no blue in the shadows, no lilac, no cool cast. A cool grey turns every warm-coated character cold.',
+      // The one rule this family has that no other does, said twice because
+      // every instinct a painter has says to outline a shape on a flat ground.
+      '· NO OUTLINE. NO LINE OF ANY KIND. Not round the outside, not inside it, not a thin one, not a soft one, not a darker rim standing in for one. The game draws the outline itself, on top, and a painted line under it comes out as a double line. Paint stops at the edge of the shape and the magenta begins.',
+      '· KEEP THE SHAPE EXACTLY. The game cuts your painting to the outline the reference has, so anything outside it is thrown away and any hollow you leave shows as a hole. Match the silhouette.',
+      '· No face, no eye, no mouth, no hair, no markings, no pattern, no spots, no stripes: the game draws all of those on top.'
+    ].join('\n'),
+    file: id,
+    target: artTarget(kind, id),
+    ...extra
+  }
+}
+
+export const RIG_SHEETS: readonly ItemSheet[] = [
+  rigPart('barrel', 'Duelist — barrel',
+    'The BODY of a small chibi unicorn seen from the side, with no head, no neck and no legs: one rounded barrel with a fuller haunch behind it and a chest in front, blending into a single soft mass. A plump, friendly, slightly pear-shaped body.',
+    'from above and in FRONT of it — so the chest and the top of the barrel are the brightest, and the light falls away under the belly and back toward the haunch.',
+    { noun: 'body' }),
+  rigPart('neck', 'Duelist — neck',
+    'The NECK of a small chibi unicorn as a smooth tapered tube lying on its side, THICK at the left end where it meets the shoulder and slimmer at the right where it meets the head, with softly rounded ends. No head, no mane, no shoulders — just the tube.',
+    'from above: the upper edge is the bright side and the shadow gathers along the lower edge, with a soft bounce of light at the very bottom.',
+    { noun: 'neck' }),
+  rigPart('head', 'Duelist — head',
+    'The HEAD of a small chibi unicorn seen from the side, facing RIGHT: one big round skull with a small rounded muzzle joined onto its lower right, as a single soft mass. NO face at all — no eye, no nostril, no mouth, no blush. No ears, no horn, no forelock.',
+    'from above and in front — the brow and the top of the muzzle catch the light, and the shadow gathers under the jaw and back toward the poll.',
+    { noun: 'head' }),
+  rigPart('ear', 'Duelist — ear',
+    'ONE pointed ear of a small chibi unicorn, a soft rounded triangle standing up with its tip leaning slightly back, and a smaller soft inner shell inside it.',
+    'from above and in front: the outer edge is lit and the inner shell is a softer, slightly deeper tone, so the ear reads as a cupped shape rather than a flat triangle.',
+    { noun: 'ear' }),
+  rigPart('horn', 'Duelist — horn',
+    'The HORN of a small chibi unicorn: a slim tapered cone pointing up and slightly to the right, with THREE soft spiral ridges crossing it, evenly spaced, getting closer together toward the tip. Rounded at the base, never sharp enough to read as a weapon.',
+    'from above and in front, and it is faintly translucent: the lit side glows a little and the ridges read as soft turns of the spiral, not as drawn lines.',
+    { noun: 'horn' })
+]
 
 export const CREATURE_SHEETS: readonly ItemSheet[] = [
   creature('snowHare', 'Snow-hare (Twilight Tundra)', 3,
@@ -2354,7 +2425,7 @@ export const manifestTargets = (): Map<string, { kind: ArtKind; id: string }> =>
   for (const s of PAGE_SHEETS) out.set(s.target, { kind: 'page', id: s.id })
   for (const s of WARDROBE_SHEETS) out.set(s.target, { kind: 'wardrobe', id: s.id })
   out.set(BRAND_LOGO_SHEET.target, { kind: 'brand', id: BRAND_LOGO_SHEET.id })
-  for (const s of [...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET]) {
+  for (const s of [...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET]) {
     out.set(s.target, { kind: s.kind, id: s.id })
   }
   return out
@@ -3201,6 +3272,12 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
     '',
     ...CREATURE_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
   ].join('\n\n') + '\n',
+  'PROMPTS-RIG.md': [
+    DOC_HEAD('The duelists’ own parts'),
+    'Not whole things: each of these is ONE PIECE of a chibi unicorn, which the duel rig assembles. They are painted with NO OUTLINE — the rig inks each group as a single silhouette and fills the parts inside it — and in ONE neutral tone, because twenty characters wear this rig in twenty palettes.',
+    '',
+    ...RIG_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+  ].join('\n\n') + '\n',
   'PROMPTS-RUNES.md': [
     DOC_HEAD('Runes'),
     ...RUNE_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
@@ -3245,7 +3322,7 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
   ].join('\n\n') + '\n'
 })
 
-export type SheetFamily = 'sector' | 'story' | 'page' | 'wardrobe' | 'item' | 'prop' | 'creature' | 'rune' | 'portrait' | 'island' | 'brand'
+export type SheetFamily = 'sector' | 'story' | 'page' | 'wardrobe' | 'item' | 'prop' | 'creature' | 'rig' | 'rune' | 'portrait' | 'island' | 'brand'
 
 /** Every reference the bench exports, in export order. */
 export const sheetRows = (): { file: string; family: SheetFamily; title: string; target: string }[] => [
@@ -3257,6 +3334,7 @@ export const sheetRows = (): { file: string; family: SheetFamily; title: string;
   ...[...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS].map((s) => ({ file: s.file, family: 'item' as const, title: s.title, target: s.target })),
   ...PROP_SHEETS.map((s) => ({ file: s.file, family: 'prop' as const, title: s.title, target: s.target })),
   ...CREATURE_SHEETS.map((s) => ({ file: s.file, family: 'creature' as const, title: s.title, target: s.target })),
+  ...RIG_SHEETS.map((s) => ({ file: s.file, family: 'rig' as const, title: s.title, target: s.target })),
   ...RUNE_SHEETS.map((s) => ({ file: s.file, family: 'rune' as const, title: s.title, target: s.target })),
   ...PORTRAIT_SHEETS.map((s) => ({ file: s.file, family: 'portrait' as const, title: s.title, target: s.target })),
   ...ISLAND_SHEETS.map((s) => ({ file: s.file, family: 'island' as const, title: s.title, target: s.target })),

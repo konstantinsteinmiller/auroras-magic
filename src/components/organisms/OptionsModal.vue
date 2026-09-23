@@ -127,6 +127,15 @@ const hapticsList = computed(() => [
 // copy is gentle and never says "lose" (§2.2).
 const inDuel = computed(() => flowHud.scene === 'duel' && duelBeat.phase === 'fight')
 const confirmLeave = ref(false)
+const leaveWell = ref<HTMLElement | null>(null)
+/** Same treatment as the reset confirm below, and for the same reason: in the
+ *  two-column landscape layout this well opened with its ANSWERS under the
+ *  SAVE & CLOSE footer, so the question was on screen and neither reply was. */
+const openLeaveConfirm = async (): Promise<void> => {
+  confirmLeave.value = true
+  await nextTick()
+  leaveWell.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
 watch(() => inDuel.value, (on) => { if (!on) confirmLeave.value = false })
 const doLeave = (): void => {
   confirmLeave.value = false
@@ -157,6 +166,21 @@ const watchIntro = (): void => {
 // looks tappable — and a second tap would wipe and flush twice.
 const confirmReset = ref(false)
 const resetting = ref(false)
+/**
+ * Is a question on screen?
+ *
+ * A confirm is modal BY INTENT — it is the only thing on this tab that must be
+ * answered before anything else happens — but it was drawn as one more row in
+ * a list of sliders. That did two bad things at once: it offered a child a
+ * volume slider to fiddle with instead of answering, and it made the panel
+ * taller than a landscape phone, so the ANSWER buttons needed a scroll to
+ * reach — which then pushed a dropdown up under the sticky tab bar (the
+ * `COVERED` finding `locale-fit` kept reporting).
+ *
+ * With the settings out of the way the panel is short, the answer is the only
+ * thing in it, and there is nothing left to scroll.
+ */
+const confirming = computed(() => confirmLeave.value || confirmReset.value)
 /**
  * The well, so it can be scrolled to.
  *
@@ -208,56 +232,62 @@ watch(() => props.isOpen, (open) => { if (!open) confirmReset.value = false })
       //- (language, the two sliders, vibration) fit the short viewport
       //- without the SAVE & CLOSE footer overlapping them.
       div(:class="twoColumns ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
-        div(class="z-[20] flex flex-col gap-2")
-          FSelect(
-            :label="t('options.language')"
-            :options="languagesList"
-            :model-value="shownLanguage"
-            @update:model-value="pickLanguage($event)"
-          )
-        hr.am-rule(v-if="!twoColumns" class="my-1 md:my-2")
-        FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
-        FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
-        //- The comfort settings (§3.11, §5.13). Each dropdown sits above the
-        //- next one down, so an open list covers the rows below it.
-        div(class="z-[12] flex flex-col gap-1")
-          FSelect(
-            :label="t('options.traceAssist')"
-            :options="hapticsList"
-            :model-value="traceAssist ? 'on' : 'off'"
-            @update:model-value="setTraceAssist($event === 'on')"
-          )
-        div(class="z-[8] flex flex-col gap-1")
-          FSelect(
-            :label="t('options.reducedMotion')"
-            :options="hapticsList"
-            :model-value="reducedMotion ? 'on' : 'off'"
-            @update:model-value="setReducedMotion($event === 'on')"
-          )
-        //- Phones only, and it lives on the GENERAL tab rather than the audio
-        //- one for a structural reason: `tabs` above drops the audio tab
-        //- entirely on touch devices, so a vibration setting parked there would
-        //- be reachable by exactly nobody who has a motor.
-        //- Lowest z of the dropdowns — it is the last one down the column,
-        //- so its open list has to sit over nothing and under everything.
-        div(v-if="hapticsAvailable" class="z-[1] flex flex-col gap-1")
-          FSelect(
-            :label="t('options.haptics')"
-            :options="hapticsList"
-            :model-value="hapticsEnabled ? 'on' : 'off'"
-            @update:model-value="setHapticsEnabled($event === 'on')"
-          )
-        div(v-if="canWatchIntro" class="flex flex-col items-center gap-2 pt-2")
-          FButton(class="px-6" @click="watchIntro") {{ t('options.watchIntro') }}
+        //- Everything a confirm displaces — see `confirming`. A `template`
+        //- rather than a wrapper div, so in the landscape layout these rows
+        //- stay DIRECT children of the grid and keep their own columns.
+        template(v-if="!confirming")
+          div(class="z-[20] flex flex-col gap-2")
+            FSelect(
+              :label="t('options.language')"
+              :options="languagesList"
+              :model-value="shownLanguage"
+              @update:model-value="pickLanguage($event)"
+            )
+          hr.am-rule(v-if="!twoColumns" class="my-1 md:my-2")
+          FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
+          FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
+          //- The comfort settings (§3.11, §5.13). Each dropdown sits above the
+          //- next one down, so an open list covers the rows below it.
+          div(class="z-[12] flex flex-col gap-1")
+            FSelect(
+              :label="t('options.traceAssist')"
+              :options="hapticsList"
+              :model-value="traceAssist ? 'on' : 'off'"
+              @update:model-value="setTraceAssist($event === 'on')"
+            )
+          div(class="z-[8] flex flex-col gap-1")
+            FSelect(
+              :label="t('options.reducedMotion')"
+              :options="hapticsList"
+              :model-value="reducedMotion ? 'on' : 'off'"
+              @update:model-value="setReducedMotion($event === 'on')"
+            )
+          //- Phones only, and it lives on the GENERAL tab rather than the audio
+          //- one for a structural reason: `tabs` above drops the audio tab
+          //- entirely on touch devices, so a vibration setting parked there would
+          //- be reachable by exactly nobody who has a motor.
+          //- Lowest z of the dropdowns — it is the last one down the column,
+          //- so its open list has to sit over nothing and under everything.
+          div(v-if="hapticsAvailable" class="z-[1] flex flex-col gap-1")
+            FSelect(
+              :label="t('options.haptics')"
+              :options="hapticsList"
+              :model-value="hapticsEnabled ? 'on' : 'off'"
+              @update:model-value="setHapticsEnabled($event === 'on')"
+            )
+          div(v-if="canWatchIntro" class="flex flex-col items-center gap-2 pt-2")
+            FButton(class="px-6" @click="watchIntro") {{ t('options.watchIntro') }}
         //- Leave the duel: one gentle confirm, then the map.
-        div(v-if="inDuel" class="flex flex-col items-center gap-2 pt-2")
+        //- Gone while the RESET question is up: two danger buttons under one
+        //- question is two ways to answer it wrongly.
+        div(v-if="inDuel && !confirmReset" class="flex flex-col items-center gap-2 pt-2" :class="twoColumns ? 'col-span-2' : ''")
           //- Coral, not gold: §2.3 names "leave the duel" as the danger
           //- accent, and the gold is reserved for the thing that moves the
           //- story on. In the confirm row below, gold is STAY and coral is GO,
           //- so the safe choice is the one that looks like every other primary
           //- button in the game.
-          FButton(v-if="!confirmLeave" type="danger" class="leave-duel px-6" @click="confirmLeave = true") {{ t('options.leaveDuel.label') }}
-          div.confirm-well.leave-confirm(v-else role="alertdialog" :aria-label="t('options.leaveDuel.title')")
+          FButton(v-if="!confirmLeave" type="danger" class="leave-duel px-6" @click="openLeaveConfirm") {{ t('options.leaveDuel.label') }}
+          div.confirm-well.leave-confirm(v-else ref="leaveWell" role="alertdialog" :aria-label="t('options.leaveDuel.title')")
             p.confirm-title {{ t('options.leaveDuel.title') }}
             p.confirm-body {{ t('options.leaveDuel.body') }}
             div(class="flex gap-3 justify-center pt-1")
@@ -267,8 +297,16 @@ watch(() => props.isOpen, (open) => { if (!open) confirmReset.value = false })
         //- Start the whole story again. Last on the tab, under a rule, because
         //- it is the one control here that cannot be undone — nothing a thumb
         //- is already travelling toward should sit next to it.
-        hr.am-rule(class="my-1 md:my-2")
-        div(class="flex flex-col items-center gap-2 pb-1")
+        //-
+        //- BOTH COLUMNS in the landscape layout. Confined to one, the confirm
+        //- well is taller than the panel, so opening it scrolled the rows above
+        //- it up under the sticky tab bar to get its buttons on screen. Across
+        //- the full width it is short enough to need no scroll at all.
+        //- The rule divides the SETTINGS from the reset row. With the settings
+        //- gone it divides nothing, so it goes with them — otherwise a confirm
+        //- opens under a stray rainbow line with no rows above it.
+        hr.am-rule(v-if="!confirming" class="my-1 md:my-2" :class="twoColumns ? 'col-span-2' : ''")
+        div(v-if="!confirmLeave" class="flex flex-col items-center gap-2 pb-1" :class="twoColumns ? 'col-span-2' : ''")
           FButton(v-if="!confirmReset" type="danger" class="reset-progress px-6" @click="openResetConfirm") {{ t('options.resetProgress.label') }}
           div.confirm-well.reset-confirm(v-else ref="resetWell" role="alertdialog" :aria-label="t('options.resetProgress.title')")
             p.confirm-title {{ t('options.resetProgress.title') }}

@@ -92,4 +92,19 @@ describe('the colour-me mask', () => {
     const back = [1, 2, 3].map((k, i) => Math.round((Number(m[k]) * n[i]!) / 255))
     expect(back).toEqual([0x7a, 0x5c, 0xd0])
   })
+
+  // `#fec` IS `#ffeecc`. The duel's palettes are all written short, and
+  // reading one as a six-digit number turned Aurora's cream coat deep blue
+  // the first time the rig asked to be tinted.
+  it('reads a THREE-digit hex as the colour it is', () => {
+    expect(liftTint('#fec')).toBe(liftTint('#ffeecc'))
+    expect(liftTint('#213')).toBe(liftTint('#221133'))
+    const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(liftTint('#fec'))!
+    // Cream lifts to something warm and near-white, never to a blue.
+    expect(Number(m[1])).toBeGreaterThan(Number(m[3]))
+  })
+
+  it('hands back anything that is not a hex colour, unlifted', () => {
+    expect(liftTint('hsl(200,80%,60%)')).toBe('hsl(200,80%,60%)')
+  })
 })

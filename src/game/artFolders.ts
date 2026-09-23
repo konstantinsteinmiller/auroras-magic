@@ -68,6 +68,13 @@
  *                exactly as they carried the vectors. What each creature
  *                stands in FRONT of is not here — that belongs to the
  *                sector's own painting, and `tapCover.ts` cuts it from there.
+ *   rig          the DUELISTS' coat and its hard parts (§9.7): the barrel, the
+ *                neck, the head, an ear, the horn, a leg segment and a hoof,
+ *                each painted once in a neutral tone and tinted per character
+ *                — twenty characters wear this rig in twenty palettes. The
+ *                rig assembles them exactly as it assembled the vector
+ *                shapes. Its INK, its FACE, its MANE and TAIL and its hit
+ *                flash all stay drawn; `artIds.RIG_ART` says why of each.
  *   brand        the game's own MARK and MASCOT (art-style.md §11): the square emblem
  *                the splash, the PWA icons and the favicon are cut from, and
  *                the wide keyed picture of Aurora and Umbra looking at each
@@ -92,6 +99,7 @@ export const ART_FOLDERS = {
   island: 'images/islands',
   prop: 'images/props',
   creature: 'images/creatures',
+  rig: 'images/rig',
   wardrobe: 'images/wardrobe',
   page: 'images/pages',
   brand: 'images/brand',

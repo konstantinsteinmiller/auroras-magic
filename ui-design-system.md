@@ -851,11 +851,52 @@ storybook feel is carried by the plum outline, the paper, the case and the
 ornament instead.** If a display face is ever revisited it must be budgeted as
 the brief demands: file, subset, kB, and a fallback per script.
 
+#### Amendment 2026-09-23 — a display face, on exactly those terms
+
+The owner asked for one, on seeing the jam build's "Rune-icorn Duels" wordmark,
+and reported the real bug this section half-predicted: **the game's name changed
+face a beat into every cold load.** Not a FOUT — there was no webfont. The
+static splash in `index.html` set the title in `system-ui` and `FLogoProgress`
+set it in `--am-font` (Arial-led), so the two copies that hand over to each
+other were never the same type.
+
+The decision above is amended, not reversed, because its reasoning holds and
+the terms it set are the ones that were met:
+
+| the brief demanded | what shipped |
+| --- | --- |
+| file | **Fredoka**, SIL OFL 1.1 (`public/fonts/OFL.txt`), the face §7 of art-style.md already named |
+| subset | latin 16.5 kB · latin-ext 2.7 kB · **title 1.9 kB** |
+| kB | 19.2 kB requested, 2.5 kB inlined |
+| a fallback per script | `--am-display` → `--am-font`, per LOCALE (`theme.sass`) |
+
+**The objection to a face on the splash was right, and is answered by not
+making a request at all.** The game's name is the string "Auroras Magic" in all
+21 locales, so the title needs eleven glyphs — 1.9 kB of Fredoka, 2.5 kB as
+base64, inlined in `index.html` as `AM Title`. There is no round trip to lose,
+so there is no FOUT on the first frame. Proven by blocking every `.woff2`
+request in a real browser: the title still sets in `AM Title`, at the same
+width, at DOMContentLoaded, at load, and in the Vue copy.
+
+`AM Title` is a SEPARATE FAMILY from `AM Display` on purpose. Two `@font-face`
+rules sharing a family with overlapping unicode-ranges resolve to the last one
+declared (CSS Fonts 4), so the file-backed face would win the title's glyphs
+back — and with `font-display: block` that means an invisible title until it
+loads, which is worse than the swap this started as.
+
+**The per-script fallback is per LOCALE, never per glyph.** Per glyph is the
+ransom note the section above warns about: a German button set half in Fredoka
+and half in Arial. `:root:lang(…)` hands ten locales — ru, uk, kk, ja, ko, zh,
+th, hi, ar and vi — back to `--am-font` whole. Vietnamese is on that list for a
+subtler reason than the rest: its diacritics live in Google's `vietnamese`
+subset, which Fredoka does not publish, so the letters would arrive in Fredoka
+and the marks in Arial.
+
 ### 4.2 Weights
 
 | Role | Weight | Notes |
 | --- | --- | --- |
-| Shouted word (`.ink-text`) | 900 | unchanged — it is the jam build's identity and it carries an outline |
+| Shouted word (`.ink-text`) | `--am-w-shout-face` | **600 in Fredoka, 900 in the system stack** (amended 2026-09-23). A single-weight face asked for 900 gets a synthetic bold smeared out of it; Fredoka's own 600 is already heavier than Arial at 900 looks. |
 | Display / title / ribbon | 800 | was 900; system 900 faux-bolds badly on Android and at 13:1 on paper it is not needed |
 | Button + tab label | 800 | |
 | Row / list / table | 700 | |

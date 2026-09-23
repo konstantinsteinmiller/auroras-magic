@@ -182,6 +182,50 @@ export const CREATURE_ART = {
 export type CreatureName = keyof typeof CREATURE_ART
 
 /**
+ * THE DUELISTS' OWN COAT (§9.7, owner 2026-09-23). The rig in `chars.ts` was
+ * the last thing in the game still drawn, and it is what a player looks at
+ * for the whole of every duel — so its parts are painted and the rig
+ * assembles them, exactly as it assembled the vector shapes.
+ *
+ * ONE NEUTRAL PART SET FOR THE WHOLE CAST. Twenty characters wear this rig in
+ * twenty palettes, so a painting per character would be 20 sets. Instead each
+ * sheet is painted in ONE neutral tone and `artTint` multiplies the palette
+ * through it — which is the same mechanism the 46 props and the 17 creatures
+ * already use, and it means Aurora, Umbra, a Guardian and a shadow clone are
+ * one painting each time. A far limb takes the same sheet as a near one, in
+ * the shadow tone rather than the coat.
+ *
+ * WHAT IS PAINTED IS THE COAT AND ITS HARD PARTS, nothing else:
+ *
+ *   • the ink stays the DRAWING'S. `chars.ts` inks a whole group as ONE
+ *     continuous silhouette and then fills the parts inside it, which is why
+ *     the rig has no seams; a painting per part carrying its own outline
+ *     would put a line everywhere two masses meet. The paintings are pure
+ *     paint, with no line at all — which is also what "no outlines inside the
+ *     asset" asks for.
+ *   • the FACE is drawn: the eye, its lash and glint, the brow, the mouth,
+ *     the nostril and the blush are a dozen small shapes driven by `face`,
+ *     `win`, `lose` and a blink, and every one of them is a different picture
+ *     per frame.
+ *   • the MANE, TAIL and FORELOCK are drawn. `hair()` builds each lock from a
+ *     spine carrying a travelling wave, so its geometry is rebuilt every
+ *     frame from `AM` and the clock — `art-roadmap.md` §4b's rule, the same
+ *     one that keeps the duel's VFX vector.
+ *   • the HIT FLASH is drawn. It strobes the whole rig white and red, and a
+ *     multiply tint cannot make a painting white; the flash fills the drawn
+ *     path over the painting instead.
+ */
+export const RIG_ART = {
+  barrel: { kind: 'rig', id: 'rig-barrel' },
+  neck: { kind: 'rig', id: 'rig-neck' },
+  head: { kind: 'rig', id: 'rig-head' },
+  ear: { kind: 'rig', id: 'rig-ear' },
+  horn: { kind: 'rig', id: 'rig-horn' }
+} as const
+
+export type RigPart = keyof typeof RIG_ART
+
+/**
  * The intro's painted panels (§8.26): one per picture-book page. The last two
  * beats (the colour back, then Play) share the fourth — the same restored
  * meadow — so the page does not jump between them.

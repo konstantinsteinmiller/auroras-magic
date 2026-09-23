@@ -1,7 +1,7 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1790173863673,
-  "updatedAt": 1790173863669,
+  "fetchedAt": 1790178643325,
+  "updatedAt": 1790178449093,
   "total": 45,
   "entries": [
     {
@@ -55,8 +55,8 @@
     {
       "rank": 9,
       "name": "Starry Pebble 353",
-      "score": 13,
-      "flair": 10
+      "score": 14,
+      "flair": 11
     },
     {
       "rank": 10,
@@ -293,7 +293,7 @@
       4
     ],
     [
-      13,
+      14,
       1
     ],
     [

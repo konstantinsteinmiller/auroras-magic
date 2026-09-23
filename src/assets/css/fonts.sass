@@ -1,15 +1,59 @@
-// No web fonts, and that is a DECISION, not a default (ui-design-system.md
-// §4.1). The UI type is the system sans at 600-900 weight, with named CJK /
-// Thai / Devanagari / Arabic system faces ahead of the generic fallback so a
-// Latin-only face cannot tofu them. The stack itself is `--am-font` in
-// `theme.sass`, because a font stack is a token like any other.
+// ─── The display face ───────────────────────────────────────────────────────
 //
-// The cost of the alternative is what settles it: the game ships to portals
-// with hard size budgets in 21 locales, and a display face that covered even
-// the Latin set would not cover Han, kana, hangul, Thai, Devanagari or Arabic —
-// so it would buy a prettier English build and a ransom-note everywhere else.
-// A painted display look belongs in the ART, which is where this game already
-// puts it.
+// **Fredoka**, SIL Open Font License 1.1 (`public/fonts/OFL.txt`). Chosen
+// because art-style.md §7 already named the look — "a rounded, heavy display
+// face for titles and buttons (Fredoka / Baloo style)" — and because it is the
+// closest OFL face to the reference the owner gave (the jam build's
+// "Rune-icorn Duels" wordmark).
 //
-// If one is ever added: subset it, state the kB, and keep `--am-font` as the
-// fallback for every non-Latin script.
+// THIS FILE USED TO SAY "no web fonts, and that is a DECISION". The decision is
+// now amended rather than reversed, because the reason behind it still stands:
+// the game ships to portals with hard size budgets in 21 locales, and a
+// Latin-only display face cannot cover Han, kana, hangul, Thai, Devanagari or
+// Arabic. What changed is that the old file already wrote the escape hatch —
+// "if one is ever added: subset it, state the kB, and keep `--am-font` as the
+// fallback for every non-Latin script" — and that is exactly the shape below.
+//
+// WHAT IT COSTS, stated as the old comment asked:
+//   latin       16.5 kB   preloaded, covers the display type
+//   latin-ext    2.7 kB   Polish, Turkish, Czech… loaded only when reached
+//   the title    1.9 kB   NOT here — inlined in `index.html` as base64, see §2
+//
+// ── §1 The two faces, and why they are two ──────────────────────────────────
+//
+// `AM Display` is this file. `AM Title` is eleven glyphs inlined in
+// `index.html`, and it is a SEPARATE FAMILY on purpose: two @font-face rules
+// sharing a family name with overlapping unicode-ranges resolve to the last
+// one declared (CSS Fonts 4), so this file would win the title's glyphs back
+// and — with `font-display: block` — hold the title invisible until it loaded.
+//
+// ── §2 `font-display: block`, not `swap` ────────────────────────────────────
+//
+// `swap` is what the owner reported as the bug: the label is painted in a
+// fallback and changes face when the real one lands. `block` hides the text
+// for up to ~3 s instead, which would be worse — except that nothing the
+// player sees during those 3 s depends on this file: the splash TITLE is the
+// inlined face, and every other use is behind the splash.
+//
+// ── §3 Non-Latin locales never see it ───────────────────────────────────────
+//
+// `--am-display` falls back to `--am-font` per LOCALE, not per glyph
+// (`theme.sass`). Per glyph is the ransom-note the old comment warned about: a
+// German button reading half Fredoka and half Arial. Per locale, a language
+// Fredoka cannot set is simply set in the system stack, whole.
+
+@font-face
+  font-family: 'AM Display'
+  font-style: normal
+  font-weight: 600
+  font-display: block
+  src: url('/fonts/fredoka-600-latin.woff2') format('woff2')
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD
+
+@font-face
+  font-family: 'AM Display'
+  font-style: normal
+  font-weight: 600
+  font-display: block
+  src: url('/fonts/fredoka-600-latin-ext.woff2') format('woff2')
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF

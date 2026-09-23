@@ -11,11 +11,11 @@
  * the `RuneGlyph` 100-unit box.
  */
 import {
-  ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS,
+  ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS,
   WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, SECTOR_REF,
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
-import type { ItemName, PropName, CreatureName } from '@/game/artIds'
+import type { ItemName, PropName, CreatureName, RigPart } from '@/game/artIds'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
 import { NEUTRAL } from '@/game/artTint'
@@ -28,6 +28,7 @@ import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { CALF_ART, FALLEN_STAR_ART } from '@/game/map/kitSummit'
 import { PORTRAIT_ART } from '@/game/story/portrait'
 import { islandArt } from '@/game/duel/arena'
+import { BARREL_ART, NECK_ART, HEAD_ART, EAR_ART, HORN_ART } from '@/game/duel/chars'
 import { KEEPSAKE_ART } from '@/game/cosmetics/icons'
 import { BADGE_ART } from '@/game/map/badge'
 import {
@@ -136,6 +137,15 @@ export const CREATURE_SPECS: Readonly<Record<CreatureName, ItemSpec>> = {
   sprig: SPRIG_ART
 }
 
+/** The duelists' own parts (`artSheet.RIG_SHEETS`). */
+export const RIG_SPECS: Readonly<Record<RigPart, ItemSpec>> = {
+  barrel: BARREL_ART,
+  neck: NECK_ART,
+  head: HEAD_ART,
+  ear: EAR_ART,
+  horn: HORN_ART
+}
+
 /** `RuneGlyph.vue`'s box: 100 units around a glyph of radius 30, in units of R. */
 const RUNE_BOX: ArtBox = { x: -50 / 30, y: -50 / 30, w: 100 / 30, h: 100 / 30 }
 
@@ -152,6 +162,7 @@ export const specOf = (sheet: ItemSheet): ItemSpec => {
   if (family === 'worldUi') return key === 'bookmark' ? BOOKMARK_ART : BADGE_ART
   if (family === 'prop') return PROP_SPECS[key as PropName]!
   if (family === 'creature') return CREATURE_SPECS[key as CreatureName]!
+  if (family === 'rig') return RIG_SPECS[key as RigPart]!
   if (family === 'wardrobe') return RUG_ART
   if (family === 'brand') return MASCOT_ART
   return ITEM_SPECS[sheet.name as ItemName]
@@ -430,6 +441,6 @@ export const renderBrandSheet = (s: BrandSheet): HTMLCanvasElement => {
 }
 
 export const ALL_ITEM_SHEETS: readonly ItemSheet[] = [
-  ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...WARDROBE_ITEM_SHEETS, ...RUNE_SHEETS,
+  ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...RUNE_SHEETS,
   ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET
 ]

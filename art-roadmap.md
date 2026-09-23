@@ -656,6 +656,64 @@ RIGHT edge than the tail is"); and the contact shadow keeps coming back until
 the CHECK LIST — not another rule — tells the painter to look at the magenta
 under the feet.
 
+## Step 4e — The duelists themselves (5 sheets), 2026-09-23
+
+Owner, after the creatures: *"now do the rig."* `chars.ts` was the last thing
+in the game still drawn, and it is what a player looks at for the whole of
+every duel.
+
+A `rig` art kind now sits beside `creature`: `images/rig`, `RIG_ART` in
+`artIds.ts`, a `rigPart()` builder + `RIG_SHEETS`, `RIG_SPECS` in
+`artDraw.ts`, `PROMPTS-RIG.md`. **Five sheets — barrel, neck, head, ear,
+horn — painted ONCE in a neutral tone and tinted per character**, because
+twenty characters wear this rig in twenty palettes and a painting per
+character would be twenty sets.
+
+**The ink stays the drawing's, and so does the rim.** The rig inks a whole
+group as ONE continuous silhouette and then fills the parts inside it — that
+is exactly why it has no seams — so every rig sheet is painted with NO LINE AT
+ALL and `partArt()` clips each blit to the path the rig has just inked. The
+bounce rim is laid under the painting and the blit nudged toward the light by
+`blob`'s own step, so the crescent survives: half of what makes Umbra read at
+a glance is a violet-and-neon bounce in a DIFFERENT hue from her coat, and one
+tinted region cannot carry two hues.
+
+**What stays drawn, and why each one does:**
+
+| | why |
+| --- | --- |
+| the face | a dozen shapes driven by `face`, `win`, `lose` and a blink — a different picture every frame |
+| the mane, tail, forelock | `hair()` rebuilds each lock from a spine carrying a travelling wave (§4b's rule) |
+| the legs | four tapered bones rebuilt per frame from the pose's angles. A painted capsule along each reads as a JOINTED DOLL where the drawn run reads as one limb — seen side by side on the harness, so the sheet was dropped |
+| the hooves | the sole answers to the FLOOR, not the bone, and it is six units across |
+| the hit flash | it strobes the rig white and red; a multiply tint cannot make a painting white, so `partArt` stands down while it runs |
+
+**TWO THINGS THIS COST, both worth keeping:**
+
+- **`liftTint` read a THREE-DIGIT hex as six.** `parseInt('fec', 16)` is
+  0x000FEC, so Aurora's cream coat came out deep blue the first time the rig
+  asked to be tinted. Every `map/kit*.ts` palette is written long and every
+  duel palette short, which is why it had never shown. Fixed with a test.
+- **MULTIPLY CANNOT MAKE A CHARACTER LIGHTER THAN ITS PAINTING, so the rig
+  does not multiply.** `liftTint` divides by the neutral (232) and clamps at
+  255, so `#fec` lifts to `(255,255,219)` — red and green already pinned, and
+  the tint can only take blue away. Aurora's head and barrel came back
+  grey-khaki however well they were painted. `partArt` lays the FLAT COAT down
+  and composites the sheet over it with `globalCompositeOperation =
+  'luminosity'`: the character keeps its own hue exactly and only the FORM
+  comes from the painting. `COAT_UNDER = 0.45` decides how deep the shading
+  goes — measured on the harness at 0.45 / 0.6 / 0.85, because a sheet's mean
+  lightness is ~192 where a flat coat is ~245 and the more of it survives the
+  more a pale character's barrel drifts tan against her own cream legs. **The
+  ceiling is set by the lightest coat in the cast.** The brief also asks for
+  the top third of the value range, warm-neutral; measure a return's OPAQUE
+  mean before judging it, since `stats()` counts the transparent surround.
+
+Look at any change on the RIG HARNESS before believing it: eight poses —
+stand, cast, hurt, low hp, win, lose .5, lose 1, form — across Aurora, Umbra
+and a foe palette, art on and off. With no painting present the two renders
+are byte-identical, which is how the refactor was proved to change nothing.
+
 ## Step 5 — The remaining nine chapters (63 sheets)
 
 45 sectors + 18 pages. The bulk of the work and the most mechanical: the

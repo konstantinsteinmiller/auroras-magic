@@ -37,24 +37,26 @@ if (
 }
 
 /**
- * The mark and the mascot (`src/game/brand.ts`, `PROMPTS-BRAND.md`), read as
- * plain files rather than through `spriteFor`.
+ * The mascot (`src/game/brand.ts`, `PROMPTS-BRAND.md`), read as a plain file
+ * rather than through `spriteFor`.
  *
- * Three reasons this is not the art layer. They are not drop-ins for something
- * the renderer keeps drawing, so there is no fallback to flip to; they must
- * look the same whatever `?art=` says, because the splash is the same picture
- * on every build; and this component paints BEFORE the art layer has probed
- * anything at all. Between them they are 37 kB, and `index.html`'s static
- * splash asks for the same two files, so on a cold load they are already in
- * flight before this component exists.
+ * Three reasons this is not the art layer. It is not a drop-in for something
+ * the renderer keeps drawing, so there is no fallback to flip to; it must look
+ * the same whatever `?art=` says, because the splash is the same picture on
+ * every build; and this component paints BEFORE the art layer has probed
+ * anything at all. It is 26 kB, and `index.html`'s static splash asks for the
+ * same file, so on a cold load it is already in flight before this component
+ * exists.
+ *
+ * THE MARK IS NOT HERE. It said the same thing as the title, which now has a
+ * face of its own, and two pictures over one progress bar is a crowded splash.
+ * It still ships as the app icon, the favicon and the cover art.
  *
  * `failed` is not defensive dressing: a missing file must leave the splash
- * looking deliberate rather than showing two broken-image glyphs, and the
- * splash is the one screen that may never be the reason a game did not load.
+ * looking deliberate rather than showing a broken-image glyph, and the splash
+ * is the one screen that may never be the reason a game did not load.
  */
-const markSrc = prependBaseUrl('/images/brand/logo.webp')
 const mascotSrc = prependBaseUrl('/images/brand/mascot.webp')
-const markFailed = ref(false)
 const mascotFailed = ref(false)
 
 const done = ref(false)
@@ -154,10 +156,9 @@ watch(done, (isDone) => {
   Transition(name="splash-fade")
     div.splash(v-if="!gone" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100" :aria-label="t('loading')")
       div.splash-card
-        //- Decorative: the title right below says the same thing, and a screen
-        //- reader announcing "Auroras Magic logo, Auroras Magic" is noise.
-        img.splash-mark(v-if="!markFailed" :src="markSrc" alt="" decoding="async" @error="markFailed = true")
         h1.splash-title.ink-text {{ t('gameName') }}
+        //- Decorative: the <h1> above already names the game, so a screen
+        //- reader announcing it twice is noise.
         img.splash-mascot(v-if="!mascotFailed" :src="mascotSrc" alt="" decoding="async" @error="mascotFailed = true")
         div.splash-bar
           div.splash-fill(:style="{ width: progress + '%' }")
@@ -191,23 +192,21 @@ watch(done, (isDone) => {
   gap: min(1.1rem, 3vh)
   width: min(80vw, 420px)
 
-// The mark: square, and the one thing that stays whatever else is dropped.
-.splash-mark
-  display: block
-  width: min(34vw, 132px, 22vh)
-  height: auto
-  aspect-ratio: 1
-  // The mark carries its own ground, in the splash's own lilac, so it reads as
-  // the app tile it is. Rounded to the shape a store would round it to anyway.
-  border-radius: 22%
-
 .splash-title
   // The margin is the STROKE. `.ink-text` rings this in 0.28em of plum, which
   // overflows the line box by about a sixth of the font size at each end and
   // is invisible to the flex gap — on a 360 px-tall landscape phone the gap is
-  // 3vh and the stroke ate all of it, so the title touched the mark above it
-  // and the bar below.
+  // 3vh and the stroke ate all of it, so the title touched the bar below.
   margin: 0.16em 0
+  // IDENTICAL to `index.html`'s `.splash-title`, and it has to be: the two are
+  // on screen together through the crossfade, and the whole point of `AM Title`
+  // is that the game's name never changes face mid-load. Spelled out rather
+  // than taken from `--am-display`, because the static copy cannot read a
+  // custom property that theme.sass has not defined yet.
+  font-family: 'AM Title', 'AM Display', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif
+  // Overrides `.ink-text`'s `--am-w-shout` (900): `AM Title` ships one weight,
+  // and asking for 900 makes the browser smear a synthetic bold out of it.
+  font-weight: 600
   font-size: clamp(30px, 8vw, 56px)
   color: #FFF6E6
 

@@ -354,7 +354,10 @@ Only the lightness is softened for the painted art:
 - Buttons are candy-like: a flat base, a lighter top band and a darker bottom
   lip. Pressed = the lip disappears.
 - Type: a rounded, heavy display face for titles and buttons (Fredoka / Baloo
-  style). Body copy uses the system UI font. Any display font must have CJK,
+  style). **Shipped 2026-09-23: it is Fredoka** (SIL OFL 1.1), as
+  `--am-display`, with the game's name carried as eleven inlined glyphs so
+  it never changes face mid-load — ui-design-system.md §4.1's amendment has
+  the whole of it. Body copy uses the system UI font. Any display font must have CJK,
   Thai, Devanagari, Cyrillic and Arabic fallbacks named explicitly. Never
   inline a CJK webfont (portal size budgets).
 - Icons: the shared glyph set (`components/icons`), filled white on the plates,

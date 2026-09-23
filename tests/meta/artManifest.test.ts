@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, STORY_SHEETS,
-  PAGE_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS,
+  PAGE_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS, WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS,
   BRAND_LOGO_SHEET, BRAND_MASCOT_SHEET,
   manifestTargets, NEUTRAL_HEX, sheetRows
 } from '@/game/artSheet'
@@ -49,7 +49,7 @@ describe('the art manifest', () => {
 
   it('never lets two drawables share a file or a reference', () => {
     const keyed = [
-      ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS,
+      ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS,
       ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET
     ]
     const targets = [
@@ -79,6 +79,9 @@ describe('the prompt documents', () => {
       'PROMPTS-PROPS.md': 46,
       // A chapter's tap creature and its rescue, one sheet per body (§8.8).
       'PROMPTS-CREATURES.md': 17,
+      // The duelists' barrel, neck, head, ear and horn (§9.7). The legs stayed
+      // drawn: a painted capsule per bone reads as a jointed doll.
+      'PROMPTS-RIG.md': 5,
       // The cloth, the front page (both ways) and two per chapter.
       'PROMPTS-PAGES.md': 23,
       // The tent's room both ways, and the rug.
@@ -111,7 +114,7 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(204)
+    expect(jobs).toHaveLength(209)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

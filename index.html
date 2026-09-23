@@ -30,6 +30,11 @@
   <script src="/js/storage-shim.js"></script>
   <meta name="color-scheme" content="only light">
   <link rel="icon" href="/favicon.ico">
+  <!-- The display face for everything BUT the title (which is inlined below,
+       so it never waits for a network round trip). `crossorigin` is required
+       even same-origin: without it the preload is discarded and the font is
+       fetched a second time. -->
+  <link rel="preload" href="/fonts/fredoka-600-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- CSP meta tag injected by vite.config.ts at build time -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -42,6 +47,37 @@
   <link rel="manifest" href="/manifest.json">
   <title>Auroras Magic</title>
   <style>
+      /* ─── The title face, carried IN THIS FILE as bytes ─────────────────
+
+         The game name is the string "Auroras Magic" in all 21 locales, so the
+         title needs exactly eleven glyphs — 1.9 kB of Fredoka, 2.5 kB as
+         base64. At that size it is cheaper to inline than to request, and
+         inlining is the only way to be CERTAIN the title is painted in its
+         own face the very first time it appears: a `<link>` font, however
+         early and however preloaded, is still a network round trip, and the
+         splash paints before it lands.
+
+         That is the bug this fixes. The title used to be drawn in the system
+         sans by this file and in `--am-font` (Arial-led) by FLogoProgress, so
+         it visibly changed face a beat into every cold load.
+
+         A FAMILY OF ITS OWN, not `AM Display`. Two @font-face rules sharing a
+         family name and overlapping unicode-ranges resolve to the LAST one
+         declared (CSS Fonts 4), so the file-backed face would win these
+         glyphs back — and with `font-display: block` that means an invisible
+         title until the file lands, which is worse than the swap we started
+         with. Separate names, no contest.
+
+         Fredoka, SIL Open Font License 1.1 — `public/fonts/OFL.txt`. */
+      @font-face {
+          font-family: 'AM Title';
+          font-style: normal;
+          font-weight: 600;
+          font-display: block;
+          src: url(data:font/woff2;base64,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) format('woff2');
+          unicode-range: U+20, U+41, U+4d, U+61, U+63, U+67, U+69, U+6f, U+72-73, U+75;
+      }
+
       /* The splash paints before any JS runs, so its colours are inlined here
          rather than pulled from theme.sass - a custom property that has not
          resolved yet falls back to `initial`, which would flash white. Every
@@ -70,8 +106,8 @@
           pointer-events: none;
       }
 
-      /* The same CARD FLogoProgress draws — the mark, the title, the mascot
-         and the progress bar, at the same sizes, in the same order, with the
+      /* The same CARD FLogoProgress draws — the title, the mascot and the
+         progress bar, at the same sizes, in the same order, with the
          same gaps — so nothing moves when Vue mounts and this element fades
          out. The two are on screen together for that 400 ms crossfade, and
          anything that differs between them is a visible jump on every cold
@@ -84,19 +120,17 @@
           width: min(80vw, 420px);
       }
 
-      .splash-mark {
-          display: block;
-          width: min(34vw, 132px, 22vh);
-          height: auto;
-          aspect-ratio: 1;
-          border-radius: 22%;
-      }
-
       .splash-title {
           /* The margin is the STROKE — see FLogoProgress.vue. */
           margin: 0.16em 0;
-          font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-          font-weight: 900;
+          /* IDENTICAL to FLogoProgress.vue's `.splash-title`, and it has to be:
+             the two are on screen together through the crossfade. `AM Display`
+             and the system stack are only reached if a locale ever gives the
+             game a name outside those eleven glyphs. */
+          font-family: 'AM Title', 'AM Display', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+          /* 600 is the weight the face ships; 900 would make the browser
+             synthesise a bolder one by smearing it. */
+          font-weight: 600;
           font-size: clamp(30px, 8vw, 56px);
           line-height: 1;
           color: #FFF6E6;
@@ -135,13 +169,14 @@
 <body>
 <div id="static-splash">
   <div class="splash-card">
-    <!-- Painted through the art pipeline (art-sheets/PROMPTS-BRAND.md); they
-         carry no lettering, so the title below is the only text and it is the
-         player's own language. Both are decorative — the <h1> says the name —
-         so their alt text is empty on purpose. -->
-    <img class="splash-mark" src="/images/brand/logo.webp" alt="" fetchpriority="high" decoding="async">
     <h1 class="splash-title">Auroras Magic</h1>
-    <img class="splash-mascot" src="/images/brand/mascot.webp" alt="" decoding="async">
+    <!-- Painted through the art pipeline (art-sheets/PROMPTS-BRAND.md). The
+         MARK is not here: with the title set in its own face the mark says the
+         same thing twice, and two pictures over one progress bar is a crowded
+         splash. It still ships — it is the app icon, the favicon and the cover
+         art (`pnpm brand:icons`). Decorative, so its alt text is empty: the
+         <h1> above already names the game. -->
+    <img class="splash-mascot" src="/images/brand/mascot.webp" alt="" fetchpriority="high" decoding="async">
     <div class="splash-bar"></div>
   </div>
 </div>

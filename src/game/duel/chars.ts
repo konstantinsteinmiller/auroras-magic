@@ -39,6 +39,8 @@
  * legs fuse into one unreadable mass.
  */
 import { FOES, type FoePalette } from '@/game/duel/foes'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { RIG_ART } from '@/game/artIds'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
@@ -214,6 +216,8 @@ let HF = ''
 let EY = ''
 let GL = ''
 let BL = ''
+/** The hit flash's colour while it strobes, '' otherwise (`partArt`). */
+let FLASH = ''
 
 /**
  * The anchors handed to the cosmetic hooks: ONE reused object, so a dressed
@@ -318,6 +322,103 @@ const blob = (x: number, y: number, rx: number, ry: number): void => {
     g.restore()
   } else ink(CO)
 }
+
+/** An ellipse ADDED to the current path (no `beginPath`), so several masses
+ *  can be traced as one region to clip a painting against. */
+const elAdd = (x: number, y: number, rx: number, ry: number): void => {
+  g.moveTo(x + max(0.1, rx), y)
+  g.ellipse(x, y, max(0.1, rx), max(0.1, ry), 0, 0, TAU)
+}
+
+/** `partArt` without a clip, for a part whose sheet IS its own silhouette
+ *  (the neck's tube) and which has no closed path to clip against. */
+const partArtFree = (spec: ItemSpec, unit: number, col: string, place: () => void): boolean => {
+  if (FLASH) return false
+  g.save()
+  const a0 = g.globalAlpha
+  place()
+  g.globalAlpha = a0 * COAT_UNDER
+  const ok = drawItem(g, spec, unit, 0, col)
+  g.globalAlpha = a0
+  g.restore()
+  return ok
+}
+
+/**
+ * A PAINTED PART, inside the shape just traced (§9.7, `artIds.RIG_ART`).
+ *
+ * The path is still current, so we CLIP to it: a painting can then never
+ * spill past the silhouette the rig has already inked, and the union outline
+ * stays the drawing's — which is the whole reason this rig has no seams.
+ * `place` puts the part's own local space under the origin; the sheets are
+ * authored in game units, so the blit is at nominal size 1.
+ *
+ * False when there is nothing to blit — no painting, or the HIT FLASH, which
+ * strobes the rig white and red and cannot be a multiply tint. The caller
+ * then cel-shades exactly as it always did.
+ */
+interface PartOpts {
+  /** How far the painting is nudged toward the light, leaving a rim crescent. */
+  off?: [number, number]
+  /** Lay the COAT'S bounce rim under it. Not for a horn or a hoof, whose
+   *  colour has nothing to do with the coat's. */
+  rim?: boolean
+}
+
+const partArt = (
+  spec: ItemSpec, unit: number, col: string, place?: () => void, o: PartOpts = {}
+): boolean => {
+  if (FLASH) return false
+  // THE BOUNCE RIM STAYS THE RIG'S. A sheet carries ONE tinted region, so a
+  // painting can only ever be the coat — and half of what makes Umbra read at
+  // a glance is the violet-and-neon bounce along her underside, which is a
+  // DIFFERENT hue from her coat. So the rim tone is laid over the whole shape
+  // first and the painting goes on top, nudged toward the light by exactly
+  // the step `blob` used, leaving that crescent showing.
+  if (o.rim) ink(RM)
+  g.save()
+  g.clip()
+  // THE PAINTING SHADES THE COAT; IT DOES NOT REPLACE IT. A tint MULTIPLIES,
+  // so every unit of shadow in the sheet is shadow the character can never
+  // get back — and `liftTint` clamps, so a coat lighter than the neutral
+  // (Aurora's cream is) cannot be lifted back up at all. Laying the flat coat
+  // down first and blending the painting over it at `COAT_UNDER` compresses
+  // the sheet's range onto the palette's own colour: the form survives, the
+  // character keeps its hue, and a pale one stops coming out grey.
+  const a0 = g.globalAlpha
+  const op = g.globalCompositeOperation
+  g.fillStyle = col
+  g.fill()
+  if (o.off) g.translate(o.off[0], o.off[1])
+  // LUMINOSITY, NOT MULTIPLY. A multiply tint cannot make a character lighter
+  // than its painting — `liftTint` divides by the neutral and CLAMPS, so
+  // Aurora's cream (lighter than the neutral in red and green) came back as a
+  // grey-khaki however well the part was painted. Laying the flat coat down
+  // and compositing the sheet's LIGHTNESS over it keeps the character's own
+  // hue exactly and takes only the form from the painting, which is the whole
+  // reason the sheet exists. `COAT_UNDER` then decides how deep the shading
+  // goes, because a sheet is still darker overall than a flat coat.
+  g.globalCompositeOperation = 'luminosity'
+  g.globalAlpha = a0 * COAT_UNDER
+  if (place) place()
+  const ok = drawItem(g, spec, unit, 0, col)
+  g.globalCompositeOperation = op
+  g.globalAlpha = a0
+  g.restore()
+  return ok
+}
+
+/**
+ * How much of a rig sheet's own shading survives over the flat coat.
+ *
+ * MEASURED against the drawing on the rig harness, at 0.45, 0.6 and 0.85: a
+ * sheet's mean lightness is about 192 where a flat coat is about 245, so the
+ * more of it survives the more a PALE character's barrel drifts tan against
+ * her own cream legs. 0.45 is where Aurora stops reading as two colours while
+ * the painted form is still there. A dark character (Umbra, every foe) is
+ * happy at any value — the ceiling is set by the lightest coat in the cast.
+ */
+const COAT_UNDER = 0.45
 
 /**
  * ONE PASS of a TAPERED tube: stroke every segment of the flat polyline `p`
@@ -501,18 +602,141 @@ const hair = (x: number, y: number, a: number, len: number, w: number, sp: numbe
 const twitch = (t: number, sp: number, ph: number, sharp: number): number =>
   clamp(1 - abs(((t * sp + ph) % 1) - 0.03) * sharp, 0, 1)
 
-/** One pointed ear: heavy silhouette, flat fill, then a soft inner shell. */
+/** One pointed ear: heavy silhouette, then the painting (or a flat fill and
+ *  a soft inner shell) inside it. The FAR ear takes the same sheet in the
+ *  shadow tone — one painting, both ears, every character. */
 const ear = (x: number, y: number, a: number, s: number, col: string): void => {
   g.save()
   g.translate(x, y)
   g.rotate(a)
-  poly([-9 * s, 5 * s, -3 * s, -18 * s, 10 * s, -1 * s], true)
-  ink(0, 11)
-  ink(col)
-  poly([-4.5 * s, 2 * s, -2 * s, -11 * s, 4.5 * s, -1 * s], true)
-  ink(col === CO ? BL : SH)
+  g.scale(s, s)
+  poly([-9, 5, -3, -18, 10, -1], true)
+  ink(0, 11 / s)
+  if (!partArt(EAR_ART, EAR_UNIT, col, undefined, { off: [0.8, -1.4], rim: true })) {
+    ink(col)
+    poly([-4.5, 2, -2, -11, 4.5, -1], true)
+    ink(col === CO ? BL : SH)
+  }
   g.restore()
 }
+
+/* --------------------------- the painted parts ---------------------- */
+
+/**
+ * THE PART SHEETS (§9.7, `artIds.RIG_ART`): each one is the rig's own drawing
+ * of a part, in that part's own local units and in ONE neutral tone, so the
+ * bench renders the reference from the very code the game draws with and
+ * `artTint` multiplies each character's palette through it.
+ *
+ * They carry NO OUTLINE. The rig inks a whole group as one continuous
+ * silhouette and then fills the parts inside it — that is what makes it read
+ * as drawn rather than assembled — so a part that brought its own line would
+ * put one everywhere two masses meet. `partArt` clips each blit to the path
+ * the rig has just traced, which is also the path it has just inked.
+ *
+ * The scale is the caller's: `draw` scales the context by `s` and lays the
+ * shape down in game units, so `measureBox` reports the box in game units and
+ * a blit at nominal size 1 lands exactly where the drawing was.
+ */
+const rigSpec = (part: keyof typeof RIG_ART, unit: number, shape: () => void): ItemSpec => ({
+  ...RIG_ART[part],
+  frames: 1,
+  tinted: true,
+  // `unit` is the part's own extent in rig units, so `s` means "this part,
+  // that big" — `artBox` measures on a 640 px canvas at 120 px per unit of
+  // `s`, and a shape laid down at its raw rig size would run clean off it.
+  draw: (ctx, s, _f, accent) => {
+    const g0 = g
+    const tones = [CO, SH, RM, MD]
+    const q = S.q
+    g = ctx
+    // The reference is painted in the accent the mask is derived from, in the
+    // same four-step relationship the rig shades with — and always at full
+    // quality, whatever the device the bench happens to be running on.
+    S.q = 1
+    CO = accent.base
+    SH = accent.shade
+    RM = accent.lite
+    MD = midTone(SH, CO)
+    g.save()
+    // The rig sets these once for the whole character; a sheet is drawn into
+    // a fresh context, where a butt cap would square off every rounded end.
+    g.lineJoin = g.lineCap = 'round'
+    g.strokeStyle = OUT
+    g.scale(s / unit, s / unit)
+    shape()
+    g.restore()
+    ;[CO, SH, RM, MD] = tones as [string, string, string, string]
+    S.q = q
+    g = g0
+  }
+})
+
+/** The three torso masses, at K = 1 and mid-breath, about the barrel's centre. */
+const barrelShape = (): void => {
+  for (let i = 0; i < 12; i += 4) blob(TQ[i]!, TQ[i + 1]!, TQ[i + 2]!, TQ[i + 3]!)
+}
+/** The barrel's own width in rig units. */
+const BARREL_UNIT = 76
+export const BARREL_ART: ItemSpec = rigSpec('barrel', BARREL_UNIT, barrelShape)
+
+/** The neck's nominal run: thick off the shoulder, slim at the poll. */
+const NECK_LEN = 46
+/** `meat` minus its ink pass: this family carries no line at all. */
+const coatTube = (p: readonly number[], hw: readonly number[]): void => {
+  tube(p, hw, 0, RM)
+  tube(p, hw, -3, CO)
+  tube(p.map((v, i) => v + hw[i >> 1]! * (i & 1 ? 0.2 : -0.18)), hw, 0, SH, 0.4)
+}
+const neckShape = (): void => coatTube([0, 0, NECK_LEN, 0], [16, 11.5])
+const NECK_UNIT = 78
+export const NECK_ART: ItemSpec = rigSpec('neck', NECK_UNIT, neckShape)
+
+/** Skull and muzzle as one mass — the face is drawn on top of it. */
+const headShape = (): void => {
+  blob(20, 10, 12.5, 10.5)
+  blob(0, 0, 25, 23)
+}
+const HEAD_UNIT = 58
+export const HEAD_ART: ItemSpec = rigSpec('head', HEAD_UNIT, headShape)
+
+/** One ear at s = 1, its own space, with the soft inner shell. */
+const earShape = (): void => {
+  poly([-9, 5, -3, -18, 10, -1], true)
+  ink(CO)
+  poly([-4.5, 2, -2, -11, 4.5, -1], true)
+  ink(SH)
+}
+const EAR_UNIT = 24
+export const EAR_ART: ItemSpec = rigSpec('ear', EAR_UNIT, earShape)
+
+/** The horn, in head space, with its three spiral ridges. */
+const hornShape = (): void => {
+  const hc = 15.68
+  const hs = -32.4
+  const tx = 9 + hc
+  const ty = -19 + hs
+  poly([9 - hs / 6, -19 + hc / 6, 9 + hs / 6, -19 - hc / 6, tx, ty], true)
+  ink(CO)
+  for (let i = 1; i < 4; i++) {
+    const f = i / 4
+    const w2 = (1 - f) / 6
+    const cx = 9 + hc * f
+    const cy = -19 + hs * f
+    poly([cx - hs * w2, cy + hc * w2, cx + hs * w2 + hc / 12, cy - hc * w2 + hs / 12])
+    // A TURN of the spiral, not a drawn line: the sheet has no ink on it, so
+    // the ridges are laid in the shade tone the rest of the part is lit with.
+    ink(0, 0)
+    g.strokeStyle = SH
+    g.lineWidth = 1.7
+    g.stroke()
+    g.strokeStyle = OUT
+  }
+}
+const HORN_UNIT = 38
+export const HORN_ART: ItemSpec = rigSpec('horn', HORN_UNIT, hornShape)
+
+
 
 /* ------------------------------ the rig ----------------------------- */
 
@@ -570,6 +794,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // Hit flash: strobe the whole coat white/red while `hurt` runs down.
   const F = hit && sin(t * 46) > 0 ? (sin(t * 23) > 0 ? '#fff' : '#f55') : ''
   if (F) CO = SH = RM = MA = MH = HO = HF = BL = F // the eye stays readable
+  FLASH = F
   MD = midTone(SH, CO)
 
   const K = 1 + D * 0.07 // the foe is a touch stockier...
@@ -703,8 +928,32 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
     el(a, b, c, d)
     ink(0, 13)
   })
-  meat(nk, NW, CO) // its own line merges into the silhouette above
-  each(blob)
+  // THE NECK, painted along its own inked run: `nk` moves with the head, so
+  // its length and angle are the caller's, and a stretched tube is still a
+  // tube. No clip — the sheet IS the tube, cut to the drawing's own extent.
+  const ndx = nk[2]! - nk[0]!
+  const ndy = nk[3]! - nk[1]!
+  const nlen = hypot(ndx, ndy) || 1
+  if (!partArtFree(NECK_ART, NECK_UNIT, CO, () => {
+    // The neck's ink and its rim, then its flat coat, then the painting over
+    // the lot — `partArt`'s sandwich, laid by hand because a stroked tube has
+    // no closed path to clip or fill against.
+    tube(nk, NW, 13, OUT)
+    tube(nk, NW, 0, RM)
+    tube(nk, NW, -3, CO)
+    g.translate(nk[0]!, nk[1]!)
+    g.rotate(atan2(ndy, ndx))
+    g.scale(nlen / NECK_LEN, NW[0]! / 16)
+  })) meat(nk, NW, CO) // its own line merges into the silhouette above
+  // THE BARREL, painted as the three masses' union — traced once more so the
+  // blit is clipped to exactly what was inked. `TQ`'s own shape is the sheet;
+  // the stockier foe and the breath are a scale on it.
+  g.beginPath()
+  each(elAdd)
+  if (!partArt(BARREL_ART, BARREL_UNIT, CO, () => {
+    g.translate(0, by)
+    g.scale(K, K * (1 + br * 0.018))
+  }, { off: [29 * 0.08, -27 * 0.08], rim: true })) each(blob)
 
   /* ---- fluffy chest tuft: a silhouette-defining scallop ------------- */
   for (let i = 3; i--;) {
@@ -738,8 +987,16 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   ink(0, 11)
   el(0, 0, 25, 23)
   ink(0, 11)
-  blob(20, 10, 12.5, 10.5)
-  blob(0, 0, 25, 23)
+  // The head is one painting over the pair, clipped to the pair: the face
+  // goes on top of it, drawn, because every part of a face is a different
+  // shape per frame.
+  g.beginPath()
+  elAdd(20, 10, 12.5, 10.5)
+  elAdd(0, 0, 25, 23)
+  if (!partArt(HEAD_ART, HEAD_UNIT, CO, undefined, { off: [25 * 0.08, -23 * 0.08], rim: true })) {
+    blob(20, 10, 12.5, 10.5)
+    blob(0, 0, 25, 23)
+  }
   ear(0, -19, -0.2 + fk * (1 - nod) - nod * 0.45, 1.15, CO) // near ear — flicks
 
   el(27, 6, 1.7, 2.3) // nostril
@@ -819,15 +1076,17 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const ty = -19 + hs
   poly([9 - hs / 6, -19 + hc / 6, 9 + hs / 6, -19 - hc / 6, tx, ty], true)
   ink(0, 9)
-  ink(HO)
-  for (let i = 1; i < 4; i++) {
-    // three ridges across the horn: the spiral read, for 3 lines of code
-    const f = i / 4
-    const w2 = (1 - f) / 6
-    const cx = 9 + hc * f
-    const cy = -19 + hs * f
-    poly([cx - hs * w2, cy + hc * w2, cx + hs * w2 + hc / 12, cy - hc * w2 + hs / 12])
-    ink(0, 1.7)
+  if (!partArt(HORN_ART, HORN_UNIT, HO, undefined, { off: [0.5, -1] })) {
+    ink(HO)
+    for (let i = 1; i < 4; i++) {
+      // three ridges across the horn: the spiral read, for 3 lines of code
+      const f = i / 4
+      const w2 = (1 - f) / 6
+      const cx = 9 + hc * f
+      const cy = -19 + hs * f
+      poly([cx - hs * w2, cy + hc * w2, cx + hs * w2 + hc / 12, cy - hc * w2 + hs / 12])
+      ink(0, 1.7)
+    }
   }
   // forelock swept back over the brow, in front of the horn base
   hair(1, -21, 0.25, 14, 12, 2.6, 0.8, 1)

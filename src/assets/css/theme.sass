@@ -151,6 +151,16 @@
   // No webfont, deliberately — ui-design-system.md §4.1.
   --am-font: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', 'Geeza Pro', 'Noto Sans Arabic', sans-serif
 
+  // The DISPLAY face (`fonts.sass`): the game's own type, for its name and the
+  // shouted chrome. Falls back to the body stack, so a script Fredoka cannot
+  // set is simply set in the system faces.
+  --am-display: 'AM Display', var(--am-font)
+  // The weight the shouted type is SET at, which depends on who is setting it.
+  // `AM Display` ships one weight; a single-weight face asked for 900 gets a
+  // synthetic bold smeared out of it. The system stack has a real 900 and needs
+  // it to look as heavy. Overridden alongside `--am-display` below.
+  --am-w-shout-face: 600
+
   --am-w-shout: 900
   --am-w-display: 800
   --am-w-label: 800
@@ -201,3 +211,29 @@
   --am-dur-ui: 1ms
   --am-dur-enter: 1ms
   --am-dur-leave: 1ms
+
+// ─── Where the display face does NOT go ─────────────────────────────────────
+//
+// Fredoka covers Latin and Latin-Ext. Every other script this game ships in
+// falls back to the body stack for the WHOLE string — per LOCALE, never per
+// glyph, because a button set half in Fredoka and half in Arial is exactly the
+// ransom note `fonts.sass` exists to avoid.
+//
+// Vietnamese is on the list for a subtler reason than the rest: its diacritics
+// live in Google's `vietnamese` subset, which Fredoka does not publish. The
+// letters would arrive in Fredoka and the marks in Arial.
+//
+// `:root:lang(x)` rather than `:lang(x)` so it outranks the `:root` block that
+// sets the token — same element, higher specificity.
+:root:lang(ru),
+:root:lang(uk),
+:root:lang(kk),
+:root:lang(ja),
+:root:lang(ko),
+:root:lang(zh),
+:root:lang(th),
+:root:lang(hi),
+:root:lang(ar),
+:root:lang(vi)
+  --am-display: var(--am-font)
+  --am-w-shout-face: var(--am-w-shout)

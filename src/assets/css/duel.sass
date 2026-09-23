@@ -29,13 +29,20 @@
 // size, centred on the outline, then filled on top — `paint-order` is exactly
 // that order. `--ink` overrides the outline colour; `.ink-none` drops it.
 .ink-text
-  // The jam build drew with the canvas' generic `sans-serif` — Arial on
-  // Windows, Helvetica on a Mac — so those lead. Real CJK / Thai / Devanagari
-  // system faces come before the generic, or a Latin-only face tofus them.
-  // Arabic-capable system faces before the generic (§10.16): the stack used to
-  // leave Arabic to uncontrolled OS substitution.
-  font-family: var(--am-font)
-  font-weight: var(--am-w-shout)
+  // The game's DISPLAY face (`fonts.sass`), over the body stack. `--am-display`
+  // resolves to `--am-font` alone in every locale Fredoka cannot set, so the
+  // tail of this stack is still what it always was: the jam build drew with the
+  // canvas' generic `sans-serif` — Arial on Windows, Helvetica on a Mac — so
+  // those lead, with real CJK / Thai / Devanagari system faces before the
+  // generic or a Latin-only face tofus them, and Arabic-capable faces before
+  // that again (§10.16).
+  font-family: var(--am-display)
+  // `AM Display` ships ONE weight. Asking a single-weight face for 900 makes
+  // the browser smear a synthetic bold out of it, so the shout weight applies
+  // only where the face is the system stack — which `--am-w-shout` cannot know.
+  // `--am-w-shout-face` is 600 where the face is Fredoka and 900 where the
+  // system stack took over, so the shout looks equally heavy either way.
+  font-weight: var(--am-w-shout-face)
   line-height: 1
   // The shouted words over the arena. White fill inside a plum outline is a
   // 14:1 glyph edge over ANY backdrop the game can produce — drained grey,
