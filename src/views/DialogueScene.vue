@@ -59,13 +59,12 @@ const back = (): void => {
   display: flex
   align-items: center
   justify-content: center
-  color: #fff
+  color: var(--am-ink)
   cursor: pointer
   .glyph
     width: 30px
     height: 30px
-    filter: drop-shadow(2px 2px 0 var(--duel-ink))
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 </style>

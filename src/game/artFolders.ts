@@ -40,6 +40,41 @@
  *   island       a duel arena's floating island, one per chapter theme
  *                (§8.27): the rock, its rim and its grass; the tufts, the
  *                mood tint and the clouds stay drawn.
+ *   wardrobe     the Wardrobe Kiosk's own scenery (§3.5.4): the inside of the
+ *                dressing-up tent, full-bleed and one picture per orientation
+ *                like a book page, plus the round rug Aurora stands on. The
+ *                rug is its own file because it follows HER — the shelf
+ *                decides where she stands — and the tent's corner shadow and
+ *                the fairy lights' twinkle stay drawn over the painting.
+ *   prop         a sector's LIVE prop — the butterfly, the gull, the leaping
+ *                fish, the mill's sails, and the SHAPE a particle system, a
+ *                bunting string or a twinkle repeats — as a still (or a few
+ *                stills) that the drawing then moves, bobs, rotates, tints,
+ *                fades and scales exactly as it moved the vectors. What stays
+ *                drawn is what has no constant shape at all: a wave that
+ *                follows a shoreline, a cord threaded through call-site
+ *                points, a beam whose cone opens per frame — and a bare glow,
+ *                which has no outline and so nothing to paint (`kit*.ts`,
+ *                art-roadmap §4b).
+ *   creature     the living things a RESTORED sector is given back (§8.8): the
+ *                tap creature who peeks out from behind her prop, and the
+ *                chapter's rescue collectible. One sheet per body, whatever
+ *                the chapter dresses it in — the snow-hare's five scarves are
+ *                one tint, the star-calf's five blankets another — and one
+ *                panel per pose the drawing animates BETWEEN (ears folded ->
+ *                ears up, asleep -> awake). The RISE from behind the prop,
+ *                the hop, the shiver and the clip stay the drawing's: they
+ *                are a matrix and a rectangle, and they carry a painting
+ *                exactly as they carried the vectors. What each creature
+ *                stands in FRONT of is not here — that belongs to the
+ *                sector's own painting, and `tapCover.ts` cuts it from there.
+ *   brand        the game's own MARK and MASCOT (art-style.md §11): the square emblem
+ *                the splash, the PWA icons and the favicon are cut from, and
+ *                the wide keyed picture of Aurora and Umbra looking at each
+ *                other. Not drop-ins for anything the renderer draws — no
+ *                painter falls back to vectors for these — but they are made
+ *                by the same round trip and filed by the same rules, so the
+ *                slicer writes them and `art:status` can see them.
  *   ui           a HUD button's glyph (`FButton`/`FHudButton`'s `art` prop,
  *                through `ArtIcon`). Not in the manifest: the shared glyph set
  *                is the look, and no button asks for a painting today.
@@ -55,7 +90,11 @@ export const ART_FOLDERS = {
   portrait: 'images/portraits',
   story: 'images/story',
   island: 'images/islands',
+  prop: 'images/props',
+  creature: 'images/creatures',
+  wardrobe: 'images/wardrobe',
   page: 'images/pages',
+  brand: 'images/brand',
   ui: 'images/ui'
 } as const
 

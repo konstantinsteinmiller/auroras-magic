@@ -56,26 +56,87 @@ const host = computed(() => {
         v-if="isAdsBlockedModalShown"
         @click="dismissAdsBlockedModal"
       )
-        //- Backdrop
-        div.absolute.inset-0(class="bg-black/70 backdrop-blur-sm")
+        //- Backdrop. The one dim value the whole game uses — plum, never
+        //- black (§3.15). Every colour on this screen lives in the scoped Sass
+        //- rather than in a utility class: the two tie on specificity, and the
+        //- tie goes to whichever stylesheet the bundler emitted last.
+        div.ads-blocked__scrim.absolute.inset-0(class="backdrop-blur-sm")
 
-        //- Card
-        div.relative.w-full.max-w-md.rounded-2xl.text-white.shadow-2xl.text-center(
-          class="bg-gradient-to-b from-slate-700 to-slate-900 border-2 border-slate-500 p-6"
+        //- Card — a sheet of paper with a plum line round it (§3.2).
+        div.ads-blocked__card.relative.w-full.max-w-md.text-center(
+          class="p-6"
           @click.stop
         )
           div.mb-2.text-5xl 🛡️
-          h2.text-2xl.font-bold.mb-2 {{ t('adsBlocked.title') }}
-          p.text-base.mb-4(class="text-slate-200") {{ t('adsBlocked.body') }}
-          p.text-sm.mb-5(class="text-slate-300")
+          h2.ads-blocked__title.text-2xl.mb-2 {{ t('adsBlocked.title') }}
+          p.ads-blocked__body.text-base.mb-4 {{ t('adsBlocked.body') }}
+          p.ads-blocked__fine.text-sm.mb-5
             | {{ t('adsBlocked.allowPrefix') }}
             |
-            span.font-bold(class="text-amber-300") {{ host }}
+            span.ads-blocked__host {{ host }}
             |
             | {{ t('adsBlocked.allowSuffix') }}
 
-          button.w-full.rounded-lg.font-bold.text-lg.text-white.shadow-lg(
-            class="bg-amber-500 hover:bg-amber-400 active:translate-y-px py-3"
+          button.ads-blocked__cta.w-full.text-lg(
+            class="py-3"
             @click="dismissAdsBlockedModal"
           ) {{ t('adsBlocked.gotIt') }}
 </template>
+
+<style scoped lang="sass">
+// ─── The ad-blocker explainer, in the book's dress ─────────────────────────
+//
+// Was a `slate-700 → slate-900` card with a `bg-amber-500` button and white
+// text: a different app's dialog, and the only one a player meets on their
+// way to a reward. Materials only — the z stack, the transition and the
+// dismiss handlers are untouched.
+.ads-blocked__scrim
+  background-color: var(--am-scrim)
+
+.ads-blocked__card
+  border: 4px solid var(--am-ink)
+  border-radius: clamp(0.9rem, 4.4vw, 1.5rem)
+  background-color: var(--am-paper)
+  box-shadow: 0 6px 0 rgba(58, 35, 64, 0.28)
+  color: var(--am-ink)
+
+.ads-blocked__title
+  color: var(--am-ink)
+  font-weight: 800
+
+.ads-blocked__body
+  color: var(--am-ink)
+  font-weight: 600
+
+// The line that names the site is the fine print; the HOST inside it is not.
+.ads-blocked__fine
+  color: var(--am-ink-2)
+
+.ads-blocked__host
+  color: var(--am-ink)
+  font-weight: 800
+
+// The §3.1 button material, flattened to one plate-less chip: this card has
+// exactly one thing to press and the depth plate would be the only 3D object
+// on an otherwise flat sheet.
+.ads-blocked__cta
+  border: 3px solid var(--am-ink)
+  border-radius: clamp(0.5rem, 2vw, 0.85rem)
+  background-image: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
+  box-shadow: 0 3px 0 var(--am-gold-plate)
+  color: var(--am-on-accent)
+  font-weight: 800
+  text-shadow: var(--am-lift-on-accent)
+  transition: transform var(--am-dur-press) ease-out
+
+  &:hover
+    filter: saturate(1.06) brightness(1.04)
+
+  &:active
+    transform: translateY(3px)
+    box-shadow: none
+
+  &:focus-visible
+    outline: 3px solid var(--am-ink)
+    outline-offset: 3px
+</style>

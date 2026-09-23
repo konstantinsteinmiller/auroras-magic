@@ -66,8 +66,17 @@ const walkStory = (k: number, x: number, y: number, r: number, f: number): { pat
   return { paths: [sub], head }
 }
 
-/** Outline colour of every glyph. */
-export const GLYPH_INK = '#0a0713'
+/**
+ * Outline colour of every glyph — the plum the whole game draws in.
+ *
+ * Was `#0a0713`, a near-black, which breaks `artStyle.ts`'s own lead rule
+ * ("NO BLACK LINES ANYWHERE … EVERY outline is warm deep plum #3A2340"). One
+ * constant, because it is stroked BOTH by the canvas (`drawGlyph` below, on
+ * the arena) and by the DOM (`RuneGlyph.vue`, `RuneTrace.vue`, in the
+ * spellbook and the rune slots) — so the rune a player draws and the rune she
+ * reads in the book cannot drift apart.
+ */
+export const GLYPH_INK = '#3A2340'
 /** Stroke widths as a fraction of the glyph radius: ink halo, then colour. */
 export const GLYPH_INK_W = 0.52
 export const GLYPH_COL_W = 0.3

@@ -27,6 +27,7 @@ import { mapHud } from '@/use/useMapHud'
 import { showRuneGift } from '@/use/useRuneGift'
 import { artSettled } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
+import { primeWardrobeArt } from '@/game/artPreload'
 
 let lastGrant: ChestGrant = { rune: null, signature: null, cosmetic: null }
 let lastNode = -1
@@ -64,6 +65,9 @@ export const onUnboxed = (n: number): ChestGrant => {
 export const onRestoreFinished = (why: RestoreEnd): void => {
   const n = lastNode
   const keepsake = why === 'restored' ? lastGrant.cosmetic : null
+  // The wardrobe is the next screen when a chest gave one: its room goes on
+  // the wire now, under the dip, the way a sector's painting does.
+  if (keepsake !== null) primeWardrobeArt()
   lastGrant = { rune: null, signature: null, cosmetic: null }
   dipTo(() => {
     if (keepsake !== null) {

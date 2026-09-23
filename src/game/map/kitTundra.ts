@@ -16,8 +16,11 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, twinkleAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
 import { inkFill, mix, star5, heart, cloud } from '@/game/map/kitSky'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 export type Pt = readonly [number, number]
@@ -820,30 +823,62 @@ export const bulbGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number): 
  *  swaying. One path, one fill. Nothing at rest. */
 export const snowfall = (g: G2D, x0: number, y0: number, w: number, h: number, n: number, t: number, alive: number): void => {
   if (alive <= 0) return
+  g.globalAlpha = 0.9 * alive
   g.beginPath()
+  let painted = false
   for (let i = 0; i < n; i++) {
     const f = (i * 0.618) % 1
     const sp = 22 + f * 22
     const y = y0 + ((t * sp + i * (h / n) * 2.3) % h)
     const x = x0 + ((i * 131.7) % w) + sin(t * 0.9 + i * 1.7) * 18
     const r = 2.6 + f * 2.8
+    g.save()
+    g.translate(x, y)
+    painted = drawItem(g, SNOWFLAKE_ART, r * 2)
+    g.restore()
+    if (painted) continue
     g.moveTo(x + r, y)
     g.arc(x, y, r, 0, TAU)
   }
-  g.globalAlpha = 0.9 * alive
-  fill(g, '#ffffff')
+  if (!painted) fill(g, '#ffffff')
   g.globalAlpha = 1
+}
+
+/** The flake's own width in SU — the reference's line weight is judged at the
+ *  biggest of them, which is about six SU across. */
+const SNOWFLAKE_UNIT = 6
+
+/**
+ * A falling flake as a painted still.
+ *
+ * The live snow draws plain white discs, because a six-armed flake at three SU
+ * is a smudge whatever you draw; a PAINTING of one is a soft flake with a
+ * little structure at the same size, which is the whole point of the layer.
+ * The drift, the sway, the depth-scaling and the fade stay the system's.
+ */
+export const SNOWFLAKE_ART: ItemSpec = {
+  ...PROP_ART.snowflake, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / SNOWFLAKE_UNIT, s / SNOWFLAKE_UNIT)
+    g.beginPath()
+    g.arc(0, 0, SNOWFLAKE_UNIT / 2, 0, TAU)
+    fill(g, '#ffffff')
+    g.restore()
+  }
 }
 
 /** Twinkles winking at fixed spots (a live prop) — one path, one fill. */
 export const winks = (g: G2D, pts: readonly (readonly [number, number, number])[], t: number, alive: number, col = '#fffbe0'): void => {
   if (alive <= 0) return
   g.beginPath()
+  let lit = false
   for (let i = 0; i < pts.length; i++) {
     const [x, y, r] = pts[i]!
     const k = Math.max(0, sin(t * 2.2 + i * 1.9))
-    if (k > 0.05) twinkle(g, x, y, r * k * alive)
+    if (k > 0.05) lit = twinkleAt(g, x, y, r * k * alive, col)
   }
+  if (lit) return
   g.fillStyle = col
   g.fill()
 }
@@ -869,8 +904,7 @@ export const shootingStar = (g: G2D, x0: number, y0: number, dx: number, dy: num
   g.strokeStyle = '#ffffff'
   g.stroke()
   g.beginPath()
-  twinkle(g, x, y, 10)
-  fill(g, '#fffbe0')
+  if (!twinkleAt(g, x, y, 10, '#fffbe0')) fill(g, '#fffbe0')
   g.globalAlpha = 1
 }
 
@@ -1944,13 +1978,35 @@ const IRIS = '#7a4fd1'
  * a round body, a head as big as the body, two long soft ears (pink inside),
  * big glossy eyes, a blush, a pom tail and a little scarf. `ears` 0 folded
  * back → 1 up; `eye` 0 closed → 1 open; `shake` tilts it in a shiver.
+ *
+ * PAINTED (§8.8, `CREATURE_ART.snowHare`): the three panels of `HARE_ART` are
+ * the two things the peek animates between — ears folded and eyes shut, ears
+ * up, then awake — and `ears + eye` walks the strip, cross-fading. Only the
+ * SCARF changes between the chapter's five hares, so it is the tinted region
+ * and one painting serves all five. The lean, the rise and the shiver stay
+ * here: they are a translate and a rotate, and they carry a painting as well
+ * as they carried the vectors.
  */
 export const snowHare = (g: G2D, x: number, y: number, s: number, dir: number, look: HareLook, ears: number, eye: number, shake = 0): void => {
-  const w = LW / s
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  g.rotate(shake * 0.14)
+  const painted = drawItem(g, HARE_ART, HARE_UNIT * s, clamp(ears, 0, 1) + clamp(eye, 0, 1), look.scarf)
+  g.restore()
+  if (painted) return
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
   g.rotate(shake * 0.14)
+  hareShape(g, s, look, ears, eye, shake)
+  g.restore()
+}
+
+/** The hare itself, feet at the origin, facing +x, in its own units — the
+ *  drawing the painting stands in for, and the reference the bench renders. */
+const hareShape = (g: G2D, s: number, look: HareLook, ears: number, eye: number, shake: number): void => {
+  const w = LW / s
   // Ears (behind the head), each flopping back as `ears` drops.
   for (const [ex, a0, far] of [[6, -0.2, 1], [22, 0.12, 0]] as const) {
     g.save()
@@ -2026,7 +2082,25 @@ export const snowHare = (g: G2D, x: number, y: number, s: number, dir: number, l
   g.moveTo(38, -58)
   g.quadraticCurveTo(40, -53, 43, -55)
   ink(g, w * 0.4)
-  g.restore()
+}
+
+/** Ear tip to feet at scale 1 — the hare's own height in SU, which is what
+ *  the reference's SIZE clause and its line weight are judged against. */
+const HARE_UNIT = 116
+
+/** The hare's coat, which every one of the five looks shares. */
+const HARE_COAT = { coat: HARE.pink!.coat, shade: HARE.pink!.shade }
+
+/** The snow-hare's three peek poses, side by side — one painting, five hares. */
+export const HARE_ART: ItemSpec = {
+  ...CREATURE_ART.snowHare, frames: 3, tinted: true,
+  draw: (g, s, f, accent) => {
+    const k = s / HARE_UNIT
+    g.save()
+    g.scale(k, k)
+    hareShape(g, k, { ...HARE_COAT, scarf: accent.base, scarfShade: accent.shade }, Math.min(f, 1), Math.max(0, f - 1), 0)
+    g.restore()
+  }
 }
 
 /** Puffs of frost flung off a shaking hare at (x, y), strength `a`. */
@@ -2065,7 +2139,7 @@ export interface HareSpot { x: number; y: number; s: number; dir: number; rise: 
  * its cover (whose FRONT `front` redraws on top, so k = 0 is the cover
  * alone), ears springing up, eyes opening, then shivers off a puff of frost.
  */
-export const peekHare = (g: G2D, p: HareSpot, k: number, t: number, look: HareLook, front: () => void): void => {
+export const peekHare = (g: G2D, p: HareSpot, k: number, t: number, look: HareLook, front: (g: G2D) => void): void => {
   const e = ease(clamp(k, 0, 1))
   if (k > 0.001) {
     const fy = p.y + (1 - e) * p.rise
@@ -2078,7 +2152,7 @@ export const peekHare = (g: G2D, p: HareSpot, k: number, t: number, look: HareLo
     snowHare(g, p.x + lx, fy, p.s, p.dir, look, clamp((k - 0.3) * 2, 0, 1), clamp((k - 0.55) * 3, 0, 1), sh)
     g.restore()
   }
-  front()
+  tapCover(g, front)
   if (k > 0.6) frostPuff(g, p.x + (p.lean ?? 0) * e, p.y, p.s, clamp((k - 0.6) / 0.4, 0, 1), t)
 }
 
@@ -2120,7 +2194,39 @@ export const frostShard = (g: G2D, x: number, y: number, s: number, k: number, t
   g.ellipse(x, y, S(52 - 16 * o), S(10 - 3 * o), 0, 0, TAU)
   fill(g, INK)
   g.globalAlpha = 1
-  // The shard.
+  // The shard. The ICE BLOCK round it melts away and stays drawn — it is a
+  // translucent wash over whatever is behind it, and it shrinks per frame.
+  g.save()
+  g.translate(cx, cy)
+  if (!drawItem(g, FROST_SHARD_ART, FROST_SHARD_UNIT * s, k < 0.5 ? 0 : 1)) frostShardShape(g, s, o, k)
+  g.restore()
+  frostShardIce(g, x, y, s, k, t)
+}
+
+/** Point to point (96) at scale 1 — the shard's own height in SU. */
+const FROST_SHARD_UNIT = 96
+
+/**
+ * The Frozen Star Shard, asleep and awake (`CREATURE_ART.frostShard`): dim
+ * and lilac-locked, then lemon-bright and smiling. Its aurora halo, its
+ * shadow on the snow and the block of ice it melts out of stay drawn.
+ */
+export const FROST_SHARD_ART: ItemSpec = {
+  ...CREATURE_ART.frostShard, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / FROST_SHARD_UNIT
+    g.save()
+    g.scale(k, k)
+    frostShardShape(g, 1, f, f)
+    g.restore()
+  }
+}
+
+/** The shard itself, centred on the origin, in its own units. */
+const frostShardShape = (g: G2D, s: number, o: number, k: number): void => {
+  const S = (v: number): number => v * s
+  const cx = 0
+  const cy = 0
   const r = S(48)
   shardPath(g, cx, cy, r)
   fill(g, mix(T.lemon, '#b9b0d8', (1 - o) * 0.55))
@@ -2168,7 +2274,18 @@ export const frostShard = (g: G2D, x: number, y: number, s: number, k: number, t
   g.ellipse(cx + S(17), ey + S(9), S(4.5), S(3), 0, 0, TAU)
   fill(g, '#ff9eb5')
   g.globalAlpha = 1
-  // The ice block around it, melting away as it wakes.
+  // Asleep: a plum veil dims it, so the sleeping PANEL is the dim one.
+  if (k < 1) {
+    g.globalAlpha = 0.28 * (1 - clamp(k * 1.5, 0, 1))
+    shardPath(g, cx, cy, r)
+    fill(g, INK)
+    g.globalAlpha = 1
+  }
+}
+
+/** The block of ice it melts out of, round (x, y). */
+const frostShardIce = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
+  const S = (v: number): number => v * s
   const m = clamp(k * 1.4, 0, 1)
   if (m < 1) {
     const bw = S(68) * (1 - m * 0.25)
@@ -2197,15 +2314,10 @@ export const frostShard = (g: G2D, x: number, y: number, s: number, k: number, t
     ink(g, 3)
     g.globalAlpha = 1
   }
-  // Asleep: a plum veil dims it.
-  if (k < 1) {
-    g.globalAlpha = 0.28 * (1 - clamp(k * 1.5, 0, 1))
-    shardPath(g, cx, cy, r)
-    fill(g, INK)
-    g.globalAlpha = 1
-  }
-  if (o <= 0.2) return
+  if (k <= 0.2) return
   // Awake: little aurora sparkles orbit it.
+  const cx = x
+  const cy = y - S(58) - ease(clamp(k, 0, 1)) * (S(26) + sin(t * 2.2) * S(8))
   const a = clamp((k - 0.2) / 0.8, 0, 1)
   const cols = [AUR.green, AUR.pink, AUR.teal, T.lemon]
   for (let i = 0; i < 4; i++) {

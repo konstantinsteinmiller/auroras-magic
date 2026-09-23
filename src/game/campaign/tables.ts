@@ -81,7 +81,19 @@ export interface CosmeticDef {
   /** `gift.<slug>` — its display name. */
   slug: string
 }
-/** Position is the bit in `giftsOwned`. ≤ 32 entries (§4.3). */
+/**
+ * Position is the bit in `giftsOwned`. APPEND ONLY, and ≤ 31 entries: the bit
+ * lives in a plain int that `readCampaign` clamps to `0x7fffffff` (§4.3), and
+ * an owned keepsake is remembered by its POSITION, so moving one hands every
+ * save in the wild somebody else's hat.
+ *
+ * 0–8 are the nine story keepsakes, one per chapter, drawn by
+ * `rig-cosmetics.ts`. 9–22 are the SECOND SHELF (`rig-accessories.ts`): the
+ * alternatives that make a slot a choice rather than a switch, which is
+ * §2.2's rule 20 — "no wardrobe slot ships with only one, narrowly gendered
+ * default and no alternative". Every slot the rig can carry now offers three
+ * or four, and each set spans more than the pastel default.
+ */
 export const COSMETICS: readonly CosmeticDef[] = [
   { slot: 'head', slug: 'flowerCrown' },
   { slot: 'neck', slug: 'seashellNecklace' },
@@ -91,8 +103,30 @@ export const COSMETICS: readonly CosmeticDef[] = [
   { slot: 'mane', slug: 'colorPicker' },
   { slot: 'skin', slug: 'pastelTheme' },
   { slot: 'neck', slug: 'winterScarf' },
-  { slot: 'companion', slug: 'petStar' }
+  { slot: 'companion', slug: 'petStar' },
+  // The second shelf (ids 9–22).
+  { slot: 'head', slug: 'acornCap' },
+  { slot: 'trail', slug: 'bubbleTrail' },
+  { slot: 'companion', slug: 'petCloud' },
+  { slot: 'head', slug: 'explorerGoggles' },
+  { slot: 'companion', slug: 'petFirefly' },
+  { slot: 'back', slug: 'butterflyWings' },
+  { slot: 'back', slug: 'explorerPack' },
+  { slot: 'trail', slug: 'frostTrail' },
+  { slot: 'skin', slug: 'moonlitLook' },
+  { slot: 'head', slug: 'starTiara' },
+  { slot: 'neck', slug: 'bowTie' },
+  { slot: 'neck', slug: 'moonPendant' },
+  { slot: 'trail', slug: 'petalTrail' },
+  { slot: 'skin', slug: 'sunsetLook' }
 ]
+
+/** Every keepsake in a slot, in shelf order — the wardrobe's tab contents. */
+export const cosmeticsIn = (slot: CosmeticSlot): number[] => {
+  const out: number[] = []
+  for (let i = 0; i < COSMETICS.length; i++) if (COSMETICS[i]!.slot === slot) out.push(i)
+  return out
+}
 
 /**
  * The rune node `n`'s chest gives, or null: the early ones by node, then each
@@ -124,6 +158,11 @@ export const GIFTS: readonly GiftDef[] = [
   { kind: 'feature', feature: 'versus' }
 ]
 
+/** The Friendship Duo's gift id — after every cosmetic, so appending a
+ *  keepsake never moves it (it used to be a bare `9`, which was the same
+ *  number as chapter 9 by coincidence and broke the moment the shelf grew). */
+export const VERSUS_GIFT = COSMETICS.length
+
 /* -------------------------------- nodes ------------------------------ */
 export interface NodeDef {
   /** A specific foe instead of the chapter default (rare). */
@@ -132,8 +171,43 @@ export interface NodeDef {
   giftId: number | null
 }
 
+/**
+ * The node whose chest gives the FIRST keepsake (owner, 2026-09-21): after
+ * the second battle, not after the chapter's boss. A wardrobe with one thing
+ * in it teaches a child what the wardrobe is for; an empty one teaches
+ * nothing, and five duels is a long time to wait to find out.
+ */
+export const FIRST_GIFT_NODE = 1
+
+/**
+ * The SECOND SHELF's chests (keepsakes 9–22), by node.
+ *
+ * A boss chest per chapter could only ever hand out ten things, which is why
+ * a slot had one item in it. These fourteen ride the chapter's FOURTH node
+ * (`pos 3`) all the way down, plus the second node of chapters 2, 4, 6 and 8
+ * — nodes that gave a tool and nothing else, and are the two duels furthest
+ * from a chest under the old schedule.
+ *
+ * Each is matched to where it is found rather than dealt out: the acorn cap
+ * comes out of the woods, the bubble trail out of the bay, the pet cloud out
+ * of the Cloud Kingdom, the goggles out of the Crystal Caves, the moonlit
+ * coat off the Starlight Summit, the tiara out of the Festival.
+ */
+const SECOND_SHELF: Readonly<Record<number, number>> = {
+  3: 9, 6: 19, 8: 10, 13: 11, 16: 20, 18: 12, 23: 13, 26: 21, 28: 14, 33: 15, 36: 22, 38: 16, 43: 17, 48: 18
+}
+
 export const NODES: readonly NodeDef[] = Array.from({ length: CHAPTER_COUNT * NODES_PER_CHAPTER }, (_, n) => ({
-  giftId: nodeIsBoss(n) ? nodeChapter(n) : null
+  // Chapter 1's boss gives no keepsake, because its crown moved forward to
+  // `FIRST_GIFT_NODE` — and that chest is far from empty: it is the one that
+  // hands over the Nature rune. Every other chapter keeps its own, the last
+  // chapter's boss gives the Friendship Duo instead, and the second shelf
+  // fills in between: all 23 keepsakes given exactly once, and none twice.
+  giftId: n === FIRST_GIFT_NODE
+    ? 0
+    : SECOND_SHELF[n] ?? (nodeIsBoss(n) && nodeChapter(n) > 0
+      ? (nodeChapter(n) === CHAPTER_COUNT - 1 ? VERSUS_GIFT : nodeChapter(n))
+      : null)
 }))
 
 /** The duel foe (an index into `FOES`) a node fights. */

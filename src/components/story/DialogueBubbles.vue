@@ -142,7 +142,7 @@ onUnmounted(() => {
             Picto.picto(v-for="p in line.pictos" :key="p" :name="p")
           p.story-text(v-if="text") {{ text }}
         div.dog-ear(v-if="ready" aria-hidden="true")
-    button.skip(
+    button.skip.duel-plate(
       v-if="skippable"
       :aria-label="t('ui.next')"
       @click.stop="skip"
@@ -164,7 +164,7 @@ onUnmounted(() => {
 .dim
   position: absolute
   inset: 0
-  background: linear-gradient(to top, rgba(26, 16, 44, 0.5), rgba(26, 16, 44, 0.02) 46%)
+  background: linear-gradient(to top, var(--am-scrim-soft), transparent 46%)
 
 // The words, set on paper along the foot of the page.
 .leaf
@@ -176,11 +176,11 @@ onUnmounted(() => {
   align-items: flex-end
   gap: 16px
   padding: 16px 22px
-  background: #fff8ec
-  border: 4px solid #3A2340
+  background: var(--am-paper)
+  border: 4px solid var(--am-ink)
   border-radius: 22px
-  box-shadow: 0 8px 0 rgba(20, 10, 30, 0.32)
-  color: #3A2340
+  box-shadow: 0 8px 0 rgba(58, 35, 64, 0.32)
+  color: var(--am-ink)
   &.from-right
     flex-direction: row-reverse
 
@@ -191,7 +191,7 @@ onUnmounted(() => {
   margin-top: calc(-6vmin - 14px)
   -webkit-user-drag: none
   pointer-events: none
-  filter: drop-shadow(0 5px 0 rgba(20, 10, 30, 0.3))
+  filter: drop-shadow(0 5px 0 rgba(58, 35, 64, 0.3))
 
 .words
   flex: 1 1 auto
@@ -220,8 +220,8 @@ onUnmounted(() => {
 
 .chapter-name
   margin: 0
-  color: #fff4e6
-  --ink: #3A2340
+  color: var(--am-on-night)
+  --ink: var(--am-ink)
   font-size: clamp(26px, 5vmin + 8px, 54px)
   text-align: center
   white-space: normal
@@ -232,9 +232,14 @@ onUnmounted(() => {
   flex-wrap: wrap
   justify-content: center
   .star
-    color: #ffc93f
+    color: var(--am-gold)
     font-size: clamp(18px, 3.2vmin, 30px)
-    text-shadow: 0 2px 0 #3A2340
+    // A DRAWN star, not a shadowed one. Gold on the cream leaf is 1.29:1 — a
+    // one-sided drop shadow does not separate a glyph from its page, it only
+    // seats it. The plum stroke is the same treatment `.ink-text` uses over the
+    // arena, and it is what makes the star read as an inked mark on paper.
+    -webkit-text-stroke: 0.09em var(--am-ink)
+    paint-order: stroke fill
 
 // The corner that says "turn me", folded up off the paper's own corner.
 .dog-ear
@@ -243,11 +248,11 @@ onUnmounted(() => {
   bottom: -3px
   width: clamp(34px, 6vmin, 62px)
   height: clamp(34px, 6vmin, 62px)
-  background: linear-gradient(to bottom left, #fff4e6 50%, transparent 50%)
-  border-right: 3px solid #3A2340
-  border-top: 3px solid #3A2340
+  background: linear-gradient(to bottom left, var(--am-paper) 50%, transparent 50%)
+  border-right: 3px solid var(--am-ink)
+  border-top: 3px solid var(--am-ink)
   border-top-right-radius: 6px
-  filter: drop-shadow(-3px -3px 0 rgba(20, 10, 30, 0.25))
+  filter: drop-shadow(-3px -3px 0 rgba(58, 35, 64, 0.25))
   animation: ear-lift 1.5s ease-in-out infinite
   pointer-events: none
 
@@ -257,19 +262,15 @@ onUnmounted(() => {
   top: calc(env(safe-area-inset-top) + 12px)
   width: 56px
   height: 56px
-  border-radius: 16px
-  border: none
   display: flex
   align-items: center
   justify-content: center
-  color: #fff
-  background: var(--duel-plate)
   cursor: pointer
   .glyph
     width: 30px
     height: 30px
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 // A phone held upright: the portrait shrinks, the words take the width.

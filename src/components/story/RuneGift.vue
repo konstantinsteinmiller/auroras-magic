@@ -83,8 +83,8 @@ const take = (): void => {
 <style scoped lang="sass">
 .ribbon-text
   font-size: clamp(18px, 3.4vmin + 6px, 34px)
-  color: #fff4e6
-  --ink: #3A2340
+  color: var(--am-on-night)
+  --ink: var(--am-ink)
 
 .prize
   display: flex
@@ -101,10 +101,10 @@ const take = (): void => {
   width: clamp(168px, 34vmin, 280px)
   height: clamp(168px, 34vmin, 280px)
   padding: clamp(10px, 2vmin, 20px)
-  background: #fff8ec
-  border: 5px solid #3A2340
+  background: var(--am-paper)
+  border: 5px solid var(--am-ink)
   border-radius: 28px
-  box-shadow: 0 8px 0 rgba(20, 10, 30, 0.35)
+  box-shadow: 0 8px 0 rgba(58, 35, 64, 0.35)
   // The finished shape, faint, is the target the stroke is drawn onto.
   .ghost
     position: absolute
@@ -114,8 +114,8 @@ const take = (): void => {
 
 .name
   margin: 0
-  color: #fff4e6
-  --ink: #3A2340
+  color: var(--am-on-night)
+  --ink: var(--am-ink)
   font-size: clamp(20px, 3.6vmin + 6px, 40px)
 
 // The caption under the plate: what the stroke above it is doing, and that a
@@ -123,10 +123,10 @@ const take = (): void => {
 .learn__label
   margin: 0
   padding: 4px 16px
-  background: rgba(255, 244, 230, 0.92)
-  border: 3px solid #3A2340
+  background: var(--am-paper)
+  border: 3px solid var(--am-ink)
   border-radius: 999px
-  color: #3A2340
+  color: var(--am-ink)
   font-size: clamp(13px, 2vmin + 4px, 21px)
 
 .tracer

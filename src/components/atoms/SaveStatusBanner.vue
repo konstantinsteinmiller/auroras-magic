@@ -74,35 +74,100 @@ watch(hasBonusToShow, (on) => {
 
 <template lang="pug">
   div.fixed.left-2.right-2.z-40.pointer-events-none(class="bottom-2 sm:left-auto sm:right-4 sm:max-w-sm")
-    //- Bonus banner — green / celebratory
-    div.pointer-events-auto.rounded-lg.shadow-lg.text-white.text-sm.flex.items-center.gap-3.cursor-pointer(
+    //- Bonus banner — "your cloud save came back, and it was worth coins".
+    //-
+    //- Both banners are the same paper toast (§3.2): cream face, plum line,
+    //- one plum lift, plum ink. What tells them apart is a 6px bar down the
+    //- leading edge — mint for the good news, gold for the notice. The colour
+    //- is NOT in the text, so nothing here is a colour-only signal and the two
+    //- states read the same to a colour-blind player: the copy carries it.
+    //-
+    //- No Tailwind colour utilities on either card. A utility class and a
+    //- scoped rule tie on specificity and the tie is settled by whichever
+    //- stylesheet the bundler emitted last, which is not a thing to leave to
+    //- chance on a banner that only appears when something has gone wrong.
+    div.save-toast.is-good.pointer-events-auto.text-sm.flex.items-center.gap-3.cursor-pointer(
       v-if="showBonus"
-      class="bg-emerald-700/95 px-3 py-2 mb-2"
+      class="mb-2"
       @click="onDismissBonus"
     )
       span.text-xl 🎉
       div.flex-1
-        div.font-bold {{ t('saveStatus.restoredTitle') }}
-        div.text-xs(class="text-emerald-100") {{ t('saveStatus.restoredBody', { n: bonusCoinsAwarded }) }}
-      span.text-xs(class="text-emerald-100/80") {{ t('saveStatus.tap') }}
+        div.save-toast__title {{ t('saveStatus.restoredTitle') }}
+        div.save-toast__body.text-xs {{ t('saveStatus.restoredBody', { n: bonusCoinsAwarded }) }}
+      span.save-toast__body.text-xs {{ t('saveStatus.tap') }}
 
-    //- Offline banner — amber / informational
-    div.pointer-events-auto.rounded-lg.shadow-lg.text-white.text-sm.flex.items-center.gap-3(
+    //- Offline banner — informational, and it owns its own two buttons.
+    div.save-toast.is-notice.pointer-events-auto.text-sm.flex.items-center.gap-3(
       v-else-if="showOffline"
-      class="bg-amber-700/95 px-3 py-2"
     )
       span.text-xl ☁️
       div.flex-1
-        div.font-bold {{ t('saveStatus.pausedTitle') }}
-        div.text-xs(class="text-amber-100") {{ t('saveStatus.pausedBody') }}
-      button.text-xs.font-bold.rounded.bg-white.text-amber-800(
+        div.save-toast__title {{ t('saveStatus.pausedTitle') }}
+        div.save-toast__body.text-xs {{ t('saveStatus.pausedBody') }}
+      button.save-toast__retry.text-xs(
         class="px-2 py-1 disabled:opacity-50"
         :disabled="retryInFlight"
         @click="onRetry"
       ) {{ retryInFlight ? '…' : t('saveStatus.retry') }}
-      button.text-lg.font-bold.px-1(
-        class="text-amber-100/80"
+      button.save-toast__x.text-lg.px-1(
         @click="onDismissOffline"
         :aria-label="t('saveStatus.dismiss')"
       ) ×
 </template>
+
+<style scoped lang="sass">
+// ─── The paper toast (ui-design-system.md §3.2, §7) ────────────────────────
+//
+// Was an `emerald-700` / `amber-700` card with white text — a different app's
+// toast, and the only two saturated slabs left in the chrome.
+.save-toast
+  position: relative
+  overflow: hidden
+  border: 3px solid var(--am-ink)
+  border-radius: clamp(0.6rem, 2.4vw, 0.9rem)
+  background-color: var(--am-paper)
+  box-shadow: 0 4px 0 rgba(58, 35, 64, 0.28)
+  color: var(--am-ink)
+  // Padding lives here rather than on a `px-3 py-2` pair in the template: the
+  // leading edge has to clear the 6px state bar, and mixing a physical
+  // Tailwind `padding-left` with a logical `padding-inline-start` is a cascade
+  // coin toss nobody should have to reason about. Logical, so the bar is on
+  // the right in Arabic with no second rule.
+  padding-block: 0.5rem
+  padding-inline: calc(0.75rem + 6px) 0.75rem
+
+  &::before
+    content: ''
+    position: absolute
+    inset-block: 0
+    inset-inline-start: 0
+    width: 6px
+    pointer-events: none
+
+.save-toast.is-good::before
+  background-color: var(--am-mint-foot)
+
+.save-toast.is-notice::before
+  background-color: var(--am-gold-foot)
+
+.save-toast__title
+  font-weight: 800
+  color: var(--am-ink)
+
+// 6.57:1 on paper — the fine print recedes without becoming a grey smudge.
+.save-toast__body
+  color: var(--am-ink-2)
+
+// The two controls are chips, not links: a 12px word is not a touch target.
+.save-toast__retry
+  border: 2px solid var(--am-ink)
+  border-radius: 0.5rem
+  background-color: var(--am-gold)
+  color: var(--am-on-accent)
+  font-weight: 800
+
+.save-toast__x
+  color: var(--am-ink-2)
+  font-weight: 800
+</style>

@@ -90,6 +90,7 @@ const VIEWS = {
 }
 const VIEW_IDS = (arg('views', 'land,port')).split(',').map((s) => s.trim()).filter((v) => VIEWS[v])
 const SHOTS = flag('shots')
+const CONTRAST = flag('contrast')
 const HEADED = flag('headed')
 const TIMES = flag('times')
 const PORT = Number(arg('port', String(5250 + Math.floor(Math.random() * 400))))
@@ -242,6 +243,236 @@ const PROBE = () => {
     const seen = new Set()
     return out.filter((o) => {
       const k = `${o.kind}|${o.axis ?? ''}|${o.where}|${o.text}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  }
+}
+
+/* ── the contrast probe (`--contrast`) ────────────────────────────────────
+ *
+ * Can a child actually READ this? Walks the same screens the fit audit tours
+ * and reports every run of text whose effective contrast against what is
+ * painted behind it falls under the WCAG AA floor (4.5:1, or 3:1 for large or
+ * bold-large text). Written for the warm-UI overhaul, where the risk is the
+ * mirror image of the dark build's: pastel ink on a pastel plate.
+ *
+ * ── Why it is not just `contrast(color, background-color)` ──
+ *
+ * OUTLINED TYPE IS THE WHOLE GAME'S HOUSE STYLE. `.ink-text` fills white and
+ * strokes 0.28em of plum around it (`paint-order: stroke fill`), and most
+ * captions wear a ring of `text-shadow` offsets instead. Naively comparing the
+ * white fill to a cream plate reports 1.1:1 on type that is in fact perfectly
+ * legible, because what separates the glyph from the plate is the OUTLINE. So
+ * an outlined run is scored as the weaker of its two real jobs:
+ *
+ *   ring vs background   — does the glyph separate from the plate at all
+ *   fill vs ring         — is the letterform visible inside its own outline
+ *
+ * and the run passes only if both hold. That is the honest model, and it is
+ * the one that fails an outline whose colour has drifted toward its plate.
+ *
+ * ── What it refuses to guess ──
+ *
+ * Text painted over the CANVAS (the duel arena, the map page) has no CSS
+ * background to read, and text over a gradient has several. A gradient is
+ * scored at its worst stop. Canvas-backed text is reported as UNREADABLE-BG
+ * rather than silently passed — it is a "look at this yourself" row, not a
+ * failure, and there are few of them because the HUD sits on opaque plates.
+ */
+const CONTRAST_PROBE = () => {
+  const SKIP = new Set(['SCRIPT', 'STYLE', 'CANVAS', 'SVG', 'PATH', 'G', 'CIRCLE', 'RECT', 'IMG', 'BR', 'HEAD', 'HTML', 'LINK', 'META'])
+  const visible = (el, cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.02
+  const ownText = (el) => {
+    let s = ''
+    for (const n of el.childNodes) if (n.nodeType === 3) s += n.textContent
+    return s.trim()
+  }
+  const path = (el) => {
+    const bits = []
+    for (let e = el; e && e !== document.body && bits.length < 4; e = e.parentElement) {
+      const cls = (e.className && typeof e.className === 'string' ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : '')
+      bits.unshift(e.tagName.toLowerCase() + (cls ? `.${cls}` : ''))
+    }
+    return bits.join(' > ')
+  }
+
+  /* ── colour ── */
+  const parse = (str) => {
+    if (!str) return null
+    const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)\s*(?:[,/]\s*([\d.%]+))?\s*\)/i.exec(str)
+    if (m) {
+      let a = m[4] === undefined ? 1 : (String(m[4]).endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]))
+      return [Number(m[1]), Number(m[2]), Number(m[3]), Number.isFinite(a) ? a : 1]
+    }
+    const h = /^#([0-9a-f]{3,8})$/i.exec(str.trim())
+    if (!h) return null
+    let x = h[1]
+    if (x.length === 3 || x.length === 4) x = [...x].map((c) => c + c).join('')
+    const n = (i) => parseInt(x.slice(i, i + 2), 16)
+    return [n(0), n(2), n(4), x.length === 8 ? n(6) / 255 : 1]
+  }
+  /** `src` painted onto opaque `dst`. */
+  const over = (src, dst) => {
+    const a = src[3]
+    if (a >= 1) return [src[0], src[1], src[2], 1]
+    return [src[0] * a + dst[0] * (1 - a), src[1] * a + dst[1] * (1 - a), src[2] * a + dst[2] * (1 - a), 1]
+  }
+  const lum = (c) => {
+    const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2])
+  }
+  const ratio = (a, b) => {
+    const l1 = lum(a), l2 = lum(b)
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+  }
+  const hex = (c) => '#' + [c[0], c[1], c[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')
+
+  /** Every colour literal in a gradient, in source order. */
+  const stops = (img) => {
+    const out = []
+    const re = /(rgba?\([^)]*\)|#[0-9a-f]{3,8})/gi
+    let m
+    while ((m = re.exec(img))) { const c = parse(m[1]); if (c) out.push(c) }
+    return out
+  }
+
+  /**
+   * What is actually painted behind this element, as ONE opaque colour.
+   *
+   * Walks out through the ancestors compositing every translucent layer it
+   * crosses, and stops at the first thing that is fully opaque. Returns the
+   * layers it could not resolve so the caller can say "canvas" rather than
+   * inventing white.
+   */
+  const backdrop = (el) => {
+    const layers = []
+    let gradient = false
+    for (let e = el; e; e = e.parentElement) {
+      const cs = getComputedStyle(e)
+      const img = cs.backgroundImage
+      if (img && img !== 'none') {
+        const st = stops(img)
+        if (st.length) { gradient = true; layers.push(st) }
+      }
+      const bg = parse(cs.backgroundColor)
+      if (bg && bg[3] > 0) {
+        layers.push([bg])
+        if (bg[3] >= 0.999) return { layers, gradient, grounded: true }
+      }
+      if (e === document.documentElement) break
+    }
+    return { layers, gradient, grounded: false }
+  }
+
+  /** Composite the stack down to the candidate backdrop colours (worst first
+   *  is the caller's job — a gradient contributes one candidate per stop). */
+  const resolve = (bd, base) => {
+    // Outermost first, so `over` composites in paint order.
+    const stack = bd.layers.slice().reverse()
+    let outs = [base]
+    for (const layer of stack) {
+      const next = []
+      for (const under of outs) for (const c of layer) next.push(over(c, under))
+      // A gradient with many stops would explode combinatorially; two extremes
+      // are enough to find the weak end.
+      if (next.length > 6) {
+        next.sort((a, b) => lum(a) - lum(b))
+        outs = [next[0], next[next.length - 1]]
+      } else outs = next
+    }
+    return outs
+  }
+
+  /** A ring of shadow offsets is an outline drawn the cheap way. */
+  const ringOf = (cs) => {
+    const sh = cs.textShadow
+    if (!sh || sh === 'none') return null
+    const parts = sh.split(/,(?![^(]*\))/)
+    if (parts.length < 2) return null
+    const c = parse(parts[0].trim())
+    return c && c[3] > 0.4 ? c : null
+  }
+
+  window.__contrastAudit = () => {
+    const out = []
+    const dialogs = [...document.querySelectorAll('[aria-modal="true"], [role="dialog"], .reward')]
+      .filter((d) => visible(d, getComputedStyle(d)))
+    const scope = dialogs.length
+      ? dialogs.flatMap((d) => [d, ...d.querySelectorAll('*')])
+      : [...document.querySelectorAll('body *')]
+
+    for (const el of scope) {
+      if (SKIP.has(el.tagName)) continue
+      const cs = getComputedStyle(el)
+      if (!visible(el, cs)) continue
+      const text = ownText(el)
+      if (!text) continue
+      const box = el.getBoundingClientRect()
+      if (box.width < 1 || box.height < 1) continue
+
+      const size = parseFloat(cs.fontSize) || 16
+      const weight = Number(cs.fontWeight) || 400
+      // WCAG "large text": 24px, or 18.66px when bold.
+      const large = size >= 24 || (size >= 18.66 && weight >= 700)
+      const need = large ? 3 : 4.5
+
+      const fg0 = parse(cs.color)
+      if (!fg0) continue
+
+      const bd = backdrop(el)
+      // The page's own floor. If nothing opaque was found the text sits on the
+      // canvas (or on the raw viewport) and CSS cannot say what colour that is.
+      const base = [255, 255, 255, 1]
+      const cands = resolve(bd, base)
+      const where = path(el)
+      const what = text.slice(0, 42)
+
+      if (!bd.grounded) {
+        out.push({ kind: 'UNREADABLE-BG', where, text: what, note: 'text sits on the canvas — check by eye' })
+        continue
+      }
+
+      const strokeW = parseFloat(cs.webkitTextStrokeWidth || '0') || 0
+      const strokeC = strokeW > 0.4 ? parse(cs.webkitTextStrokeColor) : null
+      const ring = strokeC && strokeC[3] > 0.4 ? strokeC : ringOf(cs)
+
+      let worst = Infinity, worstBg = null, mode = 'plain'
+      for (const bg of cands) {
+        const fg = over(fg0, bg)
+        // The fill against the plate is always one honest way to read the
+        // glyph. An outline is a SECOND way, never a liability: white on a
+        // near-black plate is legible whether or not the black ring round it
+        // separates from that plate. So the run is scored on the BETTER of the
+        // two routes, and only fails when neither works.
+        const plain = ratio(fg, bg)
+        let r = plain
+        if (ring) {
+          const ringOn = over(ring, bg)
+          const outlined = Math.min(ratio(ringOn, bg), ratio(fg, ringOn))
+          if (outlined > plain) { r = outlined; mode = 'outlined' } else mode = 'plain'
+        }
+        if (r < worst) { worst = r; worstBg = bg }
+      }
+      if (worst < need) {
+        out.push({
+          kind: 'LOWCONTRAST',
+          where,
+          text: what,
+          by: Math.round(worst * 100) / 100,
+          need,
+          mode,
+          fg: hex(over(fg0, worstBg)),
+          ring: ring ? hex(over(ring, worstBg)) : null,
+          bg: hex(worstBg),
+          size: Math.round(size)
+        })
+      }
+    }
+    const seen = new Set()
+    return out.filter((o) => {
+      const k = `${o.kind}|${o.where}|${o.text}`
       if (seen.has(k)) return false
       seen.add(k)
       return true
@@ -403,13 +634,27 @@ const STEPS = [
   {
     id: 'options-leave',
     need: '.leave-confirm',
+    // By NAME, not by position. This used to click "the last plain button on
+    // the general tab", which stopped being LEAVE DUEL the day a RESET
+    // PROGRESS button was added under it — and the step went on passing,
+    // auditing the wrong dialog.
     go: async (p) => {
       const tabs = p.locator('.f-tabs__tab')
       if (await tabs.count()) await tabs.first().click({ timeout: 4000 }).catch(() => {})
-      // "Leave the duel" is the last plain button on the general tab.
-      const btns = p.locator('.f-modal__content button.f-button')
-      const n = await btns.count()
-      if (n) await btns.nth(n - 1).click({ timeout: 4000 }).catch(() => {})
+      await p.locator('.f-modal__content button.f-button.leave-duel').first()
+        .click({ timeout: 4000 }).catch(() => {})
+    }
+  },
+  {
+    id: 'options-reset',
+    need: '.reset-confirm',
+    // Three lines and two buttons — the tallest thing the modal ever holds,
+    // and the copy most likely to overrun it in German, French and Russian.
+    go: async (p) => {
+      await p.locator('.f-modal__content .leave-confirm button.f-button').last()
+        .click({ timeout: 2000 }).catch(() => {})
+      await p.locator('.f-modal__content button.f-button.reset-progress').first()
+        .click({ timeout: 4000 }).catch(() => {})
     }
   },
   {
@@ -509,6 +754,7 @@ const tour = async (browser, base, locale, viewId, findings) => {
     userAgent: v.mobile ? 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36' : undefined
   })
   await ctx.addInitScript(PROBE)
+  if (CONTRAST) await ctx.addInitScript(CONTRAST_PROBE)
   await ctx.addInitScript(([code]) => {
     window.__AM_QA__ = true
     try {
@@ -559,6 +805,14 @@ const tour = async (browser, base, locale, viewId, findings) => {
       continue
     }
     for (const r of rows) findings.push({ locale, view: viewId, step: step.id, ...r })
+    if (CONTRAST) {
+      try {
+        const cr = await withTimeout(page.evaluate(() => window.__contrastAudit()), 30000, 'the contrast probe did not answer')
+        for (const r of cr) findings.push({ locale, view: viewId, step: step.id, ...r })
+      } catch (e) {
+        findings.push({ locale, view: viewId, step: step.id, kind: 'SKIPPED', text: String(e.message).slice(0, 80) })
+      }
+    }
     if (TIMES) process.stderr.write(`    ${step.id.padEnd(16)} probe ${Date.now() - t0} ms
 `)
     if (SHOTS) {
@@ -596,7 +850,11 @@ try {
   }
 }
 
-const bad = findings.filter((f) => f.kind !== 'SKIPPED')
+// Contrast rows are reported on their own: they are graded on a RATIO where
+// lower is worse, which the fit report's `Math.max(by)` would rank backwards.
+const CONTRAST_KINDS = new Set(['LOWCONTRAST', 'UNREADABLE-BG'])
+const contrastRows = findings.filter((f) => CONTRAST_KINDS.has(f.kind))
+const bad = findings.filter((f) => f.kind !== 'SKIPPED' && !CONTRAST_KINDS.has(f.kind))
 const byStep = new Map()
 for (const f of bad) {
   const k = `${f.step}|${f.kind}|${f.axis ?? ''}|${f.where ?? ''}|${(f.text ?? '').slice(0, 30)}`
@@ -614,6 +872,36 @@ for (const r of rows) {
   console.log(`         ${r.where}${r.onto ? `  ⟶ over ${r.onto}` : ''}${by}`)
   console.log(`         "${r.text}"`)
 }
+if (CONTRAST) {
+  const low = contrastRows.filter((f) => f.kind === 'LOWCONTRAST')
+  const byKey = new Map()
+  for (const f of low) {
+    const k = `${f.where}|${f.text}`
+    const e = byKey.get(k)
+    // Keep the WORST sighting of each run of text, not the last.
+    if (!e || f.by < e.by) byKey.set(k, { ...f, steps: new Set([f.step]) })
+    else e.steps.add(f.step)
+  }
+  const rank = [...byKey.values()].sort((a, b) => a.by - b.by)
+  console.log(`
+${rank.length} runs of text under the WCAG AA floor
+`)
+  for (const r of rank) {
+    const ink = r.mode === 'outlined' ? `${r.fg} outlined ${r.ring}` : r.fg
+    console.log(`${String(r.by).padStart(5)}:1  need ${r.need}  ${r.size}px  ${r.step}`)
+    console.log(`         ${r.where}`)
+    console.log(`         ${ink}  on  ${r.bg}   "${r.text}"`)
+  }
+  const unknown = contrastRows.filter((f) => f.kind === 'UNREADABLE-BG')
+  if (unknown.length) {
+    const per = new Map()
+    for (const u of unknown) per.set(u.where, (per.get(u.where) ?? 0) + 1)
+    console.log(`
+${per.size} runs sit on the canvas and must be judged by eye:`)
+    for (const [w, n] of [...per].sort((a, b) => b[1] - a[1]).slice(0, 20)) console.log(`         ${w} ×${n}`)
+  }
+}
+
 const skipped = findings.filter((f) => f.kind === 'SKIPPED')
 if (skipped.length) {
   const per = new Map()
@@ -622,4 +910,4 @@ if (skipped.length) {
 }
 writeFileSync(resolve(HERE, 'findings.json'), JSON.stringify(findings, null, 1))
 console.log(`\nraw → tools/locale-fit/findings.json`)
-process.exit(rows.length ? 1 : 0)
+process.exit(rows.length || (CONTRAST && contrastRows.some((f) => f.kind === 'LOWCONTRAST')) ? 1 : 0)

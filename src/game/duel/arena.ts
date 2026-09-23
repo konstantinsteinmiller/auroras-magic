@@ -25,17 +25,25 @@
  * edges, no gradients.
  *
  * PAINTED (§8.27): each chapter's island is one painting
- * (`images/islands/island-<n>-<chapter>.webp`), registered onto this drawing's
- * own box (`islandArt`). When it has decoded it replaces the baked island and
- * the live tufts; the sky's mood still tints it, through the painting's own
- * silhouette.
+ * (`images/islands/island-<n>-<chapter>.webp`). When it has decoded it replaces
+ * the baked island and the live tufts; the sky's mood still tints it, through
+ * the painting's own silhouette.
+ *
+ * A PAINTED ISLAND IS REGISTERED BY ITS SURFACE, NOT BY ITS BOX. Fitting the
+ * painting's bounding box to the drawing's says nothing about where its
+ * ground is: a painter who hangs a longer tail under the rock, or crowns it
+ * with a dome, pushes the standing line down and the duelists end up in the
+ * air. So `measureIsle` finds the painting's own top edge and its width, puts
+ * the top where the drawn cap's top is and the width across the drawn rim —
+ * and then CHECKS the result, by asking whether there is paint under each
+ * duelist's feet. A painting that fails keeps drawing (§9.11's rule).
  */
-import { SW, SH } from '@/game/duel/config'
+import { SW, SH, AX, UX } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, sin, cos, abs, sign, clamp, seeded } from '@/game/duel/util'
 import { arenaTheme, type ArenaTheme } from '@/game/duel/arenaThemes'
 import { spriteFor } from '@/game/art'
-import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
+import { type ItemSpec } from '@/game/artItem'
 import { islandArtId } from '@/game/artIds'
 
 type G2D = CanvasRenderingContext2D
@@ -47,6 +55,7 @@ const CX = 640 // island centre
 const TY = 508 // island rim — the surface the duelists stand on
 const RX = 300 // island rim half-width
 const BY = 702 // jagged tip underneath
+const CAP_RY = 34 // the mossy cap's half-height: the rim is this far below its crown
 const IX = 326 // blit box of the baked island
 const IY = 450
 const IW = 628
@@ -160,7 +169,7 @@ const buildSil = (): void => {
   p.moveTo(V[0]!, V[1]!)
   for (let i = 2; i < V.length; i += 2) p.lineTo(V[i]!, V[i + 1]!)
   p.closePath()
-  cap(p, RX, 34, TY, 15)
+  cap(p, RX, CAP_RY, TY, 15)
   sil = p
 }
 
@@ -202,7 +211,7 @@ const paintIsle = (s: Path2D): void => {
           top, so all that survives is a lip along the sunward edge. ---- */
   D.lineWidth = 6
   BP()
-  cap(D, RX, 34, TY, 15)
+  cap(D, RX, CAP_RY, TY, 15)
   FL(TH.cap)
   SK('#112')
   BP()
@@ -434,23 +443,105 @@ const moodOf = (img: HTMLImageElement, colour: string): HTMLCanvasElement => {
   return c
 }
 
-/** The painted island, if its painting has decoded: true when it drew. */
+/**
+ * Where a painting of the island goes, and whether it may go there at all.
+ *
+ * ITS WIDTH COMES FROM THE BOX; ITS HEIGHT COMES FROM THE GROUND UNDER THE
+ * FEET. Laying the painting's own top edge on the drawn cap's crown is only
+ * right for a painting shaped like the drawing — a flat disc whose highest
+ * point runs the whole way across. A painter who crowns the island with a
+ * DOME puts that highest point in the middle, where nobody stands, and the
+ * surface at AX and UX drops away below the standing line: the two unicorns
+ * hang in mid-air either side of the pile, which is exactly what Bubble Bay
+ * did. So the vertical placement is read off the painting's own surface at
+ * the two columns the duelists occupy, and that surface is dropped onto `TY`.
+ * A dome then sits lower, with its crest between them and their hooves in the
+ * paint — the thing the picture is FOR.
+ *
+ * Two shapes are still refused, and keep the drawing (§9.11's rule): one with
+ * no paint at all under a foot, and one whose two ends disagree about where
+ * the ground is by more than `SLANT_TOL` — a ramp, not a stage, and splitting
+ * the difference would only bury one duelist and float the other.
+ */
+interface Isle { dx: number; dy: number; dw: number; dh: number; ok: boolean }
+const NO_ISLE: Isle = { dx: 0, dy: 0, dw: 0, dh: 0, ok: false }
+/** How far the two duelists' patches of ground may disagree in height. */
+const SLANT_TOL = 34
+const isles = new Map<string, Isle>()
+
+/**
+ * The fit for one decoded painting, from its raw RGBA and nothing else — pure,
+ * so `tests/duel/island.test.ts` can hand it a shape and read the answer.
+ */
+export const fitIsle = (px: Uint8ClampedArray | number[], w: number, h: number): Isle => {
+  /* Solid pixels only (α > 140), so a soft painted edge is light rather
+     than extent — the same threshold the bench measures its fits with. */
+  let l = w
+  let r = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3]! <= 140) continue
+      if (x < l) l = x
+      if (x > r) r = x
+    }
+  }
+  if (r < l) return NO_ISLE
+  const k = (RX * 2) / (r - l + 1)
+  const dx = CX - RX - l * k
+  /* The ground under a foot, as an IMAGE row: the first solid pixel down that
+     column, or -1 for a column the painter left empty. */
+  const under = (sx: number): number => {
+    const col = Math.round((sx - dx) / k)
+    if (col < 0 || col >= w) return -1
+    for (let y = 0; y < h; y++) if (px[(y * w + col) * 4 + 3]! > 140) return y
+    return -1
+  }
+  const ra = under(AX)
+  const ru = under(UX)
+  if (ra < 0 || ru < 0) return NO_ISLE
+  if (abs(ra - ru) * k > SLANT_TOL) return NO_ISLE
+  /* Drop the surface the two of them stand on onto the standing line. For a
+     painting shaped like the drawing this lands within a few units of the old
+     crown-anchored placement; for a dome it is the whole fix. */
+  return { dx, dy: TY - ((ra + ru) / 2) * k, dw: w * k, dh: h * k, ok: true }
+}
+
+const measureIsle = (img: HTMLImageElement): Isle => {
+  const hit = isles.get(img.src)
+  if (hit) return hit
+  const w = img.naturalWidth
+  const h = img.naturalHeight
+  // Not decoded yet: no measurement, and nothing cached — ask again next frame.
+  if (!w || !h) return NO_ISLE
+  let out = NO_ISLE
+  try {
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const m = c.getContext('2d', { willReadFrequently: true })!
+    m.drawImage(img, 0, 0)
+    out = fitIsle(m.getImageData(0, 0, w, h).data, w, h)
+  } catch { /* a tainted canvas: no measurement, so the drawing keeps drawing */ }
+  // A REFUSAL is cached too: without that, a painting the game will never use
+  // re-reads its own pixels on every frame of the duel.
+  isles.set(img.src, out)
+  return out
+}
+
+/** The painted island, if its painting has decoded and stands up: true when it drew. */
 const drawPaintedIsland = (g: G2D): boolean => {
   const img = spriteFor('island', islandArtId(S.theme))
   if (!img) return false
-  const spec = islandArt(S.theme)
-  g.save()
-  g.translate(IX + IW / 2, IY + IH / 2)
-  const drew = drawItem(g, spec, IW)
+  const fit = measureIsle(img)
+  if (!fit.ok) return false
+  g.drawImage(img, fit.dx, fit.dy, fit.dw, fit.dh)
   const a = abs(K * 2 - 1)
-  if (drew && a > 0.02) {
-    const box = itemBox(spec)
+  if (a > 0.02) {
     g.globalAlpha = a * (L ? 0.5 : 0.22)
-    g.drawImage(moodOf(img, L ? '#012' : '#fea'), box.x * IW, box.y * IW, box.w * IW, box.h * IW)
+    g.drawImage(moodOf(img, L ? '#012' : '#fea'), fit.dx, fit.dy, fit.dw, fit.dh)
     g.globalAlpha = 1
   }
-  g.restore()
-  return drew
+  return true
 }
 
 /** The floating island: one blit, the live tufts, one mask-fill of tint. */

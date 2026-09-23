@@ -41,7 +41,7 @@ const calfTap = (spot: CalfSpot, look: CalfLook, cover: (g: G2D) => void, ty: nu
   x: spot.x + (spot.lean ?? 0) * 0.6,
   y: ty,
   r,
-  draw: (g, k, t) => peekCalf(g, spot, k, t, look, () => cover(g))
+  draw: (g, k, t) => peekCalf(g, spot, k, t, look, cover)
 })
 
 /** Heart-shaped constellation points about (x, y), size `s`. */

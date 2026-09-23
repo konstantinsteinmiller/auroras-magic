@@ -21,9 +21,12 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, flower, blob, lumpy } from '@/game/map/kit'
-import { K, inkFill, heart, star5 } from '@/game/map/kitSky'
+import { type G2D, type Pot, INK, C, fill, ink, flower, blob, lumpy, twinkleAt, lanternAt, flagAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
+import { K, inkFill, heart, star5, heartAt } from '@/game/map/kitSky'
 import type { TapCreature } from '@/game/map/sectorDef'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 export type Pt = readonly [number, number]
@@ -1402,11 +1405,11 @@ export const ferrisFrame = (g: G2D, cx: number, cy: number, R: number, groundY: 
   ink(g, 3)
 }
 
-/** One gondola hung from its pin (px, py), swinging by `sw`. */
-const cabin = (g: G2D, px: number, py: number, sw: number, col: string, shade: string): void => {
-  g.save()
-  g.translate(px, py)
-  g.rotate(sw)
+/** The gondola's width in SU, hanger to foot measured across its box. */
+const GONDOLA_UNIT = 52
+
+/** One gondola hanging from a pin at the origin: hanger, canopy, box, window. */
+const gondolaShape = (g: G2D, col: string, shade: string): void => {
   g.beginPath()
   g.moveTo(0, 0)
   g.lineTo(0, 14)
@@ -1426,6 +1429,33 @@ const cabin = (g: G2D, px: number, py: number, sw: number, col: string, shade: s
   g.roundRect(-16, 26, 32, 14, 6)
   fill(g, F.skyLite)
   ink(g, 2.4)
+}
+
+/**
+ * The ferris wheel's gondola as a painted still.
+ *
+ * §4b kept the RIDES — "the wheel turns while every cabin counter-rotates
+ * about its own pin, so the RIDE has no constant shape. Its cabin does, and
+ * that is a later sheet if the ride still jars." This is that sheet. The ride
+ * stays drawn, exactly as the pinwheel's hub and the mine cart's body do, and
+ * the eight hanging boxes it carries are one painting in eight colours.
+ */
+export const GONDOLA_ART: ItemSpec = {
+  ...PROP_ART.gondola, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / GONDOLA_UNIT, s / GONDOLA_UNIT)
+    gondolaShape(g, accent.base, accent.shade)
+    g.restore()
+  }
+}
+
+/** One gondola hung from its pin (px, py), swinging by `sw`. */
+const cabin = (g: G2D, px: number, py: number, sw: number, col: string, shade: string): void => {
+  g.save()
+  g.translate(px, py)
+  g.rotate(sw)
+  if (!drawItem(g, GONDOLA_ART, GONDOLA_UNIT, 0, col)) gondolaShape(g, col, shade)
   g.restore()
 }
 
@@ -1991,9 +2021,17 @@ export const balloonBunch = (
     g.quadraticCurveTo(lerp(x, px, 0.3) + 8 * s, lerp(y, py, 0.5), px, py)
   }
   ink(g, 2)
+  // The STRINGS are beziers from the fist to wherever each balloon has
+  // drifted, so they stay drawn. Every balloon on them is the same balloon.
+  let painted = false
   for (let i = 0; i < n; i++) {
     const px = bx(i)
     const py = by(i)
+    g.save()
+    g.translate(px, py)
+    painted = drawItem(g, BALLOON_ART, 44 * s, 0, cols[i]!)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.ellipse(px, py, 22 * s, 26 * s, 0, 0, TAU)
     g.moveTo(px, py + 25 * s)
@@ -2003,6 +2041,7 @@ export const balloonBunch = (
     fill(g, cols[i]!)
     ink(g, 3)
   }
+  if (painted) return
   g.beginPath()
   for (let i = 0; i < n; i++) {
     const px = bx(i) - 8 * s
@@ -2013,6 +2052,42 @@ export const balloonBunch = (
   g.globalAlpha = 0.8
   fill(g, '#ffffff')
   g.globalAlpha = 1
+}
+
+/** The balloon the reference's line weight is judged at: 44 SU across, the
+ *  size the festival's bunches fly. */
+const BALLOON_UNIT = 44
+
+/** One party balloon about its widest point, `w` across: the envelope, its
+ *  knot and its highlight. */
+const balloonShape = (g: G2D, w: number, col: string): void => {
+  const s = w / 44
+  g.beginPath()
+  g.ellipse(0, 0, 22 * s, 26 * s, 0, 0, TAU)
+  g.moveTo(0, 25 * s)
+  g.lineTo(-5 * s, 31 * s)
+  g.lineTo(5 * s, 31 * s)
+  g.closePath()
+  fill(g, col)
+  ink(g, 3 * s)
+  const a = g.globalAlpha
+  g.beginPath()
+  g.ellipse(-8 * s, -9 * s, 4 * s, 7 * s, -0.5, 0, TAU)
+  g.globalAlpha = a * 0.8
+  fill(g, '#ffffff')
+  g.globalAlpha = a
+}
+
+/** A party balloon as a painted still — the bunch's fan, its lean and its
+ *  bob stay the drawing's, and so does every string. */
+export const BALLOON_ART: ItemSpec = {
+  ...PROP_ART.balloon, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / BALLOON_UNIT, s / BALLOON_UNIT)
+    balloonShape(g, BALLOON_UNIT, accent.base)
+    g.restore()
+  }
 }
 
 /**
@@ -2055,17 +2130,26 @@ export const lanternString = (
     fill(g, F.glow)
     g.globalAlpha = 1
   }
+  // The CORD and the halo stay drawn — a bezier through the sector's own
+  // points, and a wash with no edge. Only the lantern itself is a painting.
+  let painted = false
   for (let i = 0; i < n; i++) {
     const [px, py, a] = at(i)
     const cx = px + sin(a) * (L + 16)
     const cy = py + cos(a) * (L + 16)
+    g.save()
+    g.translate(cx, cy)
+    g.rotate(-a)
+    painted = lanternAt(g, 30, cols[i % cols.length]!)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.ellipse(cx, cy, 15, 17, -a, 0, TAU)
     fill(g, cols[i % cols.length]!)
     ink(g, 2.8)
   }
   g.beginPath()
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n && !painted; i++) {
     const [px, py, a] = at(i)
     const cx = px + sin(a) * (L + 16)
     const cy = py + cos(a) * (L + 16)
@@ -2077,8 +2161,10 @@ export const lanternString = (
       g.ellipse(ex, ey, rx, ry, -a, 0, TAU)
     }
   }
-  fill(g, F.lemonShade)
-  ink(g, 2)
+  if (!painted) {
+    fill(g, F.lemonShade)
+    ink(g, 2)
+  }
   if (alive > 0) {
     g.globalAlpha = alive * 0.85
     g.beginPath()
@@ -2099,6 +2185,7 @@ export const lanternString = (
 export const confetti = (g: G2D, x: number, y: number, w: number, h: number, t: number, alive: number, n = 16): void => {
   if (alive <= 0) return
   g.globalAlpha = alive
+  let painted = false
   for (let c = 0; c < 4; c++) {
     g.beginPath()
     for (let i = c; i < n; i += 4) {
@@ -2107,19 +2194,52 @@ export const confetti = (g: G2D, x: number, y: number, w: number, h: number, t: 
       const px = x + ((i * 0.618) % 1) * w + sin(t * 1.3 + i) * 16
       const py = y + fall * h
       const a = t * (2 + (i % 3)) + i
+      const flat = Math.abs(cos(t * 3 + i))
+      // The tumble is a ROTATION and a squash of one rectangle of paper, so
+      // one painting carries it: the piece turns edge-on when `flat` goes to
+      // zero, exactly as the four projected corners did.
+      g.save()
+      g.translate(px, py)
+      g.rotate(a)
+      g.scale(1, flat)
+      painted = drawItem(g, CONFETTI_ART, 14 * k, 0, PARTY[c]!)
+      g.restore()
+      if (painted) continue
       const ca = cos(a) * 7 * k
       const sa = sin(a) * 7 * k
-      const cb = -sin(a) * 3.5 * k * Math.abs(cos(t * 3 + i))
-      const sb = cos(a) * 3.5 * k * Math.abs(cos(t * 3 + i))
+      const cb = -sin(a) * 3.5 * k * flat
+      const sb = cos(a) * 3.5 * k * flat
       g.moveTo(px - ca - cb, py - sa - sb)
       g.lineTo(px + ca - cb, py + sa - sb)
       g.lineTo(px + ca + cb, py + sa + sb)
       g.lineTo(px - ca + cb, py - sa + sb)
       g.closePath()
     }
-    fill(g, PARTY[c]!)
+    if (!painted) fill(g, PARTY[c]!)
   }
   g.globalAlpha = 1
+}
+
+/** A piece of confetti 14 SU long — the size it is at the top of its fall. */
+const CONFETTI_UNIT = 14
+
+/** One rectangle of party paper about its middle, `w` long and half as deep. */
+const confettiShape = (g: G2D, w: number, col: string): void => {
+  g.beginPath()
+  g.rect(-w / 2, -w / 4, w, w / 2)
+  fill(g, col)
+}
+
+/** Confetti as a painted still — one piece of paper. Its fall, its spin and
+ *  its edge-on squash stay the drawing's. */
+export const CONFETTI_ART: ItemSpec = {
+  ...PROP_ART.confetti, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / CONFETTI_UNIT, s / CONFETTI_UNIT)
+    confettiShape(g, CONFETTI_UNIT, accent.base)
+    g.restore()
+  }
 }
 
 /** Firework sparkles popping in the sky: rows of (x, y, radius, colour,
@@ -2134,18 +2254,19 @@ export const bursts = (g: G2D, list: readonly (readonly [number, number, number,
     const rad = r * (1 - (1 - e) * (1 - e))
     const sz = 10 * (1 - e) + 1
     g.beginPath()
+    let lit = false
     for (let i = 0; i < 10; i++) {
       const a = (i * TAU) / 10 + ph
-      tw(g, x + cos(a) * rad, y + sin(a) * rad, sz)
+      lit = twinkleAt(g, x + cos(a) * rad, y + sin(a) * rad, sz, col)
     }
-    if (e < 0.3) tw(g, x, y, 24 * (1 - e / 0.3))
-    fill(g, col)
+    if (e < 0.3) lit = twinkleAt(g, x, y, 24 * (1 - e / 0.3), col)
+    if (!lit) fill(g, col)
     g.beginPath()
     for (let i = 0; i < 10; i++) {
       const a = (i * TAU) / 10 + ph + TAU / 20
-      tw(g, x + cos(a) * rad * 0.6, y + sin(a) * rad * 0.6, sz * 0.6)
+      lit = twinkleAt(g, x + cos(a) * rad * 0.6, y + sin(a) * rad * 0.6, sz * 0.6, '#fffbe0')
     }
-    fill(g, '#fffbe0')
+    if (!lit) fill(g, '#fffbe0')
   }
   g.globalAlpha = 1
 }
@@ -2160,6 +2281,11 @@ export const notes = (g: G2D, x: number, y: number, t: number, alive: number): v
     if (s < 0.05) continue
     const nx = x + i * 70 + sin(k * 6 + i) * 16
     const ny = y - k * 120
+    g.save()
+    g.translate(nx, ny)
+    const painted = drawItem(g, NOTE_ART, 18 * s, 0, i ? F.pink : F.lilac)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.ellipse(nx, ny, 9 * s, 7 * s, -0.4, 0, TAU)
     fill(g, i ? F.pink : F.lilac)
@@ -2250,6 +2376,14 @@ export const festivalBanner = (g: G2D, x: number, y: number, w: number, t: numbe
     const dy0 = ux
     const dx = dx0 * ca - dy0 * sa
     const dy = dx0 * sa + dy0 * ca
+    // The banner's flags are the same little triangle the bunting hangs, so
+    // they wear the same painting — turned to the cord's normal and swung.
+    g.save()
+    g.translate(px, py)
+    g.rotate(Math.atan2(dy, dx) - PI / 2)
+    const flown = flagAt(g, u * 2, u * 2.2, PARTY[i % PARTY.length]!)
+    g.restore()
+    if (flown) continue
     g.beginPath()
     g.moveTo(px - ux * u, py - uy * u)
     g.lineTo(px + ux * u, py + uy * u)
@@ -2275,6 +2409,7 @@ export const festivalBanner = (g: G2D, x: number, y: number, w: number, t: numbe
   g.arc(hx, hy, u * 0.36, 0, TAU)
   fill(g, F.lemon)
   ink(g, lw)
+  if (heartAt(g, hcx, hcy, hs, F.love)) return
   heart(g, hcx, hcy, hs)
   fill(g, F.love)
   ink(g, lw * 1.2)
@@ -2303,13 +2438,55 @@ export const SPRIG: Record<'pink' | 'lemon' | 'sky' | 'lilac' | 'mint', SprigLoo
  * facing `dir`; `awake` 0 = eyes shut … 1 = wide and smiling.
  */
 export const sprig = (g: G2D, x: number, y: number, s: number, awake: number, wave: number, look: SprigLook, dir = 1, t = 0): void => {
-  const w = 1 / s
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
   g.lineJoin = 'round'
   g.lineCap = 'round'
-  // The flag, on its stick, behind the body.
+  // THE FLAG IS NEVER PAINTED and it goes down first, BEHIND the body: it
+  // swings on `wave`, ripples on the clock and is a different colour in each
+  // of the five sectors — all three of `art-roadmap` §4b's reasons at once.
+  // Sprig's own hand, which closes round its stick, is in the painting.
+  sprigFlag(g, 1 / s, wave, look, t)
+  g.restore()
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, SPRIG_ART, SPRIG_UNIT * s, awake > 0.5 ? 1 : 0, look.hat)
+  g.restore()
+  if (painted) return
+  g.save()
+  g.translate(x, y)
+  g.scale(s * dir, s)
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  sprigShape(g, 1 / s, awake, look)
+  g.restore()
+}
+
+/** Hat tip (-46) to the foot of the ball (+20) at scale 1. */
+const SPRIG_UNIT = 66
+
+/**
+ * Sprig asleep and awake (`CREATURE_ART.sprig`) — chapter 1's moss-sprite in
+ * its party hat. The HAT is the tinted region: the five stalls each give it
+ * its own, and nothing else about Sprig changes.
+ */
+export const SPRIG_ART: ItemSpec = {
+  ...CREATURE_ART.sprig, frames: 2, tinted: true,
+  draw: (g, sz, f, accent) => {
+    const k = sz / SPRIG_UNIT
+    g.save()
+    g.scale(k, k)
+    g.lineJoin = 'round'
+    g.lineCap = 'round'
+    sprigShape(g, 1, f, { hat: accent.base, stripe: accent.shade, flag: SPRIG.pink.flag })
+    g.restore()
+  }
+}
+
+/** The flag on its stick, from Sprig's hand at (15, 6). */
+const sprigFlag = (g: G2D, w: number, wave: number, look: SprigLook, t: number): void => {
   const a = 0.35 + wave
   const ux = sin(a)
   const uy = -cos(a)
@@ -2327,6 +2504,10 @@ export const sprig = (g: G2D, x: number, y: number, s: number, awake: number, wa
   g.closePath()
   fill(g, look.flag)
   ink(g, 2.4 * w)
+}
+
+/** Sprig itself, body centre at the origin, facing +x, in its own units. */
+const sprigShape = (g: G2D, w: number, awake: number, look: SprigLook): void => {
   // Leaf ears.
   for (const d of [-1, 1]) {
     g.beginPath()
@@ -2436,7 +2617,6 @@ export const sprig = (g: G2D, x: number, y: number, s: number, awake: number, wa
   g.arc(15, 6, 4.4, 0, TAU)
   fill(g, F.sprig)
   ink(g, 2.4 * w)
-  g.restore()
 }
 
 /**
@@ -2465,6 +2645,27 @@ export const sprigTap = (
       sprig(g, lerp(from[0], to[0], e), lerp(from[1], to[1], e) - hop, s, e, sin(t * 10) * 0.5 * e, look, dir, t)
       g.restore()
     }
-    cover(g)
+    tapCover(g, cover)
   }
 })
+
+/** The note head's width in SU, at the size it pops out of the carousel. */
+const NOTE_UNIT = 18
+
+/** A music note as a painted still — the float, the swell and the fade stay
+ *  the drawing's. */
+export const NOTE_ART: ItemSpec = {
+  ...PROP_ART.note, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / NOTE_UNIT, s / NOTE_UNIT)
+    g.beginPath()
+    g.ellipse(0, 0, 9, 7, -0.4, 0, TAU)
+    fill(g, accent.base)
+    g.moveTo(8, -2)
+    g.lineTo(8, -30)
+    g.quadraticCurveTo(20, -24, 18, -14)
+    ink(g, 2.6)
+    g.restore()
+  }
+}

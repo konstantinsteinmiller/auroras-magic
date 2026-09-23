@@ -70,7 +70,7 @@ const seashellBeach: SectorDef = {
     twinkles(g, [[210, 350], [470, 380], [760, 340], [640, 420]], t, alive)
     gulls(g, 640, 150, t, alive)
   },
-  tap: { x: 1004, y: 370, r: 70, draw: (g, k, t) => peekFoal(g, BEACH_PEEK, k, t, () => beachRock(g)) }
+  tap: { x: 1004, y: 370, r: 70, draw: (g, k, t) => peekFoal(g, BEACH_PEEK, k, t, beachRock) }
 }
 
 /* ── 2-2 · Lighthouse Point ───────────────────────────────────────────── */
@@ -133,7 +133,7 @@ const lighthousePoint: SectorDef = {
     twinkles(g, [[120, 380], [420, 410], [180, 480], [640, 360]], t, alive)
     gulls(g, 600, 170, t, alive, 110)
   },
-  tap: { x: 300, y: 400, r: 70, draw: (g, k, t) => peekFoal(g, POINT_PEEK, k, t, () => pointWave(g)) }
+  tap: { x: 300, y: 400, r: 70, draw: (g, k, t) => peekFoal(g, POINT_PEEK, k, t, pointWave) }
 }
 
 /* ── 2-3 · Coral Cove (the chapter's rescue: the Singing Shell) ───────── */
@@ -205,7 +205,7 @@ const coralCove: SectorDef = {
     twinkles(g, [[420, 350], [700, 330], [560, 400]], t, alive)
     crab(g, 1000, 626, 0.8, t, alive, 34)
   },
-  tap: { x: 372, y: 420, r: 70, draw: (g, k, t) => peekFoal(g, COVE_PEEK, k, t, () => coveCoral(g)) },
+  tap: { x: 372, y: 420, r: 70, draw: (g, k, t) => peekFoal(g, COVE_PEEK, k, t, coveCoral) },
   rescue: { x: SHELL[0], y: SHELL[1] - 44, r: 62, draw: (g, k, t) => singingShell(g, SHELL[0], SHELL[1], 0.9, k, t) }
 }
 
@@ -281,7 +281,7 @@ const harbourJetty: SectorDef = {
     twinkles(g, [[300, 380], [980, 470], [700, 420], [180, 560]], t, alive)
     gulls(g, 560, 160, t, alive, 160)
   },
-  tap: { x: 910, y: 520, r: 72, draw: (g, k, t) => peekFoal(g, HARBOUR_PEEK, k, t, () => harbourRowboat(g)) }
+  tap: { x: 910, y: 520, r: 72, draw: (g, k, t) => peekFoal(g, HARBOUR_PEEK, k, t, harbourRowboat) }
 }
 
 /* ── 2-5 · Pearl's Lagoon — the boss sector (4× area) ─────────────────── */
@@ -378,7 +378,7 @@ const pearlsLagoon: SectorDef = {
     twinkles(g, [[300, 440], [768, 456], [460, 300], [700, 250]], t, alive)
     gulls(g, 360, 120, t, alive, 100)
   },
-  tap: { x: 836, y: 430, r: 64, draw: (g, k, t) => peekFoal(g, LAGOON_PEEK, k, t, () => lagoonStack(g)) }
+  tap: { x: 836, y: 430, r: 64, draw: (g, k, t) => peekFoal(g, LAGOON_PEEK, k, t, lagoonStack) }
 }
 
 export const C2_SECTORS: readonly SectorDef[] = [seashellBeach, lighthousePoint, coralCove, harbourJetty, pearlsLagoon]

@@ -40,7 +40,7 @@
  */
 import { FOES, type FoePalette } from '@/game/duel/foes'
 import { S, rainbow } from '@/game/duel/state'
-import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs } from '@/game/duel/util'
+import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
 
@@ -102,6 +102,19 @@ export interface PoseState {
   face?: Face
   /** Draw a foe-side rig in THIS foe's palette instead of the current duel's. */
   foe?: number
+  /**
+   * This rig is being drawn onto a CHROMA-KEYED reference sheet, so it gets no
+   * ground and no atmosphere: the contact shadow and the foe's dread aura are
+   * both left off.
+   *
+   * Neither is optional decoration on a magenta sheet, it is the pipeline's
+   * hardest-won bullet: a shadow or a halo cast ONTO the magenta is a DARKER
+   * magenta, which is not the key colour and cannot be cut away, so it ships
+   * as a pink smear welded under the character for ever
+   * (`art-generation-pipeline`, the MAGENTA contract; `artSheet.ts`'s MAGENTA
+   * block says the same thing to the painter).
+   */
+  onKey?: boolean
   /** Called inside the head group (after the forelock): head-slot cosmetics. */
   afterHead?: (g: G2D) => void
   /** Back-slot items BEHIND the body (a wing's far layer), in the rig's own
@@ -138,6 +151,9 @@ export interface PoseState {
 const OUT = '#3A2340'
 /** Nominal standing height, hooves -> horn tip, in stage units. */
 const HT = 197
+/** The same number, for callers that place a rig in a space of their own
+ *  (`brand.ts`'s mascot pair) and need one unit to mean "a unicorn tall". */
+export const RIG_HEIGHT = HT
 /** Torso masses as [cx, cy, rx, ry] quads: haunch, barrel, chest. */
 const TQ = [-23, 6, 18, 21, -2, 0, 29, 27, 19, 3, 14.5, 18]
 
@@ -225,8 +241,8 @@ const ANC: RigAnchors = {
 let XA = 0
 let YA = 0
 let SXA = 1
-let LA = 0
 let HA = 0
+let SLA = 0
 let RA = 0
 
 /**
@@ -245,14 +261,7 @@ const toStage = (px: number, py: number, rf: boolean, out: [number, number]): vo
     py = s * ux + c * uy - 6
   }
   py += HA // the victory hop / rear lift
-  if (LA) {
-    // collapsed: translate(-45L, -16L) · rotate(1.15L)
-    const c = cos(1.15 * LA)
-    const s = sin(1.15 * LA)
-    const ux = px
-    px = c * ux - s * py - 45 * LA
-    py = s * ux + c * py - 16 * LA
-  }
+  px += SLA // the forward slide of a collapse
   out[0] = XA + SXA * px
   out[1] = YA + py
 }
@@ -348,21 +357,76 @@ const FORE = [1.73, 1.62, 1.57, 1.01, 17, 22, 17.5, 7, -1, -0.5, 0.85, 1.3, 9.5,
 const HIND = [1, 2.38, 1.57, 1.14, 24, 21, 20, 7, -0.5, -1.4, 1.9, 0.5, 11.8, 11.4, 7.4, 6.2, 5]
 
 /**
+ * A lost duel lays the unicorn down FLAT ON ITS BELLY — forelegs stretched out
+ * in front, hind legs FOLDED AT THE HOCK the way a resting horse folds them
+ * (thigh and gaskin back, cannon tucked forward again under them, hoof under
+ * the belly), chin on the forelegs. These are the absolute joint angles each
+ * leg comes to REST at [upper, middle, cannon, pastern], near leg then far;
+ * the far pair is bent a little differently so the two do not print as one
+ * thick limb. Every centreline sits a leg's own half-width above the ground,
+ * so the legs lie ON the island rather than sunk into it.
+ *
+ * The fold is not only anatomy: the ISLAND is 600 wide (`arena.ts`'s rim) with
+ * the duelists 480 apart, so a hind leg stretched straight out behind hangs
+ * its hoof over the edge into open sky. Folded, plus `LIE_SLIDE`, the whole
+ * lying silhouette stays on the grass.
+ */
+const FORE_LIE = [0.45, -0.25, 0.3, 1.1]
+const FORE_LIE_FAR = [0.55, -0.3, 0.25, 1.1]
+const HIND_LIE = [2.8, 3, -0.3, 1.4]
+const HIND_LIE_FAR = [2.68, 2.92, -0.45, 1.5]
+/** The lying barrel's centre, and how far forward the head comes to rest. */
+const LIE_BY = -26
+const LIE_HX = 62
+/** A fall carries forward: the body ends this far ahead of where it stood. */
+const LIE_SLIDE = 30
+
+/** One joint's absolute angle: the standing rig's, curled by `c`, blended `k` of the way to the lying set. */
+const joint = (P: readonly number[], c: number, L: readonly number[] | undefined, k: number, i: number): number => {
+  const a = P[i]! + c * P[i + 8]!
+  return L ? a + (L[i]! - a) * k : a
+}
+
+/**
+ * Where a leg's hoof actually goes: the asked-for target while standing, and
+ * the end of the UNAIMED chain once lying — a leg on the ground rests at the
+ * angles it was given instead of being swung onto a point. `out` may alias
+ * nothing the caller still needs.
+ */
+const legEnd = (hx: number, hy: number, fx: number, fy: number, c: number, P: readonly number[], L: readonly number[] | undefined, k: number, out: [number, number]): void => {
+  let x = 0
+  let y = 0
+  for (let i = 0; i < 4; i++) {
+    const a = joint(P, c, L, k, i)
+    x += cos(a) * P[i + 4]!
+    y += sin(a) * P[i + 4]!
+  }
+  out[0] = fx + (hx + x - fx) * k
+  out[1] = fy + (hy + y - fy) * k
+}
+const TGT: [number, number] = [0, 0]
+
+/**
  * ONE leg, built by FORWARD KINEMATICS from the joint angles above rather than
  * by an IK solve, because the joints bend in FIXED, OPPOSITE directions — a
  * solver would happily flip them. `c` curls the whole chain. The finished chain
  * is then aimed RIGIDLY so the hoof lands on (fx,fy): relative joint angles are
  * untouched, so the anatomy holds and the hind hooves stay nailed down while
  * the body rears back over them.
+ *
+ * `L` / `k`: the lying pose above, and how far into it (`legEnd`).
  */
-const limb = (hx: number, hy: number, fx: number, fy: number, c: number, P: readonly number[], col: string): void => {
+const limb = (hx: number, hy: number, fx: number, fy: number, c: number, P: readonly number[], col: string, L?: readonly number[], k = 0): void => {
   let Q = [0, 0]
   let x = 0
   let y = 0
   for (let i = 0; i < 4; i++) {
-    const a = P[i]! + c * P[i + 8]!
+    const a = joint(P, c, L, k, i)
     Q.push((x += cos(a) * P[i + 4]!), (y += sin(a) * P[i + 4]!))
   }
+  legEnd(hx, hy, fx, fy, c, P, L, k, TGT)
+  fx = TGT[0]
+  fy = TGT[1]
   // stretch the CHAIN, not the context: ink weights stay in stage units
   const s = clamp(hypot(fx - hx, fy - hy) / (hypot(x, y) || 1), 0.6, 1.3)
   Q = Q.map((v) => v * s)
@@ -374,7 +438,7 @@ const limb = (hx: number, hy: number, fx: number, fy: number, c: number, P: read
   // hoof is the one part that answers to the floor rather than the bone.
   const rc = cos(rt)
   const rs = sin(rt)
-  const pa = P[3]! + c * P[11]! // pastern direction: aims the feather and the hoof
+  const pa = joint(P, c, L, k, 3) // pastern direction: aims the feather and the hoof
   const px = cos(pa)
   const py = sin(pa)
   const w = P[16]! // the tip half-width: one number sizes the whole foot
@@ -384,13 +448,20 @@ const limb = (hx: number, hy: number, fx: number, fy: number, c: number, P: read
   meat(Q, P.slice(12), col) // the entire leg as ONE tapered run, no seams
   // The hoof: a WALL that leans with the pastern onto a SOLE that lies FLAT ON
   // THE GROUND — the coronet rides up the bone while both rims run along the
-  // floor, which is also what makes the wall slope forward to the toe.
+  // floor, which is also what makes the wall slope forward to the toe. A leg
+  // lying on the ground has no floor under its hoof, so the sole turns with
+  // the bone instead: (dx, dy) is "toward the sole", (dy, -dx) along the rims.
+  let dx = rs + (px - rs) * k
+  let dy = rc + (py - rc) * k
+  const dl = hypot(dx, dy) || 1
+  dx /= dl
+  dy /= dl
   const ax = Q[8]! - px * 2
   const ay = Q[9]! - py * 2
-  const bx = Q[8]! + rs * 6
-  const cy = Q[9]! + rc * 6
+  const bx = Q[8]! + dx * 6
+  const cy = Q[9]! + dy * 6
   const v = w * 1.7
-  poly([ax - rc * w, ay + rs * w, ax + rc * w, ay - rs * w, bx + rc * v, cy - rs * v, bx - rc * v, cy + rs * v], true)
+  poly([ax - dy * w, ay + dx * w, ax + dy * w, ay - dx * w, bx + dy * v, cy - dx * v, bx - dy * v, cy + dx * v], true)
   ink(0, 6)
   ink(HF)
   g.restore()
@@ -462,11 +533,17 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const lose = clamp(st.lose || 0, 0, 1)
   // A win is a full rear; a collapse cancels both.
   const rear = clamp((st.cast || 0) + win, 0, 1) * (1 - lose)
+  // A lost duel lays the unicorn down (`FORE_LIE`): the legs slide out from
+  // under it, the body DROPS — accelerating, the way a faint does — lands on
+  // its belly and gives one small bounce, and the head comes down a beat
+  // behind and stays down. Nothing tips over; the rig stays upright.
+  const lie = ease(min(1, lose * 1.8))
+  const drop = lose < 0.55 ? (lose / 0.55) ** 2 : 1 - 0.07 * sin((PI * (lose - 0.55)) / 0.45)
+  const nod = ease(clamp((lose - 0.3) / 0.7, 0, 1))
   const form = clamp(st.form || 0, 0, 1)
   const hit = clamp((st.hurt || 0) * 4, 0, 1)
   const hpv = st.hp ?? 1
-  const sag = (1 - clamp(hpv >= 0 ? hpv : 1, 0, 1)) * (1 - rear) // posture drops with HP
-  const fold = lose * 30 // limbs curl up under the body when collapsed
+  const sag = (1 - clamp(hpv >= 0 ? hpv : 1, 0, 1)) * (1 - rear) * (1 - drop) // posture drops with HP
   const D = side > 0 ? 1 : 0 // 1 = the foe
 
   // Every foe is this same rig in her own palette (§9.14: recolour, zero new
@@ -498,36 +575,35 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const K = 1 + D * 0.07 // the foe is a touch stockier...
   const HK = 1.18 + D * 0.06 // ...with a bigger head on a shorter neck
   const br = sin(t * 2.1 + side) * (1 - rear * 0.7) // breathing
-  const by = -76 + br * 1.5 + sag * 8 // barrel centre
+  const by0 = -76 + br * 1.5 + sag * 8
+  const by = by0 + (LIE_BY + br - by0) * drop // barrel centre
   // blink + ear flick: short twitches on slow cycles, out of phase per side
   const ph = side * 0.25 + 0.5
   const bl = twitch(t, 0.21, ph, 40)
   const fk = twitch(t, 0.33, ph, 26) * sin(t * 30) * 0.4
-  AM = 0.26 + rear * 0.38 + hit * 0.5 // shared mane/tail wave amplitude
+  AM = (0.26 + rear * 0.38 + hit * 0.5) * (1 - lie * 0.6) // shared mane/tail wave amplitude; hair on the ground lies still
 
   g.save()
   g.translate(x + hit * 9 * side, y - 6) // recoil away from the caster
   g.scale(-side, 1) // authored facing +x; the foe is the mirror
+  g.translate(LIE_SLIDE * drop, 0) // a collapse carries forward, shadow and all
   g.lineJoin = g.lineCap = 'round'
   g.strokeStyle = OUT
 
-  // Contact shadow — grounds the character instead of letting it float.
-  g.globalAlpha = 0.25
-  g.fillStyle = OUT
-  el(0, 3, 42 + lose * 22, 8)
-  g.fill()
-  g.globalAlpha = 1
-
-  // collapsed on its side — the whole rig tips over and the neck folds so the
-  // head comes to rest on the ground
-  if (lose) {
-    g.translate(-45 * lose, -16 * lose)
-    g.rotate(1.15 * lose)
+  // Contact shadow — grounds the character instead of letting it float. Off
+  // on a keyed sheet, where it cannot be cut away again (`onKey`).
+  if (!st.onKey) {
+    g.globalAlpha = 0.25
+    g.fillStyle = OUT
+    el(0, 3, 42 + lie * 44, 8 + drop * 2)
+    g.fill()
+    g.globalAlpha = 1
   }
+
   g.translate(0, -rear * 4 - win * abs(sin(t * 3.4)) * 5) // victory hop
 
   // The foe's dread aura: stacked low-alpha ellipses, no shadowBlur needed.
-  if (D && S.q && !F) {
+  if (D && S.q && !F && !st.onKey) {
     g.globalAlpha = 0.07
     g.fillStyle = GL
     el(-2, by - 6, 54, 52)
@@ -544,7 +620,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
 
   // far hind leg — drawn in the standing frame, the hooves stay planted.
   // Far limbs take the shadow tone whole, so they read as behind the body.
-  limb(hipx, hipy, -35 + fold, -fold, lose, HIND, SH)
+  limb(hipx, hipy, -35, 0, 0, HIND, SH, HIND_LIE_FAR, lie)
 
   g.save()
   g.translate(-22, -6)
@@ -555,17 +631,22 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const pad = sin(t * 3) * 3 * rear // paddling while reared up
   const rr = rear * rear // eased lift: the hooves stay planted through the wind-up
   // curl: a rear folds the knee right up, a win throws the same leg out again
-  const tk = rr * (win ? 0.75 : 1.15) + lose
-  const fl = (lx: number, a: number, b: number, s: number, col: string): void =>
-    limb(lx, by + 14, lx + a * rear - fold * 0.5, -b * rr - fold + s * pad, tk, FORE, col)
-  fl(18, win ? 36 : 15, win ? 30 : 22, -1, SH)
+  const tk = rr * (win ? 0.75 : 1.15)
+  const fl = (lx: number, a: number, b: number, s: number, col: string, L: readonly number[]): void =>
+    limb(lx, by + 14, lx + a * rear, -b * rr + s * pad, tk, FORE, col, L, lie)
+  fl(18, win ? 36 : 15, win ? 30 : 22, -1, SH, FORE_LIE_FAR)
 
   /* ---- tail: a layered hair mass that hangs and trails --------------- */
-  hair(-26, by - 4, 2.4 + 0.4 * rear, 56, 30, 1.7, -0.7, 3)
+  hair(-26, by - 4, 2.4 + 0.4 * rear + 0.3 * lie, 56, 30, 1.7, -0.7, 3)
 
   /* ---- torso + neck: ONE silhouette, then the shaded fills ----------- */
-  const hx = 22 + sag * 3 - lose * 14 // the neck folds as it goes down
-  const hy = by - 42 + D * 7 + sag * 9 - rear * 3 + fold
+  // Lying, the neck stretches forward and the head settles with its chin on
+  // the forelegs — the skull's underside (23 below its centre) just above
+  // them, so the near leg crosses the jaw and never the face.
+  const hx0 = 22 + sag * 3
+  const hy0 = by - 42 + D * 7 + sag * 9 - rear * 3
+  const hx = hx0 + (LIE_HX - hx0) * nod
+  const hy = hy0 + (-8 - 23 * HK - hy0) * nod
   const nk = [11, by - 6, hx - 4, hy + 14]
   const hooked = st.beforeTorso || st.afterTorso || st.afterMane || st.afterRig
   let anc: RigAnchors | null = null
@@ -592,12 +673,15 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       XA = x + hit * 9 * side
       YA = y - 6
       SXA = -side
-      LA = lose
       HA = -rear * 4 - win * abs(sin(t * 3.4)) * 5
+      SLA = LIE_SLIDE * drop
       RA = R
-      // The near foreleg's target, exactly as `fl(25, …)` below aims it.
-      toStage(25 + (win ? 37 : 9) * rear - fold * 0.5, -(win ? 36 : 17) * rr - fold + pad + 4, true, anc.hoofFront)
-      toStage(-27 + fold, -fold + 4, false, anc.hoofHind)
+      // The near legs' hooves, exactly as `fl(25, …)` and the near hind
+      // `limb` below place them; the sole sits ~4 under the chain's end.
+      legEnd(25, by + 14, 25 + (win ? 37 : 9) * rear, -(win ? 36 : 17) * rr + pad, tk, FORE, FORE_LIE, lie, anc.hoofFront)
+      toStage(anc.hoofFront[0], anc.hoofFront[1] + 4, true, anc.hoofFront)
+      legEnd(hipx + 4, hipy, -27, 0, 0, HIND, HIND_LIE, lie, anc.hoofHind)
+      toStage(anc.hoofHind[0], anc.hoofHind[1] + 4, false, anc.hoofHind)
       toStage(-26, by - 4, true, anc.tailStage)
       toStage(-2 * K, by, true, anc.bodyStage)
       toStage(hx, hy, true, anc.headStage)
@@ -635,7 +719,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   }
 
   // mane down the back of the neck, rooted at the poll, behind the head
-  hair(hx - 21, hy - 4, 2.6 - 0.25 * rear, 46, 27, 2.1, -0.5, 3)
+  hair(hx - 21, hy - 4, 2.6 - 0.25 * rear + 0.7 * nod, 46, 27, 2.1, -0.5, 3) // lying, it falls back along the neck
   if (anc && st.afterMane) {
     g.save()
     st.afterMane(g, anc)
@@ -646,17 +730,17 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   g.translate(hx, hy)
   // The body rears by -0.58, so the head counter-rotates: in world space it
   // still ends up tilted up ~0.3 rad, with the horn aimed up-and-forward.
-  g.rotate(0.28 * rear + sag * 0.3 - lose * 0.5 + br * 0.02)
+  g.rotate(0.28 * rear + sag * 0.3 + nod * 0.12 + br * 0.02)
   g.scale(HK, HK)
 
-  ear(-14, -13, -0.7, 0.85, SH) // far ear
+  ear(-14, -13, -0.7 - nod * 0.3, 0.85, SH) // far ear; both droop back when down
   el(20, 10, 12.5, 10.5) // skull + muzzle inked as one mass, then filled
   ink(0, 11)
   el(0, 0, 25, 23)
   ink(0, 11)
   blob(20, 10, 12.5, 10.5)
   blob(0, 0, 25, 23)
-  ear(0, -19, -0.2 + fk, 1.15, CO) // near ear — flicks
+  ear(0, -19, -0.2 + fk * (1 - nod) - nod * 0.45, 1.15, CO) // near ear — flicks
 
   el(27, 6, 1.7, 2.3) // nostril
   ink(OUT)
@@ -775,11 +859,33 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   g.restore() // head
 
   // near foreleg, in front of the barrel
-  fl(25, win ? 37 : 9, win ? 36 : 17, 1, CO)
+  fl(25, win ? 37 : 9, win ? 36 : 17, 1, CO, FORE_LIE)
+
+  // Knocked out: three little stars circling over the head once it is down.
+  // A ring seen edge-on — the ones swinging toward the viewer are bigger.
+  const dz = st.face ? 0 : clamp((lose - 0.7) / 0.3, 0, 1)
+  if (dz) {
+    g.globalAlpha = dz
+    for (let i = 0; i < 3; i++) {
+      const a = t * 3.1 + (i * TAU) / 3
+      const r = (5.6 + 1.6 * sin(a)) * HK
+      const sx = hx + 4 + cos(a) * 27 * HK
+      const sy = hy - 42 * HK + sin(a) * 7 * HK
+      g.beginPath()
+      for (let j = 0; j < 10; j++) {
+        const b = t * 2 + (j * PI) / 5
+        const q = j & 1 ? r * 0.45 : r
+        g.lineTo(sx + cos(b) * q, sy + sin(b) * q)
+      }
+      g.closePath()
+      ink('#ffd84a', 1.8)
+    }
+    g.globalAlpha = 1
+  }
   g.restore() // rearing frame
 
   // near hind leg, in front of the barrel
-  limb(hipx + 4, hipy, -27 + fold, -fold, lose, HIND, CO)
+  limb(hipx + 4, hipy, -27, 0, 0, HIND, CO, HIND_LIE, lie)
   g.restore()
 
   // §9.7's `afterRig`: the caller's transform is back, the anchors are in it.

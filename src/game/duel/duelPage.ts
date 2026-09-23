@@ -33,7 +33,7 @@ import { S } from '@/game/duel/state'
 import { SW, SH } from '@/game/duel/config'
 import { sectorOf } from '@/game/map/sectors'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
-import { artSettled, onArtChanged } from '@/game/art'
+import { artSettled, forgetArt, onArtChanged } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
 import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import {
@@ -180,16 +180,29 @@ export const beginDuelPage = (n: number): void => {
  * and without this the whole duel is fought on the drawn page while the
  * painting sits decoded and unused. Only this node's painting matters; a
  * flag flip or a refresh passes null and re-bakes too.
+ *
+ * A PROP painting counts as well: `bakeDust` draws the sector's props at rest
+ * into the dust layer, so a butterfly or a mill sail landing mid-duel leaves
+ * its vector baked under the dust until something re-bakes.
  */
 onArtChanged((c) => {
   if (node < 0) return
-  if (c && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
+  const mine = !c || c.kind === 'prop' || (c.kind === 'sector' && c.id === sectorArtId(node))
+  if (!mine) return
   if (bakeLayers()) dirty = true
 })
 
 /** Drop the page's surfaces — the duel is over. The stash a won duel left
  *  for the wipe is not a surface, and stays. */
 export const resetDuelPage = (): void => {
+  // …and the full-size PAINTING with them. The duel asks for it at `'high'`
+  // (1152 × 672, ~3 MB decoded) and `wipe.ts` was the only place that ever
+  // handed one back, so every duel that did not lead straight into a wipe — a
+  // loss, an abandon, a practice replay — left one decoded for the rest of the
+  // session. Every exit from here goes to the MAP, which draws the 384 × 224
+  // thumb under a different key, so nothing on the other side wants it; the
+  // wipe re-fetches from the HTTP cache, which is what `forgetArt` is for.
+  if (node >= 0) forgetArt('sector', sectorArtId(node))
   node = -1
   colour = dust = mask = null
   shown = null

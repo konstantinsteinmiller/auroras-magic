@@ -1,6 +1,12 @@
-// 1. Tell the browser we are dark-mode native
+// 1. Tell the browser we are a LIGHT page, and mean it.
+//
+// `only light` is what opts a cream UI out of Chrome-Android's Auto Dark
+// Theme. Leaving the old `dark only` here would tell the browser the page is
+// already dark and let it paint form controls, scrollbars and the range input
+// in a dark scheme against cream paper — invisible on desktop, wrong on the
+// phone most players are on. See ui-design-system.md §3.17 / §10.1.
 :root
-  color-scheme: dark only
+  color-scheme: only light
   forced-color-adjust: none !important
 
   *
@@ -45,44 +51,30 @@
 
 // Use a unique class name the extension won't have a pre-made rule for
 html[native-dark-active] .game-ui-immune
-  --native-dark-bg-color: rgba(30, 41, 59, 0.5) !important
+  --native-dark-bg-color: transparent !important
   --native-dark-border-color: inherit !important
   --native-dark-box-shadow: inherit !important
 
-  // Re-assert border colors
-  &.border-yellow-500, .border-yellow-500
-    border-color: #eab308 !important
-  // Hardcoded yellow-500
-  &.border-green-600, .border-green-600
-    border-color: #0aac1a !important
-  // Hardcoded yellow-500
+// ─── Ink treatments (ui-design-system.md §4.3) ──────────────────────────────
+//
+// The old definitions were the black five-way ring — `3px 3px 0 #000` plus
+// four 1 px offsets — which is the single loudest esports tell in the build.
+// There are exactly three legal treatments now and these classes are two of
+// them; the third is `.ink-text`'s plum `-webkit-text-stroke` in duel.sass.
+//
+// No call site uses these today (every component wrote the ring inline in its
+// own scoped Sass). They are kept, and correct, so that the next person who
+// reaches for a text shadow finds the right one instead of re-authoring the
+// black ring from memory. Text on paper gets NO shadow at all.
 
-  // Re-assert specific background transparencies
-  &.bg-slate-800\/50, .bg-slate-800\/50
-    background-color: rgba(30, 41, 59, 0.5) !important
-    background-blend-mode: normal !important
+// On a pastel accent face: one soft white lift. It reads as paper catching the
+// light, costs one shadow, and never darkens the glyph.
+.text-shadow, .game-text
+  text-shadow: var(--am-lift-on-accent)
 
-  // Re-assert shadows
-  &.shadow-2xl, .shadow-2xl
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important
-
-  // Re-assert Pulse animations (Yellow)
-  .animate-pulse, &.animate-pulse
-    //background-color: #ffcd00 !important
-    opacity: 1 !important
-
-.custom-red-bg
-  background-color: #ff3e3e !important
-
-.text-shadow
-  text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000
-
+// On a light face that needs the faintest seat rather than a lift.
 .text-shadow-light
-  text-shadow: 3px 3px 0 #555, -1px -1px 0 #555, 1px -1px 0 #555, -1px 1px 0 #555, 1px 1px 0 #555
-
-
-.game-text
-  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000
+  text-shadow: 0 1px 0 rgba(58, 35, 64, 0.22)
 
 .attention-bounce
   animation: attention-bounce 1.4s infinite ease-in-out

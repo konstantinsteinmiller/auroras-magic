@@ -19,7 +19,7 @@
  * shrub, a little igloo or an ice hedge and shaking off a puff of frost.
  */
 import type { SectorDef, SectorAccent, TapCreature } from '@/game/map/sectorDef'
-import { TUNDRA_POTS, INK, ink, fill, smoke, type G2D } from '@/game/map/kit'
+import { TUNDRA_POTS, INK, ink, fill, smoke, twinkleAt, type G2D } from '@/game/map/kit'
 import { pennant } from '@/game/map/kitSky'
 import {
   T, AUR, PINK_T, LILAC_T, SNOW_POT, HARE, type Ribbon, type Glow, type HareLook, type HareSpot, type SnowmanLook,
@@ -40,7 +40,7 @@ const hareTap = (spot: HareSpot, look: HareLook, cover: (g: G2D) => void, ty: nu
   x: spot.x + (spot.lean ?? 0) * 0.6,
   y: ty,
   r,
-  draw: (g, k, t) => peekHare(g, spot, k, t, look, () => cover(g))
+  draw: (g, k, t) => peekHare(g, spot, k, t, look, cover)
 })
 
 /** Three ribbon colours. */
@@ -201,9 +201,8 @@ const frozenLakeSector: SectorDef = {
     g.stroke()
     const [sx, sy] = skate(u)
     g.beginPath()
-    twinkle(g, sx, sy - 4, 14)
     g.globalAlpha = alive
-    fill(g, '#fffbe0')
+    if (!twinkleAt(g, sx, sy - 4, 14, '#fffbe0')) fill(g, '#fffbe0')
     g.globalAlpha = 1
     snowfall(g, 0, 0, 1152, 600, 16, t, alive)
     winks(g, [[400, 40, 10], [700, 190, 9], [980, 30, 11], [300, 200, 8]], t, alive)
@@ -523,8 +522,7 @@ const glacesPalace: SectorDef = {
     const u = k % 1
     g.globalAlpha = alive * sin(u * PI)
     g.beginPath()
-    twinkle(g, fx, fy + 120 * (1 - u), 16)
-    fill(g, '#ffffff')
+    if (!twinkleAt(g, fx, fy + 120 * (1 - u), 16, '#ffffff')) fill(g, '#ffffff')
     g.globalAlpha = 1
     snowfall(g, 0, 0, 1152, 560, 18, t, alive)
     winks(g, [[200, 60, 11], [930, 40, 10], [320, 260, 9], [840, 280, 9], [120, 190, 8], [1020, 220, 8]], t, alive)

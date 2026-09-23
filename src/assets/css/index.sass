@@ -1,3 +1,8 @@
+// `theme` FIRST: it is the token file every other sheet reads. Sass does not
+// care about order for custom properties (they resolve at runtime), but if a
+// token is ever converted to a Sass variable the order becomes load-bearing,
+// so it is correct from the start — see ui-design-system.md §8.2.
+@use './theme'
 @use './fonts'
 @use './components'
 @use './duel'
@@ -14,23 +19,13 @@ html, body
   /* Extra insurance against the layout moving */
   width: 100%
   height: 100%
-  /* The duel's letterbox colour, so the iOS PWA safe-area / home-indicator gap
-     blends with the bars instead of rendering as a different strip. */
-  background-color: #07060f
+  /* The cloth the book lies on, so the iOS PWA safe-area / home-indicator gap
+     blends with the surround instead of rendering as a different strip.
+     A LITERAL, not var(--am-surround): this rule paints on the very first
+     frame and a custom property that has not resolved yet falls back to
+     `initial` — i.e. transparent — which shows the browser's own white. */
+  background-color: #9E7CBE
 
 #app
   height: 100%
   width: 100%
-
-
-// 4. Fixed Pulse for Dark Mode Extensions
-.pulse-yellow-fixed
-  animation: yellow-pulse-protected 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important
-
-@keyframes yellow-pulse-protected
-  0%, 100%
-    background-color: #ffcd00 !important
-    opacity: 1
-  50%
-    background-color: #f7a000 !important
-    opacity: 0.7

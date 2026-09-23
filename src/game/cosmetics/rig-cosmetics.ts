@@ -28,6 +28,13 @@ import { TAU, PI, sin, cos, min, clamp, ease } from '@/game/duel/util'
 import type { PoseState, RigAnchors } from '@/game/duel/chars'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { ITEM_ART } from '@/game/artIds'
+// The second shelf (§2.4 rule 20): the alternatives, in a module of their
+// own. One import and six spreads down in the registry is the whole wiring —
+// and the dependency runs ONE WAY, because a cycle between two modules of
+// top-level `const` records is a TDZ crash at import time.
+import {
+  HEAD_DRAW_X, NECK_DRAW_X, BACK_DRAW_X, COMPANION_DRAW_X, TRAIL_DRAW_X, SKIN_PAL_X
+} from '@/game/cosmetics/rig-accessories'
 
 type G2D = CanvasRenderingContext2D
 
@@ -221,19 +228,32 @@ const wing = (g: G2D, x: number, y: number, s: number, flap: number, fill: strin
   g.restore()
 }
 
-/** The wings' gentle flap: a slow breath at rest, a real flap on a hop. */
-const flapOf = (a: RigAnchors): number => 0.5 + 0.5 * sin(a.t * (2.2 + a.lift * 5)) * (0.25 + 0.75 * a.lift)
+/** The wings' gentle flap: a slow breath at rest, a real flap on a hop — and
+ *  nothing at all once she is down, when they fold back along her (`fold`). */
+const flapOf = (a: RigAnchors): number =>
+  (0.5 + 0.5 * sin(a.t * (2.2 + a.lift * 5)) * (0.25 + 0.75 * a.lift)) * (1 - a.lose)
+
+/** Sweep a wing back and tuck it in as the rig goes down. */
+const fold = (g: G2D, x: number, y: number, lose: number): void => {
+  if (!lose) return
+  g.translate(x, y)
+  g.rotate(lose * 0.6)
+  g.scale(1 - lose * 0.14, 1 - lose * 0.14)
+  g.translate(-x, -y)
+}
 
 /** The Fluffy Pegasus Wings (ch3 keepsake), far layer: behind the body. The
  *  wings root a little behind the withers, on the back, pegasus-sized. */
 export const drawWingsFar = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
+  fold(g, x - 8, y - 2, a.lose)
   wing(g, x - 8, y - 2, 1.4, flapOf(a) * 0.9, '#e2d6fa', '#c7a6ff')
 }
 
 /** …and the near layer, over the body AND the mane (drawn at `afterMane`). */
 export const drawWingsNear = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
+  fold(g, x - 16, y + 6, a.lose)
   wing(g, x - 16, y + 6, 1.5, flapOf(a), '#fff6fb', '#ffb3d2')
 }
 
@@ -810,18 +830,32 @@ export const MANE_SWATCHES: readonly ManeSwatch[] = [
 /* ------------------------------ the registry -------------------------- */
 
 const HEAD_DRAW: Readonly<Record<string, (g: G2D) => void>> = {
-  flowerCrown: drawFlowerCrown
+  flowerCrown: drawFlowerCrown,
+  ...HEAD_DRAW_X
 }
 const NECK_DRAW: Readonly<Record<string, (g: G2D, a: RigAnchors) => void>> = {
   seashellNecklace: drawSeashellNecklace,
-  winterScarf: drawWinterScarf
+  winterScarf: drawWinterScarf,
+  ...NECK_DRAW_X
 }
 const BACK_DRAW: Readonly<Record<string, readonly [(g: G2D, a: RigAnchors) => void, (g: G2D, a: RigAnchors) => void]>> = {
-  pegasusWings: [drawWingsFar, drawWingsNear]
+  pegasusWings: [drawWingsFar, drawWingsNear],
+  ...BACK_DRAW_X
+}
+/** The companion and the trail used to be two `slug === '…'` comparisons in
+ *  `composeHooks`, which is a registry with room for exactly one item. */
+const COMPANION_DRAW: Readonly<Record<string, (g: G2D, a: RigAnchors) => void>> = {
+  petStar: drawPetStar,
+  ...COMPANION_DRAW_X
+}
+const TRAIL_DRAW: Readonly<Record<string, (g: G2D, a: RigAnchors) => void>> = {
+  hoofTrailVfx: drawHoofTrail,
+  ...TRAIL_DRAW_X
 }
 const SKIN_PAL: Readonly<Record<string, FoePalette>> = {
   umbraSkin: UMBRA_LOOK,
-  pastelTheme: PASTEL_DREAM
+  pastelTheme: PASTEL_DREAM,
+  ...SKIN_PAL_X
 }
 
 /** The equipped item's index in a slot, or -1. */
@@ -874,8 +908,10 @@ const composeHooks = (): Hooks => {
   const wings = back ? BACK_DRAW[back] : undefined
   const necklace = neck ? NECK_DRAW[neck] : undefined
   const near = wings?.[1]
-  const trail = slugIn('trail') === 'hoofTrailVfx'
-  const star = slugIn('companion') === 'petStar'
+  const trailSlug = slugIn('trail')
+  const companionSlug = slugIn('companion')
+  const trail = trailSlug ? TRAIL_DRAW[trailSlug] : undefined
+  const star = companionSlug ? COMPANION_DRAW[companionSlug] : undefined
   const dream = skin === 'pastelTheme'
   const mane = maneWorn()
   return {
@@ -900,10 +936,14 @@ const composeHooks = (): Hooks => {
           }
           if (trail) {
             g.save()
-            drawHoofTrail(g, a)
+            trail(g, a)
             g.restore()
           }
-          if (star) drawPetStar(g, a)
+          if (star) {
+            g.save()
+            star(g, a)
+            g.restore()
+          }
         }
       : undefined,
     skin: skin ? SKIN_PAL[skin] : undefined,

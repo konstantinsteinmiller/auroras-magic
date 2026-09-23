@@ -113,9 +113,9 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
     margin: 0
     padding: 10px 24px
     border-radius: 20px
-    background: #fffaf0
-    box-shadow: 0 0 0 4px #3A2340
-    color: #3A2340
+    background: var(--am-paper)
+    box-shadow: 0 0 0 4px var(--am-ink)
+    color: var(--am-ink)
     font-size: clamp(22px, 3.2vw, 36px)
     // A line, not a lane: "Қандай керемет жекпе-жек!" is twice "What a duel!"
     // and a nowrap banner with no width simply leaves the screen.
@@ -127,8 +127,8 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
     width: 72px
     height: 72px
     transform: translate(-50%, -50%)
-    color: #ffd76a
-    filter: drop-shadow(0 3px 0 #3A2340)
+    color: var(--am-gold)
+    filter: drop-shadow(0 3px 0 var(--am-ink))
     animation: rank-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both 0.2s
     &.left
       left: 31%
@@ -154,7 +154,7 @@ const thanks = computed(() => (duelBeat.phase === 'thanks' ? thanksLines(duelBea
   display: flex
   align-items: center
   justify-content: center
-  background: rgba(24, 14, 40, 0.6)
+  background: var(--am-scrim-soft)
   pointer-events: auto
 
 // Under the VICTORY callout: lifetime duels won, placed on the board.

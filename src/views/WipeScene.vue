@@ -53,10 +53,10 @@ const chipStyle = computed(() => {
       :aria-valuenow="pct"
     )
       svg(viewBox="0 0 72 72" aria-hidden="true")
-        circle(cx="36" cy="36" :r="R" fill="rgba(24,17,48,0.72)" stroke="#3A2340" stroke-width="3")
+        circle.disc(cx="36" cy="36" :r="R" fill-opacity="0.72" stroke-width="3")
         circle.track(cx="36" cy="36" :r="R" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6")
         circle.fill(
-          cx="36" cy="36" :r="R" fill="none" stroke="#ffd76a" stroke-width="6" stroke-linecap="round"
+          cx="36" cy="36" :r="R" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"
           :stroke-dasharray="`${C * ring} ${C}`" transform="rotate(-90 36 36)"
         )
         //- The Sunbeam, small: a sun with eight rays on a golden wand.
@@ -105,14 +105,14 @@ button
   justify-content: center
   padding: 0
   margin: 0
-  color: #fff
+  color: var(--am-ink)
   cursor: pointer
   -webkit-tap-highlight-color: transparent
   transition: transform 0.08s ease-out
   &:active
     transform: scale(0.95)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .back-btn
@@ -125,15 +125,18 @@ button
 .glyph
   width: 30px
   height: 30px
-  filter: drop-shadow(2px 2px 0 var(--duel-ink))
 
 .tool-chip
   position: absolute
   width: 72px
   height: 72px
+  color: var(--am-gold)
   svg
     width: 100%
     height: 100%
+  .disc
+    fill: var(--am-night)
+    stroke: var(--am-ink)
   .fill
     transition: stroke-dasharray 0.25s linear
   &.ready
@@ -143,8 +146,8 @@ button
   width: 72px
   height: 72px
   border-radius: 50%
-  background: var(--duel-plate-live)
-  box-shadow: 0 0 0 4px var(--duel-gold)
+  background: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
+  box-shadow: 0 0 0 4px var(--am-ink)
   animation: continue-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both, chip-glow 1.4s ease-in-out 0.4s infinite
   .glyph
     width: 36px

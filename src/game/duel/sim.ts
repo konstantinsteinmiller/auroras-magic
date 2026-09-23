@@ -17,6 +17,7 @@ import {
   type DuelEase, type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
+import { foeDamageScale, mercyFloor, noteAct, playerDamageScale, press, resetDirector, stepDirector } from '@/game/duel/director'
 import { S, save, pop, type Shot } from '@/game/duel/state'
 import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
@@ -88,6 +89,7 @@ const emit = (e: DuelEvent, won?: boolean, info?: StrokeInfo): void => {
  */
 export const strokeStart = (x: number, y: number, e = false): void => {
   if (e ? S.eFrozen > 0 : S.frozen > 0) return
+  if (!e) noteAct()
   const p = e ? S.epts : S.pts
   if (e) S.edraw = 1
   else S.draw = 1
@@ -475,6 +477,10 @@ export const cast = (): void => castSide(false)
 export const castSide = (e: boolean): void => {
   const q = e ? S.equeue : S.queue
   if (S.phase !== PH_DUEL || !q.length || (e ? S.eFrozen : S.frozen) > 0) return
+  // Casting counts as being here, not just drawing does: the AFK rule is
+  // about a player who has put the phone down, and this is also the only
+  // signal a programmatic player (the win-rate harness) ever sends.
+  if (!e) noteAct()
   launch(q, e)
 }
 
@@ -557,7 +563,7 @@ const strike = (s: Shot, e: boolean): void => {
   flashAdd(0.1 + p * 0.2)
 
   if (e) {
-    S.ehp = max(0, S.ehp - s.dmg)
+    S.ehp = max(0, S.ehp - s.dmg * playerDamageScale())
     S.eHurt = 0.3
     if (s.dot) S.eBurn = max(S.eBurn, s.dot)
     if (s.slow) {
@@ -575,7 +581,10 @@ const strike = (s: Shot, e: boolean): void => {
     if (s.k === 4) S.eForm = max(0, S.eForm - 0.5) // pushback disrupts casting
     emit('hit')
   } else {
-    S.hp = max(0, S.hp - s.dmg)
+    // The director (§6.14b): the foe's damage is scaled to keep the two bars
+    // together, and CLAMPED so it can never take the last step — unless the
+    // player has gone quiet, which lifts the floor.
+    S.hp = max(mercyFloor(), S.hp - s.dmg * foeDamageScale())
     S.hurt = 0.3
     if (s.dot) S.burn = max(S.burn, s.dot)
     // On the player a slow never touches her hand — a child's drawing is the
@@ -629,6 +638,21 @@ export const foeRate = (): number => {
   return max(0.25, tierRate(foe.aiTier) * S.onboard * S.dust * S.ease.rate * (S.eSlow > 0 ? 1 - S.eSlowPct : 1))
 }
 
+/**
+ * How much faster than §6.14's chain the director is currently driving her.
+ *
+ * PRESSING MEANS FORMING FASTER, NOT THROWING WORSE. The press used to arrive
+ * as eagerness — she dumped every two-rune hand the moment she had it — which
+ * is the opposite of pressing: a two-rune spell is far weaker than the three
+ * she was one rune away from, and she never stood a ward up at all, because a
+ * ward is three runes. "The enemies are not defending themselves."
+ *
+ * It multiplies at the point of USE rather than inside `foeRate`, so the rate
+ * itself stays exactly the documented chain that `tests/duel/rules.ts` pins
+ * and that the Time slow is measured against.
+ */
+const foeRush = (): number => 1 + 1.6 * press()
+
 /** Chapter 4's Crystal Ward is hers from node 3 (§6.10). */
 const crystalOk = (): boolean => S.usesMagic && (FOES[S.foe]!.sigs & 1) !== 0
 /** Umbra's phase 3 (§6.11): the one foe who may reach for Love, once. */
@@ -664,7 +688,7 @@ const think = (dt: number): void => {
   // casting, not even the panic dump.
   if (S.eFrozen > 0) return
   const lv = FOES[S.foe]!.aiTier
-  const rate = foeRate()
+  const rate = foeRate() * foeRush()
   // Commit to the next rune BEFORE forming it, so the ghost in her slot shows
   // what is actually coming and the player has something to read.
   if (S.eRune < 0) S.eRune = chooseRune()
@@ -709,7 +733,12 @@ const think = (dt: number): void => {
   // as she holds it, never saving up a Bloom Storm's 38 damage and 20 HP of
   // mending — the first chapter's trick must stay a trick (S4 tuning).
   const bloom = q.length === 2 && q[0] === NATURE && q[1] === NATURE
-  if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < 0.02 + lv * 0.02)) launch(q, true)
+  // The opportunistic two-rune throw. Behind on the trade she stops saving
+  // up for a perfect three-rune spell and starts actually swinging — which
+  // is what "the foe never hits anything" looked like from the sofa: she was
+  // holding a good hand and waiting for a better one.
+  const eager = (0.02 + lv * 0.02) * (1 + 0.5 * press())
+  if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < eager)) launch(q, true)
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
@@ -783,7 +812,12 @@ const tick = (dt: number): void => {
   // Damage over time, applied smoothly rather than in visible chunks.
   if (S.burn > 0) {
     S.burn -= dt
-    S.hp = max(0, S.hp - 4 * dt)
+    // THE FLOOR HOLDS HERE TOO. It was written into the spell impact only, so
+    // a poison or a burn walked a child who was sitting at the floor straight
+    // through it and killed her — the one thing the floor exists to prevent,
+    // and the likeliest way for it to happen, since a dot is what is ticking
+    // while she is scrambling to draw her way out.
+    S.hp = max(mercyFloor(), S.hp - 4 * dt)
     S.hurt = max(S.hurt, 0.06)
   }
   if (S.eBurn > 0) {
@@ -943,6 +977,7 @@ export const onboarding = (duelsPlayed: number): number => 0.7 + 0.3 * min(1, ma
  * argument it re-runs the current foe (tests, debug hooks).
  */
 export const resetDuel = (start?: DuelStart): void => {
+  resetDirector()
   if (start) {
     S.foe = clamp(start.foe | 0, 0, FOES.length - 1)
     S.usesMagic = start.usesMagic
@@ -997,6 +1032,7 @@ export const resetDuel = (start?: DuelStart): void => {
 
 /** One simulation step. Called at a fixed timestep by the scene. */
 export const updateSim = (dt: number): void => {
+  stepDirector(dt)
   // HIT-STOP (§8.31): the duel holds still for a few dozen milliseconds when
   // something lands, so a blow reads as weight. The SIM owns the clock — a
   // harness that steps the sim alone (every duel test) must thaw on its own.

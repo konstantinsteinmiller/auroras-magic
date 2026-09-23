@@ -16,8 +16,11 @@
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
 import { type G2D, type Pot, INK, C, fill, ink } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
 import { inkFill, mix } from '@/game/map/kitSky'
 import { type Pt, type Glow, disc, twinkle, smooth, paperLantern } from '@/game/map/kitTundra'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 const LW = 5
@@ -1313,10 +1316,41 @@ const IRIS = '#5a64e8'
  * big eyes, a bell collar and a star-tipped tail. `eye` 0 asleep → 1 awake.
  */
 export const starCalf = (g: G2D, x: number, y: number, s: number, dir: number, look: CalfLook, eye: number, wag = 0): void => {
-  const w = LW / s
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, CALF_ART, CALF_UNIT * s, clamp(eye, 0, 1), look.collar)
+  g.restore()
+  if (painted) return
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
+  starCalfShape(g, s, look, eye, wag)
+  g.restore()
+}
+
+/** Horn tip (-118) to the hooves (0) at scale 1 — the calf's own height in SU. */
+const CALF_UNIT = 118
+
+/**
+ * The star-calf asleep and awake (`CREATURE_ART.starCalf`). Its BELL COLLAR is
+ * the tinted region — the five summit calves differ in nothing else — and the
+ * tail's wag stays drawn with the rest of the rise.
+ */
+export const CALF_ART: ItemSpec = {
+  ...CREATURE_ART.starCalf, frames: 2, tinted: true,
+  draw: (g, sz, f, accent) => {
+    const k = sz / CALF_UNIT
+    g.save()
+    g.scale(k, k)
+    starCalfShape(g, 1, { ...CALF.pink!, collar: accent.base }, f, 0)
+    g.restore()
+  }
+}
+
+/** The calf itself, hooves at the origin, facing +x, in its own units. */
+const starCalfShape = (g: G2D, s: number, look: CalfLook, eye: number, wag: number): void => {
+  const w = LW / s
   // The tail, with a star tip.
   g.beginPath()
   g.moveTo(-30, -36)
@@ -1426,7 +1460,6 @@ export const starCalf = (g: G2D, x: number, y: number, s: number, dir: number, l
   fill(g, look.collar)
   ink(g, w * 0.6)
   disc(g, 16, -34, 6, N.gold, w * 0.5)
-  g.restore()
 }
 
 /** A calf's hiding spot: feet position when out, how far it sinks to hide. */
@@ -1437,7 +1470,7 @@ export interface CalfSpot { x: number; y: number; s: number; dir: number; rise: 
  * its cover (whose FRONT `front` redraws on top, so k = 0 is the cover
  * alone), eyes still shut, then blinks awake in a little burst of stars.
  */
-export const peekCalf = (g: G2D, p: CalfSpot, k: number, t: number, look: CalfLook, front: () => void): void => {
+export const peekCalf = (g: G2D, p: CalfSpot, k: number, t: number, look: CalfLook, front: (g: G2D) => void): void => {
   const e = ease(clamp(k, 0, 1))
   const lx = (p.lean ?? 0) * e
   if (k > 0.001) {
@@ -1458,7 +1491,7 @@ export const peekCalf = (g: G2D, p: CalfSpot, k: number, t: number, look: CalfLo
     starCalf(g, p.x + lx, fy, p.s, p.dir, look, open * blink, sin(t * 10) * e)
     g.restore()
   }
-  front()
+  tapCover(g, front)
   if (k <= 0.7) return
   const a = clamp((k - 0.7) / 0.3, 0, 1)
   const hx = p.x + lx + p.dir * 22 * p.s
@@ -1479,41 +1512,34 @@ export const peekCalf = (g: G2D, p: CalfSpot, k: number, t: number, look: CalfLo
 
 /* ------------------------------------------------------ the Fallen Star */
 
+/** Point to point (92) at scale 1 — the star's own width in SU. */
+const FALLEN_STAR_UNIT = 92
+
 /**
- * A Fallen Star, the chapter's rescue (§8.8 beat 3), resting on (x, y).
- * k = 0: a little star lying tipped over in the grass, dim, eyes closed;
- * k = 1: upright and floating, glowing, awake, with a halo of sparkles.
+ * The Fallen Star, asleep and awake (`CREATURE_ART.fallenStar`): dim and
+ * lilac, then gold and beaming. Its halo, the dent it makes in the grass and
+ * the sparkles turning round it stay drawn.
  */
-export const fallenStar = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
-  const o = ease(clamp(k, 0, 1))
-  const S = (v: number): number => v * s
-  const R = S(46)
-  const lift = o * (S(38) + sin(t * 2) * S(7))
-  const cx = x
-  const cy = y - R * 0.72 - lift
-  const rot = lerp(-0.62, sin(t * 1.6) * 0.08 * o, o)
-  // Glow (awake).
-  if (o > 0) {
-    g.globalAlpha = 0.2 * o
-    disc(g, cx, cy, S(96 + sin(t * 3) * 4), N.glowLite)
-    g.globalAlpha = 0.3 * o
-    disc(g, cx, cy, S(68), N.glow)
-    g.globalAlpha = 1
+export const FALLEN_STAR_ART: ItemSpec = {
+  ...CREATURE_ART.fallenStar, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / FALLEN_STAR_UNIT
+    g.save()
+    g.scale(k, k)
+    fallenStarShape(g, 1, 46, f, f)
+    g.restore()
   }
-  // Its little dent in the grass.
-  g.globalAlpha = 0.25
-  g.beginPath()
-  g.ellipse(x, y, S(54 - 20 * o), S(10 - 4 * o), 0, 0, TAU)
-  fill(g, INK)
-  g.globalAlpha = 1
-  const body = (): void => roundStar(g, cx, cy, R, rot, 0.55)
+}
+
+/** The star itself, upright, centred on the origin, in its own units. */
+const fallenStarShape = (g: G2D, s: number, R: number, o: number, k: number): void => {
+  const S = (v: number): number => v * s
+  const body = (): void => roundStar(g, 0, 0, R, 0, 0.55)
   body()
   fill(g, mix(N.gold, '#c7c0ee', (1 - o) * 0.62))
   g.save()
   body()
   g.clip()
-  g.translate(cx, cy)
-  g.rotate(rot)
   g.beginPath()
   g.rect(0, -R * 1.2, R * 1.3, R * 2.4)
   fill(g, mix(N.goldShade, '#a49ad6', (1 - o) * 0.62))
@@ -1525,8 +1551,6 @@ export const fallenStar = (g: G2D, x: number, y: number, s: number, k: number, t
   ink(g, 4)
   // The face, turned with the body.
   g.save()
-  g.translate(cx, cy)
-  g.rotate(rot)
   const ey = S(2)
   if (k < 0.5) {
     g.beginPath()
@@ -1569,6 +1593,42 @@ export const fallenStar = (g: G2D, x: number, y: number, s: number, k: number, t
     fill(g, INK)
     g.globalAlpha = 1
   }
+}
+
+/**
+ * A Fallen Star, the chapter's rescue (§8.8 beat 3), resting on (x, y).
+ * k = 0: a little star lying tipped over in the grass, dim, eyes closed;
+ * k = 1: upright and floating, glowing, awake, with a halo of sparkles.
+ */
+export const fallenStar = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
+  const o = ease(clamp(k, 0, 1))
+  const S = (v: number): number => v * s
+  const R = S(46)
+  const lift = o * (S(38) + sin(t * 2) * S(7))
+  const cx = x
+  const cy = y - R * 0.72 - lift
+  const rot = lerp(-0.62, sin(t * 1.6) * 0.08 * o, o)
+  // Glow (awake).
+  if (o > 0) {
+    g.globalAlpha = 0.2 * o
+    disc(g, cx, cy, S(96 + sin(t * 3) * 4), N.glowLite)
+    g.globalAlpha = 0.3 * o
+    disc(g, cx, cy, S(68), N.glow)
+    g.globalAlpha = 1
+  }
+  // Its little dent in the grass.
+  g.globalAlpha = 0.25
+  g.beginPath()
+  g.ellipse(x, y, S(54 - 20 * o), S(10 - 4 * o), 0, 0, TAU)
+  fill(g, INK)
+  g.globalAlpha = 1
+  // Its TURN is a rotation and its lift a translate, so the painting carries
+  // both: the star is painted upright and the drawing tips and floats it.
+  g.save()
+  g.translate(cx, cy)
+  g.rotate(rot)
+  if (!drawItem(g, FALLEN_STAR_ART, FALLEN_STAR_UNIT * s, k < 0.5 ? 0 : 1)) fallenStarShape(g, s, R, o, k)
+  g.restore()
   if (o <= 0.2) return
   // Awake: a halo of sparkles turning round it.
   const a = clamp((k - 0.2) / 0.8, 0, 1)

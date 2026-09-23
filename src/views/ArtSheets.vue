@@ -21,10 +21,11 @@
  */
 import { onMounted, ref } from 'vue'
 import {
-  SECTOR_SHEETS, STORY_SHEETS, PAGE_SHEETS, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, ART_STYLE_ID, promptDocs,
-  type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet
+  SECTOR_SHEETS, STORY_SHEETS, PAGE_SHEETS, WARDROBE_SHEETS, BRAND_LOGO_SHEET, SECTOR_REF, SECTOR_THUMB, ITEM_MAX_EDGE, ART_STYLE_ID,
+  promptDocs,
+  type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
-import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderItemSheet, renderKeySheet, renderPageSheet, renderSectorSheet, renderStorySheet } from '@/game/artDraw'
+import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderBrandSheet, renderItemSheet, renderKeySheet, renderPageSheet, renderSectorSheet, renderStorySheet, renderWardrobeSheet } from '@/game/artDraw'
 
 const busy = ref(false)
 const status = ref('idle')
@@ -32,7 +33,9 @@ const only = ref<Set<string> | null>(null)
 const sectorPreviews = ref<HTMLCanvasElement[]>([])
 const storyPreviews = ref<HTMLCanvasElement[]>([])
 const pagePreviews = ref<HTMLCanvasElement[]>([])
+const wardrobePreviews = ref<HTMLCanvasElement[]>([])
 const itemPreviews = ref<HTMLCanvasElement[]>([])
+const brandPreview = ref<HTMLCanvasElement | null>(null)
 
 const save = async (name: string, body: { dataUrl?: string; text?: string }): Promise<void> => {
   const r = await fetch('/__art/save-sheet', {
@@ -78,11 +81,34 @@ const pageEntry = (s: PageSheet) => ({
   cells: [{ id: s.id, label: s.title, target: s.target, w: s.w, h: s.h }]
 })
 
+/** The wardrobe's room: opaque and full-bleed like a page, in its own kind. */
+const wardrobeEntry = (s: WardrobeSheet) => ({
+  id: s.file,
+  kind: 'wardrobe',
+  title: s.title,
+  files: { clean: `${s.file}.png` },
+  bg: 'opaque',
+  size: { w: s.w, h: s.h },
+  cells: [{ id: s.id, label: s.title, target: s.target, w: s.w, h: s.h }]
+})
+
+/** The MARK: opaque and full-bleed like a page — an app icon is its own
+ *  ground, so there is nothing to key and nothing to fit. */
+const brandEntry = (s: BrandSheet) => ({
+  id: s.file,
+  kind: 'brand',
+  title: s.title,
+  files: { clean: `${s.file}.png` },
+  bg: 'opaque',
+  size: { w: s.w, h: s.h },
+  cells: [{ id: s.id, label: s.title, target: s.target, w: s.w, h: s.h }]
+})
+
 const itemEntry = (s: ItemSheet, fit: Fit) => {
   const L = layoutOf(s)
   return {
     id: s.file,
-    kind: s.kind === 'rune' || s.kind === 'portrait' || s.kind === 'island' ? s.kind : 'item',
+    kind: s.kind === 'rune' || s.kind === 'portrait' || s.kind === 'island' || s.kind === 'prop' || s.kind === 'wardrobe' || s.kind === 'brand' ? s.kind : 'item',
     title: s.title,
     files: { clean: `${s.file}.png`, ...(s.frames > 1 ? { key: `${s.file}-key.png` } : {}) },
     bg: 'magenta',
@@ -92,6 +118,10 @@ const itemEntry = (s: ItemSheet, fit: Fit) => {
     crop: L.crop,
     anchor: s.anchor,
     maxEdge: ITEM_MAX_EDGE,
+    // Only ever set where the file is read at a fixed size by something
+    // outside the renderer (`ItemSheet.exact`); the slicer's cap stands
+    // everywhere else.
+    ...(s.exact ? { exact: s.exact } : {}),
     fit,
     cells: [{ id: s.id, label: s.title, target: s.target, fit }]
   }
@@ -128,6 +158,18 @@ const exportAll = async (): Promise<void> => {
       }
       sheets.push(pageEntry(s))
     }
+    for (const s of WARDROBE_SHEETS) {
+      if (wanted(s.file)) {
+        status.value = `wardrobe ${++n}: ${s.file}`
+        await save(`${s.file}.png`, { dataUrl: renderWardrobeSheet(s).toDataURL('image/png') })
+      }
+      sheets.push(wardrobeEntry(s))
+    }
+    if (wanted(BRAND_LOGO_SHEET.file)) {
+      status.value = `brand ${++n}: ${BRAND_LOGO_SHEET.file}`
+      await save(`${BRAND_LOGO_SHEET.file}.png`, { dataUrl: renderBrandSheet(BRAND_LOGO_SHEET).toDataURL('image/png') })
+    }
+    sheets.push(brandEntry(BRAND_LOGO_SHEET))
     for (const s of ALL_ITEM_SHEETS) {
       const fit = measureFit(s)
       fits[s.file] = fit
@@ -161,7 +203,9 @@ onMounted(() => {
   sectorPreviews.value = SECTOR_SHEETS.map((s) => renderSectorSheet(s))
   storyPreviews.value = STORY_SHEETS.map((s) => renderStorySheet(s))
   pagePreviews.value = PAGE_SHEETS.map((s) => renderPageSheet(s))
+  wardrobePreviews.value = WARDROBE_SHEETS.map((s) => renderWardrobeSheet(s))
   itemPreviews.value = ALL_ITEM_SHEETS.map((s) => renderItemSheet(s))
+  brandPreview.value = renderBrandSheet(BRAND_LOGO_SHEET)
 })
 
 const mount = (cv: HTMLCanvasElement) => (el: unknown): void => {
@@ -191,6 +235,16 @@ const mount = (cv: HTMLCanvasElement) => (el: unknown): void => {
       figure(v-for="(s, i) in PAGE_SHEETS" :key="s.file")
         .cv(:ref="pagePreviews[i] ? mount(pagePreviews[i]) : undefined")
         figcaption {{ s.title }} · {{ s.w }} × {{ s.h }}
+    h2 The wardrobe's room ({{ WARDROBE_SHEETS.length }}) — opaque, one per orientation, the floor line where the renderer cuts it
+    .grid.sectors
+      figure(v-for="(s, i) in WARDROBE_SHEETS" :key="s.file")
+        .cv(:ref="wardrobePreviews[i] ? mount(wardrobePreviews[i]) : undefined")
+        figcaption {{ s.title }} · {{ s.w }} × {{ s.h }} · floor {{ Math.round(s.floor * 100) }} %
+    h2 The mark — opaque, {{ BRAND_LOGO_SHEET.w }} × {{ BRAND_LOGO_SHEET.h }}, no lettering anywhere
+    .grid.sectors
+      figure
+        .cv(:ref="brandPreview ? mount(brandPreview) : undefined")
+        figcaption {{ BRAND_LOGO_SHEET.title }} → {{ BRAND_LOGO_SHEET.target }}
     h2 Items, keepsakes, runes, portraits and islands ({{ ALL_ITEM_SHEETS.length }}) — magenta, box = {{ Math.round(0.72 * 100) }} % of a panel
     .grid.items
       figure(v-for="(s, i) in ALL_ITEM_SHEETS" :key="s.file" :class="{ wide: s.frames > 1 }")

@@ -195,9 +195,9 @@ const twinStyle = computed(() => {
   max-width: min(260px, 70vw)
   padding: 8px 14px
   border-radius: 18px
-  background: #fffaf0
-  box-shadow: 0 0 0 3px #3A2340
-  color: #3A2340
+  background: var(--am-paper)
+  box-shadow: 0 0 0 3px var(--am-ink)
+  color: var(--am-ink)
   font-size: 17px
   text-align: center
   pointer-events: none
@@ -208,8 +208,8 @@ const twinStyle = computed(() => {
     bottom: -9px
     width: 14px
     height: 14px
-    background: #fffaf0
-    box-shadow: 3px 3px 0 0 #3A2340
+    background: var(--am-paper)
+    box-shadow: 3px 3px 0 0 var(--am-ink)
     transform: translateX(-50%) rotate(45deg)
 .say-enter-active, .say-leave-active
   transition: opacity 0.2s, transform 0.2s
@@ -219,19 +219,22 @@ const twinStyle = computed(() => {
 button
   pointer-events: auto
   cursor: pointer
+  // `.tab` and `.twin` draw their own edge (a ring / nothing at all), so the
+  // UA border goes; `.icon` puts `.duel-plate`'s plum line back explicitly.
   border: none
-  color: #fff
+  color: var(--am-ink)
   -webkit-tap-highlight-color: transparent
   transition: transform 0.08s ease-out
   &:active:not(:disabled)
     transform: scale(0.94)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 // The chapter ribbon: along the top in portrait, down the right side in
-// landscape. A tab is ≥ 44 px (§3.4's floor); unreached ones are dimmed and
-// shut — the full set is visible from the start, so scale is never a surprise.
+// landscape. A tab is ≥ 44 px (§3.4's floor); unreached ones are a pale,
+// shut page rather than a hole — the full set is visible from the start, so
+// scale is never a surprise.
 .tabs
   position: absolute
   display: flex
@@ -268,19 +271,24 @@ button
   width: 44px
   height: 44px
   border-radius: 12px
-  background: rgba(24, 17, 48, 0.55)
-  box-shadow: 0 0 0 3px #3A2340
+  // The one literal §7 keeps: there is no token for a locked tint, and the
+  // value was measured against `--am-ink-3` (4.89:1) for exactly this tab.
+  background: #CFC3DE
+  box-shadow: 0 0 0 3px var(--am-ink)
   display: flex
   align-items: center
   justify-content: center
-  font: 900 18px/1 Arial, sans-serif
-  color: #7a6f95
+  font-family: var(--am-font)
+  font-weight: var(--am-w-label)
+  font-size: 18px
+  line-height: 1
+  color: var(--am-ink-3)
   &.open
-    background: #6f55c9
-    color: #fff
+    background: var(--am-lilac-plate)
+    color: var(--am-on-night)
   &.here
-    background: #ffd76a
-    color: #3A2340
+    background: var(--am-gold)
+    color: var(--am-on-accent)
   &:disabled
     cursor: default
 
@@ -302,12 +310,12 @@ button
   max-width: min(86vw, 420px)
   padding: 10px 18px
   border-radius: 16px
-  background: #fff4e6
-  border: 4px solid #3A2340
-  color: #3A2340
+  background: var(--am-paper)
+  border: 4px solid var(--am-ink)
+  color: var(--am-ink)
   font-size: 18px
   text-align: center
-  box-shadow: 0 6px 0 rgba(20, 10, 30, 0.35)
+  box-shadow: 0 6px 0 rgba(58, 35, 64, 0.3)
 
 .toast-enter-active, .toast-leave-active
   transition: opacity 0.3s ease, transform 0.3s ease
@@ -324,21 +332,11 @@ button
   justify-content: flex-end
   pointer-events: none
   animation: rank-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both
-  // `RankBadge` is drawn for a dark HUD — a near-transparent plate with white
-  // numerals. On cream paper that is close to invisible, which is how it got
-  // here. On the page it wears the book's own dress instead: the gold plate
-  // and ink ring the node star badges wear, two feet away on the same sheet.
-  :deep(.rank-badge)
-    border-color: #3A2340
-    background-color: #ffd76a
-    box-shadow: 0 3px 0 rgba(20, 10, 30, 0.3)
-  :deep(.rank-badge__icon)
-    color: #3A2340
-  :deep(.rank-badge__rank)
-    color: #3A2340
-    text-shadow: none
-  :deep(.rank-badge__of)
-    color: #6b5a7a
+  // No `:deep()` dress-up here any more. `RankBadge` used to be drawn for a
+  // dark HUD — a near-transparent plate with white numerals — and this page
+  // had to repaint it gold-on-plum to be seen at all. Its base IS the gold
+  // plate with the plum ring now (§3.9), so the override would only have
+  // stacked a second gold on it and kept a stale near-black shadow.
 
 @keyframes rank-in
   from
@@ -355,9 +353,14 @@ button
   display: flex
   gap: 10px
 
+// A cream chip on a cream BOOK PAGE is 1.98:1 at the page's median — the
+// mirror image of §10.4. What separates it is the plum ring and the lift,
+// not the face, so both are load-bearing here: keep the ring at a full 4px
+// and never override the lift away.
 .icon
   width: 56px
   height: 56px
+  border: 4px solid var(--am-ink)
   border-radius: 16px
   display: flex
   align-items: center
@@ -365,5 +368,4 @@ button
   .glyph
     width: 30px
     height: 30px
-    filter: drop-shadow(2px 2px 0 var(--duel-ink))
 </style>

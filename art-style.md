@@ -124,14 +124,24 @@ slicer's receipt).
 - the 7 keepsake badges on the wardrobe shelf;
 - the 20 dialogue-portrait strips (one per speaker, every expression);
 - the 10 duel islands;
-- the intro's 4 picture-book pages.
+- the intro's 4 picture-book pages;
+- the 9 live props a sector's `props()` moves over its painting — the
+  butterfly, the gull, the dove, the swallow, the duck, the leaping fish, the
+  crab, the mill's sails and the water wheel (amended 2026-09-21;
+  `art-roadmap.md` §4b). Their motion stays the drawing's own transform: only
+  the shape becomes a painting.
+- the Wardrobe Kiosk's ROOM — the inside of the dressing-up tent, one picture
+  per orientation, and the rug Aurora stands on (amended 2026-09-21;
+  `art-roadmap.md` §4c). Its corner shadow and its bulbs' twinkle stay drawn
+  over the painting, and so does she.
 
 The pieces with a character in them (the portraits and the intro pages) also
 get the profile's CHARACTER rules. The intro pages are painted from the
 painted Aurora and Umbra portrait strips, so the cast looks the same
-everywhere. What stays drawn for now is the animated duel rig, the
-map's and the wardrobe's backdrops and the effects. They move every frame,
-and painting them needs a part-by-part layer split first.
+everywhere. What stays drawn is the animated duel rig and the effects: they
+move every frame, and painting them needs a part-by-part layer split first.
+(The map's and the wardrobe's backdrops were on that list until 2026-09-21;
+both now have the split — the room's is `paintWardrobeRoom`.)
 
 **To change the style later:**
 
@@ -476,6 +486,57 @@ unpinned without a new dated amendment:
   mis-stamp every new painting as the old style. `pnpm art:prompts` now syncs
   that field; re-slice anything painted across the change to restamp it.
 
+### 9.5 Amendment 2026-09-23 — a strip is refused unless it can be CUT
+
+A multi-panel sheet is `frames` drawings in a row, and until this date nothing
+checked that a return actually held that many. `portrait-umbra` came back with
+**nine** faces against the five it was briefed for, and every stage of the
+pipeline did exactly what it was told with them: the aspect guard passed (a
+9-panel strip is the same 16:9 as a 5-panel one), the fit normalisation passed
+(the content spans the sheet either way, so it scaled everything down 15 %),
+and the cut divided the picture into five equal slices that each fell across
+two faces. It shipped, and the game drew one-and-a-half heads into every Umbra
+dialogue badge.
+
+`tools/strip-guards.mjs` now answers two questions before the slicer measures a
+single panel, and refuses the painting if either fails:
+
+- **How many drawings are there?** Column runs, merging anything separated by
+  less than a tenth of a panel — a real gap is at least ~28 % of a panel wide,
+  so the threshold is far below anything that separates two drawings and far
+  above anything inside one. A run too narrow to be a drawing but tall enough
+  to reach down the sheet is a **ruled divider**, which is refused on its own:
+  it is paint, it survives the key, and the fit normalisation drags it into the
+  neighbouring crops.
+- **Do the cuts fall in air?** Ink on each panel boundary, as a fraction of the
+  strip's busiest column. Measured over all 35 multi-panel paintings in the
+  catalogue: thirty-three scored exactly **0.000**, `portrait-umbra` **0.184**
+  at every boundary and `portrait-nova` **0.363** at one. There is no middle
+  ground to tune against, so the bar sits at 0.10.
+
+**Neither is enough alone**, which is why there are two: a strip whose drawings
+touch (a pale backdrop disc behind each one) counts as a single run however
+many are really there, and a strip with the wrong number of SMALL drawings can
+leave every cut in air by luck — nine little heads did, twice.
+
+Between them they found **four** defective portraits in a catalogue of 160 that
+had been looked at by eye and passed: `umbra` and `nova` (wrong count / wrong
+places), `prism` and `shelly` (ruled dividers, plus the painted disc §9.4
+already forbids). All four were repainted the same day and pass.
+
+**The prompt lesson, which cost a generation to learn: do not describe a line
+you do not want drawn.** The first hardening told the painter to "picture
+`frames - 1` evenly spaced vertical lines dividing the image" — and it drew
+them, in ink, down every sheet. An image model paints what the prompt
+describes, including the scaffolding. The wording is now about the GAPS ("a
+clear band of plain magenta between every neighbouring pair") plus an explicit
+refusal of any drawn divider, frame, rule or guide.
+
+`tests/meta/stripGuards.test.ts` pins all of it, including the two shapes that
+defeat each test on its own. The guards are a module of their own rather than
+part of the slicer because `slice-sheets.mjs` RUNS on import: a test that
+imported it would re-slice the catalogue.
+
 ## 10. From the jam build to here
 
 The jam build (Rune-icorn: Duels) drew everything procedurally in a
@@ -491,3 +552,106 @@ Until a painting exists, the procedural art is the reference for layout, scale
 and animation — and it stays the fallback forever, because a missing painting
 must never break the game. This page is the reference for how it should look,
 and §0.1's two approved files are what "should look" means.
+
+## 11. The brand pair — the mark and the mascot
+
+**Added 2026-09-23.** Two pictures that are not IN the game and are not OF the
+game: they are the game, on a tab strip, a home screen, a store tile and the
+loading screen. Made by the same round trip as everything else (the manifest
+writes the prompt, the bench draws the reference, the slicer cuts and stamps
+it), but they are the only family with **no fallback** — a missing sector
+painting means the sector paints itself, and a missing mark means the splash
+simply has no mark.
+
+| | |
+| --- | --- |
+| `public/images/brand/logo.webp` | **the MARK** — 512 × 512, opaque, full-bleed. Aurora's head three-quarter, big, over the world's rainbow, on the splash's own lilac. |
+| `public/images/brand/mascot.webp` | **the MASCOT** — 861 × 512, magenta-keyed so the splash's gradient shows through. Aurora on the left facing right, Umbra on the right facing left, looking at each other. |
+
+Reference painters: `src/game/brand.ts` (`paintLogoMark`, `MASCOT_ART`).
+Prompts: `art-sheets/PROMPTS-BRAND.md`. Both are read as plain files by the
+DOM — `FLogoProgress.vue` and `index.html`'s static splash — never through
+`spriteFor`, because there is nothing to fall back to and because the splash
+must look the same whatever `?art=` says.
+
+### 11.1 No lettering, in either
+
+**The mark carries no letters at all**, and the prompt says so three times,
+because "logo" means type to everybody and it is the one drawable a painter
+volunteers text into. The game's name is live i18n text drawn OVER the mark
+(`t('gameName')`), so:
+
+- a painted English title would be an English title in twenty of the
+  twenty-one locales the game ships;
+- it would sit underneath a second title, because the splash draws its own;
+- and an image model asked for letters returns letters that are nearly words.
+
+If a wordmark is ever wanted, it is a new sheet with a new id, not an edit to
+this one — and it is a lockup per locale, not a lockup.
+
+### 11.2 The mark is judged at 32 px, not at 512
+
+It is a browser tab before it is anything else, so it is a HEAD, not a whole
+unicorn: at 32 px a whole chibi unicorn is a cream smudge and only the horn
+and the ear tips survive. §8.1's silhouette test is the acceptance test here,
+not a check afterwards.
+
+Nothing important goes in the outer eighth. iOS crops an icon to a squircle
+and Android to a circle, and what gets eaten is whatever was nearest the edge
+— which is why the horn tip starts a fourteenth of the way down rather than
+hard against the top.
+
+**Every icon is a downsample of this one file.** `pnpm brand:icons` cuts
+`logo_512x512.png`, `logo_192x192.png` and `favicon.ico` from it, so
+repainting the mark moves the tab strip, the home screen and the store tile
+together instead of leaving three generations of unicorn on one device. The
+favicon comes from the MARK rather than from any lockup, because type averages
+into a smudge at 16 px. It is the one deliverable that is never compressed: an
+`.ico` is a container, the compressor writes png/jpg/webp, and a "compressed"
+favicon is a PNG with the wrong extension that Windows and Safari both refuse.
+
+### 11.3 The mascot is the game's handshake, not its fight
+
+Aurora open and delighted, Umbra warm and a little caught out, both standing
+squarely, eyes meeting, with a clear gap between them — two overlapping chibi
+unicorns read as one strange animal at splash size. Umbra is **not** the duel's
+Umbra: her painted portrait strip is who she really is (a deep violet coat with
+ordinary warm eyes), and the drawn rig's near-black coat and glowing cyan eye
+are how the game draws her mid-duel. The model wins, and the prompt says so by
+name — the first thing that would otherwise come back is a black unicorn with
+a glowing eye, which is the wrong character for this picture.
+
+They stand on **nothing**: no ground, no shadow, no scenery. A shadow cast onto
+the magenta is a DARKER magenta the key cannot cut, and it ships as a pink
+stain welded under them for ever. The rig's own contact shadow and Umbra's
+dread aura are switched off for the reference by `PoseState.onKey`
+(`chars.ts`) — the drawn rig is authored for a duel floor, and a keyed sheet
+has no floor.
+
+### 11.4 The one place the 256 px frame cap is lifted
+
+The pipeline caps every sliced frame at 256 px tall, and that cap is about
+SPRITE FRAMES: things the renderer blits at a drawable's own size, dozens at a
+time, where the payload is the constraint. These two are read at a size the
+renderer never chooses — the splash shows the mascot up to 420 CSS px wide on
+a 3× phone — so the sheet declares `ItemSheet.exact` and the slicer writes it
+at that height whatever else is asked. Nothing else in the manifest may use it,
+and `maxEdge` still only ever lowers.
+
+It costs almost nothing: **11.3 kB for the mark and 25.9 kB for the mascot**,
+37 kB for the pair, against a catalogue in the megabytes.
+
+### 11.5 The splash is two copies of one card, and they must stay identical
+
+`index.html` paints a static splash before any JS runs, and `FLogoProgress.vue`
+fades in over it as it fades out. Both draw the same card — mark, title,
+mascot, progress bar, same sizes, same order, same gaps — and anything that
+differs between them is a visible jump on every cold load on every portal. The
+static copy's bar never fills; it is there so the card is the same HEIGHT in
+both.
+
+Sizes are capped against the viewport HEIGHT as well as its width, because the
+tightest screen is not a narrow phone but a landscape one: at 412 px tall the
+mascot is dropped entirely and the mark plus the title carry the screen. The
+title's margin is its STROKE — `.ink-text` rings it in 0.28em of plum, which
+overflows the line box and is invisible to the flex gap.

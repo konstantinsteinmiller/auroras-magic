@@ -48,17 +48,16 @@ const open = (which: 'options' | 'spellbook'): void => {
   display: flex
   align-items: center
   justify-content: center
-  color: #fff
+  color: var(--am-ink)
   cursor: pointer
   -webkit-tap-highlight-color: transparent
   transition: transform 0.08s ease-out
   &:active
     transform: scale(0.94)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
   .glyph
     width: 30px
     height: 30px
-    filter: drop-shadow(2px 2px 0 var(--duel-ink))
 </style>

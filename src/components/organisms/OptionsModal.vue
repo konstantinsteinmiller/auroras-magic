@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import useUser, { isMobileLandscape, isShortViewport, windowWidth, windowHeight } from '@/use/useUser'
 import { setI18nLocale } from '@/i18n'
@@ -16,8 +16,9 @@ import { leaveDuel } from '@/game/flow/duelFlow'
 import { playIntro } from '@/game/flow/nodes'
 import { dipTo, DIP_PUSH } from '@/game/flow/transition'
 import { leaderboardLive } from '@/use/useLeaderboard'
+import { resetProgress } from '@/use/useResetProgress'
 
-defineProps<{
+const props = defineProps<{
   isOpen: boolean
 }>()
 
@@ -143,6 +144,54 @@ const watchIntro = (): void => {
   emit('close')
   dipTo(() => playIntro(true), DIP_PUSH)
 }
+
+// ─── Start the whole story again (`useResetProgress`) ───────────────────────
+//
+// The most destructive thing in the game, so it wears the same one-step
+// confirm the leave-duel row wears, with the same colour convention: gold is
+// the safe answer (keep my progress) and coral is the one that goes ahead, so
+// the button a child taps by habit is the harmless one.
+//
+// `resetting` is a latch, not a spinner. `resetProgress` awaits a cloud flush
+// and then reloads, which on a slow portal is a second or two of a screen that
+// looks tappable — and a second tap would wipe and flush twice.
+const confirmReset = ref(false)
+const resetting = ref(false)
+/**
+ * The well, so it can be scrolled to.
+ *
+ * On a landscape phone the general tab is two columns and already taller than
+ * the viewport, and the well replaces a one-line button with four lines and
+ * two more buttons — which on a 915 x 412 screen opens the question with its
+ * ANSWERS below the fold, behind the SAVE & CLOSE footer. The locale-fit audit
+ * does not see it, and correctly: the panel scrolls, so nothing is clipped and
+ * nothing overflows. It is simply a dialog whose buttons the player has to go
+ * looking for.
+ */
+const resetWell = ref<HTMLElement | null>(null)
+const openResetConfirm = async (): Promise<void> => {
+  confirmReset.value = true
+  await nextTick()
+  // `nearest` rather than `center`: on a tall portrait screen the well is
+  // already fully visible and this must then do nothing at all.
+  resetWell.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
+const doReset = async (): Promise<void> => {
+  if (resetting.value) return
+  resetting.value = true
+  try {
+    await resetProgress()
+  } catch (e) {
+    // The reload is the last line of `resetProgress`, so arriving here means
+    // it never got that far. Let the player try again rather than leaving the
+    // dialog latched shut for the rest of the session.
+    console.warn('[options] reset failed', e)
+    resetting.value = false
+    confirmReset.value = false
+  }
+}
+// A modal that is closed and reopened must not come back mid-confirm.
+watch(() => props.isOpen, (open) => { if (!open) confirmReset.value = false })
 </script>
 
 <template lang="pug">
@@ -166,7 +215,7 @@ const watchIntro = (): void => {
             :model-value="shownLanguage"
             @update:model-value="pickLanguage($event)"
           )
-        hr(v-if="!twoColumns" class="border-slate-600 my-1 md:my-2 pt-0")
+        hr.am-rule(v-if="!twoColumns" class="my-1 md:my-2")
         FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
         FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
         //- The comfort settings (§3.11, §5.13). Each dropdown sits above the
@@ -202,18 +251,39 @@ const watchIntro = (): void => {
           FButton(class="px-6" @click="watchIntro") {{ t('options.watchIntro') }}
         //- Leave the duel: one gentle confirm, then the map.
         div(v-if="inDuel" class="flex flex-col items-center gap-2 pt-2")
-          FButton(v-if="!confirmLeave" class="px-6" @click="confirmLeave = true") {{ t('options.leaveDuel.label') }}
-          div.leave-confirm(v-else role="alertdialog" :aria-label="t('options.leaveDuel.title')")
-            p.leave-title {{ t('options.leaveDuel.title') }}
-            p.leave-body {{ t('options.leaveDuel.body') }}
+          //- Coral, not gold: §2.3 names "leave the duel" as the danger
+          //- accent, and the gold is reserved for the thing that moves the
+          //- story on. In the confirm row below, gold is STAY and coral is GO,
+          //- so the safe choice is the one that looks like every other primary
+          //- button in the game.
+          FButton(v-if="!confirmLeave" type="danger" class="leave-duel px-6" @click="confirmLeave = true") {{ t('options.leaveDuel.label') }}
+          div.confirm-well.leave-confirm(v-else role="alertdialog" :aria-label="t('options.leaveDuel.title')")
+            p.confirm-title {{ t('options.leaveDuel.title') }}
+            p.confirm-body {{ t('options.leaveDuel.body') }}
             div(class="flex gap-3 justify-center pt-1")
-              FButton(class="px-5" @click="doLeave") {{ t('options.leaveDuel.confirm') }}
+              FButton(type="danger" class="px-5" @click="doLeave") {{ t('options.leaveDuel.confirm') }}
               FButton(class="px-5" @click="confirmLeave = false") {{ t('options.leaveDuel.cancel') }}
+
+        //- Start the whole story again. Last on the tab, under a rule, because
+        //- it is the one control here that cannot be undone — nothing a thumb
+        //- is already travelling toward should sit next to it.
+        hr.am-rule(class="my-1 md:my-2")
+        div(class="flex flex-col items-center gap-2 pb-1")
+          FButton(v-if="!confirmReset" type="danger" class="reset-progress px-6" @click="openResetConfirm") {{ t('options.resetProgress.label') }}
+          div.confirm-well.reset-confirm(v-else ref="resetWell" role="alertdialog" :aria-label="t('options.resetProgress.title')")
+            p.confirm-title {{ t('options.resetProgress.title') }}
+            p.confirm-body {{ t('options.resetProgress.body') }}
+            p.confirm-note {{ t('options.resetProgress.keptNote') }}
+            div(class="flex gap-3 justify-center pt-1")
+              //- Coral goes ahead, gold keeps the save: the safe answer is the
+              //- one that looks like every other primary button in the game.
+              FButton(type="danger" class="px-5" @click="doReset") {{ t('options.resetProgress.confirm') }}
+              FButton(class="px-5" @click="confirmReset = false") {{ t('options.resetProgress.cancel') }}
 
     div.parents(v-else-if="currentTab === 'parents'")
       p {{ t('options.parents.aboutBody') }}
       p {{ t('options.parents.adsBody') }}
-      p(v-if="childDirected") {{ t('options.parents.adsNonPersonalisedNote') }}
+      p.fine(v-if="childDirected") {{ t('options.parents.adsNonPersonalisedNote') }}
       p {{ t('options.parents.purchasesBody') }}
       p {{ t('options.parents.privacyBody') }}
       p(v-if="leaderboardLive") {{ t('options.parents.leaderboardBody') }}
@@ -222,46 +292,103 @@ const watchIntro = (): void => {
     div(v-else-if="currentTab === 'audio'").flex.flex-col.justify-between.items-center
       FSlider.px-4(class="!py-1 !pb-3 w-full max-w-[min(20rem,90%)]" :model-value="userSoundVolume" @update:modelValue="setSettingValue('sound', $event)" :label="t('options.soundEffects')" :min="0" :max="1" :step="0.01")
       FSlider.px-4(class="!py-1 !pb-2 w-full max-w-[min(20rem,90%)]" :model-value="userMusicVolume" @update:modelValue="setSettingValue('music', $event)" :label="t('options.music')" :min="0" :max="1" :step="0.01")
-      hr(class="border-slate-600 my-1 md:my-2 pt-0")
+      hr.am-rule(class="my-1 md:my-2")
 
     template(#footer)
       FButton(class="px-6 sm:px-8" @click="emit('close')") {{ t('options.close') }}
 </template>
 
 <style lang="sass" scoped>
-span
-  text-shadow: 2px 2px 0 #000
+// ─── The options screen, in the book's dress ───────────────────────────────
+//
+// The screen the owner called the worst offender: every label sat on a hard
+// black shadow, the Parents tab was white on nothing, the leave-confirm was a
+// floating near-black slab and the dividers were `border-slate-600`. The
+// layout is untouched — `twoColumns` and the per-dropdown z stack exist
+// because an open list must cover the rows below it.
+//
+// The `span { text-shadow: 2px 2px 0 #000 }` that used to head this block is
+// gone with the rest of the five-way black ring (§4.3). It had in fact stopped
+// matching anything: scoped CSS only reaches this component's OWN elements,
+// and every caption on this screen is rendered inside FSelect, FSlider or
+// FButton, which carry their own scope ids.
 
+// The rainbow rule (§5.5) in place of `hr.border-slate-600`. An `hr` brings a
+// UA border of its own, so it has to be cleared before the gradient shows.
+.am-rule
+  height: 3px
+  border: 0
+  border-radius: 999px
+  background: var(--am-rainbow)
+  opacity: 0.9
+
+// ─── For parents (story-spec §2.7) ─────────────────────────────────────────
+// Plain sentences for the adult reading over a child's shoulder, set on paper
+// at 13:1 rather than white on a navy panel.
 .parents
   display: flex
   flex-direction: column
   gap: 10px
   padding: 6px 10px 10px
   max-width: 34rem
-  color: #fff
+  color: var(--am-ink)
+  font-weight: 600
   font-size: 0.95rem
   line-height: 1.45
   text-align: left
+
   p
     margin: 0
+
+  // The non-personalised-ads note is the one genuine piece of fine print on
+  // the tab — a legal aside, not part of the explanation. 6.57:1 on paper.
+  .fine
+    color: var(--am-ink-2)
+    font-size: 0.85rem
+
+  // Underlined as well as coloured: a link that is only a colour is not a link
+  // to a colour-blind reader. `--am-lilac-plate` on paper is 5.11:1.
   a
-    color: #ffd76a
+    color: var(--am-lilac-plate)
+    font-weight: 700
     text-decoration: underline
 
-.leave-confirm
+// ─── The confirm well ──────────────────────────────────────────────────────
+// `.leave-confirm` / `.reset-confirm` and `.leave-duel` / `.reset-progress`
+// carry no style: they are the names the locale-fit audit reaches these two
+// rows by (`tools/locale-fit/audit.mjs`). Structural selectors used to do it —
+// "the last button on the general tab" — which quietly aimed at a different
+// control the moment a second danger button was added below the first.
+//
+// Shared by "leave the duel" and "start the story again" — the two questions
+// on this screen a player can answer wrongly and regret. A well cut into the
+// page (§3.2 `.am-plate--sunken`), so the confirm reads as part of the sheet
+// it interrupts rather than as a second floating panel.
+.confirm-well
   text-align: center
   max-width: 22rem
   padding: 10px 12px
+  border: 3px solid var(--am-ink)
   border-radius: 14px
-  background: rgba(24, 17, 48, 0.6)
+  background: var(--am-paper-sunken)
+  box-shadow: inset 0 3px 0 rgba(58, 35, 64, 0.14)
 
-.leave-title
+.confirm-title
   font-weight: 800
   font-size: 1.1rem
-  color: #ffd76a
+  color: var(--am-ink)
 
-.leave-body
+// Secondary ink rather than white-at-90%: an opacity on text is a contrast
+// cut nobody measured. 5.22:1 on the sunken paper.
+.confirm-body
   font-size: 0.95rem
-  color: #fff
-  opacity: 0.9
+  color: var(--am-ink-2)
+
+// The reassurance under the warning — what the reset does NOT take. Quieter
+// than the body, but still ink rather than a faded grey: it is the line that
+// stops a player deciding against the button for the wrong reason.
+.confirm-note
+  margin-top: 4px
+  font-size: 0.85rem
+  color: var(--am-ink-2)
 </style>

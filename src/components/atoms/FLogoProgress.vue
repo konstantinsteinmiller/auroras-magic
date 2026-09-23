@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { prependBaseUrl } from '@/utils/function'
 import useAssets from '@/use/useAssets'
 import { stopLoading } from '@/use/useCrazyGames'
 import { armFirstLoadInterstitial, notifySplashGone } from '@/use/useFirstLoadInterstitial'
@@ -34,6 +35,27 @@ if (
 ) {
   armFirstLoadInterstitial()
 }
+
+/**
+ * The mark and the mascot (`src/game/brand.ts`, `PROMPTS-BRAND.md`), read as
+ * plain files rather than through `spriteFor`.
+ *
+ * Three reasons this is not the art layer. They are not drop-ins for something
+ * the renderer keeps drawing, so there is no fallback to flip to; they must
+ * look the same whatever `?art=` says, because the splash is the same picture
+ * on every build; and this component paints BEFORE the art layer has probed
+ * anything at all. Between them they are 37 kB, and `index.html`'s static
+ * splash asks for the same two files, so on a cold load they are already in
+ * flight before this component exists.
+ *
+ * `failed` is not defensive dressing: a missing file must leave the splash
+ * looking deliberate rather than showing two broken-image glyphs, and the
+ * splash is the one screen that may never be the reason a game did not load.
+ */
+const markSrc = prependBaseUrl('/images/brand/logo.webp')
+const mascotSrc = prependBaseUrl('/images/brand/mascot.webp')
+const markFailed = ref(false)
+const mascotFailed = ref(false)
 
 const done = ref(false)
 const gone = ref(false)
@@ -132,7 +154,11 @@ watch(done, (isDone) => {
   Transition(name="splash-fade")
     div.splash(v-if="!gone" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100" :aria-label="t('loading')")
       div.splash-card
+        //- Decorative: the title right below says the same thing, and a screen
+        //- reader announcing "Auroras Magic logo, Auroras Magic" is noise.
+        img.splash-mark(v-if="!markFailed" :src="markSrc" alt="" decoding="async" @error="markFailed = true")
         h1.splash-title.ink-text {{ t('gameName') }}
+        img.splash-mascot(v-if="!mascotFailed" :src="mascotSrc" alt="" decoding="async" @error="mascotFailed = true")
         div.splash-bar
           div.splash-fill(:style="{ width: progress + '%' }")
         p.splash-hint.ink-text(v-if="showStuckHint") {{ t('loading') }}
@@ -146,7 +172,11 @@ watch(done, (isDone) => {
   display: flex
   align-items: center
   justify-content: center
-  background: radial-gradient(circle at 50% 42%, #231a3f 0%, #07060f 70%)
+  // IDENTICAL to the inline splash in index.html, and it has to be: this
+  // element fades in as that one fades out, and any difference is a visible
+  // flash on every cold load. Literals, not tokens, for the same reason the
+  // inline block uses literals.
+  background: radial-gradient(circle at 50% 42%, #A98BCE 0%, #7B5EA8 70%)
   user-select: none
   -webkit-user-select: none
 
@@ -154,33 +184,67 @@ watch(done, (isDone) => {
   display: flex
   flex-direction: column
   align-items: center
-  gap: 1.1rem
+  // Every size below is capped against the VIEWPORT HEIGHT as well as its
+  // width, because the tightest screen this has to survive is not a narrow
+  // phone but a landscape one — a 740 x 360 portal frame, where a card sized
+  // on width alone runs off the bottom and takes the progress bar with it.
+  gap: min(1.1rem, 3vh)
   width: min(80vw, 420px)
 
+// The mark: square, and the one thing that stays whatever else is dropped.
+.splash-mark
+  display: block
+  width: min(34vw, 132px, 22vh)
+  height: auto
+  aspect-ratio: 1
+  // The mark carries its own ground, in the splash's own lilac, so it reads as
+  // the app tile it is. Rounded to the shape a store would round it to anyway.
+  border-radius: 22%
+
 .splash-title
-  margin: 0
+  // The margin is the STROKE. `.ink-text` rings this in 0.28em of plum, which
+  // overflows the line box by about a sixth of the font size at each end and
+  // is invisible to the flex gap — on a 360 px-tall landscape phone the gap is
+  // 3vh and the stroke ate all of it, so the title touched the mark above it
+  // and the bar below.
+  margin: 0.16em 0
   font-size: clamp(30px, 8vw, 56px)
-  color: #ffd76a
+  color: #FFF6E6
+
+// The pair, on nothing — the painting is keyed, so the gradient runs between
+// and behind them. First to go when the viewport is too short for everything:
+// it is the picture that says the most and needs the most room, and the mark
+// plus the title still carry the screen without it.
+.splash-mascot
+  display: block
+  width: 100%
+  height: auto
+  max-height: 26vh
+  object-fit: contain
+
+@media (max-height: 420px)
+  .splash-mascot
+    display: none
 
 .splash-bar
   width: 100%
   height: 14px
-  border: 4px solid #0a0713
+  border: 4px solid var(--am-ink)
   border-radius: 999px
-  background: #181130
+  background: var(--am-night-deep)
   overflow: hidden
   box-sizing: content-box
 
 .splash-fill
   height: 100%
   border-radius: 999px
-  background: linear-gradient(90deg, #ff5a2b, #ffd76a, #8ff0ff, #59b6ff, #c08cff)
+  background: var(--am-rainbow)
   transition: width 0.25s ease-out
 
 .splash-hint
   margin: 0
   font-size: 18px
-  color: #cfc4ff
+  color: #FFF6E6
 
 .splash-fade-leave-active
   transition: opacity 0.35s ease-out

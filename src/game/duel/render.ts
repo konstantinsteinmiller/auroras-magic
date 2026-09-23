@@ -9,6 +9,7 @@
  */
 import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
+import { drawCloth } from '@/game/map/map'
 import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
 import { drawDuelPage } from '@/game/duel/duelPage'
 import { castLook, bodyRadius, heft, type Body, type Mark, type CastLook } from '@/game/duel/spellArt'
@@ -503,7 +504,7 @@ const drawIntroTrace = (g: G2D, t: number): void => {
   g.fillStyle = '#fff'
   g.fill()
   g.lineWidth = R * 0.05
-  g.strokeStyle = '#0a0713'
+  g.strokeStyle = '#3A2340'
   g.stroke()
 }
 
@@ -576,7 +577,7 @@ const drawDreamDust = (g: G2D, t: number): void => {
   g.lineTo(zx + s, zy + s)
   g.lineCap = 'round'
   g.lineWidth = 6
-  g.strokeStyle = '#0a0713'
+  g.strokeStyle = '#3A2340'
   g.stroke()
   g.lineWidth = 3
   g.strokeStyle = '#e7d6ff'
@@ -816,9 +817,11 @@ export const render = (g: G2D): void => {
   // carry dpr.
   const d = S.dpr
   g.setTransform(1, 0, 0, 1, 0, 0)
-  // Letterbox bars (and the portrait pad) stay near-black.
-  g.fillStyle = '#07060f'
-  g.fillRect(0, 0, S.w * d, S.h * d)
+  // Letterbox bars (and the portrait pad) are the same cloth the book lies
+  // on everywhere else — the duel is fought ON a page (`duelPage.ts`), so
+  // what surrounds it is the surround, not a black bar. Matches
+  // `--am-surround` and `.app-scene` exactly; they meet at the safe area.
+  drawCloth(g, S.w * d, S.h * d)
 
   const so = shakeOffset()
   const k = S.vs * d

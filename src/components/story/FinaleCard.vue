@@ -39,7 +39,7 @@ const faces = computed(() => FINALE_CAST.map(([s, e]) => ({ id: s, url: portrait
 const confetti = Array.from({ length: 28 }, (_, i) => ({
   left: `${(i * 37) % 100}%`,
   delay: `${((i * 0.29) % 2.4).toFixed(2)}s`,
-  hue: ['#ff7ab8', '#ffe14d', '#5ce0a8', '#8c8cff', '#ff9f5a', '#c28bff'][i % 6]
+  hue: ['var(--am-magic-1)', 'var(--am-magic-5)', 'var(--am-magic-4)', 'var(--am-magic-3)', 'var(--am-magic-6)', 'var(--am-magic-2)'][i % 6]
 }))
 
 onMounted(() => {
@@ -76,7 +76,7 @@ const close = (): void => {
   align-items: center
   justify-content: center
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))
-  background: rgba(40, 20, 60, 0.55)
+  background: var(--am-scrim)
   pointer-events: auto
   overflow: hidden
   animation: finale-in 0.5s ease-out both
@@ -89,15 +89,18 @@ const close = (): void => {
   box-sizing: border-box
   padding: clamp(14px, 3vh, 28px) clamp(12px, 3vw, 28px)
   border-radius: 28px
-  background: linear-gradient(160deg, #ffe0ea 0%, #fff4c8 55%, #d8f6e8 100%)
-  box-shadow: 0 0 0 5px #3A2340, 0 10px 0 5px #3A2340
+  // The §2.4 ramp at 18 % over paper: the card still reads as a painted page,
+  // and the plum title stays above 11:1 on every stop of it.
+  background-color: var(--am-paper)
+  background-image: linear-gradient(160deg, rgba(255, 158, 207, 0.18) 0%, rgba(255, 211, 107, 0.18) 55%, rgba(159, 240, 208, 0.18) 100%)
+  box-shadow: 0 0 0 5px var(--am-ink), 0 10px 0 5px var(--am-ink)
   text-align: center
   animation: card-pop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) 0.1s both
 
 .title
   margin: 0 0 clamp(8px, 2vh, 16px)
   font-size: clamp(24px, 6vw, 40px)
-  color: #3A2340
+  color: var(--am-ink)
 
 .cast
   display: flex
@@ -119,7 +122,7 @@ const close = (): void => {
 .line
   margin: clamp(10px, 2.4vh, 18px) 0 clamp(10px, 2vh, 16px)
   font-size: clamp(18px, 4.6vw, 26px)
-  color: #3A2340
+  color: var(--am-ink)
 
 // The card's one control. It was a `forward` arrow, which on a card that has
 // nowhere else to go read as decoration; a double chevron says "skip this".
@@ -145,7 +148,7 @@ const close = (): void => {
     width: 10px
     height: 16px
     border-radius: 3px
-    box-shadow: 0 0 0 2px #3A2340
+    box-shadow: 0 0 0 2px var(--am-ink)
     animation: confetti-fall 3.2s linear infinite
 
 @keyframes finale-in

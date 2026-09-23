@@ -79,6 +79,7 @@ import OptionsModal from '@/components/organisms/OptionsModal.vue'
 import LeaderboardModal from '@/components/organisms/LeaderboardModal.vue'
 import RuneGift from '@/components/story/RuneGift.vue'
 import { drawWardrobe, updateWardrobe, wardrobeResize } from '@/game/cosmetics/wardrobe'
+import { primeWardrobeArt } from '@/game/artPreload'
 import { openSector, onRestoreFinished } from '@/game/flow/restoreFlow'
 import { sectorOf } from '@/game/map/sectors'
 import { twinGift, offerTwinGift, withdrawTwinGift } from '@/use/useDuelRewards'
@@ -161,6 +162,18 @@ const onPointerDown = (e: PointerEvent): void => {
   const sc = scene()
   if (sc === 'duel') {
     if (S.phase !== PH_DUEL) return
+    // RIGHT-CLICK CASTS (owner, 2026-09-21). On a mouse the hand that draws
+    // the rune is already on the pointer, and reaching for the space bar to
+    // release it costs the whole rhythm. Button 2 is safe here: the canvas
+    // already eats its context menu (`noMenu`), and a right press never
+    // starts a stroke, so it cannot interrupt one being drawn.
+    if (e.button === 2) {
+      if (!S.versus) {
+        sfx('ui')
+        cast()
+      }
+      return
+    }
     const [x, y] = toStage(e.clientX, e.clientY)
     if (S.versus) {
       if (!versusHud.wide) return
@@ -253,6 +266,10 @@ const onMapTap = (t: MapTarget): void => {
     greetUmbra()
   } else if (t.kind === 'tent') {
     sfx('ui')
+    // The tent's own paintings start on the wire under the dip, so the room
+    // has usually decoded by the time it is on screen (a no-op, and no
+    // request, with the art layer off).
+    primeWardrobeArt()
     dipTo(() => gotoScene('wardrobe'), 0.4)
   } else if (t.kind === 'node') {
     sfx('ui')
@@ -426,7 +443,7 @@ const frame = (now: number): void => {
     else if (sc === 'intro') drawIntro(g)
     else {
       g.setTransform(1, 0, 0, 1, 0, 0)
-      g.fillStyle = '#2b2048'
+      g.fillStyle = '#9E7CBE'
       g.fillRect(0, 0, g.canvas.width, g.canvas.height)
     }
     drawTransition(g)
@@ -702,7 +719,7 @@ onUnmounted(() => {
   position: fixed
   inset: 0
   overflow: hidden
-  background: #07060f
+  background: var(--am-surround)
   // Every scene's chrome is DOM over the one canvas, and a page turn swings a
   // picture of the CANVAS away — so the chrome hides for the turn (at once,
   // before the new scene's buttons can flash over the old page) and fades

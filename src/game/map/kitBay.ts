@@ -11,7 +11,10 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, ink, fill, lumpy } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, ink, fill, lumpy, twinkleAt, bubbleAt, flagAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 export type Pt = readonly [number, number]
 type Lobe = readonly [number, number, number]
@@ -466,20 +469,73 @@ export const duneGrass = (g: G2D, list: readonly Lobe[]): void => {
   ink(g, 3)
 }
 
+/** The canonical blade's width and height in SU: the proportions the
+ *  reference is drawn at, and the units the clump's affine is built in. */
+const KELP_W = 10.5
+const KELP_H = 60
+
+/**
+ * ONE kelp blade, rooted at the origin and reaching 1 unit straight UP,
+ * bowed out to one side — the blade, its plum edge and nothing else.
+ */
+const kelpShape = (g: G2D): void => {
+  const X = (v: number): number => v / KELP_H
+  g.beginPath()
+  g.moveTo(X(-3), 0)
+  g.bezierCurveTo(X(-KELP_W - 6), -0.35, X(KELP_W), -0.65, 0, -1)
+  g.bezierCurveTo(X(KELP_W + 12), -0.62, X(KELP_W + 2), -0.3, X(5), 0)
+  g.closePath()
+  fill(g, BAY.weed)
+  ink(g, 3 / KELP_H)
+}
+
+/**
+ * A kelp blade as a painted still — the flattest vectors left standing on the
+ * cove and the lagoon, and the ones the owner's screenshots show hardest
+ * against the water.
+ *
+ * §4b kept kelp for one line — "each blade BENDS as it sways" — and a bend is
+ * a SHEAR, which is half of what the palm crown already taught this family. So
+ * one blade serves all seven: the clump sets its height, its width and the
+ * lean of its tip, and the drawing's own affine carries the painting onto
+ * them. The blade count and the height differ per call site because they are
+ * per BLADE, which is why the sheet is a blade and not a clump.
+ */
+export const KELP_ART: ItemSpec = {
+  ...PROP_ART.kelp, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s, s)
+    kelpShape(g)
+    g.restore()
+  }
+}
+
 /** A clump of kelp at (x, y), `h` tall, swayed by `sway` SU — a live prop. */
 export const kelp = (g: G2D, x: number, y: number, h: number, sway: number, n = 3): void => {
+  let painted = false
   g.beginPath()
   for (let i = 0; i < n; i++) {
     const bx = x + (i - (n - 1) / 2) * 16
     const hh = h * (0.72 + 0.16 * ((i * 2) % 3))
     const sw = sway * (0.8 + i * 0.3) + (i - (n - 1) / 2) * 10
     const w = 9 + (i % 2) * 3
+    // The blade under the affine that roots it here, stands it `hh` tall and
+    // leans its tip `sw` over: the sway rides in the shear column, so a
+    // painted blade bends exactly as far as the drawn one did at its tip.
+    g.save()
+    g.translate(bx, y)
+    g.transform((KELP_H * w) / KELP_W, 0, -sw, hh, 0, 0)
+    painted = drawItem(g, KELP_ART, 1)
+    g.restore()
+    if (painted) continue
     // A wavy blade: up one edge, down the other.
     g.moveTo(bx - 3, y)
     g.bezierCurveTo(bx - w - 6, y - hh * 0.35, bx + sw * 0.5 + w, y - hh * 0.65, bx + sw, y - hh)
     g.bezierCurveTo(bx + sw * 0.5 + w + 12, y - hh * 0.62, bx + w + 2, y - hh * 0.3, bx + 5, y)
     g.closePath()
   }
+  if (painted) return
   fill(g, BAY.weed)
   ink(g, 3)
 }
@@ -1163,6 +1219,14 @@ export const bunting = (g: G2D, x0: number, y0: number, x1: number, y1: number, 
     const u = i / n
     const px = (1 - u) ** 2 * x0 + 2 * (1 - u) * u * mx + u * u * x1
     const py = (1 - u) ** 2 * y0 + 2 * (1 - u) * u * my + u * u * y1
+    // The CORD is a bezier through the points the sector hands over, so it has
+    // no shape to paint; each flag on it does, and it is the same flag at
+    // every station. The painting is threaded along the same curve.
+    g.save()
+    g.translate(px, py)
+    const painted = flagAt(g, 20, 20, cols[i % cols.length]!)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.moveTo(px - 10, py)
     g.lineTo(px + 10, py)
@@ -1324,8 +1388,53 @@ export const sailboat = (g: G2D, x: number, y: number, s: number, c: BoatCols, d
   foam(g, x + 6 * s * dir, y + 14 * s, 200 * s)
 }
 
+/**
+ * The three colourways the three far boats actually fly (`sectorsC2`), and
+ * the three panels of `BOAT_ART` — in this order.
+ *
+ * A boat takes five colours per call site and `artTint` carries ONE neutral
+ * region, so a tinted sheet cannot serve them. But three colourways is three
+ * PANELS of one strip, which is one generation and one file: the strip is the
+ * same machinery a wing beat uses, pointed at colour instead of time. A sector
+ * that ever invents a fourth simply keeps its drawing.
+ */
+export const FAR_BOAT_LOOKS: readonly BoatCols[] = [
+  { hull: C.cap, stripe: '#ffffff', sail: '#ffffff', sailBand: '#ffd34d', jib: '#ffffff' },
+  { hull: '#6d8bff', stripe: '#ffffff', sail: '#ffffff', sailBand: C.flowerPink, jib: '#ffffff' },
+  { hull: '#ffd34d', stripe: '#ffffff', sail: '#ffffff', sailBand: '#3ee3d4', jib: '#ffffff' }
+]
+
+/** The scale every far boat is flown at, and the hull length it gives in SU —
+ *  what the reference's line weight is judged against. */
+const BOAT_S = 0.3
+const BOAT_UNIT = 204 * BOAT_S
+
+/** The far boat's three colourways side by side — one painting, three looks. */
+export const BOAT_ART: ItemSpec = {
+  ...PROP_ART.boat, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / BOAT_UNIT, s / BOAT_UNIT)
+    farBoatShape(g, 0, 0, BOAT_S, FAR_BOAT_LOOKS[f] ?? FAR_BOAT_LOOKS[0]!, 1)
+    g.restore()
+  }
+}
+
 /** A far-off sailboat, cheap enough to bob every frame: no clips, six fills. */
 export const farBoat = (g: G2D, x: number, y: number, s: number, c: BoatCols, dir = 1): void => {
+  const look = FAR_BOAT_LOOKS.findIndex((l) => l.hull === c.hull && l.sailBand === c.sailBand)
+  if (look >= 0) {
+    g.save()
+    g.translate(x, y)
+    g.scale(dir, 1)
+    const painted = drawItem(g, BOAT_ART, 204 * s, look)
+    g.restore()
+    if (painted) return
+  }
+  farBoatShape(g, x, y, s, c, dir)
+}
+
+const farBoatShape = (g: G2D, x: number, y: number, s: number, c: BoatCols, dir: number): void => {
   const X = (u: number): number => x + u * s * dir
   const Y = (v: number): number => y + v * s
   g.beginPath()
@@ -1476,54 +1585,79 @@ export const quay = (g: G2D, y: number, seed: number): void => {
 /** Bubbles rising from (x, y), `h` high — a live prop (none at rest). */
 export const bubbles = (g: G2D, x: number, y: number, h: number, t: number, alive: number, n = 4): void => {
   if (alive <= 0) return
+  g.globalAlpha = alive
+  let painted = false
   g.beginPath()
   for (let i = 0; i < n; i++) {
     const k = (t * 0.32 + i / n) % 1
     const bx = x + sin(k * 7 + i * 2) * 9
     const by = y - k * h
     const r = (4 + (i % 3) * 2.5) * (0.6 + k * 0.6)
+    painted = bubbleAt(g, bx, by, r, '#e1fcff')
+    if (painted) continue
     g.moveTo(bx + r, by)
     g.arc(bx, by, r, 0, TAU)
   }
-  g.globalAlpha = alive
-  g.fillStyle = 'rgba(225,252,255,0.55)'
-  g.fill()
-  g.lineWidth = 2.4
-  g.strokeStyle = '#ffffff'
-  g.stroke()
+  if (!painted) {
+    g.fillStyle = 'rgba(225,252,255,0.55)'
+    g.fill()
+    g.lineWidth = 2.4
+    g.strokeStyle = '#ffffff'
+    g.stroke()
+  }
   g.globalAlpha = 1
 }
 
 /** Four-point twinkles on the water at `pts` — a live prop. */
 export const twinkles = (g: G2D, pts: readonly Pt[], t: number, alive: number, size = 10): void => {
   if (alive <= 0) return
+  g.globalAlpha = alive
   g.beginPath()
+  let painted = false
   for (let i = 0; i < pts.length; i++) {
     const [x, y] = pts[i]!
     const r = size * Math.max(0, sin(t * 2.1 + i * 1.9))
     if (r < 1) continue
-    g.moveTo(x, y - r)
-    g.quadraticCurveTo(x, y, x + r, y)
-    g.quadraticCurveTo(x, y, x, y + r)
-    g.quadraticCurveTo(x, y, x - r, y)
-    g.quadraticCurveTo(x, y, x, y - r)
+    painted = twinkleAt(g, x, y, r, '#ffffff')
   }
-  g.globalAlpha = alive
-  fill(g, '#ffffff')
+  if (!painted) fill(g, '#ffffff')
   g.globalAlpha = 1
+}
+
+/** A gull about the origin, wings at `flap` (−1 down … 1 up). */
+export const gullShape = (g: G2D, flap: number): void => {
+  const wy = -12 * flap
+  g.beginPath()
+  g.moveTo(-30, wy)
+  g.quadraticCurveTo(-14, -14 + wy * 0.3, 0, 0)
+  g.quadraticCurveTo(14, -14 + wy * 0.3, 30, wy)
+  g.quadraticCurveTo(14, -5 + wy * 0.2, 0, 6)
+  g.quadraticCurveTo(-14, -5 + wy * 0.2, -30, wy)
+  fill(g, '#ffffff')
+  ink(g, 2.6)
+}
+
+/** The gull's wingspan in SU at `s` = 1 — `drawItem`'s scale for one. */
+export const GULL_UNIT = 60
+
+/** The gull as a painted strip: wings down, level, up. */
+export const GULL_ART: ItemSpec = {
+  ...PROP_ART.gull, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / GULL_UNIT, s / GULL_UNIT)
+    gullShape(g, f - 1)
+    g.restore()
+  }
 }
 
 /** A gull, wings at `flap` (−1 down … 1 up). */
 export const gull = (g: G2D, x: number, y: number, s: number, flap: number): void => {
-  const wy = -12 * s * flap
-  g.beginPath()
-  g.moveTo(x - 30 * s, y + wy)
-  g.quadraticCurveTo(x - 14 * s, y - 14 * s + wy * 0.3, x, y)
-  g.quadraticCurveTo(x + 14 * s, y - 14 * s + wy * 0.3, x + 30 * s, y + wy)
-  g.quadraticCurveTo(x + 14 * s, y - 5 * s + wy * 0.2, x, y + 6 * s)
-  g.quadraticCurveTo(x - 14 * s, y - 5 * s + wy * 0.2, x - 30 * s, y + wy)
-  fill(g, '#ffffff')
-  ink(g, 2.6)
+  g.save()
+  g.translate(x, y)
+  g.scale(s, s)
+  if (!drawItem(g, GULL_ART, GULL_UNIT, flap + 1)) gullShape(g, flap)
+  g.restore()
 }
 
 /** Two gulls gliding about (x, y) — a live prop (they arrive with the colour). */
@@ -1538,67 +1672,133 @@ export const gulls = (g: G2D, x: number, y: number, t: number, alive: number, sp
   g.globalAlpha = 1
 }
 
-/** A crab on the sand at (x, y): asleep at rest, scuttling and waving alive. */
-export const crab = (g: G2D, x: number, y: number, s: number, t: number, alive: number, run = 50): void => {
-  const cx = x + (alive > 0 ? sin(t * 0.7) * run * alive : 0)
-  const step = alive > 0 ? sin(t * 14) * alive : 0
-  const wave = alive > 0 ? Math.max(0, sin(t * 1.5)) * alive : 0
-  const by = y - 14 * s
+/**
+ * A crab standing on the origin: `awake` opens its eyes, `wave` (0…1) lifts
+ * its right claw, `step` (−1…1) shuffles its legs.
+ */
+export const crabShape = (g: G2D, awake: boolean, wave: number, step: number): void => {
+  const by = -14
   g.beginPath()
   for (const d of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
-      const lx = cx + d * (8 + i * 7) * s
-      g.moveTo(lx, by + 4 * s)
-      g.lineTo(lx + d * 9 * s, y + (i % 2 ? step : -step) * 3 * s)
+      const lx = d * (8 + i * 7)
+      g.moveTo(lx, by + 4)
+      g.lineTo(lx + d * 9, (i % 2 ? step : -step) * 3)
     }
   }
-  band(g, 3.5 * s, BAY.crab, 2.4)
+  band(g, 3.5, BAY.crab, 2.4)
   for (const d of [-1, 1]) {
-    const ax = cx + d * 34 * s
-    const ay = by - (14 + (d > 0 ? wave * 10 : 0)) * s
+    const ax = d * 34
+    const ay = by - (14 + (d > 0 ? wave * 10 : 0))
     g.beginPath()
-    g.moveTo(cx + d * 16 * s, by)
-    g.quadraticCurveTo(cx + d * 30 * s, by, ax, ay + 8 * s)
-    band(g, 5 * s, BAY.crab, 2.4)
+    g.moveTo(d * 16, by)
+    g.quadraticCurveTo(d * 30, by, ax, ay + 8)
+    band(g, 5, BAY.crab, 2.4)
     g.beginPath()
-    g.moveTo(ax, ay + 2 * s)
-    g.arc(ax, ay, 10 * s, 0.4 + (d > 0 ? wave * 0.5 : 0), TAU - 0.4)
+    g.moveTo(ax, ay + 2)
+    g.arc(ax, ay, 10, 0.4 + (d > 0 ? wave * 0.5 : 0), TAU - 0.4)
     g.closePath()
     fill(g, BAY.crab)
     ink(g, 3)
   }
   g.beginPath()
-  g.ellipse(cx, by, 24 * s, 15 * s, 0, 0, TAU)
+  g.ellipse(0, by, 24, 15, 0, 0, TAU)
   fill(g, BAY.crab)
   ink(g, 3.5)
   g.beginPath()
-  g.moveTo(cx - 8 * s, by - 12 * s)
-  g.lineTo(cx - 9 * s, by - 24 * s)
-  g.moveTo(cx + 8 * s, by - 12 * s)
-  g.lineTo(cx + 9 * s, by - 24 * s)
+  g.moveTo(-8, by - 12)
+  g.lineTo(-9, by - 24)
+  g.moveTo(8, by - 12)
+  g.lineTo(9, by - 24)
   ink(g, 3)
   g.beginPath()
-  g.arc(cx - 9 * s, by - 26 * s, 6 * s, 0, TAU)
-  g.moveTo(cx + 15 * s, by - 26 * s)
-  g.arc(cx + 9 * s, by - 26 * s, 6 * s, 0, TAU)
+  g.arc(-9, by - 26, 6, 0, TAU)
+  g.moveTo(15, by - 26)
+  g.arc(9, by - 26, 6, 0, TAU)
   fill(g, '#ffffff')
   ink(g, 2.4)
   g.beginPath()
-  if (alive > 0) {
-    g.arc(cx - 8 * s, by - 26 * s, 2.6 * s, 0, TAU)
-    g.moveTo(cx + 12.6 * s, by - 26 * s)
-    g.arc(cx + 10 * s, by - 26 * s, 2.6 * s, 0, TAU)
+  if (awake) {
+    g.arc(-8, by - 26, 2.6, 0, TAU)
+    g.moveTo(12.6, by - 26)
+    g.arc(10, by - 26, 2.6, 0, TAU)
     fill(g, INK)
   } else {
-    g.moveTo(cx - 12 * s, by - 26 * s)
-    g.lineTo(cx - 6 * s, by - 26 * s)
-    g.moveTo(cx + 6 * s, by - 26 * s)
-    g.lineTo(cx + 12 * s, by - 26 * s)
+    g.moveTo(-12, by - 26)
+    g.lineTo(-6, by - 26)
+    g.moveTo(6, by - 26)
+    g.lineTo(12, by - 26)
     ink(g, 2)
   }
   g.beginPath()
-  g.arc(cx, by + 1 * s, 6 * s, 0.3, PI - 0.3)
+  g.arc(0, by + 1, 6, 0.3, PI - 0.3)
   ink(g, 2.4)
+}
+
+/** The crab's claw-to-claw span in SU at `s` = 1. */
+export const CRAB_UNIT = 88
+
+/**
+ * The crab as a painted strip: asleep, awake with its claw down, claw raised.
+ *
+ * The leg SHUFFLE is baked at rest in all three. It is ±3 SU on six leg tips
+ * at 14 rad/s — too fast and too small to be worth three more panels, and the
+ * scuttle a player actually sees is the crab crossing the sand, which is the
+ * drawing's own transform either way.
+ */
+export const CRAB_ART: ItemSpec = {
+  ...PROP_ART.crab, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / CRAB_UNIT, s / CRAB_UNIT)
+    crabShape(g, f > 0, f > 1 ? 1 : 0, 0)
+    g.restore()
+  }
+}
+
+/** A crab on the sand at (x, y): asleep at rest, scuttling and waving alive. */
+export const crab = (g: G2D, x: number, y: number, s: number, t: number, alive: number, run = 50): void => {
+  const wave = alive > 0 ? Math.max(0, sin(t * 1.5)) * alive : 0
+  g.save()
+  g.translate(x + (alive > 0 ? sin(t * 0.7) * run * alive : 0), y)
+  g.scale(s, s)
+  if (!drawItem(g, CRAB_ART, CRAB_UNIT, alive > 0 ? 1 + wave : 0)) {
+    crabShape(g, alive > 0, wave, alive > 0 ? sin(t * 14) * alive : 0)
+  }
+  g.restore()
+}
+
+/** A little fish about the origin, nose to the right, level. */
+export const fishShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.moveTo(-12, 0)
+  g.lineTo(-26, -10)
+  g.lineTo(-24, 10)
+  g.closePath()
+  fill(g, col)
+  ink(g, 2.4)
+  g.beginPath()
+  g.ellipse(0, 0, 16, 10, 0, 0, TAU)
+  fill(g, col)
+  ink(g, 2.6)
+  g.beginPath()
+  g.arc(7, -2, 2.6, 0, TAU)
+  fill(g, INK)
+}
+
+/** The fish's tail-to-nose length in SU. */
+export const FISH_UNIT = 42
+
+/** The fish as a painted still — the LEAP is the drawing's own arc and tilt.
+ *  Its body is the colour-me region: each lagoon picks its own fish. */
+export const FISH_ART: ItemSpec = {
+  ...PROP_ART.fish, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / FISH_UNIT, s / FISH_UNIT)
+    fishShape(g, accent.base)
+    g.restore()
+  }
 }
 
 /** A little fish leaping an arc from (x, y) over `span` — a live prop. */
@@ -1626,32 +1826,55 @@ export const fishJump = (
     g.save()
     g.translate(fx, fy)
     g.rotate(Math.atan2(-cos(u * PI) * PI * h, span))
-    g.beginPath()
-    g.moveTo(-12, 0)
-    g.lineTo(-26, -10)
-    g.lineTo(-24, 10)
-    g.closePath()
-    fill(g, col)
-    ink(g, 2.4)
-    g.beginPath()
-    g.ellipse(0, 0, 16, 10, 0, 0, TAU)
-    fill(g, col)
-    ink(g, 2.6)
-    g.beginPath()
-    g.arc(7, -2, 2.6, 0, TAU)
-    fill(g, INK)
+    if (!drawItem(g, FISH_ART, FISH_UNIT, 0, col)) fishShape(g, col)
     g.restore()
   }
   g.globalAlpha = 1
 }
 
 /** A striped bell buoy afloat at (x, y), rocking and blinking — a live prop. */
+/** The buoy's width in SU — it is drawn at one fixed size, in one place. */
+const BUOY_UNIT = 54
+
+/**
+ * The channel buoy as a painted still — the one thing standing on the open
+ * water of 2-2, and a hard-outlined vector on a painted sea.
+ *
+ * Its bob and its lean are the drawing's transform, its LAMP GLOW is
+ * alpha-pulsed and stays drawn over the painting, and so does the ring of
+ * foam at its waterline, which is drawn outside the lean.
+ */
+export const BUOY_ART: ItemSpec = {
+  ...PROP_ART.buoy, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / BUOY_UNIT, s / BUOY_UNIT)
+    buoyShape(g)
+    g.restore()
+  }
+}
+
 export const buoy = (g: G2D, x: number, y: number, t: number, alive: number): void => {
   const a = alive > 0 ? sin(t * 1.4) * 0.14 * alive : 0
   const dy = alive > 0 ? sin(t * 1.4 + 1) * 3 * alive : 0
   g.save()
   g.translate(x, y + dy)
   g.rotate(a)
+  if (!drawItem(g, BUOY_ART, BUOY_UNIT)) buoyShape(g)
+  if (alive > 0) {
+    g.globalAlpha = alive * (0.4 + 0.35 * Math.max(0, sin(t * 3)))
+    g.beginPath()
+    g.arc(0, -66, 18, 0, TAU)
+    fill(g, BAY.lamp)
+    g.globalAlpha = 1
+  }
+  g.restore()
+  foam(g, x, y + 5, 66)
+}
+
+/** The buoy itself about its waterline: the banded body, its lamp housing
+ *  and the collar round its foot. No glow — that pulses. */
+const buoyShape = (g: G2D): void => {
   const body = (): void => {
     g.beginPath()
     g.moveTo(-19, -8)
@@ -1675,13 +1898,6 @@ export const buoy = (g: G2D, x: number, y: number, t: number, alive: number): vo
   fill(g, C.cap)
   body()
   ink(g, 4)
-  if (alive > 0) {
-    g.globalAlpha = alive * (0.4 + 0.35 * Math.max(0, sin(t * 3)))
-    g.beginPath()
-    g.arc(0, -66, 18, 0, TAU)
-    fill(g, BAY.lamp)
-    g.globalAlpha = 1
-  }
   g.beginPath()
   g.roundRect(-7, -74, 14, 15, 4)
   fill(g, BAY.lamp)
@@ -1690,8 +1906,6 @@ export const buoy = (g: G2D, x: number, y: number, t: number, alive: number): vo
   g.ellipse(0, -5, 27, 10, 0, 0, TAU)
   fill(g, C.cap)
   ink(g, 4)
-  g.restore()
-  foam(g, x, y + 5, 66)
 }
 
 /** Soft ripple rings spreading on still water at (x, y) — a live prop. */
@@ -1781,10 +1995,37 @@ export const curlWave = (g: G2D, x: number, y: number, w: number, h: number, dir
 /** The sea-unicorn foal, its neck rising from (x, y), facing `dir`. `blow`
  *  0..1 purses its mouth into an "o". */
 export const seaFoal = (g: G2D, x: number, y: number, s: number, dir: number, blow: number): void => {
-  const S = (v: number): number => v * s
   g.save()
   g.translate(x, y)
   if (dir < 0) g.scale(-1, 1)
+  const painted = drawItem(g, SEA_FOAL_ART, SEA_FOAL_UNIT * s, blow > 0.3 ? 1 : 0)
+  if (!painted) seaFoalShape(g, s, blow)
+  g.restore()
+}
+
+/** Horn tip (-134) to the neck's cut (+12) at scale 1 — the foal's own height
+ *  in SU, which the SIZE clause and the line weight are judged against. */
+const SEA_FOAL_UNIT = 146
+
+/**
+ * The sea-foal's two moments, side by side (`CREATURE_ART.seaFoal`): the
+ * mouth shut as she rises, then rounded to blow her bubble ring. One look, so
+ * nothing is tinted — the bay dresses every foal the same.
+ */
+export const SEA_FOAL_ART: ItemSpec = {
+  ...CREATURE_ART.seaFoal, frames: 2,
+  draw: (g, s, f) => {
+    const k = s / SEA_FOAL_UNIT
+    g.save()
+    g.scale(k, k)
+    seaFoalShape(g, 1, f)
+    g.restore()
+  }
+}
+
+/** The foal itself, neck-base at the origin, facing +x, in its own units. */
+const seaFoalShape = (g: G2D, s: number, blow: number): void => {
+  const S = (v: number): number => v * s
   // The fin ear, behind the head.
   g.beginPath()
   g.moveTo(S(-12), S(-86))
@@ -1900,7 +2141,6 @@ export const seaFoal = (g: G2D, x: number, y: number, s: number, dir: number, bl
   g.ellipse(S(-8), S(-94), S(13), S(8), -0.5, 0, TAU)
   fill(g, BAY.maneLilac)
   ink(g, 3)
-  g.restore()
 }
 
 /** A bubble ring (a soap-bubble torus), centred (x, y). */
@@ -1932,7 +2172,7 @@ export interface PeekSpot { x: number; y: number; dir: number; s: number; waterY
  * behind its hiding prop, whose FRONT `front` redraws on top (so k = 0 is
  * the prop alone), then blows a bubble ring.
  */
-export const peekFoal = (g: G2D, p: PeekSpot, k: number, t: number, front: () => void): void => {
+export const peekFoal = (g: G2D, p: PeekSpot, k: number, t: number, front: (g: G2D) => void): void => {
   const e = ease(k)
   const lean = (p.lean ?? 0) * e
   const fy = p.y + (1 - e) * p.rise
@@ -1944,7 +2184,7 @@ export const peekFoal = (g: G2D, p: PeekSpot, k: number, t: number, front: () =>
     seaFoal(g, p.x + lean, fy, p.s, p.dir, clamp((k - 0.45) * 3, 0, 1))
     g.restore()
   }
-  front()
+  tapCover(g, front)
   if (k <= 0.5) return
   const u = clamp((k - 0.5) / 0.5, 0, 1)
   const mx = p.x + lean + p.dir * 46 * p.s
@@ -2006,6 +2246,49 @@ export const singingShell = (g: G2D, x: number, y: number, s: number, k: number,
   g.ellipse(x + S(6), y, S(50), S(9), 0, 0, TAU)
   fill(g, INK)
   g.globalAlpha = 1
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, SHELL_ART, SHELL_UNIT * s, k < 0.5 ? 0 : 1)
+  g.restore()
+  if (!painted) shellShape(g, x, y, s, k, o)
+  if (k > 0.2) shellNotes(g, x + S(36), y - S(30), s, k, t)
+}
+
+/** Spire tip (-98) to the foot of the body whorl (0) at scale 1. */
+const SHELL_UNIT = 98
+
+/**
+ * The Singing Shell's two states (`CREATURE_ART.singingShell`): asleep under
+ * the dust, then awake and singing. The HALO, the contact shadow on the sand
+ * and the notes drifting out of its lip stay drawn — a wash, a shadow the
+ * painting must not carry, and a particle stream.
+ */
+export const SHELL_ART: ItemSpec = {
+  ...CREATURE_ART.singingShell, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / SHELL_UNIT
+    g.save()
+    g.scale(k, k)
+    shellShape(g, 0, 0, 1, f, ease(f))
+    g.restore()
+  }
+}
+
+/** Notes drifting up out of the shell's lip at (lx, ly). */
+const shellNotes = (g: G2D, lx: number, ly: number, s: number, k: number, t: number): void => {
+  const S = (v: number): number => v * s
+  const cols = [C.flowerPink, BAY.coralLilac, '#3ee3d4']
+  for (let i = 0; i < 3; i++) {
+    const u = (t * 0.45 + i / 3) % 1
+    g.globalAlpha = clamp((k - 0.2) * 2, 0, 1) * (u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85)
+    note(g, lx + S(14 + u * 56 + sin(u * 6 + i * 2) * 9), ly - S(20 + u * 90), s * 1.35, cols[i]!)
+  }
+  g.globalAlpha = 1
+}
+
+/** The shell itself — the drawing the painting stands in for. */
+const shellShape = (g: G2D, x: number, y: number, s: number, k: number, o: number): void => {
+  const S = (v: number): number => v * s
   // The spire: whorls stacked up and to the left, smallest first.
   const whorls: readonly (readonly [number, number, number, number])[] = [
     [-40, -92, 7, 6], [-32, -82, 13, 9], [-20, -68, 21, 13]
@@ -2095,14 +2378,7 @@ export const singingShell = (g: G2D, x: number, y: number, s: number, k: number,
     fill(g, INK)
     g.globalAlpha = 1
   }
-  if (k <= 0.2) return
-  // Notes drift up out of the lip.
-  const cols = [C.flowerPink, BAY.coralLilac, '#3ee3d4']
-  for (let i = 0; i < 3; i++) {
-    const u = (t * 0.45 + i / 3) % 1
-    g.globalAlpha = clamp((k - 0.2) * 2, 0, 1) * (u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85)
-    note(g, lx + S(14 + u * 56 + sin(u * 6 + i * 2) * 9), ly - S(20 + u * 90), s * 1.35, cols[i]!)
-  }
+
   g.globalAlpha = 1
 }
 

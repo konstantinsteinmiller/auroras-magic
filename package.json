@@ -44,6 +44,7 @@
     "art:status": "node --import ./tools/ts-resolve.mjs tools/art-status.mjs",
     "art:measure": "python tools/measure-art.py",
     "art:desk": "node tools/art-desk/server.mjs",
+    "brand:icons": "node scripts/brand-icons.mjs",
     "preview:video": "node tools/preview-video/record.mjs",
     "test": "vitest run",
     "test:watch": "vitest"

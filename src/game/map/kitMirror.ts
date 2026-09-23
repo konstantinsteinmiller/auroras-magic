@@ -18,8 +18,11 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, ease, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, fill, ink, lumpy, flower } from '@/game/map/kit'
-import { type Pt, curve } from '@/game/map/kitBay'
+import { type G2D, type Pot, INK, fill, ink, lumpy, flower, butterflyAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
+import { type Pt, curve, GULL_ART } from '@/game/map/kitBay'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 import { mix, skyPuff, star5, zzz } from '@/game/map/kitSky'
 import { type Tones, glow, rock } from '@/game/map/kitCaves'
 import type { TapCreature } from '@/game/map/sectorDef'
@@ -1018,7 +1021,38 @@ export const lookout = (g: G2D, x: number, y: number, pot: Pot): void => {
 
 /** A cable-car cabin hanging from the cable at (x, y): a rounded box in
  *  `t` with a row of windows. */
+/** The scale the pass hangs its cabins at, and the width it gives. */
+const CABIN_S = 0.62
+const CABIN_UNIT = 100 * CABIN_S
+
+/**
+ * The cable car's cabin as a painted still, tinted whole — its body, its
+ * shaded side and its roof band are three tones of one hue, so one painting
+ * in neutral greys wears any of them.
+ *
+ * The CABLE is not here: `cableAt` runs it between two points the sector
+ * picks, so it has no shape of its own. The hanger arm and its gilt knob do,
+ * and they ride with the cabin, so they are in the painting.
+ */
+export const CABIN_ART: ItemSpec = {
+  ...PROP_ART.cabin, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / CABIN_UNIT, s / CABIN_UNIT)
+    cabinShape(g, 0, 0, CABIN_S, [accent.base, accent.shade, accent.lite])
+    g.restore()
+  }
+}
+
 export const cabin = (g: G2D, x: number, y: number, s: number, t: Tones): void => {
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, CABIN_ART, 100 * s, 0, t[0])
+  g.restore()
+  if (!painted) cabinShape(g, x, y, s, t)
+}
+
+const cabinShape = (g: G2D, x: number, y: number, s: number, t: Tones): void => {
   const S = (v: number): number => v * s
   g.beginPath()
   g.moveTo(x, y)
@@ -1198,7 +1232,16 @@ export const echoBird = (
   g: G2D, x: number, y: number, axis: number, pool: readonly [number, number, number, number],
   s: number, flap: number, dir: number, a: number
 ): void => {
+  // The same bare-wing curve the bay's gull is, so it wears the gull's
+  // painting: `k` = -1 is the echo, and a reflection is a flip of the SAME
+  // picture. One sheet, no generation of its own.
   const bird = (by: number, k: number): void => {
+    g.save()
+    g.translate(x, by)
+    g.scale(dir, k)
+    const painted = drawItem(g, GULL_ART, 52 * s, flap + 1)
+    g.restore()
+    if (painted) return
     const wy = -10 * s * flap * k
     g.beginPath()
     g.moveTo(x - 26 * s * dir, by + wy)
@@ -1229,18 +1272,9 @@ export const echoButterflies = (g: G2D, axis: number, y: number, t: number, aliv
   const dy = sin(s * 2) * 30
   const flap = Math.abs(sin(t * 11))
   g.globalAlpha = alive
-  for (const d of [-1, 1]) {
-    const bx = axis + d * dx
-    for (const side of [-1, 1]) {
-      g.beginPath()
-      g.ellipse(bx + side * 8 * flap, y + dy - 4, 9 * flap + 2, 11, side * 0.5, 0, TAU)
-      fill(g, d < 0 ? col : '#ffffff')
-      ink(g, 2.2)
-    }
-    g.beginPath()
-    g.ellipse(bx, y + dy, 2.4, 7.5, 0, 0, TAU)
-    fill(g, INK)
-  }
+  // The pair is the same creature the woods' butterfly is, a shade smaller,
+  // so it wears the same painting — one sheet for every butterfly in the game.
+  for (const d of [-1, 1]) butterflyAt(g, axis + d * dx, y + dy, flap, d < 0 ? col : '#ffffff', 22)
   g.globalAlpha = 1
 }
 
@@ -1263,7 +1297,38 @@ export const SPRITE_ECHO: SpriteLook = { body: '#d4e6ff', shade: '#a8c4f8', star
 export const mirrorSprite = (g: G2D, x: number, y: number, s: number, dir: number, wave: number, look: SpriteLook): void => {
   g.save()
   g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, MIRROR_SPRITE_ART, SPRITE_UNIT * s, (clamp(wave, -1, 1) + 1) / 2, look.body)
+  g.restore()
+  if (painted) return
+  g.save()
+  g.translate(x, y)
   g.scale(s * dir, s)
+  mirrorSpriteShape(g, s, wave, look)
+  g.restore()
+}
+
+/** Star tip (-94) to the feet (0) at scale 1 — the sprite's own height in SU. */
+const SPRITE_UNIT = 94
+
+/**
+ * The mirror sprite's wave (`CREATURE_ART.mirrorSprite`): the arm down, then
+ * up. Its BODY is the tinted region — the valley's sprite is peach and its
+ * reflection is a cool echo blue, and they are the same little creature.
+ */
+export const MIRROR_SPRITE_ART: ItemSpec = {
+  ...CREATURE_ART.mirrorSprite, frames: 2, tinted: true,
+  draw: (g, sz, f, accent) => {
+    const k = sz / SPRITE_UNIT
+    g.save()
+    g.scale(k, k)
+    mirrorSpriteShape(g, 1, f * 2 - 1, { body: accent.base, shade: accent.shade, star: SPRITE_PEACH.star })
+    g.restore()
+  }
+}
+
+/** The sprite itself, feet at the origin, facing +x, in its own units. */
+const mirrorSpriteShape = (g: G2D, s: number, wave: number, look: SpriteLook): void => {
   const w = 4.6 / s
   // Feet.
   g.beginPath()
@@ -1329,7 +1394,6 @@ export const mirrorSprite = (g: G2D, x: number, y: number, s: number, dir: numbe
   g.ellipse(21, -22, 5, 3, 0, 0, TAU)
   fill(g, '#ff9eb5')
   g.globalAlpha = 1
-  g.restore()
 }
 
 /** Where and how the sprites peek: the pair centred on x, feet at y when
@@ -1359,7 +1423,7 @@ export const spriteTap = (p: SpriteSpot, cover: (g: G2D) => void, r = 72): TapCr
       if (e2 > 0.001) mirrorSprite(g, p.x + p.gap / 2, p.y + (1 - e2) * p.rise, p.s, -1, wave * e2, SPRITE_ECHO)
       g.restore()
     }
-    cover(g)
+    tapCover(g, cover)
     if (e2 > 0.3) {
       const a = (e2 - 0.3) / 0.7
       const top = p.y - 90 * p.s
@@ -1387,31 +1451,31 @@ export const spriteTap = (p: SpriteSpot, cover: (g: G2D) => void, r = 72): TapCr
 const DULL_GLASS = '#b8b4c8'
 const DULL_GILT = '#cbbfa6'
 
+/** Handle foot (0) to the frame's crown (-166) at scale 1 — its height in SU. */
+const MENDED_UNIT = 166
+
 /**
- * The Mended Mirror Shard, the chapter's rescue (§8.8 beat 3): a little
- * hand-mirror at (x, y). k = 0: lying tipped on the path, dull and cracked,
- * a chip of its glass fallen beside it, asleep; k = 1: standing up and
- * hovering, the chip flown home, whole and shining, a tiny star in its glass.
+ * The Mended Shard, asleep and awake (`CREATURE_ART.mendedShard`): a hand
+ * mirror with its glass cracked and dull, then whole and bright. Its halo,
+ * its shadow on the path, the chip that flies home and the sparkles stay
+ * drawn — and so does its LEAN, which is a rotation.
  */
-export const mendedShard = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
-  const e = ease(clamp(k, 0, 1))
+export const MENDED_SHARD_ART: ItemSpec = {
+  ...CREATURE_ART.mendedShard, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / MENDED_UNIT
+    g.save()
+    g.scale(k, k)
+    mendedShardShape(g, 1, f, f, mix(DULL_GILT, GILT[0]!, f), mix('#a89c86', GILT[1]!, f), mix(DULL_GLASS, '#d8f1ff', f))
+    g.restore()
+  }
+}
+
+/** The mirror itself, upright, its handle's foot at the origin, in its units. */
+const mendedShardShape = (
+  g: G2D, s: number, e: number, k: number, frame: string, frameShade: string, glassC: string
+): void => {
   const S = (v: number): number => v * s
-  const lift = e * S(26) + (e > 0 ? sin(t * 2.2) * S(4) * e : 0)
-  const ang = lerp(-1.25, 0, e) + (e > 0 ? sin(t * 1.6) * 0.06 * e : 0)
-  const frame = mix(DULL_GILT, GILT[0], e)
-  const frameShade = mix('#a89c86', GILT[1], e)
-  const glassC = mix(DULL_GLASS, '#d8f1ff', e)
-  // Shadow on the path.
-  g.globalAlpha = 0.22
-  g.beginPath()
-  g.ellipse(x + S(6), y, S(60), S(9), 0, 0, TAU)
-  fill(g, INK)
-  g.globalAlpha = 1
-  if (k > 0) glow(g, x, y - S(80) - lift, S(110), e, '#f4fdff')
-  // Pivot: the handle's end, resting on the path.
-  g.save()
-  g.translate(x + S(44) * (1 - e), y - S(8) - lift)
-  g.rotate(ang)
   // Handle.
   g.beginPath()
   g.roundRect(-S(9), -S(62), S(18), S(64), S(9))
@@ -1494,6 +1558,38 @@ export const mendedShard = (g: G2D, x: number, y: number, s: number, k: number, 
   g.ellipse(S(22), fy + S(6), S(5), S(3), 0, 0, TAU)
   fill(g, '#ff9eb5')
   g.globalAlpha = 1
+}
+
+/**
+ * The Mended Mirror Shard, the chapter's rescue (§8.8 beat 3): a little
+ * hand-mirror at (x, y). k = 0: lying tipped on the path, dull and cracked,
+ * a chip of its glass fallen beside it, asleep; k = 1: standing up and
+ * hovering, the chip flown home, whole and shining, a tiny star in its glass.
+ */
+export const mendedShard = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
+  const e = ease(clamp(k, 0, 1))
+  const S = (v: number): number => v * s
+  const lift = e * S(26) + (e > 0 ? sin(t * 2.2) * S(4) * e : 0)
+  const ang = lerp(-1.25, 0, e) + (e > 0 ? sin(t * 1.6) * 0.06 * e : 0)
+  const frame = mix(DULL_GILT, GILT[0], e)
+  const frameShade = mix('#a89c86', GILT[1], e)
+  const glassC = mix(DULL_GLASS, '#d8f1ff', e)
+  // Shadow on the path.
+  g.globalAlpha = 0.22
+  g.beginPath()
+  g.ellipse(x + S(6), y, S(60), S(9), 0, 0, TAU)
+  fill(g, INK)
+  g.globalAlpha = 1
+  if (k > 0) glow(g, x, y - S(80) - lift, S(110), e, '#f4fdff')
+  // Pivot: the handle's end, resting on the path.
+  // The mirror LEANS on its handle asleep and stands upright awake, which is
+  // a rotation about the handle's end — so the painting is made upright and
+  // the drawing tips it. The chip flying home, the zzz and the sparkles are
+  // separate things and stay drawn.
+  g.save()
+  g.translate(x + S(44) * (1 - e), y - S(8) - lift)
+  g.rotate(ang)
+  if (!drawItem(g, MENDED_SHARD_ART, MENDED_UNIT * s, k < 0.5 ? 0 : 1)) mendedShardShape(g, s, e, k, frame, frameShade, glassC)
   g.restore()
   // The fallen chip: lying by it asleep, flying home as it wakes.
   if (e < 0.98) {

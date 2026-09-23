@@ -50,3 +50,23 @@ export const setReducedMotion = (on: boolean): void => {
   reducedMotion.value = on
   setState(REDUCED_MOTION_KEY, on)
 }
+
+/**
+ * Publish the setting to CSS as `html.am-reduced`.
+ *
+ * The motion tokens in `theme.sass` collapse to 1 ms under either
+ * `prefers-reduced-motion` OR this class, so a component that animates on
+ * `--am-dur-*` honours the OPTIONS toggle without reading this ref itself.
+ * Without it the tokens would follow the device only, and a player who turned
+ * the setting on inside the game would still get the full CSS motion — which
+ * is the half of the feature that has no JS guard.
+ *
+ * `watch` with `immediate` rather than a call at import time: the ref is
+ * re-read on every hydrate bump (see the watcher above), and a cloud save that
+ * arrives late must be able to move the class.
+ */
+watch(reducedMotion, (on) => {
+  try {
+    document.documentElement.classList.toggle('am-reduced', on)
+  } catch { /* no DOM (unit tests, SSR): the class has no meaning there */ }
+}, { immediate: true })

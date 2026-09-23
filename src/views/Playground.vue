@@ -15,6 +15,7 @@ import { artOverridesEnabled, artProbeCount, onArtChanged, refreshArtOverrides, 
 import { SECTOR_SHEETS } from '@/game/artSheet'
 import { sectorOf } from '@/game/map/sectors'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { withCoverLayer } from '@/game/map/tapCover'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { drawGift, drawBoxGift, drawChest, drawSponge, drawEraser, giftShake, chestRattle } from '@/game/restore/gift'
 import { TENT_ART, tentShape } from '@/game/map/tent'
@@ -68,14 +69,23 @@ const drawSector = (t: number): void => {
   const g = cv?.getContext('2d')
   if (!cv || !g) return
   const sec = sectorOf(node.value)
+  const lay = layer()
   g.setTransform(cv.width / SEC_W, 0, 0, cv.height / SEC_H, 0, 0)
-  g.drawImage(layer(), 0, 0, SEC_W, SEC_H)
+  g.drawImage(lay, 0, 0, SEC_W, SEC_H)
   // Its props are live in the game, painted or not: the check is that they
   // still sit where the painting left room for them.
   sec.props(g, t, 1)
   const peek = 0.5 - 0.5 * Math.cos(t * 1.6)
-  sec.tap?.draw(g, peek, t)
-  sec.rescue?.draw(g, peek, t)
+  // The creature's cover comes out of the layer it hides in, exactly as the
+  // map and the restore view do it — so a painted prop is never redrawn in
+  // vector over its own painted self here either.
+  const src = sectorPainted(node.value, thumb.value)
+    ? { cv: lay, res: lay.width / SEC_W, key: bakedKey }
+    : null
+  withCoverLayer(src, () => {
+    sec.tap?.draw(g, peek, t)
+    sec.rescue?.draw(g, peek, t)
+  })
   g.setTransform(1, 0, 0, 1, 0, 0)
 }
 

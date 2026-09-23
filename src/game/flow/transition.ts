@@ -35,7 +35,7 @@ import { reducedMotion } from '@/use/useAccessibility'
 import { flowHud } from '@/use/useFlow'
 import { sfx } from '@/game/duel/audio'
 import { clamp, sin, PI } from '@/game/duel/util'
-import { shadeTurn, turnAngle, turnWidth } from '@/game/flow/pageTurn'
+import { drawTurned, shadeTurnEdge, turnAngle, turnWidth } from '@/game/flow/pageTurn'
 
 /** §3.13's numbers: page-turn 450 ms, zoom 400 ms, node push-in 250 ms. */
 export const DIP_PAGE = 0.45
@@ -136,27 +136,18 @@ const drawDip = (g: CanvasRenderingContext2D): void => {
  * the left edge, from flat (its full width) to edge-on (nothing).
  */
 const drawPage = (g: CanvasRenderingContext2D, p: number): void => {
-  const img = snap!
   const W = g.canvas.width
   const H = g.canvas.height
   const a = turnAngle(p)
-  const w = turnWidth(p) * W
-  if (w < 1) return
-  // Paper bows as it lifts, so the strips are not a flat squeeze.
-  const bow = sin(a) * 0.035
+  if (turnWidth(p) * W < 1) return
   g.setTransform(1, 0, 0, 1, 0, 0)
   g.globalAlpha = 1
-  for (let i = 0; i < STRIPS; i++) {
-    const u0 = i / STRIPS
-    const u1 = (i + 1) / STRIPS
-    const k = bow * sin(((u0 + u1) / 2) * PI)
-    g.drawImage(
-      img,
-      u0 * W, 0, (u1 - u0) * W, H,
-      u0 * w, -H * k * 0.5, (u1 - u0) * w + 1, H * (1 + k)
-    )
-  }
-  shadeTurn(g, 0, 0, w, H, a)
+  // The strips used to bow the page BIGGER in the middle and keep every one
+  // of them full height, which is a squeeze with a bulge, not a turn. The
+  // projection lives in `pageTurn.ts` now, so this leaf and the map's own
+  // leaf lean away from the reader in exactly the same way.
+  const e = drawTurned(g, snap!, W, H, 0, 0, W, H, a)
+  shadeTurnEdge(g, e.x, e.y, e.h, H, a)
 }
 
 /** Paint the turn over whatever the frame drew. Device-pixel space. */

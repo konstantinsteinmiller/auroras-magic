@@ -77,7 +77,7 @@ button
   cursor: pointer
   -webkit-tap-highlight-color: transparent
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .gift-hit
@@ -88,8 +88,8 @@ button
   align-items: center
   justify-content: center
   border-radius: 50%
-  background: rgba(255, 244, 230, 0.92)
-  box-shadow: 0 4px 0 #3A2340, 0 0 0 3px #3A2340
+  background: var(--am-paper)
+  box-shadow: 0 4px 0 var(--am-ink), 0 0 0 4px var(--am-ink)
   // Three pots rise from the gift, one after another (§8.7), and then keep
   // BREATHING until one is chosen (§8.33). A child taps what is moving: the
   // old pots rose once and went still while the landmark's ring went on

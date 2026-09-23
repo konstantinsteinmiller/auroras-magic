@@ -228,6 +228,19 @@ watch(model, (open) => {
 </template>
 
 <style scoped lang="sass">
+// ─── The board (ui-design-system.md §3.14) ─────────────────────────────────
+//
+// Rows of paper on paper, not `rgba(0,0,0,.22)` slabs: raised tiles with a
+// sunken zebra under them, plum numerals, and the player's own row lifted out
+// in gold with a plum ring. COLOURS ONLY — the grid, `v-fit` on the head and
+// the single un-split footer sentence are all load-bearing and untouched.
+//
+// No ornament on a row, deliberately. §5.4 offers a heart bullet for the "you"
+// row and §7 allows one, but §5.8's restraint rule is flatly the other way —
+// "a list row gets no ornament except the existing 'new' spark" — and the gold
+// row plus the YOU tag already say it twice. The rule under this modal's
+// header (FModal, §5.5) is this screen's one structural mark.
+
 // One grid template, shared by the header and every row, so the columns line up
 // without a table and without a fixed width anywhere. The name column is the
 // only flexible one — the three numbers are as wide as their content and no
@@ -247,7 +260,10 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
   grid-template-columns: $cols
   gap: clamp(0.3rem, 2vw, 0.6rem)
   padding: 0 clamp(0.3rem, 1.6vw, 0.6rem) clamp(0.15rem, 0.8vw, 0.3rem)
-  border-bottom: 2px solid rgba(255, 255, 255, 0.12)
+  // A hairline rule inside paper — that is exactly `--am-paper-edge`'s one
+  // job. NOT the rainbow rule: this modal already carries one under its
+  // header, and two would break §5.8's two-marks-per-screen ceiling.
+  border-bottom: 2px solid var(--am-paper-edge)
   // The row owns the header's type size so `v-fit` on it moves all four
   // captions at once; the columns inherit it.
   font-size: clamp(0.5rem, 2.2vw, 0.65rem)
@@ -257,10 +273,13 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
 
 .board__col
   min-width: 0
-  color: #9fb2d0
-  font-weight: 900
-  text-transform: uppercase
-  letter-spacing: 0.02em
+  color: var(--am-ink-2)
+  // 700 and sentence case (§4.2, §4.4). Dropping the uppercase makes every
+  // Latin caption ~8% narrower, which gives `v-fit` room rather than taking
+  // it away.
+  font-weight: 700
+  text-transform: none
+  letter-spacing: 0
   font-size: inherit
   // A compound word gets a proper break before it gets a smaller size — the
   // document's `lang` is set on every locale switch, so this hyphenates by the
@@ -290,24 +309,31 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
   padding: clamp(0.22rem, 1.2vw, 0.42rem) clamp(0.3rem, 1.6vw, 0.6rem)
   border: 2px solid transparent
   border-radius: clamp(0.35rem, 1.8vw, 0.6rem)
-  background-color: rgba(0, 0, 0, 0.22)
+  background-color: var(--am-paper-raised)
 
   // Zebra striping rather than a border per row: 100 rows of border is a wall.
   &:nth-child(even)
-    background-color: rgba(0, 0, 0, 0.08)
+    background-color: var(--am-paper-sunken)
 
   // The row the player came here to find.
   &.is-you
-    border-color: #ffcd00
-    background-image: linear-gradient(to bottom, #3a4a24, #2a3a18)
+    border-color: var(--am-ink)
+    background-image: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
     background-color: transparent
 
+    // Everything on the gold gradient goes to full ink. `--am-ink-2` is 5.11:1
+    // on the gold FACE but only 3.92:1 on its FOOT, and a gradient row gives
+    // no promise about which half a given line lands on.
+    .board-row__flair
+      color: var(--am-ink)
+
 .board-row__rank
-  color: #ffd93c
-  font-weight: 900
+  color: var(--am-ink)
+  font-weight: 700
   font-size: clamp(0.62rem, 2.8vw, 0.85rem)
   text-align: left
-  text-shadow: 1px 1px 0 #000
+  // 13.8:1 on a raised tile. A shadow there is noise on a page (§4.3).
+  text-shadow: none
 
 .board-row__name
   display: flex
@@ -319,42 +345,45 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
   overflow: hidden
   text-overflow: ellipsis
   white-space: nowrap
-  color: #fff
+  color: var(--am-ink)
   font-weight: 700
   font-size: clamp(0.62rem, 2.8vw, 0.85rem)
   text-align: left
 
 .board-row__you
   flex: 0 0 auto
-  color: #ffcd00
-  font-weight: 900
-  text-transform: uppercase
-  letter-spacing: 0.03em
+  // Sits on the gold row: plum at 10.16:1, sentence case, no tracking.
+  color: var(--am-ink)
+  font-weight: 800
+  text-transform: none
+  letter-spacing: 0
   font-size: clamp(0.45rem, 2vw, 0.6rem)
 
 .board-row__score
-  color: #8fd6ff
-  font-weight: 900
+  color: var(--am-ink)
+  font-weight: 800
   font-size: clamp(0.62rem, 2.8vw, 0.85rem)
   text-align: right
-  text-shadow: 1px 1px 0 #000
+  text-shadow: none
 
 .board-row__flair
-  color: #b9cbe8
+  color: var(--am-ink-2)
   font-weight: 700
   font-size: clamp(0.6rem, 2.6vw, 0.8rem)
   text-align: right
 
 .board__state
   padding: clamp(1rem, 8vw, 2.5rem) clamp(0.5rem, 3vw, 1rem)
-  color: #b9cbe8
+  color: var(--am-ink-2)
   font-weight: 700
   text-align: center
   font-size: clamp(0.65rem, 3vw, 0.9rem)
   line-height: 1.35
 
+  // "We couldn't reach it" — the coral PLATE, not the coral face: 5.03:1 as
+  // text on paper, where the face would be 1.3:1 and unreadable.
   &.is-failed
-    color: #ffa6a6
+    color: var(--am-coral-plate)
 
 .board__footer
   display: flex
@@ -364,16 +393,18 @@ $cols-portal: clamp(1.6rem, 8vw, 2.4rem) minmax(0, 1fr) clamp(2rem, 9vw, 3rem)
   gap: 0.15rem 0.4rem
   margin-top: clamp(0.2rem, 1.2vw, 0.45rem)
   padding: clamp(0.3rem, 1.6vw, 0.55rem) clamp(0.4rem, 2vw, 0.8rem)
-  border: 2px solid #ffcd00
+  border: 2px solid var(--am-ink)
   border-radius: clamp(0.35rem, 1.8vw, 0.6rem)
-  background-color: rgba(0, 0, 0, 0.3)
+  // Flat gold, not a gradient: the whole sentence has to clear AA and the
+  // flat face is the half that does it everywhere (10.16:1).
+  background-color: var(--am-gold)
 
 .board__footer-rank
-  color: #ffd93c
-  font-weight: 900
-  text-transform: uppercase
+  color: var(--am-on-accent)
+  font-weight: 800
+  text-transform: none
   font-size: clamp(0.68rem, 3.2vw, 0.95rem)
-  text-shadow: 2px 2px 0 #000
+  text-shadow: none
   // No second, dimmer rule for the population. Styling the two numbers apart is
   // what motivates splitting the sentence, and the sentence must not be split —
   // see the template. If the footer needs the population to recede, do it with

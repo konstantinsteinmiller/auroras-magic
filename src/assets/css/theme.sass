@@ -1,0 +1,203 @@
+// ─── theme.sass — the ONE place a colour is decided ─────────────────────────
+//
+// Auroras Magic's UI is made of three materials: cream paper, warm plum ink
+// (#3A2340 — never black; `src/game/artStyle.ts` lead rule 2), and painted
+// pastel colour. Everything below is one of those three or a shade of them.
+//
+// Rules for anyone editing this file:
+//   1. A component NEVER writes a hex. It reads a token from here.
+//   2. A token has ONE job. If you need a second job, add a second token.
+//   3. Nothing here is black, near-black, navy, or #ff3e3e. Those are the
+//      portal-template look this game is deliberately not.
+//   4. Every text-on-surface pair in the shipped UI is measured in
+//      ui-design-system.md §2.6. If you add a pair, measure it (AA 4.5:1;
+//      3:1 for text ≥ 24px or ≥ 18.66px bold) and record it there.
+//
+// `:root` only. No element selectors, no classes — this file is data.
+//
+// ── A TRAP, PAID FOR ONCE ──
+// A custom property's value is an arbitrary token stream, so Sass passes
+// EVERYTHING after the colon through verbatim — `//` does not start a comment
+// there. A trailing `// note` therefore becomes part of the value, the
+// declaration is invalid at computed-value time, and the token silently
+// resolves to `initial`: transparent backgrounds and black text, with no build
+// error anywhere. (The one that actually failed the build was an apostrophe in
+// such a comment opening an unterminated string — the rest were failing
+// quietly.) **Every comment in this file is therefore on its own line.**
+
+:root
+  // ── Surfaces ────────────────────────────────────────────────────────────
+  // the cloth the book lies on (DOM letterbox, html/body, theme-color)
+  --am-surround: #9E7CBE
+  // canvas surround gradient, top
+  --am-surround-top: #7B5EA8
+  // canvas surround gradient, bottom — dawn light under the page
+  --am-surround-bottom: #CBA6D6
+  // boot splash radial, centre
+  --am-splash-in: #A98BCE
+  // boot splash radial, edge
+  --am-splash-out: #7B5EA8
+
+  // the default plate: modal frame, HUD button, dialogue leaf, reward ribbon
+  --am-paper: #FDF6E7
+  // the warmer book page: anything meant to read as INSIDE the book
+  --am-parchment: #F5E7C0
+  // a tile sitting ON paper: spellbook row, rune tile, leaderboard row
+  --am-paper-raised: #FFFDF6
+  // a well cut INTO paper: slider track, select list, zebra, progress trough
+  --am-paper-sunken: #ECDCB8
+  // hairline rules and dividers inside paper
+  --am-paper-edge: #D8C49A
+  // the book's leather / board frame
+  --am-frame: #5A3A22
+
+  // The book's CLOTH cover, top / middle / foot. Sampled from
+  // `public/images/pages/cover-cloth.webp` — the painting the map already lays
+  // the book on — so a bound cover is right before that painting decodes, and
+  // with the art layer off entirely.
+  // Why not --am-frame: as a 4 px board edge peeking out from under a modal,
+  // #5A3A22 is fine. As the spellbook's whole 13 px cover band it read as a
+  // varnished plank, which is the brown the owner asked to be rid of.
+  // DECORATION ONLY: no text is ever set on these three.
+  --am-cover-top: #523452
+  --am-cover: #875B77
+  --am-cover-foot: #AE7F85
+
+  // the one dark plate that survives: HP trough, empty rune slot, loss card
+  --am-night: #4A3566
+  // a well inside --am-night (the HP bar's unfilled track)
+  --am-night-deep: #3B2A54
+
+  // every modal / overlay dim. Plum, never black.
+  --am-scrim: rgba(58, 35, 64, 0.62)
+  // the lighter dim where content must stay legible through it
+  --am-scrim-soft: rgba(58, 35, 64, 0.38)
+
+  // ── Ink ─────────────────────────────────────────────────────────────────
+  // THE line colour. Every border, every primary text on paper, every glyph
+  // on a pastel face. Mandated by artStyle.ts.
+  --am-ink: #3A2340
+  // secondary text on paper: captions, "of N", table headers, hints
+  --am-ink-2: #6B4F6E
+  // text on a TINTED light surface, where --am-ink-2 falls under 4.5:1
+  --am-ink-3: #5F4667
+  // dashed rules, ghost borders, soft dividers
+  --am-ink-soft: rgba(58, 35, 64, 0.22)
+  // text and glyphs on gold / lilac / coral / mint. PLUM, NOT WHITE.
+  --am-on-accent: #3A2340
+  // text and glyphs on --am-night and on --am-ink
+  --am-on-night: #FFF6E6
+  // the fill of .ink-text — shouted words over the arena, which carry their
+  // own --am-ink outline
+  --am-shout: #FFFFFF
+
+  // ── Accents: face / foot / plate ────────────────────────────────────────
+  // Each accent is a triple: face (gradient top), foot (gradient bottom),
+  // plate (the offset depth block under it). All carry --am-on-accent text
+  // and an --am-ink border.
+
+  // primary action; already the map's "done" node and "here" chapter tab
+  --am-gold: #FFD76A
+  --am-gold-foot: #F0B846
+  --am-gold-plate: #B9812C
+
+  // secondary action; "this is happening now" (live CAST)
+  --am-lilac: #C9B0FF
+  --am-lilac-foot: #A98CF0
+  // = MapScene's open-chapter colour
+  --am-lilac-plate: #6F55C9
+
+  // close / leave / dismiss. A blush coral, never #ff3e3e.
+  --am-coral: #FFB3A3
+  --am-coral-foot: #F08C78
+  --am-coral-plate: #A8503E
+
+  // ready / claimed / restored
+  --am-mint: #9BE8C4
+  --am-mint-foot: #6FCFA4
+  --am-mint-plate: #2F8A63
+
+  // the rewarded-video button. RESERVED: no call site today. Kept defined so
+  // the one button in the game that earns money can never drift.
+  --am-reward: #FFC93F
+  --am-reward-foot: #EF9A1F
+  --am-reward-plate: #A9660F
+
+  // flat, plateless, un-gradiented. Label: --am-ink-3. Disabled is shown by
+  // LOSING THE MATERIAL, never by opacity .5 + grayscale(1).
+  --am-disabled: #E4DACB
+
+  // ── Magic / decoration ramp ─────────────────────────────────────────────
+  // Taken verbatim from FReward's confetti, so ornament and the reward beat
+  // are one set. DECORATION ONLY — never a text background.
+  // blossom
+  --am-magic-1: #FF9ECF
+  // lilac
+  --am-magic-2: #C7A6FF
+  // sky
+  --am-magic-3: #9FD8FF
+  // mint
+  --am-magic-4: #9FF0D0
+  // butter
+  --am-magic-5: #FFD36B
+  // peach
+  --am-magic-6: #FFB36B
+  --am-rainbow: linear-gradient(90deg, #FF9ECF, #FFD36B, #9FF0D0, #9FD8FF, #C7A6FF)
+  --am-spark-clip: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)
+
+  // ── Type ────────────────────────────────────────────────────────────────
+  // One stack for 21 locales. Named CJK / Thai / Devanagari / Arabic system
+  // faces ahead of the generic, or a Latin-first stack tofus them.
+  // No webfont, deliberately — ui-design-system.md §4.1.
+  --am-font: Arial, 'Helvetica Neue', Helvetica, Roboto, 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans Thai', 'Leelawadee UI', 'Noto Sans Devanagari', 'Nirmala UI', 'Segoe UI', 'Geeza Pro', 'Noto Sans Arabic', sans-serif
+
+  --am-w-shout: 900
+  --am-w-display: 800
+  --am-w-label: 800
+  --am-w-row: 700
+  --am-w-body: 600
+
+  // The three replacements for the old 3px 3px 0 #000 ring (§4.3).
+  // On a pastel accent face: one soft white lift.
+  --am-lift-on-accent: 0 1px 0 rgba(255, 255, 255, 0.45)
+  // On paper: nothing at all. A shadow there is noise on a page.
+  --am-lift-on-paper: none
+  --am-shadow-plate: 0 4px 0 rgba(58, 35, 64, 0.28)
+  --am-shadow-chip: 0 3px 0 rgba(58, 35, 64, 0.26)
+
+  // ── Motion ──────────────────────────────────────────────────────────────
+  --am-dur-press: 90ms
+  --am-dur-ui: 180ms
+  --am-dur-enter: 380ms
+  --am-dur-leave: 180ms
+  --am-dur-reward: 600ms
+  --am-ease-out: cubic-bezier(0.2, 0.8, 0.3, 1)
+  --am-ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1)
+  --am-ease-page: cubic-bezier(0.18, 0.89, 0.32, 1.28)
+
+// A player who asks for less motion gets it from the tokens too, so a component
+// that only reads --am-dur-* is compliant without a second rule.
+//
+// TWO triggers, because there are two ways to ask. The media query is the
+// DEVICE preference; `.am-reduced` on <html> is the game's OWN Options toggle,
+// which a player can turn on independently of the device (and off again on a
+// device that asks for reduced motion by default). `useAccessibility.ts` keeps
+// the class in sync with `reducedMotion`, which is the same ref the components
+// that guard in JS already read — so the two routes can never disagree.
+//
+// One-shot REWARD beats deliberately keep their motion (story-spec §3.11):
+// muting the reveal mutes the reward itself. --am-dur-reward is therefore NOT
+// collapsed here; FReward's `.still` class is what settles it, and only the
+// ambient loops are shortened.
+@media (prefers-reduced-motion: reduce)
+  :root
+    --am-dur-press: 1ms
+    --am-dur-ui: 1ms
+    --am-dur-enter: 1ms
+    --am-dur-leave: 1ms
+
+:root.am-reduced
+  --am-dur-press: 1ms
+  --am-dur-ui: 1ms
+  --am-dur-enter: 1ms
+  --am-dur-leave: 1ms

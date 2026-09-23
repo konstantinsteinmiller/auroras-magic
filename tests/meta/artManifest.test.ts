@@ -11,7 +11,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, STORY_SHEETS,
-  PAGE_SHEETS,
+  PAGE_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS,
+  BRAND_LOGO_SHEET, BRAND_MASCOT_SHEET,
   manifestTargets, NEUTRAL_HEX, sheetRows
 } from '@/game/artSheet'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
@@ -47,10 +48,14 @@ describe('the art manifest', () => {
   })
 
   it('never lets two drawables share a file or a reference', () => {
-    const keyed = [...ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS]
+    const keyed = [
+      ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS,
+      ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET
+    ]
     const targets = [
       ...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...STORY_SHEETS.map((s) => s.target),
-      ...PAGE_SHEETS.map((s) => s.target), ...keyed.map((s) => s.target)
+      ...PAGE_SHEETS.map((s) => s.target), ...WARDROBE_SHEETS.map((s) => s.target),
+      BRAND_LOGO_SHEET.target, ...keyed.map((s) => s.target)
     ]
     expect(new Set(targets).size).toBe(targets.length)
     expect(manifestTargets().size).toBe(targets.length)
@@ -69,10 +74,17 @@ describe('the prompt documents', () => {
 
   it('hold one fenced block per drawable, with no stray fence inside one', () => {
     const want: Record<string, number> = {
-      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 15, 'PROMPTS-RUNES.md': 12,
+      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 17, 'PROMPTS-RUNES.md': 12,
       'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4,
-      // Two per chapter: the book is a different shape in each orientation.
-      'PROMPTS-PAGES.md': 20
+      'PROMPTS-PROPS.md': 46,
+      // A chapter's tap creature and its rescue, one sheet per body (§8.8).
+      'PROMPTS-CREATURES.md': 17,
+      // The cloth, the front page (both ways) and two per chapter.
+      'PROMPTS-PAGES.md': 23,
+      // The tent's room both ways, and the rug.
+      'PROMPTS-WARDROBE.md': 3,
+      // The mark and the mascot (art-style.md §11).
+      'PROMPTS-BRAND.md': 2
     }
     expect(Object.keys(docs).sort()).toEqual(Object.keys(want).sort())
     for (const [name, text] of Object.entries(docs)) {
@@ -99,7 +111,7 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(131)
+    expect(jobs).toHaveLength(204)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

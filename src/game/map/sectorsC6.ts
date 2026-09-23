@@ -16,12 +16,12 @@
  * or a crystal cluster, leaving a rainbow streak on the grass.
  */
 import type { SectorDef, SectorAccent } from '@/game/map/sectorDef'
-import { type G2D, type Pot, RIDGE_POTS, fill, ink, flower, flowerBed, pathway, fence } from '@/game/map/kit'
+import { type G2D, type Pot, RIDGE_POTS, fill, ink, flower, flowerBed, pathway, fence, twinkleAt } from '@/game/map/kit'
 import { boulder } from '@/game/map/kitBay'
 import { PINK, MINT, LEMON, pole, bunting, pennant, kite } from '@/game/map/kitSky'
 import {
   RAINBOW, STRIPES, CRYSTAL, ridgeSky, farRidges, candyHill, ground, rainbowFlowers, tulip, lollyTree, hedgeRow,
-  rainbowFall, fallFlow, fallPath, mist, miniRainbow, pool, lilyPad, lotus, foam, crystalCluster, gardenPrism,
+  rainbowFall, fallFlow, fallPath, mist, miniRainbow, rainbowArc, pool, lilyPad, lotus, foam, crystalCluster, gardenPrism,
   prismBeams, prismHeart, potHouse, potMouth, paintBucket, easel, hedgeBall, hamper, kitePavilion, windsock,
   prismBridge, ridgeTower, towerFinial, charm, foalTap, petalCushion, petalRescue, flutter, colourBubbles, glints, swallow,
   starPath, lumps, mixPale
@@ -112,7 +112,7 @@ const rainbowFalls: SectorDef = {
     mist(g, FALL.x, FALL.bot, FALL.w, t, alive)
     mist(g, FALL2.x, FALL2.bot, FALL2.w * 0.7, t + 0.4, alive)
     g.globalAlpha = alive * (0.55 + 0.25 * sin(t * 1.3))
-    miniRainbow(g, FALL.x, FALL.bot - 10, 96, 7, PI * 1.05, PI * 1.95, 6)
+    if (!rainbowArc(g, FALL.x, FALL.bot - 10, 96)) miniRainbow(g, FALL.x, FALL.bot - 10, 96, 7, PI * 1.05, PI * 1.95, 6)
     g.globalAlpha = 1
     glints(g, [[400, 486, 10], [690, 470, 9], [520, 524, 8], [860, 490, 10], [320, 516, 8]], t, alive, '#ffffff')
   },
@@ -437,13 +437,10 @@ const rainbowBridge: SectorDef = {
   tap: foalTap({ x: 118, y: 612, dir: 1, s: 0.7, out: 160 }, bridgeCrystals)
 }
 
-/** One outlined twinkle star (the deck glint's head). */
+/** One outlined twinkle star (the deck glint's head) — the shared painting,
+ *  or the sector's own path. */
 const glintStar = (g: G2D, x: number, y: number, r: number): void => {
-  g.moveTo(x, y - r)
-  g.quadraticCurveTo(x + r * 0.16, y - r * 0.16, x + r, y)
-  g.quadraticCurveTo(x + r * 0.16, y + r * 0.16, x, y + r)
-  g.quadraticCurveTo(x - r * 0.16, y + r * 0.16, x - r, y)
-  g.quadraticCurveTo(x - r * 0.16, y - r * 0.16, x, y - r)
+  if (twinkleAt(g, x, y, r, '#fffbe0')) return
   fill(g, '#fffbe0')
   ink(g, 2)
 }

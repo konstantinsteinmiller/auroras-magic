@@ -67,7 +67,10 @@ const showDrawHint2 = computed(() => duel.value && !hud.equeue.length)
 const castLive = computed(() => duel.value && hud.queue.length > 0)
 const castLabel = computed(() => {
   if (hud.cast) return spellName(t, locale.value, hud.cast)
-  return props.keyboard ? t('hud.castKey') : t('hud.cast')
+  // On a keyboard device the two key glyphs beside the label say WHICH keys,
+  // so the label is just the verb — otherwise the button reads "[Space] Cast"
+  // with a space bar drawn next to it, saying it twice.
+  return t('hud.cast')
 })
 const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length)
 // Onboarding teaches one player; a versus match never shows it.
@@ -135,15 +138,15 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
     //- ═════════════════════════════ LANDSCAPE ═════════════════════════════
     div.stage-layer(v-if="!portrait" :style="stageStyle")
       div.abs(:style="box(23.5, 19.5, 371, 51)")
-        HpBar(side="left" :name="auroraName" color="#ffd76a" :label="auroraName")
+        HpBar(side="left" :name="auroraName" color="var(--am-gold)" :label="auroraName")
       div.abs(:style="box(885.5, 19.5, 371, 51)")
-        HpBar(side="right" :name="foeName" color="#c08cff" :label="foeName")
+        HpBar(side="right" :name="foeName" color="var(--duel-lavender)" :label="foeName")
 
       //- What this foe fears: the rune to draw, beside the multiplier it pays.
       template(v-if="weakTo >= 0")
         div.abs.weak(:style="box(1180 - 22, 162 - 22, 44, 44)" role="img" :aria-label="weakLabel")
           RuneGlyph(:rune="weakTo")
-        span.abs.ink-text.weak(:style="[at(1202, 162, 21, 'left'), { color: '#7dffa8' }]" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
+        span.abs.ink-text.weak(:style="[at(1202, 162, 21, 'left'), { color: 'var(--am-mint)' }]" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
 
       div.abs(:aria-label="t('hud.yourRunes')" role="list")
         div.abs(v-for="i in slots" :key="'p' + i" role="listitem" :style="box(30 + i * 64, 80, 60, 60)")
@@ -152,20 +155,20 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         div.abs(v-for="i in slots" :key="'e' + i" role="listitem" :style="box(1190 - i * 64, 80, 60, 60)")
           RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune")
 
-      span.abs.ink-text.breathe(v-if="showDrawHint && !versus" :style="[at(640, 142, 30), { color: '#cfc4ff' }]") {{ t('hud.drawARune') }}
+      span.abs.ink-text.breathe(v-if="showDrawHint && !versus" :style="[at(640, 142, 30), { color: 'var(--am-shout)' }]") {{ t('hud.drawARune') }}
       //- Local versus: each half invites its own player.
       template(v-if="versus")
-        span.abs.ink-text.breathe(v-if="showDrawHint" :style="[at(320, 200, 28), { color: '#ffe7a6' }]") {{ t('hud.drawARune') }}
-        span.abs.ink-text.breathe(v-if="showDrawHint2" :style="[at(960, 200, 28), { color: '#e0ccff' }]") {{ t('hud.drawARune') }}
+        span.abs.ink-text.breathe(v-if="showDrawHint" :style="[at(320, 200, 28), { color: 'var(--am-gold)' }]") {{ t('hud.drawARune') }}
+        span.abs.ink-text.breathe(v-if="showDrawHint2" :style="[at(960, 200, 28), { color: 'var(--am-lilac)' }]") {{ t('hud.drawARune') }}
 
       //- Onboarding: three beats, none of which block play. The ghost trace of
       //- beat 0 is drawn on the canvas; these are its captions.
-      span.abs.ink-text(v-if="introBeat === 0" :style="[at(640, 138, 36), { color: '#ffd76a' }]") {{ t('intro.draw') }}
-      span.abs.ink-text(v-else-if="introBeat === 1" :style="[at(640, 138, 34), { color: '#ffd76a' }]") {{ t('intro.stored') }}
+      span.abs.ink-text(v-if="introBeat === 0" :style="[at(640, 138, 36), { color: 'var(--am-gold)' }]") {{ t('intro.draw') }}
+      span.abs.ink-text(v-else-if="introBeat === 1" :style="[at(640, 138, 34), { color: 'var(--am-gold)' }]") {{ t('intro.stored') }}
       template(v-else-if="introBeat === 2")
-        span.abs.ink-text(:style="[at(640, 490, 36), { color: '#ffd76a' }]") {{ t('intro.cast') }}
+        span.abs.ink-text(:style="[at(640, 490, 36), { color: 'var(--am-gold)' }]") {{ t('intro.cast') }}
         svg.abs.intro-arrow(:style="box(600, 514, 80, 78)" viewBox="600 514 80 78" aria-hidden="true")
-          path(d="M640 524 L640 582 M640 582 L620.9 564.4 M640 582 L659.1 564.4" fill="none" stroke="#ffd76a" stroke-width="9" stroke-linecap="round")
+          path(d="M640 524 L640 582 M640 582 L620.9 564.4 M640 582 L659.1 564.4" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round")
 
       template(v-if="!versus")
         button.abs.duel-plate.cast-btn(
@@ -175,7 +178,14 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast')"
         )
           span.cast-glow(v-if="castLive")
-          span.ink-text.cast-label(v-fit="34" :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+          span.cast-keys(v-if="keyboard" aria-hidden="true")
+            svg.key.bar(viewBox="0 0 34 18")
+              rect(x="1.5" y="1.5" width="31" height="15" rx="4" fill="none" stroke="currentColor" stroke-width="2.4")
+              path(d="M8 7.5 L8 11.5 M26 7.5 L26 11.5 M8 11.5 L26 11.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round")
+            svg.key.mouse(viewBox="0 0 20 28")
+              rect(x="1.5" y="1.5" width="17" height="25" rx="8.5" fill="none" stroke="currentColor" stroke-width="2.4")
+              path(d="M10 2.5 L10 12 L17.6 12 L17.6 10 A7.6 7.6 0 0 0 10 2.5 Z" fill="currentColor" stroke="none")
+          span.ink-text.ink-none.cast-label(v-fit="34" :style="{ color: castLive ? 'var(--am-ink)' : 'var(--am-ink-3)' }") {{ castLabel }}
 
         button.abs.duel-plate.icon-btn(:style="box(39.5, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear(name="settings")
@@ -188,7 +198,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
         )
           GameIcon.gear(name="book")
         button.abs.duel-plate.icon-btn(:style="box(1145.5, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
-          span.ink-text(:style="{ fontSize: '40px', color: muted ? '#7a6f95' : '#fff' }") ♪
+          span.ink-text.ink-none(:style="{ fontSize: '40px', color: muted ? 'var(--am-ink-3)' : 'var(--am-ink)' }") ♪
 
       //- ── local 2P versus: a CAST each, the shared buttons between them ──
       template(v-else)
@@ -199,7 +209,7 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast')"
         )
           span.cast-glow(v-if="castLive")
-          span.ink-text.cast-label(v-fit="32" :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+          span.ink-text.ink-none.cast-label(v-fit="32" :style="{ color: castLive ? 'var(--am-ink)' : 'var(--am-ink-3)' }") {{ castLabel }}
         button.abs.duel-plate.cast-btn.p2(
           :style="box(920, 593.5, 330, 85)"
           :class="{ live: cast2Live }"
@@ -207,11 +217,11 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
           @click="emit('cast2')"
         )
           span.cast-glow(v-if="cast2Live")
-          span.ink-text.cast-label(v-fit="32" :style="{ color: cast2Live ? '#fff' : '#7a6f95' }") {{ cast2Label }}
+          span.ink-text.ink-none.cast-label(v-fit="32" :style="{ color: cast2Live ? 'var(--am-ink)' : 'var(--am-ink-3)' }") {{ cast2Label }}
         button.abs.duel-plate.icon-btn(:style="box(503, 599.5, 95, 79)" :aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear(name="settings")
         button.abs.duel-plate.icon-btn(:style="box(682, 599.5, 95, 79)" :aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
-          span.ink-text(:style="{ fontSize: '40px', color: muted ? '#7a6f95' : '#fff' }") ♪
+          span.ink-text.ink-none(:style="{ fontSize: '40px', color: muted ? 'var(--am-ink-3)' : 'var(--am-ink)' }") ♪
 
       DuelPopups(:portrait="false")
 
@@ -220,42 +230,42 @@ const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w *
       div.port-top(:style="topStyle")
         div.port-row.bars
           div.port-bar
-            HpBar(side="left" :name="auroraName" color="#ffd76a" :label="auroraName")
+            HpBar(side="left" :name="auroraName" color="var(--am-gold)" :label="auroraName")
           div.port-bar
-            HpBar(side="right" :name="foeName" color="#c08cff" :label="foeName")
+            HpBar(side="right" :name="foeName" color="var(--duel-lavender)" :label="foeName")
         div.port-row.slots
           div.port-slots(role="list" :aria-label="t('hud.yourRunes')")
             div.port-slot(v-for="i in slots" :key="'p' + i" role="listitem")
               RuneSlot(:rune="hud.queue[i]")
           div.port-weak(v-if="weakTo >= 0" role="img" :aria-label="weakLabel")
             RuneGlyph.port-weak-glyph(:rune="weakTo")
-            span.ink-text(style="color: #7dffa8" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
+            span.ink-text(style="color: var(--am-mint)" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
           div.port-slots.rev(role="list" :aria-label="t('hud.foeRunes')")
             div.port-slot(v-for="i in slots" :key="'e' + i" role="listitem")
               RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune")
 
-      span.fixed-caption.ink-text.breathe(v-if="showDrawHint" :style="[zoneCaption, { color: '#cfc4ff', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
-      span.fixed-caption.ink-text(v-if="introBeat === 0" :style="[zoneCaption, { color: '#ffd76a', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
-      span.fixed-caption.ink-text(v-else-if="introBeat === 1" :style="[zoneCaption, { color: '#ffd76a', fontSize: zoneFont + 'px' }]") {{ t('intro.stored') }}
-      span.fixed-caption.ink-text(v-else-if="introBeat === 2" :style="[zoneBottomCaption, { color: '#ffd76a', fontSize: zoneFont + 'px' }]") {{ t('intro.cast') }}
+      span.fixed-caption.ink-text.breathe(v-if="showDrawHint" :style="[zoneCaption, { color: 'var(--am-shout)', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
+      span.fixed-caption.ink-text(v-if="introBeat === 0" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
+      span.fixed-caption.ink-text(v-else-if="introBeat === 1" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.stored') }}
+      span.fixed-caption.ink-text(v-else-if="introBeat === 2" :style="[zoneBottomCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.cast') }}
 
       div.port-bottom(:style="bottomStyle")
         button.duel-plate.icon-btn.port-icon(:aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear.small(name="settings")
         div.port-cast-wrap
           svg.port-arrow(v-if="introBeat === 2" viewBox="-20 -34 40 34" aria-hidden="true")
-            path(d="M0 -30 L0 -4 M0 -4 L-12 -15 M0 -4 L12 -15" fill="none" stroke="#ffd76a" stroke-width="6" stroke-linecap="round")
+            path(d="M0 -30 L0 -4 M0 -4 L-12 -15 M0 -4 L12 -15" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round")
           button.duel-plate.cast-btn.port-cast(
             :class="{ live: castLive }"
             :aria-label="castLive ? castLabel : t('hud.castAria')"
             @click="emit('cast')"
           )
             span.cast-glow(v-if="castLive")
-            span.ink-text.cast-label(v-fit :style="{ color: castLive ? '#fff' : '#7a6f95' }") {{ castLabel }}
+            span.ink-text.ink-none.cast-label(v-fit :style="{ color: castLive ? 'var(--am-ink)' : 'var(--am-ink-3)' }") {{ castLabel }}
         button.duel-plate.icon-btn.port-icon(v-if="SPELLBOOK" :class="{ 'book-new': bookHud.hasNew }" :aria-label="t('hud.spellbook')" @click="emit('book')")
           GameIcon.gear.small(name="book")
         button.duel-plate.icon-btn.port-icon(:aria-label="t('hud.sound')" :aria-pressed="muted" @click="emit('mute')")
-          span.ink-text(:style="{ fontSize: '26px', color: muted ? '#7a6f95' : '#fff' }") ♪
+          span.ink-text.ink-none(:style="{ fontSize: '26px', color: muted ? 'var(--am-ink-3)' : 'var(--am-ink)' }") ♪
 
       DuelPopups(:portrait="true")
 </template>
@@ -288,44 +298,71 @@ button
   &:active
     transform: scale(0.96)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .cast-btn
   display: flex
   align-items: center
   justify-content: center
+  // The key glyphs sit IN the row beside the label, not over it. Absolutely
+  // positioned at `left: 5%` they were outside the centred label's reckoning,
+  // so a long spell name — "Windstoss" — simply grew underneath them.
+  gap: 9px
   background: var(--duel-plate)
   border-radius: 18px
   &.live
     background: var(--duel-plate-live)
 
-// The pulsing gold ring around a loaded CAST button.
+// The pulsing ring around a loaded CAST button. It used to be gold — but the
+// live plate is gold now (`--duel-plate-live`), and gold on gold is nothing at
+// all (§10.6), so the ring is the plum line the rest of the chrome is drawn in.
 .cast-glow
   position: absolute
   inset: -9.5px
-  border: 4px solid var(--duel-gold)
+  border: 4px solid var(--am-ink)
   border-radius: 24px
   animation: duel-glow 1.11s ease-in-out infinite
   pointer-events: none
 
+// The two key hints on the empty CAST button: a space bar and a mouse with its
+// RIGHT button filled. Drawn in the label's own ink so they dim with it when
+// there is nothing to cast, and hidden from the reader — the button's
+// aria-label already names the key.
+.cast-keys
+  flex: 0 0 auto
+  display: flex
+  align-items: center
+  gap: 5px
+  color: var(--am-ink-3)
+  pointer-events: none
+  .key
+    display: block
+  .bar
+    width: 30px
+    height: 16px
+  .mouse
+    width: 15px
+    height: 21px
+.cast-btn.live .cast-keys
+  color: var(--am-ink-2)
+
 .cast-label
   position: relative
   padding: 0 0.3em
-  max-width: 100%
+  min-width: 0
   overflow: hidden
   text-overflow: ellipsis
   // `.ink-text` sets `line-height: 1`, which makes the line box exactly the
-  // font size — and the 0.28em ink outline is painted OUTSIDE the glyphs, so
-  // `overflow: hidden` was shaving the top and bottom off every caption's
-  // outline (7 px of it at 34 px). The outline needs the room the line box
-  // did not give it.
+  // font size — and `overflow: hidden` was shaving the top and bottom off
+  // every caption (7 px of outline at 34 px, back when the caption still wore
+  // one). The caption is `.ink-none` on a paper/gold plate now, but Thai and
+  // Devanagari still sit well outside a 1.0 line box, so the room stays.
   line-height: 1.32
 
 .gear
   width: 44px
   height: 44px
-  filter: drop-shadow(0 0 0 var(--duel-ink)) drop-shadow(2px 2px 0 var(--duel-ink))
   &.small
     width: 28px
     height: 28px
@@ -334,7 +371,7 @@ button
   display: flex
   align-items: center
   justify-content: center
-  color: #fff
+  color: var(--am-ink)
   background: var(--duel-plate)
 
 .breathe
@@ -349,6 +386,7 @@ button
 
 .intro-arrow
   overflow: visible
+  color: var(--am-gold)
   animation: duel-breathe 1.11s ease-in-out infinite
   --from: 0.55
   --to: 1
@@ -449,6 +487,7 @@ button
   height: 30px
   transform: translateX(-50%)
   overflow: visible
+  color: var(--am-gold)
   animation: duel-breathe 1.11s ease-in-out infinite
   --from: 0.55
   --to: 1

@@ -57,12 +57,22 @@ const rayStyle = computed(() => {
   return { backgroundImage: `conic-gradient(from 0deg at 50% 50%, ${stops.join(', ')})` }
 })
 
-/** The paper scraps: fixed, so they never shimmer between frames. */
+/**
+ * The paper scraps: fixed, so they never shimmer between frames.
+ *
+ * The six hues are the design system's decoration ramp, named rather than
+ * respelled — `--am-magic-1..6` ARE these values (they were tokenised FROM
+ * this array), so the ornament elsewhere and the reward beat are one set and
+ * can never drift apart.
+ */
 const bits = Array.from({ length: 30 }, (_, i) => ({
   left: `${(i * 37) % 100}%`,
   delay: `${((i * 0.31) % 2.8).toFixed(2)}s`,
   spin: `${2.4 + ((i * 7) % 18) / 10}s`,
-  hue: ['#ff9ecf', '#ffd36b', '#9ff0d0', '#9fd8ff', '#c7a6ff', '#ffb36b'][i % 6]
+  hue: [
+    'var(--am-magic-1)', 'var(--am-magic-5)', 'var(--am-magic-4)',
+    'var(--am-magic-3)', 'var(--am-magic-2)', 'var(--am-magic-6)'
+  ][i % 6]
 }))
 
 const go = (): void => {
@@ -110,7 +120,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   justify-content: center
   gap: clamp(10px, 2.4vmin, 22px)
   padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left))
-  background: rgba(26, 16, 44, 0.62)
+  // The one dim value the whole game uses. Plum, never black.
+  background: var(--am-scrim)
+  // One of the two `backdrop-filter`s in the build, and it stays. Do not add
+  // a third — see ui-design-system.md §3.
   backdrop-filter: blur(6px)
   cursor: pointer
   touch-action: none
@@ -168,7 +181,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   width: 10px
   height: 16px
   border-radius: 3px
-  box-shadow: 0 0 0 2px #3A2340
+  box-shadow: 0 0 0 2px var(--am-ink)
   animation-name: reward-fall
   animation-timing-function: linear
   animation-iteration-count: infinite
@@ -183,11 +196,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 
 .ribbon__paper
   padding: 8px clamp(18px, 4vmin, 40px)
-  background: #fff4e6
-  border: 4px solid #3A2340
+  background: var(--am-paper)
+  border: 4px solid var(--am-ink)
   border-radius: 999px
-  box-shadow: 0 6px 0 rgba(20, 10, 30, 0.35)
-  color: #3A2340
+  // One shadow, plum, never black — the page-lift every plate in the UI wears.
+  box-shadow: 0 6px 0 rgba(58, 35, 64, 0.35)
+  color: var(--am-ink)
   text-align: center
 
 .body
@@ -204,7 +218,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 .hint
   position: relative
   z-index: 2
-  color: #fff4e6
+  // Cream over the plum scrim, which is the one surface in the game a caption
+  // is allowed to float on unplated — the dim is what makes it legible.
+  color: var(--am-on-night)
   opacity: 0.92
   animation: reward-pulse 1.3s ease-in-out infinite
   .story-text

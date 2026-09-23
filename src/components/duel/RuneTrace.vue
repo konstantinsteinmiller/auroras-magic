@@ -40,10 +40,10 @@ const each = computed(() => DUR / Math.max(1, subs.value.length))
     focusable="false"
   )
     template(v-if="locked")
-      path(v-for="(d, i) in subs" :key="`l${i}`" :d="d" fill="none" stroke="#6f5f86" :stroke-width="R * GLYPH_INK_W" stroke-linecap="round" stroke-linejoin="round")
+      path.ghost-stroke(v-for="(d, i) in subs" :key="`l${i}`" :d="d" fill="none" stroke="currentColor" :stroke-width="R * GLYPH_INK_W" stroke-linecap="round" stroke-linejoin="round")
       g(transform="translate(66 64)")
-        rect(x="-9" y="-2" width="18" height="15" rx="3" fill="#a99dc0" stroke="#3A2340" stroke-width="3")
-        path(d="M-5 -2 V-6 A5 5 0 0 1 5 -6 V-2" fill="none" stroke="#3A2340" stroke-width="3")
+        rect.lock-body(x="-9" y="-2" width="18" height="15" rx="3" stroke-width="3")
+        path.lock-shackle(d="M-5 -2 V-6 A5 5 0 0 1 5 -6 V-2" fill="none" stroke-width="3")
     template(v-else)
       g(v-for="(d, i) in subs" :key="`${play}-${i}`" :class="{ trace: play > 0 }" :style="{ '--d': `${each}s`, '--dl': `${i * each}s` }")
         path(:d="d" pathLength="1" fill="none" :stroke="GLYPH_INK" :stroke-width="R * GLYPH_INK_W" stroke-linecap="round" stroke-linejoin="round")
@@ -55,8 +55,23 @@ const each = computed(() => DUR / Math.max(1, subs.value.length))
   display: block
   overflow: visible
   pointer-events: none
+  // The locked silhouette sits on the spellbook's PARCHMENT, so it has to be
+  // darker than the page, not lighter. `--am-ink-soft` (22 % plum) would have
+  // been 12 % once this 0.55 had multiplied it — about 1.25:1 against the
+  // tile, i.e. gone. `--am-ink-2` is the token that matches the muted violet
+  // the ghost was drawn in, and survives the fade.
   &.locked
     opacity: 0.55
+    color: var(--am-ink-2)
+
+// The little lock stays pale and plum-inked, as it was: a dark chip would
+// read as a blot on a tile that is already faded to 55 %.
+.lock-body
+  fill: var(--am-lilac)
+  stroke: var(--am-ink)
+
+.lock-shackle
+  stroke: var(--am-ink)
 
 .trace path
   stroke-dasharray: 1 1

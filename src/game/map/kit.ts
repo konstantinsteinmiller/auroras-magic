@@ -12,6 +12,8 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos } from '@/game/duel/util'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { PROP_ART } from '@/game/artIds'
 
 export type G2D = CanvasRenderingContext2D
 
@@ -137,8 +139,44 @@ export const BASE_TONES: readonly string[] = [
 
 /* ---------------------------------------------------------------- helpers */
 
+/**
+ * How heavy every kit line is, against what the sectors were authored with.
+ *
+ * The props are drawn ON TOP of the painted sectors, and a sector unit is
+ * about 1.7 device px on a laptop — so the authored 5 SU contour landed as a
+ * ~9 px band of flat plum over soft brushwork, which is what made the swing,
+ * the lanterns and the mushrooms read as stickers stuck on a painting.
+ *
+ * Applied inside `ink` rather than by editing ~530 call sites, so the
+ * explicit weights each shape passes (2, 2.4, 3.5 …) keep their RELATIVE
+ * hierarchy and the whole vocabulary thins together. `art-style.md` §2's
+ * amendment: the painted line varies and fades, and the drawn line cannot,
+ * but it can at least stop shouting.
+ */
+const INK_SCALE = 0.68
+
+/**
+ * A second, TEMPORARY thinning, for a REFERENCE only — never for the game.
+ *
+ * `art-style.md` §2 keeps asking for a line that varies and fades, and three
+ * returns in a row came back ringed at one weight anyway. They were obeying
+ * the picture in front of them: `kit.ts` contours every shape it draws, so a
+ * reference arrives evenly inked, and a painter traces ink. Words cannot win
+ * that argument — the front page only stopped being traced once its knoll was
+ * drawn WITHOUT a line, and the creatures are the same case.
+ *
+ * So the bench thins the reference's ink to a guide (`artDraw.renderItemSheet`
+ * sets it around a creature sheet and puts it back), leaving the shapes and
+ * their overlaps to say where a line belongs. `measureFit` renders through
+ * the same function, so the fit it reports is the fit the painter sees.
+ */
+let INK_REF = 1
+export const setRefInk = (k: number): void => { INK_REF = k }
+/** The factor a caller that strokes its own line must apply to match `ink`. */
+export const refInk = (): number => INK_REF
+
 export const ink = (g: G2D, w = LW): void => {
-  g.lineWidth = w
+  g.lineWidth = w * INK_SCALE * INK_REF
   g.strokeStyle = INK
   g.lineJoin = 'round'
   g.lineCap = 'round'
@@ -163,7 +201,9 @@ export const blob = (g: G2D, lobes: readonly Lobe[]): void => {
 /** A lumpy shape outlined ONCE around its union (the arena's cloud trick):
  *  the plum laid down grown by a line width, the fill on top. */
 export const lumpy = (g: G2D, lobes: readonly Lobe[], colour: string, w = LW): void => {
-  blob(g, lobes.map(([x, y, r]) => [x, y, r + w] as const))
+  // Grown, not stroked — so it takes `INK_SCALE` here or the canopies and
+  // bushes would keep their heavy band while every other shape thinned.
+  blob(g, lobes.map(([x, y, r]) => [x, y, r + w * INK_SCALE] as const))
   fill(g, INK)
   blob(g, lobes)
   fill(g, colour)
@@ -688,15 +728,19 @@ export const millBody = (g: G2D, x: number, y: number, hubY: number): void => {
   ink(g, 4)
 }
 
-/** Four lattice sails about (x, hubY) at `angle` — a live prop. */
-export const sails = (g: G2D, x: number, hubY: number, angle: number, L = 150): void => {
+/**
+ * The four lattice sails and their hub, at rest (the cross upright), about
+ * the origin, `L` long. The turn is the caller's transform — which is what
+ * lets one painting serve every angle.
+ */
+export const sailsShape = (g: G2D, L: number): void => {
   for (let i = 0; i < 4; i++) {
-    const a = angle + (i * PI) / 2
+    const a = (i * PI) / 2
     const ca = cos(a)
     const sa = sin(a)
     const px = -sa
     const py = ca
-    const p = (d: number, off: number): [number, number] => [x + ca * d + px * off, hubY + sa * d + py * off]
+    const p = (d: number, off: number): [number, number] => [ca * d + px * off, sa * d + py * off]
     g.beginPath()
     g.moveTo(...p(26, 0))
     g.lineTo(...p(L, 0))
@@ -715,9 +759,29 @@ export const sails = (g: G2D, x: number, hubY: number, angle: number, L = 150): 
     ink(g, 2.4)
   }
   g.beginPath()
-  g.arc(x, hubY, 15, 0, TAU)
+  g.arc(0, 0, 15, 0, TAU)
   fill(g, C.millCap)
   ink(g, 4)
+}
+
+/** The sails as a painted still. `s` is `L`, the sail length. */
+export const SAILS_ART: ItemSpec = {
+  ...PROP_ART.sails, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / 150, s / 150)
+    sailsShape(g, 150)
+    g.restore()
+  }
+}
+
+/** Four lattice sails about (x, hubY) at `angle` — a live prop. */
+export const sails = (g: G2D, x: number, hubY: number, angle: number, L = 150): void => {
+  g.save()
+  g.translate(x, hubY)
+  g.rotate(angle)
+  if (!drawItem(g, SAILS_ART, L)) sailsShape(g, L)
+  g.restore()
 }
 
 /** An arched wooden footbridge over a brook; its garland RAIL is the landmark. */
@@ -1006,12 +1070,100 @@ export const brambleArch = (g: G2D, x: number, y: number, w: number, pot: Pot): 
   }
 }
 
-/** A waterfall down a rock face — a live prop (the bands scroll with `t`). */
-export const waterfall = (g: G2D, x: number, y: number, w: number, h: number, t: number): void => {
+/** How long a falling streak is against its own width. */
+const STREAK_TALL = 2.4
+
+/** One streak of falling water about the origin, 1 unit wide. */
+const streakShape = (g: G2D, col: string): void => {
   g.beginPath()
-  g.roundRect(x - w / 2, y - h, w, h, 16)
+  g.roundRect(-0.5, -STREAK_TALL / 2, 1, STREAK_TALL, 0.5)
+  fill(g, col)
+}
+
+/**
+ * The streak a fall's flow is made of, as a painted still.
+ *
+ * §4b kept every fall's flow as "bands scrolling inside a clip of a path the
+ * call site builds" — which is the description of a TEXTURE, not of a thing
+ * with no shape. The clip is the call site's and stays drawn; the band inside
+ * it is the same rounded streak at every position, in three chapters' worth of
+ * water, rainbow and sand. So it is one tinted tile, blitted wherever the
+ * clock has pushed it, and the fall it falls down is still the fall's own.
+ */
+export const STREAK_ART: ItemSpec = {
+  ...PROP_ART.streak, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    streakShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/**
+ * One streak `w` wide and `h` long with its top-left at (x, y), in `col`:
+ * blits the painting and returns true, or adds the caller's own rounded bar
+ * to the CURRENT PATH and returns false, so a fall that batches a dozen bands
+ * into one fill keeps doing exactly that while it is unpainted.
+ */
+export const streakAt = (g: G2D, x: number, y: number, w: number, h: number, col: string): boolean => {
+  g.save()
+  g.translate(x + w / 2, y + h / 2)
+  g.scale(1, h / (w * STREAK_TALL))
+  const hit = drawItem(g, STREAK_ART, w, 0, col)
+  g.restore()
+  if (!hit) g.roundRect(x, y, w, h, w / 2)
+  return hit
+}
+
+/** The fall's own size in SU: the proportions its painting is cut at. */
+const FALL_W = 80
+const FALL_H = 190
+
+/** The falling column and the foam it throws, about its foot at the origin. */
+const waterfallShape = (g: G2D): void => {
+  g.beginPath()
+  g.roundRect(-FALL_W / 2, -FALL_H, FALL_W, FALL_H, 16)
   fill(g, C.pond)
   ink(g, 5)
+  blob(g, [[-FALL_W * 0.4, 0, 18], [0, 4, 24], [FALL_W * 0.4, 0, 18]])
+  fill(g, '#ffffff')
+  ink(g, 3)
+}
+
+/**
+ * The waterfall as a painted still: the column of water and its splash, which
+ * is the largest flat shape any woods sector still drew — a plum-ringed
+ * rounded bar of flat blue laid over a painted rock face.
+ *
+ * Only the flow moves, and the flow is `STREAK_ART` scrolling under the same
+ * clip as before, so the fall itself is a still and one picture serves it.
+ */
+export const WATERFALL_ART: ItemSpec = {
+  ...PROP_ART.waterfall, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / FALL_H, s / FALL_H)
+    waterfallShape(g)
+    g.restore()
+  }
+}
+
+/** A waterfall down a rock face — a live prop (the bands scroll with `t`). */
+export const waterfall = (g: G2D, x: number, y: number, w: number, h: number, t: number): void => {
+  // The painting is cut at the fall's own 80 × 190, so a fall of another size
+  // is that picture stretched — the way the drawing's own roundRect was.
+  g.save()
+  g.translate(x, y)
+  g.scale(w / FALL_W, h / FALL_H)
+  const painted = drawItem(g, WATERFALL_ART, FALL_H)
+  g.restore()
+  if (!painted) {
+    g.beginPath()
+    g.roundRect(x - w / 2, y - h, w, h, 16)
+    fill(g, C.pond)
+    ink(g, 5)
+  }
   g.save()
   g.beginPath()
   g.roundRect(x - w / 2, y - h, w, h, 16)
@@ -1020,10 +1172,10 @@ export const waterfall = (g: G2D, x: number, y: number, w: number, h: number, t:
   for (let i = 0; i < 6; i++) {
     const yy = y - h + (((t * 90 + i * (h / 3)) % (h + 60)) - 30)
     g.beginPath()
-    g.roundRect(x - w / 2 + 10 + (i % 3) * (w / 3), yy, w / 5, 36, 8)
-    g.fill()
+    if (!streakAt(g, x - w / 2 + 10 + (i % 3) * (w / 3), yy, w / 5, 36, C.pondLite)) g.fill()
   }
   g.restore()
+  if (painted) return
   // The splash pool's foam.
   blob(g, [[x - w * 0.4, y, 18], [x, y + 4, 24], [x + w * 0.4, y, 18]])
   fill(g, '#ffffff')
@@ -1036,32 +1188,117 @@ export const waterfall = (g: G2D, x: number, y: number, w: number, h: number, t:
 export const smoke = (g: G2D, x: number, y: number, t: number, alive: number): void => {
   for (let i = 0; i < 3; i++) {
     const k = (t * 0.35 + i / 3) % 1
-    g.beginPath()
-    g.arc(x + sin(k * 5 + i) * 10 + k * 22, y - 8 - k * 120, 10 + k * 18, 0, TAU)
+    const px = x + sin(k * 5 + i) * 10 + k * 22
+    const py = y - 8 - k * 120
+    const r = 10 + k * 18
     g.globalAlpha = 0.7 * alive * (1 - k)
+    if (puffAt(g, px, py, r, '#ffffff')) continue
+    g.beginPath()
+    g.arc(px, py, r, 0, TAU)
     fill(g, '#ffffff')
   }
   g.globalAlpha = 1
 }
 
-/** A butterfly on a lazy figure-eight about (cx, cy). */
-export const butterfly = (g: G2D, cx: number, cy: number, t: number, i: number, col: string, alive: number): void => {
-  const s = t * (0.45 + i * 0.12) + i * 2.1
-  const x = cx + sin(s) * 90
-  const y = cy + sin(s * 2) * 34
-  const flap = Math.abs(sin(t * 11 + i))
-  g.globalAlpha = alive
+/**
+ * One butterfly about the origin, wings `flap` open (0 folded … 1 wide).
+ * Every chapter's butterfly is this shape — the woods' `butterfly`, the
+ * ridge's `flutter`, the mirror lake's pair — so one painting serves them all.
+ */
+export const butterflyShape = (g: G2D, flap: number, col: string): void => {
   for (const side of [-1, 1]) {
     g.beginPath()
-    g.ellipse(x + side * 9 * flap, y - 4, 10 * flap + 2, 12, side * 0.5, 0, TAU)
+    g.ellipse(side * 9 * flap, -4, 10 * flap + 2, 12, side * 0.5, 0, TAU)
     fill(g, col)
     ink(g, 2.2)
   }
   g.beginPath()
-  g.ellipse(x, y, 2.6, 8, 0, 0, TAU)
+  g.ellipse(0, 0, 2.6, 8, 0, 0, TAU)
   fill(g, INK)
+}
+
+/** The three wing openings the strip is painted at. */
+const BUTTERFLY_FLAPS = [0.18, 0.6, 1] as const
+/** The butterfly's own height in SU — `drawItem`'s scale for one of them. */
+export const BUTTERFLY_UNIT = 24
+
+/** The butterfly as a painted strip: folded, half open, wide open. The wings
+ *  are the colour-me region, so one painting wears every chapter's hue. */
+export const BUTTERFLY_ART: ItemSpec = {
+  ...PROP_ART.butterfly, frames: 3, tinted: true,
+  draw: (g, s, f, accent) => {
+    g.save()
+    g.scale(s / BUTTERFLY_UNIT, s / BUTTERFLY_UNIT)
+    butterflyShape(g, BUTTERFLY_FLAPS[f] ?? 1, accent.base)
+    g.restore()
+  }
+}
+
+/** Where a wing opening of `flap` falls between the strip's three panels. */
+export const butterflyFrame = (flap: number): number =>
+  Math.max(0, Math.min(2, (flap - BUTTERFLY_FLAPS[0]) / (BUTTERFLY_FLAPS[1] - BUTTERFLY_FLAPS[0])))
+
+/** Draw one butterfly at (x, y) — painted if its strip has landed. */
+export const butterflyAt = (g: G2D, x: number, y: number, flap: number, col: string, size = BUTTERFLY_UNIT): void => {
+  g.save()
+  g.translate(x, y)
+  if (!drawItem(g, BUTTERFLY_ART, size, butterflyFrame(flap), col)) {
+    g.scale(size / BUTTERFLY_UNIT, size / BUTTERFLY_UNIT)
+    butterflyShape(g, flap, col)
+  }
+  g.restore()
+}
+
+/** A butterfly on a lazy figure-eight about (cx, cy). */
+export const butterfly = (g: G2D, cx: number, cy: number, t: number, i: number, col: string, alive: number): void => {
+  const s = t * (0.45 + i * 0.12) + i * 2.1
+  g.globalAlpha = alive
+  butterflyAt(g, cx + sin(s) * 90, cy + sin(s * 2) * 34, Math.abs(sin(t * 11 + i)), col)
   g.globalAlpha = 1
 }
+
+/** A little white duck afloat about the origin, facing right. */
+export const duckShape = (g: G2D): void => {
+  g.beginPath()
+  g.ellipse(0, 0, 20, 11, 0, 0, TAU)
+  fill(g, '#ffffff')
+  ink(g, 3)
+  g.beginPath()
+  g.arc(14, -12, 9, 0, TAU)
+  fill(g, '#ffffff')
+  ink(g, 3)
+  g.beginPath()
+  g.moveTo(21, -12)
+  g.lineTo(31, -9)
+  g.lineTo(21, -7)
+  fill(g, '#ffb36b')
+  ink(g, 2)
+}
+
+/** The duck's tail-to-beak length in SU. */
+const DUCK_UNIT = 51
+
+/** The duck as a painted still — the paddle and the bob stay the drawing's. */
+export const DUCK_ART: ItemSpec = {
+  ...PROP_ART.duck, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / DUCK_UNIT, s / DUCK_UNIT)
+    duckShape(g)
+    g.restore()
+  }
+}
+
+/** A duck paddling at (x, y) — a live prop. */
+export const duck = (g: G2D, x: number, y: number): void => {
+  g.save()
+  g.translate(x, y)
+  if (!drawItem(g, DUCK_ART, DUCK_UNIT)) duckShape(g)
+  g.restore()
+}
+
+/** How long a bee's body is, in SU — `drawItem`'s scale for one of them. */
+const BEE_UNIT = 14
 
 /** Bees looping around a hive. */
 export const bees = (g: G2D, x: number, y: number, t: number, alive: number): void => {
@@ -1070,6 +1307,11 @@ export const bees = (g: G2D, x: number, y: number, t: number, alive: number): vo
     const a = t * (1.6 + i * 0.3) + i * 2.1
     const bx = x + cos(a) * (40 + i * 12)
     const by = y + sin(a * 1.3) * 22 - 50
+    g.save()
+    g.translate(bx, by)
+    const painted = drawItem(g, BEE_ART, BEE_UNIT)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.ellipse(bx, by, 7, 5, 0, 0, TAU)
     fill(g, '#ffcf4a')
@@ -1079,6 +1321,30 @@ export const bees = (g: G2D, x: number, y: number, t: number, alive: number): vo
     fill(g, 'rgba(255,255,255,0.85)')
   }
   g.globalAlpha = 1
+}
+
+/** The swing seat's width in SU — the only one in the game. */
+const SEAT_UNIT = 60
+
+/** The seat plank about the rope ends, `w` across. */
+const seatShape = (g: G2D, w: number): void => {
+  const k = w / SEAT_UNIT
+  g.beginPath()
+  g.roundRect(-30 * k, -4 * k, 60 * k, 12 * k, 4 * k)
+  fill(g, C.trunk)
+  ink(g, 3.5 * k)
+}
+
+/**
+ * The swing's SEAT as a painted still.
+ *
+ * Only the seat: the two ropes are hairlines with no body — nothing to paint —
+ * and they are what the angle actually moves. The plank itself stays level at
+ * every angle, exactly as the drawing keeps it level.
+ */
+export const SWING_SEAT_ART: ItemSpec = {
+  ...PROP_ART.swingSeat, frames: 1,
+  draw: (g, s) => seatShape(g, s)
 }
 
 /** A rope swing hung from (x, y) at `angle`. */
@@ -1091,33 +1357,65 @@ export const swing = (g: G2D, x: number, y: number, len: number, angle: number):
   g.moveTo(x + 20, y)
   g.lineTo(bx + 20, by)
   ink(g, 3)
-  g.beginPath()
-  g.roundRect(bx - 30, by - 4, 60, 12, 4)
-  fill(g, C.trunk)
-  ink(g, 3.5)
+  g.save()
+  g.translate(bx, by)
+  if (!drawItem(g, SWING_SEAT_ART, SEAT_UNIT)) seatShape(g, SEAT_UNIT)
+  g.restore()
 }
 
-/** A water wheel of eight paddles about (x, y) — a live prop. */
-export const waterwheel = (g: G2D, x: number, y: number, r: number, angle: number): void => {
+/** A water wheel of eight paddles about the origin, at rest, radius `r`. */
+export const waterwheelShape = (g: G2D, r: number): void => {
   g.beginPath()
-  g.arc(x, y, r, 0, TAU)
-  g.arc(x, y, r * 0.78, 0, TAU, true)
+  g.arc(0, 0, r, 0, TAU)
+  g.arc(0, 0, r * 0.78, 0, TAU, true)
   fill(g, C.trunk)
   ink(g, 4)
   for (let i = 0; i < 8; i++) {
-    const a = angle + (i * TAU) / 8
+    const a = (i * TAU) / 8
     g.beginPath()
-    g.moveTo(x + cos(a) * r * 0.2, y + sin(a) * r * 0.2)
-    g.lineTo(x + cos(a) * r * 1.12, y + sin(a) * r * 1.12)
+    g.moveTo(cos(a) * r * 0.2, sin(a) * r * 0.2)
+    g.lineTo(cos(a) * r * 1.12, sin(a) * r * 1.12)
     ink(g, 6)
     g.lineWidth = 2.5
     g.strokeStyle = C.trunk
     g.stroke()
   }
   g.beginPath()
-  g.arc(x, y, r * 0.2, 0, TAU)
+  g.arc(0, 0, r * 0.2, 0, TAU)
   fill(g, C.trunkShade)
   ink(g, 3)
+}
+
+/** The brook's wheel, the only one in the game: the size the reference's ink
+ *  weight is judged against. */
+const WHEEL_R = 52
+
+/**
+ * The wheel as a painted still. `s` is its radius; the turn is the transform,
+ * and eight paddles at 45° make every turned copy of it a right one.
+ *
+ * Drawn through a SCALE rather than by passing the bench's `s` as the radius:
+ * `ink` sets a width in the current transform, so a reference rendered at
+ * twice the game's size with the game's line width comes back with hairline
+ * spokes — and the painter paints the hairlines it is shown.
+ */
+export const WATERWHEEL_ART: ItemSpec = {
+  ...PROP_ART.waterwheel, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / WHEEL_R, s / WHEEL_R)
+    waterwheelShape(g, WHEEL_R)
+    g.restore()
+  }
+}
+
+/** A water wheel of eight paddles about (x, y) — a live prop. */
+export const waterwheel = (g: G2D, x: number, y: number, r: number, angle: number): void => {
+  g.save()
+  g.translate(x, y)
+  g.rotate(angle)
+  if (!drawItem(g, WATERWHEEL_ART, r)) waterwheelShape(g, r)
+  g.restore()
 }
 
 /** Fireflies drifting in a box — a live prop. */
@@ -1126,6 +1424,8 @@ export const fireflies = (g: G2D, x: number, y: number, w: number, h: number, t:
     const px = x + ((sin(t * 0.4 + i * 1.7) + 1) / 2) * w
     const py = y + ((sin(t * 0.55 + i * 2.3) + 1) / 2) * h
     const a = alive * (0.4 + 0.6 * Math.abs(sin(t * 2 + i)))
+    g.globalAlpha = a
+    if (moteAt(g, px, py, 12, '#fff6a8')) continue
     g.globalAlpha = a * 0.5
     g.beginPath()
     g.arc(px, py, 12, 0, TAU)
@@ -1136,4 +1436,270 @@ export const fireflies = (g: G2D, x: number, y: number, w: number, h: number, t:
     fill(g, '#ffffff')
   }
   g.globalAlpha = 1
+}
+
+/* ───────────────────────────────── the shared painted props (§8.8) ── */
+
+/*
+ * Four shapes every chapter draws in its own colours — a twinkle, a puff, a
+ * glowing mote, a soap bubble — and two the hanging decoration is threaded
+ * from: a bunting flag and a paper lantern.
+ *
+ * They live here, in the base kit, because five or six kits each wink, puff
+ * and bubble in their own function and a sheet per kit would be the same
+ * picture six times. Every one is painted ONCE and the kit that uses it keeps
+ * the procedural part: where the point is, how big it is this frame, how it
+ * fades, and what colour it wears.
+ *
+ * Each seam is a helper that RETURNS whether it painted: the vector versions
+ * build one batched path and fill it once for a dozen points, and that stays
+ * exactly as it was when no painting has landed. A mixed frame cannot happen —
+ * the sheet is there for the whole frame or it is not.
+ */
+
+/** A four-point twinkle at (x, y), radius `r`, ADDED to the current path. */
+export const twinkleStar = (g: G2D, x: number, y: number, r: number): void => {
+  g.moveTo(x, y - r)
+  g.quadraticCurveTo(x + r * 0.16, y - r * 0.16, x + r, y)
+  g.quadraticCurveTo(x + r * 0.16, y + r * 0.16, x, y + r)
+  g.quadraticCurveTo(x - r * 0.16, y + r * 0.16, x - r, y)
+  g.quadraticCurveTo(x - r * 0.16, y - r * 0.16, x, y - r)
+}
+
+/**
+ * The twinkle as a painted still — the most-used shape in the game: every
+ * `twinkles`, `winks`, `glints`, `sandGlints` and shooting-star head is this
+ * one star at a radius the clock sets.
+ *
+ * Drawn through a SCALE so `ink` is not asked for a hairline: the reference is
+ * rendered at the bench's unit and the star is authored at 1.
+ */
+export const TWINKLE_ART: ItemSpec = {
+  ...PROP_ART.twinkle, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    g.beginPath()
+    twinkleStar(g, 0, 0, 1)
+    fill(g, accent.base)
+    ink(g, 0.14)
+    g.restore()
+  }
+}
+
+/**
+ * One twinkle of radius `r` in `col`: blits the painting and returns true, or
+ * adds the star to the caller's current path and returns false so the caller
+ * keeps its single batched fill.
+ */
+export const twinkleAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, TWINKLE_ART, r, 0, col)
+  g.restore()
+  if (!hit) twinkleStar(g, x, y, r)
+  return hit
+}
+
+/** A soft round puff about the origin, radius 1 — smoke, spray, sand dust. */
+const puffShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.arc(0, 0, 1, 0, TAU)
+  fill(g, col)
+}
+
+/** The puff as a painted still: chimney smoke, a fall's spray, a sandfall's
+ *  dust. The rise, the swell and the fade stay the particle system's. */
+export const PUFF_ART: ItemSpec = {
+  ...PROP_ART.puff, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    puffShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One puff of radius `r` in `col` — painted if its sheet has landed. */
+export const puffAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, PUFF_ART, r, 0, col)
+  g.restore()
+  return hit
+}
+
+/**
+ * A glowing mote about the origin, halo radius 1: a soft ring of light with a
+ * bright core — a firefly, a drifting spore.
+ *
+ * Drawn OPAQUE, where the live prop draws its halo at 45 %: a half-transparent
+ * reference over magenta is a pink ring, and a painter paints the pink. The
+ * fade is the game's `globalAlpha`, as it was.
+ */
+const moteShape = (g: G2D, col: string, lite: string): void => {
+  g.beginPath()
+  g.arc(0, 0, 1, 0, TAU)
+  fill(g, lite)
+  g.beginPath()
+  g.arc(0, 0, 0.58, 0, TAU)
+  fill(g, col)
+  g.beginPath()
+  g.arc(0, 0, 0.3, 0, TAU)
+  fill(g, '#ffffff')
+}
+
+/** The mote as a painted still. It has a CORE, which is why it is painted and
+ *  a bare `glow` is not: a wash with no core has no shape to paint. */
+export const MOTE_ART: ItemSpec = {
+  ...PROP_ART.mote, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    moteShape(g, accent.base, accent.lite)
+    g.restore()
+  }
+}
+
+/** One mote with halo radius `r` in `col` — painted if its sheet has landed. */
+export const moteAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, MOTE_ART, r, 0, col)
+  g.restore()
+  return hit
+}
+
+/**
+ * A soap bubble about the origin, radius 1: a RING of skin and a highlight,
+ * with the middle left open.
+ *
+ * The live bubble fills its disc, because a translucent fill is one call; the
+ * reference draws the hole, because a reference that shows a solid ball and a
+ * prompt that says "see-through" disagree, and the picture wins.
+ */
+const bubbleShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.arc(0, 0, 1, 0, TAU)
+  // Its own subpath, or the ring closes with a spoke across it at 3 o'clock —
+  // and a painter paints the spoke.
+  g.moveTo(0.78, 0)
+  g.arc(0, 0, 0.78, 0, TAU, true)
+  fill(g, col)
+  ink(g, 0.09)
+  g.beginPath()
+  g.arc(-0.42, -0.42, 0.2, 0, TAU)
+  fill(g, '#ffffff')
+}
+
+/** The bubble as a painted still — the rise and the wobble stay drawn. */
+export const BUBBLE_ART: ItemSpec = {
+  ...PROP_ART.bubble, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    bubbleShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One bubble of radius `r` in `col` — painted if its sheet has landed. */
+export const bubbleAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, BUBBLE_ART, r, 0, col)
+  g.restore()
+  return hit
+}
+
+/** A bunting flag hanging from the origin, 1 unit wide: a little triangle. */
+const flagShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.moveTo(-0.5, 0)
+  g.lineTo(0.5, 0)
+  g.lineTo(0, 1.18)
+  g.closePath()
+  fill(g, col)
+  ink(g, 0.12)
+}
+
+/**
+ * The bunting flag as a painted still.
+ *
+ * The CORD is not here and never can be: it is a bezier through the points the
+ * call site hands over, so it has no constant shape. The flag does — it is the
+ * same little triangle at every station — so the kit threads the painting
+ * along its own curve, exactly as it threaded the vector.
+ */
+export const FLAG_ART: ItemSpec = {
+  ...PROP_ART.flag, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    flagShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One bunting flag `w` wide, `h` deep, in `col` — painted if its sheet has
+ *  landed. The caller has already placed and tilted it. */
+export const flagAt = (g: G2D, w: number, h: number, col: string): boolean => {
+  g.save()
+  g.scale(1, h / (w * 1.18))
+  const hit = drawItem(g, FLAG_ART, w, 0, col)
+  g.restore()
+  return hit
+}
+
+/** A paper lantern hanging from the origin, 1 unit wide: a round body with a
+ *  gold cap above and below. */
+const lanternShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.ellipse(0, 0, 0.5, 0.57, 0, 0, TAU)
+  fill(g, col)
+  ink(g, 0.1)
+  g.beginPath()
+  g.roundRect(-0.27, -0.75, 0.54, 0.22, 0.07)
+  g.roundRect(-0.23, 0.53, 0.46, 0.2, 0.07)
+  fill(g, '#ffd97a')
+  ink(g, 0.07)
+}
+
+/** The paper lantern as a painted still — the oasis's string and the
+ *  festival's. Its swing, its sag and its halo stay drawn. */
+export const LANTERN_ART: ItemSpec = {
+  ...PROP_ART.lantern, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    lanternShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One paper lantern `w` wide in `col`, already placed and swung by the
+ *  caller — painted if its sheet has landed. */
+export const lanternAt = (g: G2D, w: number, col: string): boolean => drawItem(g, LANTERN_ART, w, 0, col)
+
+/** One bee about the origin, body 1 unit long: a fat amber body under a pale
+ *  wing. Three of them loop round the woods' hive. */
+const beeShape = (g: G2D): void => {
+  g.beginPath()
+  g.ellipse(0, 0, 0.5, 0.36, 0, 0, TAU)
+  fill(g, '#ffcf4a')
+  ink(g, 0.14)
+  g.beginPath()
+  g.ellipse(-0.14, -0.43, 0.36, 0.21, -0.4, 0, TAU)
+  fill(g, 'rgba(255,255,255,0.85)')
+}
+
+/** The bee as a painted still — its loop round the hive stays the drawing's. */
+export const BEE_ART: ItemSpec = {
+  ...PROP_ART.bee, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s, s)
+    beeShape(g)
+    g.restore()
+  }
 }

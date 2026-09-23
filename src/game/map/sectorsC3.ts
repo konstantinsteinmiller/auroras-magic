@@ -15,13 +15,14 @@
  * a hedge — a different colour on each sector.
  */
 import type { SectorAccent, SectorDef, TapCreature } from '@/game/map/sectorDef'
+import { tapCover } from '@/game/map/tapCover'
 import { SKY_POTS, C, fill, ink, fence, smoke, type G2D } from '@/game/map/kit'
 import {
   K, PINK, MINT, LEMON, PEG, type PegLook, skyK, cloudSea, farIsle, cloud, cloudRow, tuft, puffTree, starStones,
   skyFlowers, pole, balloon, miniBalloon, rainbowBridge, domeCottage, domeChimney, stable, stableFlag, windTower,
   towerVane, skyCastle, castleFlags, lampPost,
   planter, haystack, kiteBasket, topiary, nestBack, nestFront, pennant, bunting, pinwheel, pinStick, kite, vane,
-  dove, flyer, twinkles, babyPegasus, joy, zzz, skyPuff, sparkle, star5
+  dove, flyer, twinkles, babyPegasus, joy, zzz, skyPuff, sparkle, star5, star5At
 } from '@/game/map/kitSky'
 import { sin, cos, TAU, clamp, ease } from '@/game/duel/util'
 
@@ -51,7 +52,7 @@ const pegTap = (x: number, y: number, h: number, look: PegLook, dir: number, s: 
       babyPegasus(g, x, feet, s, dir, look, { up: 1, wings: e, flap: sin(t * 16) * 0.45 * e, eye: 1 })
       g.restore()
     }
-    cover(g)
+    tapCover(g, cover)
   }
 })
 
@@ -176,6 +177,8 @@ const rainbowBridgeSector: SectorDef = {
 
 /* ── 3-3 · Pegasus Stables — the chapter's rescue ────────────────────────── */
 const NEST = { x: 420, y: 540 }
+/** The nest's front, as a stable identity so `tapCover` can cache its stamp. */
+const nestCover = (g: G2D): void => nestFront(g, NEST.x, NEST.y, 1)
 const CUPOLA = stableFlag(770, 488, 300)
 const t12 = pegTap(150, 616, 114, PEG.peach, 1, 0.68, (g) => haystack(g, 150, 616, 1))
 const pegasusStables: SectorDef = {
@@ -235,7 +238,9 @@ const pegasusStables: SectorDef = {
       babyPegasus(g, NEST.x - 6, NEST.y - 8 - hover, 1.05, 1, PEG.sky, {
         up: e, wings: e, flap: e * sin(t * 7) * 0.3, eye: clamp(k * 2 - 0.5, 0, 1), dim: 1 - e
       })
-      nestFront(g, NEST.x, NEST.y, 1)
+      // The nest is in this sector's `paint()`, so its front comes out of
+      // the PAINTING (`tapCover.ts`) rather than being drawn a second time.
+      tapCover(g, nestCover)
       zzz(g, NEST.x + 70, NEST.y - 76, t, 1 - clamp(k * 3, 0, 1))
       joy(g, NEST.x, NEST.y - 150, t, clamp((k - 0.4) / 0.6, 0, 1))
     }
@@ -356,9 +361,10 @@ const zephyrsCastle: SectorDef = {
       g.arc(x, y - h - 14, 25, 0, TAU)
       fill(g, '#fff1a8')
       g.globalAlpha = alive
-      star5(g, x, y - h - 14, 11)
-      fill(g, '#fffbe0')
-      ink(g, 2)
+      if (!star5At(g, x, y - h - 14, 11, '#fffbe0')) {
+        fill(g, '#fffbe0')
+        ink(g, 2)
+      }
       g.globalAlpha = 1
     }
     if (alive <= 0) return

@@ -85,13 +85,13 @@ const play = (): void => {
   position: absolute
   margin: 0
   text-align: center
-  color: #fff6d8
-  --ink: #3A2340
+  color: var(--am-on-night)
+  --ink: var(--am-ink)
   font-size: inherit
   filter: drop-shadow(0 4px 0 rgba(58, 35, 64, 0.35))
   span
     display: inline-block
-    color: #fff6d8
+    color: var(--am-on-night)
     animation: title-bob 2.4s ease-in-out infinite
 
 button
@@ -102,14 +102,14 @@ button
   justify-content: center
   padding: 0
   margin: 0
-  color: #fff
+  color: var(--am-ink)
   cursor: pointer
   -webkit-tap-highlight-color: transparent
   transition: transform 0.08s ease-out
   &:active
     transform: scale(0.95)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .skip
@@ -121,18 +121,16 @@ button
   .glyph
     width: 30px
     height: 30px
-    filter: drop-shadow(2px 2px 0 var(--duel-ink))
 
 .play
   border-radius: 50%
-  background: var(--duel-plate-live)
-  box-shadow: 0 0 0 5px var(--duel-gold)
+  background: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
+  box-shadow: 0 0 0 5px var(--am-ink)
   animation: play-pulse 1.1s ease-in-out infinite
   .glyph
     width: 52%
     height: 52%
     margin-left: 6%
-    filter: drop-shadow(3px 3px 0 var(--duel-ink))
 
 @keyframes title-bob
   0%, 100%

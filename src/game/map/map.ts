@@ -38,7 +38,9 @@ import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
 import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
+import { BADGE_ART, badgeFrame, paintBadge } from '@/game/map/badge'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
 import { readInsets } from '@/game/duel/layout'
 import { clamp, seeded, sin, TAU, PI } from '@/game/duel/util'
 import { mapHud } from '@/use/useMapHud'
@@ -46,11 +48,11 @@ import { twinGift, isBloomed } from '@/use/useDuelRewards'
 import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { drawBloom } from '@/game/map/bloom'
 import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
-import { spriteFor } from '@/game/art'
-import { pageArtId } from '@/game/artIds'
+import { spriteFor, onArtChanged } from '@/game/art'
+import { pageArtId, frontPageArtId } from '@/game/artIds'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
-import { drawBookmark, drawDogEar, drawSpine, shadeTurn, turnAngle, turnWidth } from '@/game/flow/pageTurn'
+import { drawBookmark, drawDogEar, drawSpine, drawTurned, shadeTurnEdge, turnAngle, turnWidth } from '@/game/flow/pageTurn'
 import { drawUnicorn, type Face } from '@/game/duel/chars'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { drawFxUnder, drawFxOver, sparkleBurst } from '@/game/duel/fx'
@@ -72,10 +74,16 @@ const HUB_P = PAGE_HP
 
 interface Slot { x: number; y: number; w: number; h: number }
 /** Sector thumbnails on a page, page-local map units: four, then the boss. */
+// `x` is the card's CENTRE. A card also draws a frame `b` outside its picture
+// and a drop shadow outside that, so its real extent is `w / 2 + ~11` units
+// either side — which is how the boss card, the one that is 360 wide instead
+// of 300, ended up hanging over the fore-edge of the page while thirty units
+// of margin sat unused on the other side. The trail is centred now: the first
+// card's left margin and the boss card's right margin are both ~40 units.
 const SLOTS: readonly Slot[] = [
-  { x: 270, y: 600, w: 300, h: 175 }, { x: 580, y: 320, w: 300, h: 175 },
-  { x: 890, y: 600, w: 300, h: 175 }, { x: 1190, y: 320, w: 300, h: 175 },
-  { x: 1395, y: 610, w: 360, h: 210 }
+  { x: 225, y: 600, w: 300, h: 175 }, { x: 535, y: 320, w: 300, h: 175 },
+  { x: 845, y: 600, w: 300, h: 175 }, { x: 1145, y: 320, w: 300, h: 175 },
+  { x: 1345, y: 610, w: 360, h: 210 }
 ]
 const SLOTS_P: readonly Slot[] = [
   { x: 250, y: 250, w: 330, h: 193 }, { x: 650, y: 520, w: 330, h: 193 },
@@ -159,36 +167,58 @@ export const nodeState = (n: number): NodeState => {
 
 const TW = 384
 const TH = 224
-const thumbs = new Map<number, { key: string; cv: HTMLCanvasElement }>()
+const TRES = TW / SEC_W
+/** A baked thumb. `paintLayer` is the static layer a tap creature's cover is
+ *  cut from (`tapCover.ts`) — only a DONE thumb is that layer itself, and only
+ *  when a painting went into it. */
+interface Thumb { key: string; cv: HTMLCanvasElement; paintLayer: CoverLayer | null }
+const thumbs = new Map<number, Thumb>()
 
-const thumbOf = (n: number): HTMLCanvasElement => {
+/**
+ * Bumped when a live PROP's painting lands. A sector that is not done yet
+ * bakes its props AT REST into the dust, so that bake is only as painted as
+ * the props that had decoded when it ran — and a prop arriving afterwards
+ * would leave a vector silhouette in the dust for the rest of the session.
+ * Scoped to the `prop` kind, so the other ~190 paintings decoding during boot
+ * do not re-bake sixteen thumbnails each (`scoped-art-invalidation`).
+ */
+let propGen = 0
+onArtChanged((c) => { if (!c || c.kind === 'prop') propGen++ })
+
+const thumbOf = (n: number): Thumb => {
   const done = hasBit(S.campaign.sectorsDone, n)
   const pick = getPaintPick(S.campaign.paintPicks, n)
   // Whether its painting has decoded is part of the key: the thumb re-bakes
-  // once when it lands (or when the art layer flips), and never again.
-  const key = `${done ? 1 : 0}:${pick}:${sectorPainted(n, true) ? 1 : 0}`
+  // once when it lands (or when the art layer flips), and never again. A done
+  // thumb is the colour layer alone and has no props baked into it, so it
+  // ignores `propGen`.
+  const key = `${done ? 1 : 0}:${pick}:${sectorPainted(n, true) ? 1 : 0}:${done ? 0 : propGen}`
   const hit = thumbs.get(n)
-  if (hit && hit.key === key) return hit.cv
+  if (hit && hit.key === key) return hit
   const sec = sectorOf(n)
   const colour = makeCanvas(TW, TH)
   const g = colour.getContext('2d')
+  let painted = false
   if (g) {
-    g.setTransform(TW / SEC_W, 0, 0, TH / SEC_H, 0, 0)
+    g.setTransform(TRES, 0, 0, TH / SEC_H, 0, 0)
     const pot = sec.pots[Math.max(0, pick - 1)]!
-    if (!paintSectorArt(g, n, sec, pot, true)) sec.paint(g, pot)
+    painted = paintSectorArt(g, n, sec, pot, true)
+    if (!painted) sec.paint(g, pot)
     g.setTransform(1, 0, 0, 1, 0, 0)
   }
+  const src: CoverLayer | null = painted ? { cv: colour, res: TRES, key: `${n}:${key}` } : null
   let cv = colour
   if (!done) {
     cv = makeCanvas(TW, TH)
-    bakeDust(cv, colour, TW / SEC_W, n + 1, (dg) => {
+    bakeDust(cv, colour, TRES, n + 1, (dg) => {
       sec.props(dg, 0, 0)
-      sec.tap?.draw(dg, 0, 0)
+      withCoverLayer(src, () => sec.tap?.draw(dg, 0, 0))
       sec.rescue?.draw(dg, 0, 0)
     })
   }
-  thumbs.set(n, { key, cv })
-  return cv
+  const th: Thumb = { key, cv, paintLayer: done ? src : null }
+  thumbs.set(n, th)
+  return th
 }
 
 /* --------------------------------------------------------------- layout */
@@ -281,6 +311,7 @@ const settleTurn = (done: boolean): void => {
   turnFrom = -1
   turnP = 0
   turnHeld = false
+  dropSwing()
   publish()
 }
 
@@ -486,8 +517,6 @@ export const updateMap = (dt: number): void => {
 
 /* ----------------------------------------------------------------- draw */
 
-let bg: CanvasGradient | null = null
-let bgKey = ''
 
 const markerScreen = (n: number): [number, number] => {
   const s = slotOf(n)
@@ -531,25 +560,77 @@ const twinScreen = (n: number): [number, number, number] => {
 const tentShown = (): boolean => S.campaign.giftsOwned !== 0
 const tentScreen = (): [number, number, number] => {
   const mx = portrait ? PAGE_WP * 0.72 : HUB * 0.52
-  const my = portrait ? HUB_P * 0.78 : PAGE_H * 0.62
-  return [sx(mx), sy(my), Math.max(70, 150 * ms)]
+  // The tent stands on the knoll, so it is seated on the front page's SCENE
+  // rather than on the page — one fraction for both orientations, instead of
+  // two constants that had to be re-tuned by eye every time the page moved.
+  // 0.672 was measured off the landscape painting's own grass line.
+  const pw = portrait ? PAGE_WP : HUB
+  const ph = portrait ? HUB_P : PAGE_H
+  const [gy, sh] = frontScene(PAGE_PAD, pw - PAGE_PAD * 2, ph - PAGE_PAD * 2)
+  return [sx(mx), sy(gy + sh * 0.672), Math.max(70, 150 * ms)]
 }
 
-const drawBackdrop = (g: G2D): void => {
-  const key = `${vw}x${vh}`
-  if (!bg || key !== bgKey) {
-    bgKey = key
-    bg = g.createLinearGradient(0, 0, 0, vh)
-    bg.addColorStop(0, '#2b2048')
-    bg.addColorStop(1, '#503a74')
-  }
-  g.fillStyle = bg
-  g.fillRect(0, 0, vw, vh)
+/**
+ * The cloth the book lies on, into the box (0, 0, w, h). Warm lilac into dawn
+ * light, not a night void — ui-design-system.md §3.16. Pure, so the art bench
+ * renders the painting's reference from the same painter.
+ */
+export const paintCloth = (g: G2D, w: number, h: number): void => {
+  const grad = g.createLinearGradient(0, 0, 0, h)
+  grad.addColorStop(0, '#7B5EA8')
+  grad.addColorStop(1, '#CBA6D6')
+  g.fillStyle = grad
+  g.fillRect(0, 0, w, h)
 }
+
+/**
+ * The cloth the book lies on, into a box `w` x `h` from the origin — wherever
+ * the book is.
+ *
+ * Painted (§9.11): one square sheet stretched over the viewport, because a
+ * weave has no layout to distort and so one sheet serves every screen shape.
+ * A miss keeps the gradient, which is what it was.
+ *
+ * EXPORTED because the book is not only on the map. The wipe, the intro and
+ * the duel's letterbox each drew this same cloth for themselves — two of them
+ * as a flat colour — so with the art layer on, a child tapping a gift went
+ * from a woven cloth to a plain one and back. Four copies of one surface is
+ * four chances to disagree; there is one now.
+ */
+export const drawCloth = (g: G2D, w: number, h: number): void => {
+  const art = spriteFor('page', 'cover-cloth')
+  if (art) {
+    g.drawImage(art, 0, 0, w, h)
+    return
+  }
+  paintCloth(g, w, h)
+}
+
+const drawBackdrop = (g: G2D): void => drawCloth(g, vw, vh)
 
 /** Each built chapter's page wash — its biome, in two soft bands. */
 /** The front page's blossoms: seeded, so they never shimmer. */
 const seededFront = (): (() => number) => seeded(77)
+
+/**
+ * The front page's little scene — sky, rainbow, knoll, trail — sits along the
+ * BOTTOM of the page and is shaped by its WIDTH.
+ *
+ * Every vertical in it used to be a fraction of the page's own height, which
+ * is right in landscape and nonsense in portrait, where the page is twice as
+ * tall as it is wide: the rainbow came out with a radius wider than the page
+ * it had to arc over, and the meadow's gentle 5 %-of-height wobble became two
+ * spiky mountain peaks. Nobody had looked at it, but the PAINTER had — it
+ * repainted those peaks faithfully, in ink, and that is what shipped.
+ *
+ * Returns the scene's top edge and its height. In landscape the page is
+ * already wider than 1 / 0.75 of its height, so this is the page itself and
+ * nothing moves; in portrait it is the bottom 40 %, under a tall open sky.
+ */
+const frontScene = (y: number, w: number, h: number): [number, number] => {
+  const sh = Math.min(h, w * 0.75)
+  return [y + h - sh, sh]
+}
 
 /** How Aurora waits on the front page: pleased to see you. */
 const FRONT_FACE: Face = { brow: 0.25, eye: 1, mouth: 1, blush: 0.35 }
@@ -595,6 +676,153 @@ const drawCard = (g: G2D, x: number, y: number, w: number, h: number, built: boo
 }
 
 /**
+ * THE BOOK AS AN OBJECT, under the page: its cover boards, the block of
+ * leaves they hold, and the shadow it casts on the cloth.
+ *
+ * Without it the map is a sheet of paper lying on a purple cloth with a strip
+ * of binding beside it — every part drawn correctly, and nothing that says
+ * BOOK. What a real one gives you, and this now draws, is three things: the
+ * cover is cut LARGER than the paper (a binder's "squares"), the leaves under
+ * the open page show as a pale striated block in that margin, and the whole
+ * thing sits ON something, with weight.
+ *
+ * Square on the left in both orientations, because that is where the binding
+ * is — the same rule `drawCard` follows for the paper itself.
+ */
+const drawBoard = (g: G2D): void => {
+  const r = pageRect(page)
+  const over = Math.max(9, 19 * ms)
+  const c = 30 * ms
+  const round = [0, c, c, 0]
+  // The shadow it throws on the cloth, offset down and out: the light in this
+  // book comes from the upper left, the same as every page's own shading.
+  g.save()
+  g.filter = `blur(${Math.max(3, 9 * ms).toFixed(1)}px)`
+  g.fillStyle = 'rgba(24,10,34,0.42)'
+  g.beginPath()
+  g.roundRect(r.x - over, r.y - over + 7 * ms, r.w + over * 2, r.h + over * 2, round)
+  g.fill()
+  g.restore()
+  // The cover board: cloth over card, lit along the top-left fold.
+  const board = g.createLinearGradient(r.x, r.y - over, r.x + r.w, r.y + r.h + over)
+  board.addColorStop(0, '#5d4382')
+  board.addColorStop(0.5, '#43305f')
+  board.addColorStop(1, '#2d1f42')
+  g.fillStyle = board
+  g.beginPath()
+  g.roundRect(r.x - over, r.y - over, r.w + over * 2, r.h + over * 2, round)
+  g.fill()
+  // THE LEAVES: the block of paper this open page is the top of, showing in
+  // the cover's margin — cream, with the fine striation of a lot of sheets
+  // seen edge-on. A ring, because the page itself covers the middle.
+  const lip = over * 0.58
+  g.save()
+  g.beginPath()
+  g.roundRect(r.x - lip, r.y - lip, r.w + lip * 2, r.h + lip * 2, round)
+  g.clip()
+  g.fillStyle = '#efe2cb'
+  g.fillRect(r.x - lip, r.y - lip, r.w + lip * 2, r.h + lip * 2)
+  g.strokeStyle = 'rgba(96,74,60,0.3)'
+  g.lineWidth = Math.max(0.6, ms * 0.9)
+  g.beginPath()
+  for (let i = 1; i * 3.4 * ms < lip; i++) {
+    const d = i * 3.4 * ms
+    g.roundRect(r.x - lip + d, r.y - lip + d, r.w + (lip - d) * 2, r.h + (lip - d) * 2, round)
+  }
+  g.stroke()
+  g.restore()
+}
+
+
+/**
+ * The book's front page: the knoll the wardrobe tent stands on, with the
+ * trail setting off toward chapter 1. It is where the book falls open before
+ * the story starts, and where the wardrobe lives for the whole game.
+ */
+/**
+ * Everything PRINTED on the front page — the sky, the rainbow, the meadow
+ * bands, the knoll and the trail that sets off toward chapter 1 — drawn into
+ * the box (x, y, w, h).
+ *
+ * Aurora and the wardrobe tent are NOT in here: they move, and are drawn over
+ * this. Pure apart from the box and a scale, so the art bench renders the
+ * painting's reference from the very same function the map draws with
+ * (`artDraw.renderFrontPageSheet`), exactly as `pageDecorBake` serves a
+ * chapter page.
+ */
+export const paintFrontPage = (
+  g: G2D, x: number, y: number, w: number, h: number, scale: number, forRef = false
+): void => {
+  const [gy, sh] = frontScene(y, w, h)
+  // A soft sky, a rainbow, and the meadow the knoll rises out of.
+  const sky = g.createLinearGradient(0, y, 0, y + h)
+  sky.addColorStop(0, '#eaf6ff')
+  sky.addColorStop(1, '#fff4e6')
+  g.fillStyle = sky
+  g.fillRect(x, y, w, h)
+  const rb = ['#ffd0e4', '#ffe6b8', '#d8f5c8', '#cfe9ff', '#e2d6ff']
+  for (let i = 0; i < rb.length; i++) {
+    g.beginPath()
+    g.arc(x + w * 0.5, gy + sh * 0.92, sh * (0.52 - i * 0.035), PI, TAU)
+    g.lineWidth = sh * 0.032
+    g.strokeStyle = rb[i]!
+    g.stroke()
+  }
+  const [g1, g2] = PAGE_WASH[0]!
+  for (let i = 0; i < 2; i++) {
+    g.beginPath()
+    g.moveTo(x, gy + sh * (0.74 - i * 0.07))
+    for (let k = 0; k <= 8; k++) g.lineTo(x + (w * k) / 8, gy + sh * (0.7 - i * 0.07 + 0.05 * sin(k * 1.9 + i)))
+    g.lineTo(x + w, y + h)
+    g.lineTo(x, y + h)
+    g.closePath()
+    g.fillStyle = (i ? g1 : g2)!
+    g.fill()
+  }
+  // The knoll itself, under where the tent stands.
+  //
+  // NO OUTLINE WHEN THIS IS A REFERENCE. The painter traces what it is shown,
+  // and the ink line that reads as a soft crest in the drawing came back as
+  // two hard black arcs across the finished painting — the dome's two ends,
+  // with the middle lost behind the hills. A ground line is a change of
+  // colour, not a drawn edge, so the reference simply does not draw one.
+  g.beginPath()
+  g.ellipse(x + w * 0.5, gy + sh * 0.82, w * 0.3, sh * 0.16, 0, PI, TAU)
+  g.fillStyle = g1!
+  g.fill()
+  if (!forRef) {
+    g.lineWidth = 2.5
+    g.strokeStyle = 'rgba(58,35,64,0.35)'
+    g.stroke()
+  }
+  // The trail setting off toward chapter 1 — the page wants turning.
+  //
+  // DASHES ARE UI, NOT LANDSCAPE. Shown a dashed line the painter painted a
+  // dashed line, on top of the winding road it had already painted, so the
+  // page ended up with two paths. The reference shows ONE soft path and the
+  // live page keeps its dashes, which are the "turn me" hint.
+  g.beginPath()
+  g.moveTo(x + w * 0.55, gy + sh * 0.8)
+  g.quadraticCurveTo(x + w * 0.8, gy + sh * 0.76, x + w * 1.02, gy + sh * 0.84)
+  g.lineWidth = Math.max(3, (forRef ? 13 : 7) * scale)
+  g.strokeStyle = '#e8c07a'
+  if (!forRef) g.setLineDash([Math.max(8, 16 * scale), Math.max(7, 14 * scale)])
+  g.lineCap = 'round'
+  g.stroke()
+  g.setLineDash([])
+  // A few blossoms and a sparkle or two, the way a title page is dressed.
+  const fr = seededFront()
+  for (let i = 0; i < 14; i++) {
+    const fx = x + w * (0.08 + fr() * 0.84)
+    const fy = gy + sh * (0.74 + fr() * 0.22)
+    g.beginPath()
+    g.arc(fx, fy, Math.max(2, sh * 0.008), 0, TAU)
+    g.fillStyle = ['#ff9ecf', '#ffd36b', '#ffffff', '#c7a6ff'][i % 4]!
+    g.fill()
+  }
+}
+
+/**
  * The book's front page: the knoll the wardrobe tent stands on, with the
  * trail setting off toward chapter 1. It is where the book falls open before
  * the story starts, and where the wardrobe lives for the whole game.
@@ -612,64 +840,16 @@ const drawFrontPage = (g: G2D): void => {
   g.beginPath()
   g.roundRect(x, y, w, h, r)
   g.clip()
-  // A soft sky, a rainbow, and the meadow the knoll rises out of.
-  const sky = g.createLinearGradient(0, y, 0, y + h)
-  sky.addColorStop(0, '#eaf6ff')
-  sky.addColorStop(1, '#fff4e6')
-  g.fillStyle = sky
-  g.fillRect(x, y, w, h)
-  const rb = ['#ffd0e4', '#ffe6b8', '#d8f5c8', '#cfe9ff', '#e2d6ff']
-  for (let i = 0; i < rb.length; i++) {
-    g.beginPath()
-    g.arc(x + w * 0.5, y + h * 0.92, h * (0.52 - i * 0.035), PI, TAU)
-    g.lineWidth = h * 0.032
-    g.strokeStyle = rb[i]!
-    g.stroke()
-  }
-  const [g1, g2] = PAGE_WASH[0]!
-  for (let i = 0; i < 2; i++) {
-    g.beginPath()
-    g.moveTo(x, y + h * (0.74 - i * 0.07))
-    for (let k = 0; k <= 8; k++) g.lineTo(x + (w * k) / 8, y + h * (0.7 - i * 0.07 + 0.05 * sin(k * 1.9 + i)))
-    g.lineTo(x + w, y + h)
-    g.lineTo(x, y + h)
-    g.closePath()
-    g.fillStyle = (i ? g1 : g2)!
-    g.fill()
-  }
-  // The knoll itself, under where the tent stands.
-  g.beginPath()
-  g.ellipse(x + w * 0.5, y + h * 0.82, w * 0.3, h * 0.16, 0, PI, TAU)
-  g.fillStyle = g1!
-  g.fill()
-  g.lineWidth = 2.5
-  g.strokeStyle = 'rgba(58,35,64,0.35)'
-  g.stroke()
-  // The trail setting off toward chapter 1 — the page wants turning.
-  g.beginPath()
-  g.moveTo(x + w * 0.55, y + h * 0.8)
-  g.quadraticCurveTo(x + w * 0.8, y + h * 0.76, x + w * 1.02, y + h * 0.84)
-  g.lineWidth = Math.max(3, 7 * ms)
-  g.strokeStyle = '#e8c07a'
-  g.setLineDash([Math.max(8, 16 * ms), Math.max(7, 14 * ms)])
-  g.lineCap = 'round'
-  g.stroke()
-  g.setLineDash([])
-  // A few blossoms and a sparkle or two, the way a title page is dressed.
-  const fr = seededFront()
-  for (let i = 0; i < 14; i++) {
-    const fx = x + w * (0.08 + fr() * 0.84)
-    const fy = y + h * (0.74 + fr() * 0.22)
-    g.beginPath()
-    g.arc(fx, fy, Math.max(2, h * 0.008), 0, TAU)
-    g.fillStyle = ['#ff9ecf', '#ffd36b', '#ffffff', '#c7a6ff'][i % 4]!
-    g.fill()
-  }
+  // Painted (§9.11) when its picture has decoded; the drawing otherwise.
+  const art = spriteFor('page', frontPageArtId(portrait))
+  if (art) g.drawImage(art, x, y, w, h)
+  else paintFrontPage(g, x, y, w, h, ms)
   // And Aurora herself, wearing whatever she is wearing, waiting on the knoll
   // by her wardrobe and looking off toward chapter 1.
-  const ah = h * 0.3
+  const [gy, sh] = frontScene(y, w, h)
+  const ah = sh * 0.3
   g.save()
-  g.translate(x + w * (tentShown() ? 0.36 : 0.5), y + h * 0.84 + sin(Td * 1.6) * ah * 0.012)
+  g.translate(x + w * (tentShown() ? 0.36 : 0.5), gy + sh * 0.84 + sin(Td * 1.6) * ah * 0.012)
   g.scale(ah / 150, ah / 150)
   drawUnicorn(g, 0, 0, -1, { face: FRONT_FACE, ...equippedHooks() }, Td * 0.6 + 1.3)
   g.restore()
@@ -807,8 +987,16 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
   g.strokeStyle = '#3A2340'
   g.stroke()
   g.save()
+  // The picture takes the CARD's corners. The card is a rounded rect of
+  // radius `b * 2` drawn `b` outside the picture, so a concentric inner
+  // radius is `b` — without this the painting's square corners poke into the
+  // card's rounded ones and the mount reads as two separate things.
+  g.beginPath()
+  g.roundRect(x, y, w, h, b)
+  g.clip()
   if (st === 'locked') g.globalAlpha = 0.45
-  g.drawImage(thumbOf(n), x, y, w, h)
+  const th = thumbOf(n)
+  g.drawImage(th.cv, x, y, w, h)
   // A restored sector's props keep moving on the map (§8.8) — up to a cap,
   // past which they rest on their first frame (§9.5's ≤ 16).
   // A bloomed sector's extra life rides the same budget (§8.8.5): extra props
@@ -828,8 +1016,12 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
       sec.props(g, Td + n * 1.7, 1)
       // The permanence beats a done sector always shows (§8.8): its creature
       // (peeking when tapped) and, on the chapter's one, the rescued friend.
-      sec.tap?.draw(g, peekK(n), T)
-      sec.rescue?.draw(g, 1, Td + n)
+      withCoverLayer(th.paintLayer, () => {
+        sec.tap?.draw(g, peekK(n), T)
+        // The rescue is INSIDE the cover layer too: chapter 3's redraws the
+        // nest's front over itself, and that nest is in the sector's paint().
+        sec.rescue?.draw(g, 1, Td + n)
+      })
     }
     if (bloomed) drawBloom(g, n, live ? Td + n * 0.9 : 0)
   }
@@ -850,46 +1042,13 @@ const drawMarker = (g: G2D, n: number): void => {
     g.strokeStyle = `rgba(255, 215, 106, ${0.35 + 0.5 * k})`
     g.stroke()
   }
-  g.beginPath()
-  g.arc(x, y, r, 0, TAU)
-  g.fillStyle = st === 'done' ? '#ffd76a' : st === 'current' ? '#8f6cff' : '#a99dc0'
-  g.fill()
-  g.lineWidth = 4
-  g.strokeStyle = '#3A2340'
-  g.stroke()
-  // The glyph: a star when done, a crown for a boss, a sparkle when current,
-  // a little lock when shut.
+  // The badge itself — painted when its strip has decoded, drawn otherwise.
+  // `drawItem` blits the painting into the same box `paintBadge` draws in,
+  // so the two are interchangeable and the ring above is unaffected.
+  const f = badgeFrame(st, nodeIsBoss(n))
   g.save()
   g.translate(x, y)
-  g.fillStyle = st === 'done' ? '#fff6d0' : '#ffffff'
-  g.strokeStyle = '#3A2340'
-  g.lineWidth = 2.5
-  g.beginPath()
-  const R = r * 0.55
-  if (st === 'locked') {
-    g.roundRect(-R * 0.6, -R * 0.1, R * 1.2, R * 0.9, 4)
-    g.moveTo(-R * 0.35, -R * 0.1)
-    g.arc(0, -R * 0.1, R * 0.35, PI, 0)
-  } else if (nodeIsBoss(n)) {
-    g.moveTo(-R, R * 0.5)
-    g.lineTo(-R, -R * 0.4)
-    g.lineTo(-R * 0.45, R * 0.05)
-    g.lineTo(0, -R * 0.7)
-    g.lineTo(R * 0.45, R * 0.05)
-    g.lineTo(R, -R * 0.4)
-    g.lineTo(R, R * 0.5)
-    g.closePath()
-  } else {
-    for (let i = 0; i < 10; i++) {
-      const a = -PI / 2 + (i * PI) / 5
-      const rr = i & 1 ? R * 0.45 : R
-      if (i) g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr)
-      else g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr)
-    }
-    g.closePath()
-  }
-  g.fill()
-  g.stroke()
+  if (!drawItem(g, BADGE_ART, r, f)) paintBadge(g, r, f)
   g.restore()
 }
 
@@ -949,27 +1108,95 @@ const drawWorld = (g: G2D): void => {
 
 /** Page `p`, swung `prog` of the way over: its own contents, squeezed about
  *  the spine, and the paper over them. */
+/**
+ * The page being turned, rendered once per frame so it can be WARPED.
+ *
+ * A real turn needs the leaf as a bitmap: the projection cuts it into strips
+ * and gives each one its own height, and there is no canvas transform that
+ * does that to a live draw. So the page goes to an offscreen surface the size
+ * of the page rect, and `drawTurned` blits the strips out of it. It is only
+ * alive for the few hundred milliseconds a turn lasts — `settleTurn` drops it.
+ */
+let swingCv: HTMLCanvasElement | null = null
+const swingSurface = (r: { x: number; y: number; w: number; h: number }): G2D | null => {
+  const d = S.dpr
+  const w = Math.max(1, Math.round(r.w * d))
+  const h = Math.max(1, Math.round(r.h * d))
+  if (!swingCv || swingCv.width !== w || swingCv.height !== h) swingCv = makeCanvas(w, h)
+  const c = swingCv.getContext('2d')
+  if (!c) return null
+  c.setTransform(1, 0, 0, 1, 0, 0)
+  c.clearRect(0, 0, w, h)
+  // The world draws in screen CSS px; slide it so the page rect lands on the
+  // surface's own origin.
+  c.setTransform(d, 0, 0, d, -r.x * d, -r.y * d)
+  return c
+}
+
+/** Let the surface go — a full page of device pixels is not small. */
+const dropSwing = (): void => { swingCv = null }
+
 const drawSwing = (g: G2D, p: number, prog: number): void => {
   const keep = cam
   cam = camOf(p)
   const r = pageRect(p)
   const w = turnWidth(prog)
-  if (w > 0.004) {
-    g.save()
-    g.beginPath()
-    g.rect(r.x - 1, r.y - 1, r.w + 2, r.h + 2)
-    g.clip()
-    g.translate(r.x, 0)
-    g.scale(w, 1)
-    g.translate(-r.x, 0)
-    drawWorld(g)
-    g.restore()
-    shadeTurn(g, r.x, r.y, r.w * w, r.h, turnAngle(prog))
+  const c = w > 0.004 ? swingSurface(r) : null
+  if (c) {
+    c.save()
+    c.beginPath()
+    c.rect(r.x, r.y, r.w, r.h)
+    c.clip()
+    drawWorld(c)
+    c.restore()
+    const a = turnAngle(prog)
+    const e = drawTurned(g, swingCv!, swingCv!.width, swingCv!.height, r.x, r.y, r.w, r.h, a)
+    shadeTurnEdge(g, e.x, e.y, e.h, r.h, a)
   }
   cam = keep
 }
 
 /** The binding, the reader's ribbon, the folded corners and the page dots. */
+/**
+ * The colour a page's folded corner shows, sampled from that page's own
+ * PAINTING — the fold is the leaf's reverse, so a constant cream read as a
+ * white sticker taped onto a painted meadow.
+ *
+ * Sampled once per page from the bottom outer corner (where the fold
+ * actually is) into a 1x1 canvas, then cached: the average of a whole page
+ * is a muddy grey-green, while the corner is the paper the fold would show.
+ * Falls back to the drawn paper whenever there is no painting yet.
+ */
+const PAPER_FALLBACK = '#fff4e6'
+/** The painting page `p` is printed from, if it has decoded. */
+const pageArt = (p: number): HTMLImageElement | null =>
+  p === 0
+    ? spriteFor('page', frontPageArtId(portrait))
+    : spriteFor('page', pageArtId(p - 1, portrait))
+const tones = new Map<number, string>()
+const pageTone = (p: number): string => {
+  const hit = tones.get(p)
+  if (hit) return hit
+  const img = pageArt(p)
+  if (!img) return PAPER_FALLBACK
+  let tone = PAPER_FALLBACK
+  try {
+    const cv = makeCanvas(1, 1)
+    const cg = cv.getContext('2d', { willReadFrequently: true })
+    if (cg) {
+      const sw = Math.max(1, Math.round(img.naturalWidth * 0.18))
+      const sh = Math.max(1, Math.round(img.naturalHeight * 0.18))
+      cg.drawImage(img, img.naturalWidth - sw, img.naturalHeight - sh, sw, sh, 0, 0, 1, 1)
+      const [r, gr, b] = cg.getImageData(0, 0, 1, 1).data
+      // Lifted toward the light: a fold catches more of it than the flat page.
+      const up = (v: number): number => Math.round(Math.min(255, v * 0.55 + 255 * 0.45))
+      tone = `rgb(${up(r!)}, ${up(gr!)}, ${up(b!)})`
+    }
+  } catch { /* a tainted or undecoded image: keep the paper */ }
+  tones.set(p, tone)
+  return tone
+}
+
 const drawBook = (g: G2D): void => {
   const r = pageRect(page)
   // The binding sits in the gutter beside the page — a band, not a slab: on
@@ -984,8 +1211,10 @@ const drawBook = (g: G2D): void => {
   if (!turning()) {
     const s = earSize()
     const hint = reducedMotion.value ? 0.35 : 0.35 + 0.35 * (0.5 + 0.5 * sin(Td * 2))
-    if (page < PAGE_COUNT - 1) drawDogEar(g, r.x, r.y, r.w, r.h, 1, s, hint)
-    if (page > 0) drawDogEar(g, r.x, r.y, r.w, r.h, -1, s, hint)
+    const tone = pageTone(page)
+    const art = pageArt(page)
+    if (page < PAGE_COUNT - 1) drawDogEar(g, r.x, r.y, r.w, r.h, 1, s, hint, tone, art)
+    if (page > 0) drawDogEar(g, r.x, r.y, r.w, r.h, -1, s, hint, tone, art)
   }
   // Where in the book this page is: one dot per page along the foot.
   const dr = Math.max(2.5, r.h * 0.008)
@@ -1007,6 +1236,7 @@ export const drawMap = (g: G2D): void => {
   g.globalAlpha = 1
   g.globalCompositeOperation = 'source-over'
   drawBackdrop(g)
+  drawBoard(g)
   // A bound book shows one page: clip to it, so the pages either side of it
   // never bleed into the gutter or past the fore-edge.
   const open = pageRect(page)

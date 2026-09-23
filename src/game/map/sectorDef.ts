@@ -23,6 +23,10 @@ export interface SectorAccent {
  * plays a ~900 ms peek-a-boo. `draw` renders it at peek `k`: 0 = hidden
  * behind its prop (draw that prop's FRONT here too, so k = 0 looks exactly
  * like the prop alone), 1 = fully out, doing its one thing. `t` is seconds.
+ *
+ * That front must be a prop `paint()` already draws, and it goes through
+ * `tapCover.ts` — on a painted sector the pixels come out of the painting, so
+ * the prop is not drawn a second time over its own painted self.
  */
 export interface TapCreature {
   x: number

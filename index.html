@@ -28,26 +28,29 @@
        build: sandboxed iframes and blocked-storage embeds fail the same way.
        Vite rewrites the path to `./js/storage-shim.js` under `--base=./`. -->
   <script src="/js/storage-shim.js"></script>
-  <meta name="color-scheme" content="dark only">
+  <meta name="color-scheme" content="only light">
   <link rel="icon" href="/favicon.ico">
   <!-- CSP meta tag injected by vite.config.ts at build time -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#07060f">
+  <meta name="theme-color" content="#9E7CBE">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Auroras Magic">
   <meta name="description" content="Draw runes to duel a dark unicorn. Sketch fire, wind, ice and earth, stack three, and cast the combo before your rival lands hers.">
   <link rel="manifest" href="/manifest.json">
   <title>Auroras Magic</title>
   <style>
       /* The splash paints before any JS runs, so its colours are inlined here
-         rather than pulled from the app's stylesheet. They match the duel's
-         letterbox and FLogoProgress, so the handover is seamless. */
+         rather than pulled from theme.sass - a custom property that has not
+         resolved yet falls back to `initial`, which would flash white. Every
+         value below is duplicated in FLogoProgress.vue and the two MUST stay
+         identical: they hand over to each other when Vue mounts, and a
+         mismatch is a visible flash on every cold load on every portal. */
       body {
           margin: 0;
-          background-color: #07060f;
+          background-color: #9E7CBE;
           outline: none;
       }
 
@@ -58,7 +61,7 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle at 50% 42%, #231a3f 0%, #07060f 70%);
+          background: radial-gradient(circle at 50% 42%, #A98BCE 0%, #7B5EA8 70%);
           transition: opacity 0.4s ease-out;
       }
 
@@ -67,24 +70,80 @@
           pointer-events: none;
       }
 
-      /* The same title FLogoProgress draws, at the same size and place, so
-         nothing moves when Vue mounts and this element fades out. */
+      /* The same CARD FLogoProgress draws — the mark, the title, the mascot
+         and the progress bar, at the same sizes, in the same order, with the
+         same gaps — so nothing moves when Vue mounts and this element fades
+         out. The two are on screen together for that 400 ms crossfade, and
+         anything that differs between them is a visible jump on every cold
+         load on every portal. Keep them in step. */
+      .splash-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: min(1.1rem, 3vh);
+          width: min(80vw, 420px);
+      }
+
+      .splash-mark {
+          display: block;
+          width: min(34vw, 132px, 22vh);
+          height: auto;
+          aspect-ratio: 1;
+          border-radius: 22%;
+      }
+
       .splash-title {
-          margin: 0;
+          /* The margin is the STROKE — see FLogoProgress.vue. */
+          margin: 0.16em 0;
           font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
           font-weight: 900;
           font-size: clamp(30px, 8vw, 56px);
           line-height: 1;
-          color: #ffd76a;
-          -webkit-text-stroke: 0.28em #0a0713;
+          color: #FFF6E6;
+          -webkit-text-stroke: 0.28em #3A2340;
           paint-order: stroke fill;
           white-space: nowrap;
+      }
+
+      .splash-mascot {
+          display: block;
+          width: 100%;
+          height: auto;
+          max-height: 26vh;
+          object-fit: contain;
+      }
+
+      /* The bar is drawn empty here and never fills: the real one is Vue's,
+         which knows the progress. It is in this copy only so the card is the
+         same HEIGHT in both, and the title does not jump up the screen the
+         moment Vue mounts. Literals, not `--am-*` tokens, for the same reason
+         as the colours above — theme.sass has not loaded yet. */
+      .splash-bar {
+          width: 100%;
+          height: 14px;
+          border: 4px solid #3A2340;
+          border-radius: 999px;
+          background: #3B2A54;
+          box-sizing: content-box;
+      }
+
+      @media (max-height: 420px) {
+          .splash-mascot { display: none; }
       }
   </style>
 </head>
 <body>
 <div id="static-splash">
-  <h1 class="splash-title">Auroras Magic</h1>
+  <div class="splash-card">
+    <!-- Painted through the art pipeline (art-sheets/PROMPTS-BRAND.md); they
+         carry no lettering, so the title below is the only text and it is the
+         player's own language. Both are decorative — the <h1> says the name —
+         so their alt text is empty on purpose. -->
+    <img class="splash-mark" src="/images/brand/logo.webp" alt="" fetchpriority="high" decoding="async">
+    <h1 class="splash-title">Auroras Magic</h1>
+    <img class="splash-mascot" src="/images/brand/mascot.webp" alt="" decoding="async">
+    <div class="splash-bar"></div>
+  </div>
 </div>
 <!-- Load the SDK before your game code -->
 <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>

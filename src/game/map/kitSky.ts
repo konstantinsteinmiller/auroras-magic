@@ -16,7 +16,9 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, flower } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, refInk, flower, twinkleAt, flagAt } from '@/game/map/kit'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 const LW = 5
@@ -68,7 +70,9 @@ export const LEMON: Tones = [K.lemon, K.lemonShade, K.lemonLite]
 /** Stroke the current path twice as wide, then fill it: one plum outline
  *  around the UNION of every sub-path (inner overlaps are filled over). */
 export const inkFill = (g: G2D, colour: string, w = LW): void => {
-  g.lineWidth = w * 2
+  // `refInk` so a creature's reference thins here too — this is the stroke
+  // that lays a whole group's silhouette down (`kit.setRefInk`).
+  g.lineWidth = w * 2 * refInk()
   g.strokeStyle = INK
   g.lineJoin = 'round'
   g.lineCap = 'round'
@@ -447,8 +451,39 @@ export const balloon = (g: G2D, x: number, y: number, R: number, pot: Pot): void
   ink(g, 3)
 }
 
+/** The envelope radius the reference's line weight is judged against — the
+ *  biggest of the four balloons that drift over chapters 3 and 10. */
+const MINI_BALLOON_UNIT = 34
+
+/**
+ * The mini balloon as a painted still — the drifting dots of colour the owner
+ * pointed at in the Cloud Kingdom shot, flat-outlined vectors on a painted
+ * sky. The drift, the bob and the chapter's colour stay the drawing's.
+ */
+export const MINI_BALLOON_ART: ItemSpec = {
+  ...PROP_ART.miniBalloon, frames: 1, tinted: true,
+  // Through a SCALE, not by handing the bench's size to the shape: `ink` sets
+  // a width in the current transform, and a balloon drawn at the reference's
+  // own radius comes back with hairline cords a painter faithfully paints.
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / MINI_BALLOON_UNIT, s / MINI_BALLOON_UNIT)
+    miniBalloonShape(g, 0, 0, MINI_BALLOON_UNIT, accent.base)
+    g.restore()
+  }
+}
+
 /** A little far balloon (a live prop): cheap — one stripe, no shadow. */
 export const miniBalloon = (g: G2D, x: number, y: number, R: number, col: string): void => {
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, MINI_BALLOON_ART, R, 0, col)
+  g.restore()
+  if (!painted) miniBalloonShape(g, x, y, R, col)
+}
+
+/** The balloon's envelope, basket and two cords about (x, y), radius R. */
+const miniBalloonShape = (g: G2D, x: number, y: number, R: number, col: string): void => {
   g.beginPath()
   g.moveTo(x - R * 0.2, y + R * 1.2)
   g.lineTo(x - R * 0.18, y + R * 1.5)
@@ -1359,19 +1394,10 @@ export const heart = (g: G2D, x: number, y: number, r: number): void => {
   g.closePath()
 }
 
-/** A four-point twinkle, added to the CURRENT path (fill once for many). */
-const twinkle = (g: G2D, x: number, y: number, r: number): void => {
-  g.moveTo(x, y - r)
-  g.quadraticCurveTo(x + r * 0.16, y - r * 0.16, x + r, y)
-  g.quadraticCurveTo(x + r * 0.16, y + r * 0.16, x, y + r)
-  g.quadraticCurveTo(x - r * 0.16, y + r * 0.16, x - r, y)
-  g.quadraticCurveTo(x - r * 0.16, y - r * 0.16, x, y - r)
-}
-
-/** One outlined twinkle at (x, y). */
+/** One outlined twinkle at (x, y) — the shared painted star, or the drawing. */
 export const sparkle = (g: G2D, x: number, y: number, r: number): void => {
   g.beginPath()
-  twinkle(g, x, y, r)
+  if (twinkleAt(g, x, y, r, '#fffbe0')) return
   fill(g, '#fffbe0')
   ink(g, 2)
 }
@@ -1380,28 +1406,75 @@ export const sparkle = (g: G2D, x: number, y: number, r: number): void => {
 export const twinkles = (g: G2D, pts: readonly (readonly [number, number, number])[], t: number, alive: number): void => {
   if (alive <= 0) return
   g.beginPath()
+  let painted = false
   for (let i = 0; i < pts.length; i++) {
     const [x, y, r] = pts[i]!
     const k = Math.max(0, sin(t * 2.2 + i * 1.9))
-    if (k > 0.05) twinkle(g, x, y, r * k * alive)
+    if (k > 0.05) painted = twinkleAt(g, x, y, r * k * alive, '#fffbe0')
   }
-  fill(g, '#fffbe0')
+  // `twinkleAt` blits, or adds to the path: one fill still serves the whole
+  // row when no painting has landed, which is what this function is for.
+  if (!painted) fill(g, '#fffbe0')
 }
 
-/** A pennant on a pole top at (x, y): hanging at rest, streaming once alive. */
-export const pennant = (g: G2D, x: number, y: number, len: number, h: number, col: string, t: number, alive: number, ph = 0): void => {
-  const a = (1 - alive) * 1.2 + sin(t * 4 + ph) * 0.08 * alive
-  const wv = sin(t * 7 + ph) * h * 0.35 * alive
-  g.save()
-  g.translate(x, y)
-  g.rotate(a)
+/** The three wave shapes the pennant's strip is painted at, as the control
+ *  point's offset in units of the flag's depth. */
+const PENNANT_WAVES = [-0.35, 0, 0.35] as const
+/** The pennant the reference is authored at: 1 long, 0.5 deep. */
+const PENNANT_UNIT = { len: 1, h: 0.5 }
+
+/** The pennant's cloth about the hoist at the origin, `len` long and `h`
+ *  deep, its trailing edge pushed by `wv`. */
+const pennantShape = (g: G2D, len: number, h: number, wv: number, col: string, w: number): void => {
   g.beginPath()
   g.moveTo(0, 0)
   g.quadraticCurveTo(len * 0.5, wv - h * 0.1, len, h * 0.5 + wv * 0.5)
   g.quadraticCurveTo(len * 0.5, h + wv, 0, h)
   g.closePath()
   fill(g, col)
-  ink(g, 3)
+  ink(g, w)
+}
+
+/**
+ * The pennant as a painted strip — the most-flown shape in the game, on
+ * eighteen call sites across six chapters.
+ *
+ * Three panels, because the ripple is the ONE thing a transform cannot carry:
+ * the wave is a control point, so the cloth genuinely changes shape as it
+ * streams. Those three are its extremes and `drawItem` cross-fades between
+ * them, exactly as a wing beat's are. The hoist angle, the length, the depth
+ * and the colour stay the drawing's — and `len : h` differing per call site is
+ * a non-uniform scale of a rectangle of cloth, which is invisible.
+ */
+export const PENNANT_ART: ItemSpec = {
+  ...PROP_ART.pennant, frames: 3, tinted: true,
+  draw: (g, s, f, accent) => {
+    g.save()
+    g.scale(s, s)
+    const { len, h } = PENNANT_UNIT
+    pennantShape(g, len, h, (PENNANT_WAVES[f] ?? 0) * h, accent.base, 0.09)
+    g.restore()
+  }
+}
+
+/** Where a wave offset of `wv` (in units of `h`) falls between the panels. */
+const pennantFrame = (k: number): number =>
+  Math.max(0, Math.min(2, (k - PENNANT_WAVES[0]) / (PENNANT_WAVES[1] - PENNANT_WAVES[0])))
+
+/** A pennant on a pole top at (x, y): hanging at rest, streaming once alive. */
+export const pennant = (g: G2D, x: number, y: number, len: number, h: number, col: string, t: number, alive: number, ph = 0): void => {
+  const a = (1 - alive) * 1.2 + sin(t * 4 + ph) * 0.08 * alive
+  const k = sin(t * 7 + ph) * 0.35 * alive
+  g.save()
+  g.translate(x, y)
+  g.rotate(a)
+  // The painting is authored half as deep as it is long; a call site's own
+  // len : h is a squash of a rectangle of cloth, which nobody can see.
+  g.save()
+  g.scale(1, h / (len * PENNANT_UNIT.h))
+  const painted = drawItem(g, PENNANT_ART, len, pennantFrame(k), col)
+  g.restore()
+  if (!painted) pennantShape(g, len, h, k * h, col, 3)
   g.restore()
 }
 
@@ -1423,30 +1496,77 @@ export const bunting = (
     g.save()
     g.translate(px, py)
     g.rotate(sin(t * 3 + i * 1.3) * 0.3 * alive)
-    g.beginPath()
-    g.moveTo(-11, 0)
-    g.lineTo(11, 0)
-    g.lineTo(0, 26)
-    g.closePath()
-    fill(g, cols[i % cols.length]!)
-    ink(g, 2.6)
+    if (!flagAt(g, 22, 26, cols[i % cols.length]!)) {
+      g.beginPath()
+      g.moveTo(-11, 0)
+      g.lineTo(11, 0)
+      g.lineTo(0, 26)
+      g.closePath()
+      fill(g, cols[i % cols.length]!)
+      ink(g, 2.6)
+    }
+    g.restore()
+  }
+}
+
+/** The blade radius the reference's line weight is judged against. */
+const PINWHEEL_UNIT = 26
+
+/** ONE pinwheel blade, sweeping from the hub out to `r` along +x. */
+const bladeShape = (g: G2D, r: number, col: string): void => {
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.lineTo(r, 0)
+  g.quadraticCurveTo(cos(0.9) * r * 0.95, sin(0.9) * r * 0.95, 0, r * 0.22)
+  g.closePath()
+  fill(g, col)
+  ink(g, 3)
+}
+
+/**
+ * The pinwheel as ONE painted BLADE, not a wheel.
+ *
+ * A wheel of four blades takes two colours, and `artTint` carries one region —
+ * but the four blades ARE the same blade at four quarter-turns, so the
+ * repeated unit is painted once and the drawing turns it, alternating the two
+ * colours exactly as its two fill passes did. The spin stays the transform.
+ */
+export const PINWHEEL_ART: ItemSpec = {
+  ...PROP_ART.pinwheel, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / PINWHEEL_UNIT, s / PINWHEEL_UNIT)
+    bladeShape(g, PINWHEEL_UNIT, accent.base)
     g.restore()
   }
 }
 
 /** A pinwheel's four blades about (x, y) at angle `a` (its stick is paint). */
 export const pinwheel = (g: G2D, x: number, y: number, r: number, a: number, c1: string, c2: string): void => {
-  for (const pass of [0, 1]) {
-    g.beginPath()
-    for (const i of [pass, pass + 2]) {
-      const b = a + (i * PI) / 2
-      g.moveTo(x, y)
-      g.lineTo(x + cos(b) * r, y + sin(b) * r)
-      g.quadraticCurveTo(x + cos(b + 0.9) * r * 0.95, y + sin(b + 0.9) * r * 0.95, x + cos(b + PI / 2) * r * 0.22, y + sin(b + PI / 2) * r * 0.22)
-      g.closePath()
+  let painted = false
+  g.save()
+  g.translate(x, y)
+  for (let i = 0; i < 4; i++) {
+    g.save()
+    g.rotate(a + (i * PI) / 2)
+    painted = drawItem(g, PINWHEEL_ART, r, 0, i & 1 ? c2 : c1)
+    g.restore()
+    if (!painted) break
+  }
+  g.restore()
+  if (!painted) {
+    for (const pass of [0, 1]) {
+      g.beginPath()
+      for (const i of [pass, pass + 2]) {
+        const b = a + (i * PI) / 2
+        g.moveTo(x, y)
+        g.lineTo(x + cos(b) * r, y + sin(b) * r)
+        g.quadraticCurveTo(x + cos(b + 0.9) * r * 0.95, y + sin(b + 0.9) * r * 0.95, x + cos(b + PI / 2) * r * 0.22, y + sin(b + PI / 2) * r * 0.22)
+        g.closePath()
+      }
+      fill(g, pass ? c2 : c1)
+      ink(g, 3)
     }
-    fill(g, pass ? c2 : c1)
-    ink(g, 3)
   }
   disc(g, x, y, r * 0.16, K.lemon, 2.4)
 }
@@ -1457,6 +1577,43 @@ export const pinStick = (g: G2D, x: number, y: number, h: number): void => {
   g.roundRect(x - 3.5, y - h, 7, h, 3)
   fill(g, K.cloud)
   ink(g, 3)
+}
+
+/** The diamond's height in the kite's own units, nose to tail-point. */
+const KITE_UNIT = 90
+
+/** The kite's LEFT half: the sail triangle, its two outer edges, the spine
+ *  and its half of the crossbar. `lw` scales the line into the caller's
+ *  transform (the live kite is drawn inside a `scale(s, s)`). */
+const kiteHalfShape = (g: G2D, col: string, lw = 1): void => {
+  g.beginPath()
+  g.moveTo(0, -44)
+  g.lineTo(-30, -8)
+  g.lineTo(0, 46)
+  g.closePath()
+  fill(g, col)
+  g.beginPath()
+  g.moveTo(0, -44)
+  g.lineTo(-30, -8)
+  g.lineTo(0, 46)
+  ink(g, 4 * lw)
+  g.beginPath()
+  g.moveTo(0, -44)
+  g.lineTo(0, 46)
+  g.moveTo(-30, -8)
+  g.lineTo(0, -8)
+  ink(g, 2 * lw)
+}
+
+/** Half a kite as a painted still — see `kite` for why it is a half. */
+export const KITE_ART: ItemSpec = {
+  ...PROP_ART.kite, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / KITE_UNIT, s / KITE_UNIT)
+    kiteHalfShape(g, accent.base)
+    g.restore()
+  }
 }
 
 /** A diamond kite at (x, y) on a string to (ax, ay), tilted, tail waving. */
@@ -1493,32 +1650,74 @@ export const kite = (
     fill(g, j & 1 ? c1 : c2)
     ink(g, 2 / s)
   }
-  g.beginPath()
-  g.moveTo(0, -44)
-  g.lineTo(-30, -8)
-  g.lineTo(0, 46)
-  g.closePath()
-  fill(g, c1)
-  g.beginPath()
-  g.moveTo(0, -44)
-  g.lineTo(30, -8)
-  g.lineTo(0, 46)
-  g.closePath()
-  fill(g, c2)
-  g.beginPath()
-  g.moveTo(0, -44)
-  g.lineTo(30, -8)
-  g.lineTo(0, 46)
-  g.lineTo(-30, -8)
-  g.closePath()
-  ink(g, 4 / s)
-  g.beginPath()
-  g.moveTo(0, -44)
-  g.lineTo(0, 46)
-  g.moveTo(-30, -8)
-  g.lineTo(30, -8)
-  ink(g, 2 / s)
+  // The SAIL: half a diamond, painted once and blitted twice — the second
+  // mirrored — so one sheet wears every one of the seven colour pairs the two
+  // kite sectors fly. The tail and the string above stay drawn: the tail's
+  // bows are rebuilt per frame and the string reaches a call-site anchor.
+  const half = (mirror: number, col: string): boolean => {
+    g.save()
+    g.scale(mirror, 1)
+    const hit = drawItem(g, KITE_ART, KITE_UNIT, 0, col)
+    g.restore()
+    return hit
+  }
+  const painted = half(1, c1)
+  if (painted) half(-1, c2)
+  if (!painted) {
+    kiteHalfShape(g, c1, 1 / s)
+    g.save()
+    g.scale(-1, 1)
+    kiteHalfShape(g, c2, 1 / s)
+    g.restore()
+  }
   g.restore()
+}
+
+/** The arrow's length in SU, tail tip to head tip. */
+const VANE_UNIT = (42 + 16) * 2
+
+/** The arrow at full stretch about its pivot: shaft, head and fletched tail. */
+const vaneShape = (g: G2D): void => {
+  const L = 42
+  g.beginPath()
+  g.moveTo(-L, 0)
+  g.lineTo(L, 0)
+  ink(g, 4)
+  g.beginPath()
+  g.moveTo(L + 16, 0)
+  g.lineTo(L - 4, -11)
+  g.lineTo(L - 4, 11)
+  g.closePath()
+  fill(g, K.lemon)
+  ink(g, 3)
+  g.beginPath()
+  g.moveTo(-(L - 6), 0)
+  g.lineTo(-(L + 12), -16)
+  g.quadraticCurveTo(-(L + 4), 0, -(L + 12), 16)
+  g.closePath()
+  fill(g, K.pink)
+  ink(g, 3)
+  disc(g, 0, 0, 6, K.lemon, 2.4)
+}
+
+/**
+ * The weather vane's arrow as a painted still — the thing on top of the
+ * landmark a whole sector is named after.
+ *
+ * §4b kept it because it "narrows with `cos a`… foreshortening of a 3-D arrow,
+ * not a rotation of a 2-D one". Both halves are true and the conclusion does
+ * not follow: the drawing multiplies every X by `cos a` and leaves every Y
+ * alone, which is `g.scale(c, 1)` of this one arrow — and a negative `c` is
+ * the flip it already did. A foreshortening is a matrix like any other.
+ */
+export const VANE_ART: ItemSpec = {
+  ...PROP_ART.vane, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / VANE_UNIT, s / VANE_UNIT)
+    vaneShape(g)
+    g.restore()
+  }
 }
 
 /** The weather vane's arrow about (x, y), turned `a` about the mast — seen
@@ -1526,6 +1725,14 @@ export const kite = (
 export const vane = (g: G2D, x: number, y: number, a: number): void => {
   const c = cos(a)
   const L = 42
+  // Edge-on, `c` is zero and the painting has no width to blit: the arrow is
+  // meant to disappear there, and the drawing's own pivot dot went with it.
+  g.save()
+  g.translate(x, y)
+  g.scale(c, 1)
+  const painted = drawItem(g, VANE_ART, VANE_UNIT)
+  g.restore()
+  if (painted) return
   g.beginPath()
   g.moveTo(x - L * c, y)
   g.lineTo(x + L * c, y)
@@ -1547,18 +1754,15 @@ export const vane = (g: G2D, x: number, y: number, a: number): void => {
   disc(g, x, y, 6, K.lemon, 2.4)
 }
 
-/** A little cream dove, flapping (`flap` −1…1), facing `dir`. */
-export const dove = (g: G2D, x: number, y: number, s: number, flap: number, dir: number): void => {
-  g.save()
-  g.translate(x, y)
-  g.scale(s * dir, s)
+/** A little cream dove about the origin, facing right, flapping (`flap` −1…1). */
+export const doveShape = (g: G2D, flap: number): void => {
   g.beginPath()
   g.moveTo(24, -4)
   g.lineTo(32, -2)
   g.lineTo(24, 2)
   g.closePath()
   fill(g, K.lemon)
-  ink(g, 2 / s)
+  ink(g, 2)
   g.beginPath()
   g.ellipse(0, 0, 16, 9, 0, 0, TAU)
   g.moveTo(26, -4)
@@ -1567,15 +1771,37 @@ export const dove = (g: G2D, x: number, y: number, s: number, flap: number, dir:
   g.lineTo(-26, -8)
   g.lineTo(-24, 4)
   g.closePath()
-  inkFill(g, K.cloud, 2.4 / s)
+  inkFill(g, K.cloud, 2.4)
   g.beginPath()
   g.moveTo(4, -4)
   g.quadraticCurveTo(-2, -4 - 20 * flap, -14, -2 - 18 * flap)
   g.quadraticCurveTo(-8, 0, 4, -4)
   g.closePath()
   fill(g, '#f1e6ff')
-  ink(g, 2.4 / s)
+  ink(g, 2.4)
   disc(g, 20, -6, 1.8, INK)
+}
+
+/** The dove's beak-to-tail length in SU at `s` = 1. */
+export const DOVE_UNIT = 58
+
+/** The dove as a painted strip: wing down, level, up. */
+export const DOVE_ART: ItemSpec = {
+  ...PROP_ART.dove, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / DOVE_UNIT, s / DOVE_UNIT)
+    doveShape(g, f - 1)
+    g.restore()
+  }
+}
+
+/** A little cream dove, flapping (`flap` −1…1), facing `dir`. */
+export const dove = (g: G2D, x: number, y: number, s: number, flap: number, dir: number): void => {
+  g.save()
+  g.translate(x, y)
+  g.scale(s * dir, s)
+  if (!drawItem(g, DOVE_ART, DOVE_UNIT, flap + 1)) doveShape(g, flap)
   g.restore()
 }
 
@@ -1725,12 +1951,63 @@ export const pegHead = (g: G2D, x: number, y: number, s: number, dir: number, lo
  * pose, so a sleeper can wake and stand up smoothly.
  */
 export const babyPegasus = (g: G2D, x: number, y: number, s: number, dir: number, look0: PegLook, p: PegPose): void => {
-  const look = dimLook(look0, (p.dim ?? 0) * 0.5)
-  const up = clamp(p.up, 0, 1)
-  const w = LW / s
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, PEGASUS_ART, PEG_UNIT * s, pegFrame(p), look0.coat)
+  g.restore()
+  if (painted) return
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
+  pegasusShape(g, s, dimLook(look0, (p.dim ?? 0) * 0.5), p)
+  g.restore()
+}
+
+/** Wing tip (-116) to the hooves (0) at scale 1 — the foal's own height in SU. */
+const PEG_UNIT = 116
+
+/**
+ * WHICH PANEL A POSE IS ON. The pegasus has the widest range of any creature
+ * in the game — it uncurls from a nest, stands, opens its wings and then beats
+ * them — so it is the one sheet with four panels: the curled sleeper, standing
+ * with its wings folded, and the two ends of a wing-beat. `up` walks the first
+ * two; once it is standing, `wings` opens them and `flap` beats them, and
+ * `drawItem` cross-fades the beat exactly as the prop family's birds do.
+ */
+const pegFrame = (p: PegPose): number => {
+  const up = clamp(p.up, 0, 1)
+  if (up < 0.999) return up
+  return 1 + clamp(p.wings, 0, 1) * (1 + (clamp(p.flap / 0.45, -1, 1) + 1) / 2)
+}
+
+/**
+ * The baby pegasus (`CREATURE_ART.babyPegasus`): chapter 3's tap creature AND
+ * its rescue, so one sheet serves both. The COAT is the tinted region — the
+ * five stalls each keep their own foal, and the rescue is a sixth — and the
+ * mane, the wings and the hooves are the same on every one of them.
+ */
+export const PEGASUS_ART: ItemSpec = {
+  ...CREATURE_ART.babyPegasus, frames: 4, tinted: true,
+  draw: (g, sz, f, accent) => {
+    const k = sz / PEG_UNIT
+    g.save()
+    g.scale(k, k)
+    const look: PegLook = { coat: accent.base, shade: accent.shade, mane: PEG.pink.mane, wing: PEG.pink.wing }
+    pegasusShape(g, 1, look, {
+      up: f < 1 ? f : 1,
+      wings: f < 1 ? 0 : clamp(f - 1, 0, 1),
+      flap: f < 2 ? 0 : (clamp(f - 2, 0, 1) * 2 - 1) * 0.45,
+      eye: 1
+    })
+    g.restore()
+  }
+}
+
+/** The pegasus itself, hooves at the origin, facing +x, in its own units. */
+const pegasusShape = (g: G2D, s: number, look: PegLook, p: PegPose): void => {
+  const up = clamp(p.up, 0, 1)
+  const w = LW / s
   const by = lerp(-22, -42, up)
   const brx = lerp(38, 33, up)
   const bry = lerp(20, 23, up)
@@ -1784,11 +2061,53 @@ export const babyPegasus = (g: G2D, x: number, y: number, s: number, dir: number
 }
 
 /** A small pegasus flying across the sky (a cheap live prop). */
+/**
+ * The three pegasus looks the two sky sectors actually fly, and the three
+ * panels of `FLYER_ART` — in this order.
+ *
+ * A look is FOUR colours and `artTint` carries one region, so the panels are
+ * spent on colour rather than on the wing beat. That is the trade, said out
+ * loud: a flyer is about a twenty-fifth of the scene wide and glides past in
+ * a few seconds, so a still pegasus in the right colours beats a flapping
+ * vector one on brushwork. Three sheets of three panels would buy the beat
+ * back, and the cap is waived if it ever matters.
+ */
+export const FLYER_LOOKS: readonly PegLook[] = [PEG.pink, PEG.lemon, PEG.mint]
+
+/** The scale the sky flies its biggest flyer at, and the span it gives. */
+const FLYER_S = 0.9
+const FLYER_UNIT = 90 * FLYER_S
+
+export const FLYER_ART: ItemSpec = {
+  ...PROP_ART.flyer, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / FLYER_UNIT, s / FLYER_UNIT)
+    g.scale(FLYER_S, FLYER_S)
+    flyerShape(g, 0, FLYER_LOOKS[f] ?? FLYER_LOOKS[0]!, 3.6 / FLYER_S)
+    g.restore()
+  }
+}
+
 export const flyer = (g: G2D, x: number, y: number, s: number, flap: number, dir: number, look: PegLook): void => {
   g.save()
   g.translate(x, y)
+  // The painting is one of three looks; a fourth simply keeps its drawing.
+  const panel = FLYER_LOOKS.indexOf(look)
+  if (panel >= 0) {
+    g.save()
+    g.scale(dir, 1)
+    const painted = drawItem(g, FLYER_ART, 90 * s, panel)
+    g.restore()
+    if (painted) { g.restore(); return }
+  }
   g.scale(s * dir, s)
-  const w = 3.6 / s
+  flyerShape(g, flap, look, 3.6 / s)
+  g.restore()
+}
+
+/** The flyer's body in its own units: wings, mane, coat, eye. */
+const flyerShape = (g: G2D, flap: number, look: PegLook, w: number): void => {
   wing(g, 4, -12, 0.9 + flap + 0.3, 0.75, look.shade, w)
   circles(g, [[-30, -4, 9], [-38, 4, 7]])
   inkFill(g, look.mane, w)
@@ -1807,7 +2126,70 @@ export const flyer = (g: G2D, x: number, y: number, s: number, flap: number, dir
   inkFill(g, look.mane, w)
   wing(g, -2, -10, 0.9 + flap, 0.8, look.wing, w, look.shade)
   disc(g, 29, -20, 2.6, INK)
+}
+
+/* ── the little shapes a live prop repeats: a heart, a five-point star ── */
+
+/** A heart of radius 1 about the origin, in `col`. */
+const heartShape = (g: G2D, col: string): void => {
+  heart(g, 0, 0, 1)
+  fill(g, col)
+  ink(g, 0.24)
+}
+
+/** A heart as a painted still — the joy burst's rising hearts, and the
+ *  festival banner's charm. Its float, its swell and its fade stay drawn. */
+export const HEART_ART: ItemSpec = {
+  ...PROP_ART.heart, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    heartShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One heart of radius `r` in `col` — painted if its sheet has landed. */
+export const heartAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, HEART_ART, r, 0, col)
   g.restore()
+  return hit
+}
+
+/**
+ * A five-point star as a painted still.
+ *
+ * NOT the four-point `prop-twinkle`: that sheet's prompt rules a five-pointed
+ * star out in as many words, because a twinkle with five points is the wrong
+ * glimmer everywhere else in the game. This is the finial on the wind-vane
+ * tower, and it is a star.
+ *
+ * The seam is at the live call site, not inside `star5` — `star5` builds a
+ * bare path that two dozen `paint()` shapes fill for themselves.
+ */
+export const STAR_ART: ItemSpec = {
+  ...PROP_ART.star, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s, s)
+    star5(g, 0, 0, 1)
+    fill(g, accent.base)
+    ink(g, 0.18)
+    g.restore()
+  }
+}
+
+/** One five-point star of radius `r` in `col` — painted if its sheet has
+ *  landed; otherwise it leaves `star5`'s path for the caller to fill. */
+export const star5At = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, STAR_ART, r, 0, col)
+  g.restore()
+  if (!hit) star5(g, x, y, r)
+  return hit
 }
 
 /** Hearts rising and twinkles winking around a happy creature at (x, y). */
@@ -1816,17 +2198,21 @@ export const joy = (g: G2D, x: number, y: number, t: number, a: number): void =>
   for (let i = 0; i < 3; i++) {
     const k = (t * 0.55 + i / 3) % 1
     g.globalAlpha = a * (1 - k)
-    heart(g, x + (i - 1) * 34 + sin(k * 6 + i) * 10, y - k * 70, 9 * (1 - k * 0.3))
+    const hx = x + (i - 1) * 34 + sin(k * 6 + i) * 10
+    const hr = 9 * (1 - k * 0.3)
+    if (heartAt(g, hx, y - k * 70, hr, K.pink)) continue
+    heart(g, hx, y - k * 70, hr)
     fill(g, K.pink)
     ink(g, 2.2)
   }
   g.globalAlpha = a
   g.beginPath()
+  let lit = false
   for (let i = 0; i < 4; i++) {
     const r = 9 * Math.max(0, sin(t * 3 + i * 1.6))
-    if (r > 0.5) twinkle(g, x + cos(i * 1.7) * 76, y + 40 + sin(i * 2.3) * 34, r)
+    if (r > 0.5) lit = twinkleAt(g, x + cos(i * 1.7) * 76, y + 40 + sin(i * 2.3) * 34, r, '#fff6b0')
   }
-  fill(g, '#fff6b0')
+  if (!lit) fill(g, '#fff6b0')
   g.globalAlpha = 1
 }
 

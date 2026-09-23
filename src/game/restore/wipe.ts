@@ -70,6 +70,8 @@ import { forgetArt, onArtChanged } from '@/game/art'
 import { duelHeadStart } from '@/game/duel/duelPage'
 import { sectorArtId } from '@/game/artIds'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { drawCloth } from '@/game/map/map'
+import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
 import { NEUTRAL } from '@/game/artTint'
 import type { Pot } from '@/game/map/kit'
 
@@ -279,6 +281,9 @@ const toCss = (sx: number, sy: number): [number, number] => {
 
 /** Whether the colour layer was baked from the painting (S6). */
 let bakedPainted = false
+/** Bumped whenever the colour layer's pixels change, so the tap creature's
+ *  cover stamp is never cut from a bake that is gone. */
+let bakeSeq = 0
 
 const bakeColour = (): void => {
   if (!colourCv) return
@@ -289,7 +294,17 @@ const bakeColour = (): void => {
   bakedPainted = paintSectorArt(g, node, sec, p, false)
   if (!bakedPainted) sec.paint(g, p)
   g.setTransform(1, 0, 0, 1, 0, 0)
+  bakeSeq++
 }
+
+/**
+ * Where a tap creature's hiding place comes from (`tapCover.ts`): the painted
+ * layer it is standing in, so the prop is not drawn a second time in vector
+ * over its own painted self. Not painted — no layer, and the cover draws
+ * itself, as before.
+ */
+const coverLayer = (): CoverLayer | null =>
+  bakedPainted && colourCv ? { cv: colourCv, res, key: `${node}:${bakeSeq}` } : null
 
 /** The pot the landmark is baked in: the pick, or blank until there is one. */
 const potDef = (): Pot => (pot >= 0 ? sec.pots[pot] ?? NEUTRAL_POT : NEUTRAL_POT)
@@ -301,8 +316,13 @@ const bakeLayers = (): void => {
   bakeColour()
   bakeDust(dustCv, colourCv, res, node + 1, (g) => {
     sec.props(g, 0, 0)
-    sec.tap?.draw(g, 0, 0)
-    sec.rescue?.draw(g, 0, 0)
+    // The resting cover goes into the dust too, and it is the painted one:
+    // otherwise the dust carries a crisp vector outline of a prop the colour
+    // layer under it has already painted.
+    withCoverLayer(coverLayer(), () => {
+      sec.tap?.draw(g, 0, 0)
+      sec.rescue?.draw(g, 0, 0)
+    })
   })
   // The save, plus the head start the duel just won on this page (§8.29):
   // the patches her own spells blew off it are already clear when she
@@ -326,8 +346,12 @@ const bakeLayers = (): void => {
 const UNTOUCHED: ReadonlySet<RestorePhase> = new Set(['invite', 'open', 'zoom'])
 onArtChanged((c) => {
   if (phase === 'idle' || !UNTOUCHED.has(phase)) return
-  if (c && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
-  if (sectorPainted(node, false) !== bakedPainted) bakeLayers()
+  // A live PROP's painting belongs to this bake too: `bakeDust` draws the
+  // props at rest into the dust, so one that lands afterwards leaves a vector
+  // silhouette under the dust with its painted self animating on top.
+  const prop = !c || c.kind === 'prop'
+  if (!prop && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
+  if (prop || sectorPainted(node, false) !== bakedPainted) bakeLayers()
 })
 
 const ensureStamp = (): void => {
@@ -1155,7 +1179,10 @@ export const updateRestore = (dt: number, now: number): void => {
         sfx('chime', 6)
       }
       if (phaseT >= T_PAINT + T_SPREAD) {
-        if (paintedCv) colourCv = paintedCv
+        if (paintedCv) {
+          colourCv = paintedCv
+          bakeSeq++
+        }
         paintedCv = null
         setPhase('admire')
       }
@@ -1374,20 +1401,24 @@ let bg: CanvasGradient | null = null
 let bgKey = ''
 
 const drawBackdrop = (g: G2D): void => {
-  const key = `${S.w}x${S.h}`
-  if (!bg || key !== bgKey) {
-    bgKey = key
-    bg = g.createLinearGradient(0, 0, 0, S.h)
-    bg.addColorStop(0, '#2b2048')
-    bg.addColorStop(1, '#503a74')
-  }
-  g.fillStyle = bg
-  g.fillRect(0, 0, S.w, S.h)
-  // A few slow twinkles on the night page around the sector, so a tall phone
-  // is not a sector floating in a flat void. One path, one fill per band.
-  g.fillStyle = '#fff4d6'
+  // The same cloth the map lays its book on, from the same painter — this
+  // used to rebuild its gradient by hand, so with the art layer on the weave
+  // vanished the moment a child opened a gift.
+  drawCloth(g, S.w, S.h)
+  // A few slow motes on the cloth around the sector, so a tall phone is not a
+  // sector floating in a flat void. One path, one fill per band.
+  // The motes drifting on the cloth around the page. They used to be cream
+  // stars on a night-blue void; on the lilac cloth a LIGHT mote washes out
+  // exactly where the gradient is lightest (measured: cream at 0.32 alpha is
+  // 1.78:1 against the top stop but 1.25:1 against the bottom one, i.e. gone).
+  // A PLUM mote is the even one across the whole ramp (1.37 / 1.52 / 1.70), and
+  // it reads as petals and dust on daylight cloth rather than stars at night —
+  // which is what this surround now is. Alpha is scaled down to match the old
+  // visual weight, because a darker-than-ground mote carries further than a
+  // lighter-than-ground one at the same alpha.
+  g.fillStyle = '#3A2340'
   for (let band = 0; band < 3; band++) {
-    g.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * sin(S.t * (0.9 + band * 0.4) + band * 2.1))
+    g.globalAlpha = 0.10 + 0.14 * (0.5 + 0.5 * sin(S.t * (0.9 + band * 0.4) + band * 2.1))
     g.beginPath()
     for (let i = band; i < TWINKLES.length; i += 3) {
       const [u, w, r] = TWINKLES[i]!
@@ -1442,8 +1473,13 @@ export const drawRestore = (g: G2D): void => {
   g.clip()
   g.setTransform(d * k, 0, 0, d * k, d * v.x, d * v.y)
   sec.props(g, lifeT, clamp(lifeT / 0.8, 0, 1))
-  sec.tap?.draw(g, peekK(), lifeT)
-  sec.rescue?.draw(g, rescueK(), rescueT < 0 ? 0 : rescueT)
+  withCoverLayer(coverLayer(), () => {
+    sec.tap?.draw(g, peekK(), lifeT)
+    // A RESCUE redraws its own hiding place too — chapter 3's pegasus sits in
+    // a nest the sector's `paint()` already drew — so it belongs inside the
+    // cover layer exactly as the tap creature does.
+    sec.rescue?.draw(g, rescueK(), rescueT < 0 ? 0 : rescueT)
+  })
   g.setTransform(d, 0, 0, d, 0, 0)
   if (phase === 'wave') {
     // The wave clears by CLIPPING the dust outside its growing disc — no

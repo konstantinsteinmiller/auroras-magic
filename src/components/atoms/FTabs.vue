@@ -40,6 +40,13 @@ const selectTab = (value: string | number): void => {
 </template>
 
 <style scoped lang="sass">
+// ─── The paper index tab (ui-design-system.md §3.6) ────────────────────────
+//
+// A tab is a paper tab cut into the top of the page, with a plum line round
+// it; the one you are on is gold. It was a navy chip with a white italic
+// uppercase caption on a hard black shadow — the portal-template dress this
+// pass exists to remove. Only the materials changed: the scrolling row, the
+// floors and every metric below are untouched.
 .f-tabs
   display: flex
   align-items: flex-end
@@ -79,12 +86,17 @@ const selectTab = (value: string | number): void => {
     opacity: 1
     translate: 0 -0.25rem
 
+  &:focus-visible
+    outline: 3px solid var(--am-ink)
+    outline-offset: 2px
+
 .f-tabs__shadow
   position: absolute
   inset: 0
   transform: translateY(3px)
   border-radius: clamp(0.5rem, 2.4vw, 1rem) clamp(0.5rem, 2.4vw, 1rem) 0 0
-  background-color: #0f1a30
+  // The book's board showing behind the page, not a navy depth block.
+  background-color: var(--am-frame)
 
 .f-tabs__body
   position: relative
@@ -93,29 +105,35 @@ const selectTab = (value: string | number): void => {
   justify-content: center
   min-height: 2.1rem
   padding: clamp(0.2rem, 1vw, 0.4rem) clamp(0.6rem, 3.2vw, 1.35rem)
-  border-inline: 4px solid #0f1a30
-  border-top: 4px solid #0f1a30
+  border-inline: 4px solid var(--am-ink)
+  border-top: 4px solid var(--am-ink)
   border-radius: clamp(0.5rem, 2.4vw, 1rem) clamp(0.5rem, 2.4vw, 1rem) 0 0
-  background-color: #2a4372
-  color: #8fa7d1
-  transition: background-color 140ms ease-out
+  // A tab you are NOT on is a well cut into the page; the one you are on is
+  // lifted out of it in gold. Inactive label on sunken paper is 5.22:1.
+  background-color: var(--am-paper-sunken)
+  color: var(--am-ink-2)
+  transition: background-color var(--am-dur-ui) ease-out
 
   .f-tabs__tab:hover &
-    background-color: #34538d
+    background-color: var(--am-paper)
 
   .f-tabs__tab.is-active &
-    background-image: linear-gradient(to bottom, #ffcd00, #f7a000)
-    color: #fff
+    background-image: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
+    color: var(--am-on-accent)
     box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.4)
 
 .f-tabs__label
-  font-weight: 900
-  font-style: italic
-  text-transform: uppercase
-  letter-spacing: 0.05em
+  // 800 not 900, and none of the italic / uppercase / tracking the caption
+  // used to wear (§4.2, §4.4). The locale strings are already sentence case —
+  // CSS was shouting them — so no i18n key changes with this.
+  font-weight: 800
+  font-style: normal
+  text-transform: none
+  letter-spacing: 0
   white-space: nowrap
   font-size: clamp(0.65rem, 2.9vw, 1rem)
-  text-shadow: 2px 2px 0 #000
+  // Plum on paper is 5.2–10:1. A shadow there is noise on a page (§4.3).
+  text-shadow: none
 
 .f-tabs__icon
   width: clamp(1.15rem, 5vw, 1.75rem)

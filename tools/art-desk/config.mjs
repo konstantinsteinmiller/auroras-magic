@@ -43,12 +43,12 @@ const DEFAULTS = {
     // Extra Chrome switches for that window, e.g. ["--window-position=2000,0"].
     chromeArgs: [],
     // Between two generations: gapSeconds plus up to jitterSeconds at random.
-    gapSeconds: 90,
-    jitterSeconds: 60,
+    gapSeconds: 5,
+    jitterSeconds: 10,
     // Generations per calendar day across ALL projects (counted in
     // ~/.art-desk/usage.json) — a ceiling under the account's own quota.
-    dailyCap: 40,
-    timeoutSeconds: 420,
+    dailyCap: 200,
+    timeoutSeconds: 200,
     // Re-rolls when a return comes back unusable (no image, or the slicer
     // refuses its grid). Each one is another generation off the quota.
     retries: 1,

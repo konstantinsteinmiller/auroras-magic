@@ -12,14 +12,25 @@ interface Props {
   trackColor?: string
 }
 
+/**
+ * The colours are TOKEN REFERENCES, not hexes: a `var(--am-*)` resolves just
+ * as well inside the inline `linear-gradient()` below as it does in a
+ * stylesheet, and it keeps the promise that no component decides a colour of
+ * its own (ui-design-system.md §2). Only the defaults move — the call sites
+ * pass none of these.
+ *
+ * The fill is gold and the thumb is lilac (see the Sass), deliberately: the
+ * part you DRAG must never be the same colour as the part that shows how far
+ * you have dragged it.
+ */
 const props = withDefaults(defineProps<Props>(), {
   modelValue: 50,
   min: 0,
   max: 100,
   step: 1,
-  colorFrom: '#ffcd00', // Brawl Yellow
-  colorTo: '#f7a000',
-  trackColor: '#1a2b4b' // Dark Blue depth
+  colorFrom: 'var(--am-gold)',
+  colorTo: 'var(--am-gold-foot)',
+  trackColor: 'var(--am-paper-sunken)'
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -36,13 +47,18 @@ const updateValue = (event: Event) => {
 
 <template lang="pug">
   div.f-slider-container(class="w-full")
-    //- Label (Optional)
-    div(v-if="label" class="slider-label mb-2 text-white font-black uppercase italic tracking-wider") {{ label }}
+    //- Label (Optional). No colour utility here — the scoped rule owns it, or
+    //- it would be a coin toss between two stylesheets of equal specificity.
+    div.slider-label(v-if="label" class="mb-2") {{ label }}
 
     div.f-slider__row(class="relative flex items-center")
-      //- Custom Track Background (The 3D "Well")
-      div(
-        class="f-slider__track absolute inset-0 my-auto rounded-full border-[3px] border-[#0f1a30] overflow-hidden bg-[#0a1425]"
+      //- Custom Track Background (The 3D "Well" cut into the page)
+      //- `trackColor` is BOUND rather than baked into a utility class: the prop
+      //- existed and was documented but the old template ignored it, so the
+      //- well was one colour whatever a caller asked for.
+      div.f-slider__track(
+        class="absolute inset-0 my-auto rounded-full overflow-hidden"
+        :style="{ backgroundColor: trackColor }"
       )
         //- Progress Fill
         div(
@@ -53,7 +69,7 @@ const updateValue = (event: Event) => {
           }"
         )
           //- Inner Shine for the fill
-          span(class="absolute inset-x-0 top-0 h-1/2 bg-white/20")
+          span.f-slider__shine(class="absolute inset-x-0 top-0 h-1/2")
 
       //- Native Input (Invisible but functional)
       input(
@@ -72,20 +88,33 @@ const updateValue = (event: Event) => {
         :style="{ left: `calc(${progress}% - var(--fsl-thumb) / 2)` }"
       )
         //- The "3D Shadow" of the thumb
-        span(class="absolute inset-0 translate-y-[3px] bg-[#102e7a] rounded-xl border-[3px] border-[#0f1a30]")
+        span.thumb-shadow(class="absolute inset-0 translate-y-[3px] rounded-xl")
         //- The Main Thumb Body
-        span(class="relative block inset-0 w-full h-full bg-[#50aaff] rounded-xl border-[3px] border-[#0f1a30] overflow-hidden")
+        span.thumb-body(class="relative block inset-0 w-full h-full rounded-xl overflow-hidden")
           //- Thumb Shine
-          span(class="absolute inset-x-0 top-0 h-1/2 bg-white/30")
+          span.f-slider__shine(class="absolute inset-x-0 top-0 h-1/2")
           //- Little Detail (Vertical Line)
           span(class="absolute inset-0 flex items-center justify-center")
-            span(class="w-1.5 h-4 bg-white/50 rounded-full")
+            span.thumb-grip(class="w-1.5 h-4 rounded-full")
 </template>
 
 <style scoped lang="sass">
+// ─── The slider (ui-design-system.md §3.8) ─────────────────────────────────
+//
+// A well cut into the page, a gold fill, and a lilac thumb with a plum line
+// round it. Was a near-black well with a `#50aaff` thumb on a `#102e7a`
+// plate — a different app's control.
 .slider-label
+  color: var(--am-ink-2)
+  font-weight: 700
+  // Italic, uppercase and `tracking-wider` are gone (§4.4). They were a Latin
+  // idiom that shears Han, kana and hangul, pulls Thai and Devanagari marks
+  // off their letters and breaks Arabic's cursive joins.
+  font-style: normal
+  text-transform: none
+  letter-spacing: 0
   font-size: clamp(0.75rem, 3.2vw, 1.1rem)
-  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000
+  text-shadow: none
 
 .f-slider-container
   // Thumb size drives the row height, the track height AND the left offset, so
@@ -99,6 +128,9 @@ const updateValue = (event: Event) => {
 
 .f-slider__track
   height: calc(var(--fsl-thumb) * 0.6)
+  border: 3px solid var(--am-ink)
+  // One inset shadow, so the well reads as pressed INTO the paper.
+  box-shadow: inset 0 2px 0 rgba(58, 35, 64, 0.14)
 
 .f-slider__input
   height: var(--fsl-thumb)
@@ -106,6 +138,26 @@ const updateValue = (event: Event) => {
 .thumb-visual
   width: var(--fsl-thumb)
   height: var(--fsl-thumb)
+
+// The same white shine the button and the select wear, so the fill, the thumb
+// and every other gradient face in the UI catch light the same way. It was two
+// different `bg-white/20` and `/30` utilities.
+.f-slider__shine
+  background-color: rgba(255, 255, 255, 0.34)
+  pointer-events: none
+
+.thumb-shadow
+  background-color: var(--am-lilac-plate)
+  border: 3px solid var(--am-ink)
+
+.thumb-body
+  background-color: var(--am-lilac)
+  border: 3px solid var(--am-ink)
+
+// The grip line: plum at 45%, not white at 50% — on a lilac face a white line
+// vanishes into the shine directly above it.
+.thumb-grip
+  background-color: rgba(58, 35, 64, 0.45)
 
 /* Ensure the native range covers the whole area for better hitboxes */
 input[type="range"]

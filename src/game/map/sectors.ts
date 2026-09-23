@@ -18,9 +18,12 @@
 import {
   type G2D, type Pot, WOODS_POTS, C, INK, fill, ink, sky, farHills, hill, meadow, pathway, tree, pine, bush,
   flowers, mushrooms, log, stones, fence, pond, brook, cottage, millBody, sails, bridge, well, flowerBed,
-  beehive, treehouse, greatTree, brambleArch, waterfall, smoke, butterfly, bees, swing, waterwheel, fireflies
+  beehive, treehouse, greatTree, brambleArch, waterfall, smoke, butterfly, bees, swing, waterwheel, fireflies, duck
 } from '@/game/map/kit'
 import { sin, TAU, PI } from '@/game/duel/util'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { tapCover } from '@/game/map/tapCover'
+import { CREATURE_ART } from '@/game/artIds'
 import type { SectorDef, TapCreature, RescueCollectible } from '@/game/map/sectorDef'
 import { C2_SECTORS } from '@/game/map/sectorsC2'
 import { C3_SECTORS } from '@/game/map/sectorsC3'
@@ -43,9 +46,41 @@ const WOODS_ACCENT = { ribbon: '#63e24a', ribbonShade: '#3fb84a', gem: '#5ce05a'
 
 /* ── Permanence (§8.8): the woods' tap creature and its rescue ─────────── */
 
-/** A round moss-sprite: a green ball with leaf ears, a sprout, a face.
- *  `awake` 0 = eyes shut, 1 = wide and smiling. Centred at (x, y). */
+/**
+ * A round moss-sprite: a green ball with leaf ears, a sprout, a face.
+ * `awake` 0 = eyes shut, 1 = wide and smiling. Centred at (x, y).
+ *
+ * PAINTED (`CREATURE_ART.mossSprite`): the woods' tap creature AND its rescue
+ * are the same sprite, so one sheet serves both. Its two panels are the two
+ * states the drawing switches between, and the BALL is the tinted region —
+ * the rescue brightens it as she wakes, which is one colour on one shape.
+ */
 const sprite = (g: G2D, x: number, y: number, s: number, awake: number, body = '#7ee85a'): void => {
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, MOSS_SPRITE_ART, SPRITE_UNIT * s, awake > 0.5 ? 1 : 0, body)
+  g.restore()
+  if (painted) return
+  spriteShape(g, x, y, s, awake, body)
+}
+
+/** The sprout tip (-28) to the foot of the ball (+11) at scale 1 — its own
+ *  height in SU, which the SIZE clause and the line weight are judged by. */
+const SPRITE_UNIT = 40
+
+export const MOSS_SPRITE_ART: ItemSpec = {
+  ...CREATURE_ART.mossSprite, frames: 2, tinted: true,
+  draw: (g, s, f, accent) => {
+    const k = s / SPRITE_UNIT
+    g.save()
+    g.scale(k, k)
+    spriteShape(g, 0, 0, 1, f, accent.base)
+    g.restore()
+  }
+}
+
+/** The sprite itself — the drawing the painting stands in for. */
+const spriteShape = (g: G2D, x: number, y: number, s: number, awake: number, body: string): void => {
   for (const d of [-1, 1]) {
     g.beginPath()
     g.ellipse(x + d * 16 * s, y - 4 * s, 11 * s, 5 * s, d * -0.5, 0, TAU)
@@ -86,31 +121,30 @@ const sprite = (g: G2D, x: number, y: number, s: number, awake: number, body = '
   ink(g, 2)
 }
 
-/** The woods' tap creature: a sleepy moss-sprite in a hollow log, who pops
- *  up to say hello (`k` 0 hidden … 1 fully out). Log centred at (x, y). */
-const logSprite = (x: number, y: number): TapCreature => ({
-  x,
-  y: y - 22,
-  r: 56,
-  draw: (g, k, t) => {
-    const w = 96
-    const h = 34
-    // The log's back rim and dark hollow.
+/**
+ * The woods' tap creature: a sleepy moss-sprite in a hollow log, who pops up
+ * to say hello (`k` 0 hidden … 1 fully out). Log centred at (x, y).
+ *
+ * THE LOG GOES THROUGH `tapCover` — both halves of it. It belongs to the
+ * sector's `paint()`, so on a painted sector it is ALREADY there, and drawing
+ * it again in vector put a second, crisp log on top of its own painted self
+ * (the same "two boats, one wave" this chapter's cousins were fixed for on
+ * 2026-09-21; chapter 1's was simply missed). Two covers, not one, because
+ * the creature rises BETWEEN them: the hollow behind it, then the bark in
+ * front.
+ */
+const logSprite = (x: number, y: number): TapCreature => {
+  const w = 96
+  const h = 34
+  // The log's back rim and dark hollow, behind the creature.
+  const back = (g: G2D): void => {
     g.beginPath()
     g.ellipse(x - w / 2 + 10, y, 14, h / 2, 0, 0, TAU)
     fill(g, '#9a6446')
     ink(g, 3)
-    // The sprite, rising from behind the log — clipped at the log's top.
-    if (k > 0.01) {
-      g.save()
-      g.beginPath()
-      g.rect(x - w, y - 120, w * 2, 120 - 4)
-      g.clip()
-      const hop = Math.sin(Math.min(1, k) * PI * 0.5)
-      sprite(g, x + 4, y - 2 - hop * 38 + Math.sin(t * 9) * 1.5 * k, 1, k)
-      g.restore()
-    }
-    // The log's front: bark, rings on the cut face.
+  }
+  // The log's front: bark, rings on the cut face, moss along its top.
+  const front = (g: G2D): void => {
     g.beginPath()
     g.roundRect(x - w / 2 + 10, y - h / 2, w - 10, h, h / 2)
     fill(g, C.trunk)
@@ -126,7 +160,26 @@ const logSprite = (x: number, y: number): TapCreature => ({
     g.ellipse(x - 6, y - 6, 20, 5, 0.1, 0, TAU)
     fill(g, C.moss)
   }
-})
+  return {
+    x,
+    y: y - 22,
+    r: 56,
+    draw: (g, k, t) => {
+      tapCover(g, back)
+      // The sprite, rising from behind the log — clipped at the log's top.
+      if (k > 0.01) {
+        g.save()
+        g.beginPath()
+        g.rect(x - w, y - 120, w * 2, 120 - 4)
+        g.clip()
+        const hop = Math.sin(Math.min(1, k) * PI * 0.5)
+        sprite(g, x + 4, y - 2 - hop * 38 + Math.sin(t * 9) * 1.5 * k, 1, k)
+        g.restore()
+      }
+      tapCover(g, front)
+    }
+  }
+}
 
 /** The Wood Sprite, chapter 1's rescue (§8.8 beat 3): curled up asleep
  *  under the dust, then awake, bouncing, with little hearts. */
@@ -256,23 +309,8 @@ const brookBridge: SectorDef = {
     butterfly(g, 760, 420, t, 1, '#9fd8ff', alive)
     // A duck paddling up and down the brook.
     const k = (sin(t * 0.25) + 1) / 2
-    const x = 300 + k * 460
-    const y = 628 - k * 36 + sin(t * 2) * 2
     g.globalAlpha = alive
-    g.beginPath()
-    g.ellipse(x, y, 20, 11, 0, 0, TAU)
-    fill(g, '#ffffff')
-    ink(g, 3)
-    g.beginPath()
-    g.arc(x + 14, y - 12, 9, 0, TAU)
-    fill(g, '#ffffff')
-    ink(g, 3)
-    g.beginPath()
-    g.moveTo(x + 21, y - 12)
-    g.lineTo(x + 31, y - 9)
-    g.lineTo(x + 21, y - 7)
-    fill(g, '#ffb36b')
-    ink(g, 2)
+    duck(g, 300 + k * 460, 628 - k * 36 + sin(t * 2) * 2)
     g.globalAlpha = 1
   }
 }

@@ -10,15 +10,36 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  promptDocs, PORTRAIT_SHEETS, ISLAND_SHEETS, KEEPSAKE_SHEETS, STORY_SHEETS, ITEM_SHEETS, ART_STYLE_ID
+  promptDocs, PORTRAIT_SHEETS, ISLAND_SHEETS, KEEPSAKE_SHEETS, STORY_SHEETS, ITEM_SHEETS, PROP_SHEETS,
+  WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS, ART_STYLE_ID
 } from '@/game/artSheet'
 import {
   PORTRAIT_SETS, portraitSetOf, portraitArtId, KEEPSAKE_ICON_SLUGS, keepsakeArtId, ISLAND_SLUGS, islandArtId,
-  STORY_PANELS, storyArtId, ITEM_ART, EMOTE_ORDER
+  STORY_PANELS, storyArtId, ITEM_ART, PROP_ART, EMOTE_ORDER, wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG,
+  type PropName
 } from '@/game/artIds'
+import { firstArtWants } from '@/game/artPreload'
+// The specs themselves, from the kits — not through `artDraw`, which pulls the
+// whole renderer (and a `window`) in behind it.
+import {
+  BUTTERFLY_ART, DUCK_ART, SAILS_ART, WATERWHEEL_ART, TWINKLE_ART, PUFF_ART, MOTE_ART, BUBBLE_ART,
+  FLAG_ART, LANTERN_ART, BEE_ART, SWING_SEAT_ART, STREAK_ART, WATERFALL_ART
+} from '@/game/map/kit'
+import { GULL_ART, CRAB_ART, FISH_ART, BOAT_ART, BUOY_ART, KELP_ART } from '@/game/map/kitBay'
+import {
+  DOVE_ART, PENNANT_ART, MINI_BALLOON_ART, KITE_ART, PINWHEEL_ART, FLYER_ART, HEART_ART, STAR_ART, VANE_ART
+} from '@/game/map/kitSky'
+import { SWALLOW_ART, WINDSOCK_ART, CHARM_ART, RAINBOW_ARC_ART } from '@/game/map/kitRidge'
+import { CAVE_LANTERN_ART, CANOE_ART, MINECART_ART, CART_WHEEL_ART } from '@/game/map/kitCaves'
+import { SNOWFLAKE_ART } from '@/game/map/kitTundra'
+import { BALLOON_ART, CONFETTI_ART, NOTE_ART, GONDOLA_ART } from '@/game/map/kitFestival'
+import { FROND_ART, COCONUT_ART, FLAME_ART } from '@/game/map/kitSands'
+import { CABIN_ART } from '@/game/map/kitMirror'
+import type { ItemSpec } from '@/game/artItem'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
 import { dialogueFor, thanksLines, FINALE_CAST } from '@/game/story/story'
 import { COSMETICS } from '@/game/campaign/tables'
+import { VECTOR_ONLY_KEEPSAKES } from '@/game/cosmetics/rig-accessories'
 import { ARENA_THEMES } from '@/game/duel/arenaThemes'
 import { ACTIVE_STYLE } from '@/game/artStyle'
 // @ts-expect-error — a plain .mjs tool, parsed the way the desk parses
@@ -74,10 +95,18 @@ describe('the portrait strips (§8.27)', () => {
 })
 
 describe('the keepsake badges and the islands (§8.27)', () => {
-  it('give every keepsake on the shelf a painting', () => {
+  it('give every keepsake on the shelf a painting, or declare it unpainted', () => {
     // The crown's and the star's badges draw their S6 item paintings.
     const covered = new Set<string>([...KEEPSAKE_ICON_SLUGS, 'flowerCrown', 'petStar'])
-    for (const c of COSMETICS) expect(covered.has(c.slug), c.slug).toBe(true)
+    // The second shelf (§2.4 rule 20) landed after the art catalogue closed,
+    // so its fourteen draw themselves and are DECLARED unpainted rather than
+    // silently missing. The two sets must not overlap and must not drift:
+    // painting one means deleting its name from that list, which is what
+    // makes this a to-do rather than an excuse.
+    const vector = new Set(VECTOR_ONLY_KEEPSAKES)
+    for (const slug of vector) expect(covered.has(slug), `${slug} is painted — drop it from the list`).toBe(false)
+    for (const c of COSMETICS) expect(covered.has(c.slug) || vector.has(c.slug), c.slug).toBe(true)
+    for (const slug of vector) expect(COSMETICS.some((c) => c.slug === slug), `${slug} is not a keepsake`).toBe(true)
     expect(ITEM_ART.crown.id).toBe('flower-crown')
     expect(ITEM_ART.petStar.id).toBe('pet-star')
     expect(KEEPSAKE_SHEETS.map((s) => s.target)).toEqual(KEEPSAKE_ICON_SLUGS.map((k) => artTarget('cosmetic', keepsakeArtId(k))))
@@ -113,6 +142,125 @@ describe('the intro\'s pages (§8.26)', () => {
       for (const a of j.also) expect(PORTRAIT_SHEETS.some((p) => `painted/${p.file}.png` === a)).toBe(true)
     }
     expect(jobs[1]!.also).toContain('painted/portrait-umbra.png')
+  })
+})
+
+const PROP_SPECS: Readonly<Record<PropName, ItemSpec>> = {
+  butterfly: BUTTERFLY_ART, gull: GULL_ART, dove: DOVE_ART, duck: DUCK_ART, swallow: SWALLOW_ART,
+  fish: FISH_ART, crab: CRAB_ART, sails: SAILS_ART, waterwheel: WATERWHEEL_ART,
+  twinkle: TWINKLE_ART, pennant: PENNANT_ART, flag: FLAG_ART, mote: MOTE_ART, puff: PUFF_ART,
+  lantern: LANTERN_ART, caveLantern: CAVE_LANTERN_ART, bubble: BUBBLE_ART, balloon: BALLOON_ART,
+  snowflake: SNOWFLAKE_ART, confetti: CONFETTI_ART, miniBalloon: MINI_BALLOON_ART, boat: BOAT_ART,
+  kite: KITE_ART, pinwheel: PINWHEEL_ART, note: NOTE_ART, bee: BEE_ART, windsock: WINDSOCK_ART,
+  charm: CHARM_ART, frond: FROND_ART, coconuts: COCONUT_ART, flyer: FLYER_ART, buoy: BUOY_ART,
+  canoe: CANOE_ART, mineCart: MINECART_ART, cartWheel: CART_WHEEL_ART, heart: HEART_ART,
+  rainbowArc: RAINBOW_ARC_ART, swingSeat: SWING_SEAT_ART, cabin: CABIN_ART, star: STAR_ART,
+  kelp: KELP_ART, flame: FLAME_ART, waterfall: WATERFALL_ART, streak: STREAK_ART, vane: VANE_ART,
+  gondola: GONDOLA_ART
+}
+
+describe('the sectors\' live props (§8.8)', () => {
+  it('paints only the props a transform carries, and no particle system or light', () => {
+    expect(PROP_SHEETS.map((s) => s.id).sort()).toEqual(Object.values(PROP_ART).map((p) => p.id).sort())
+    for (const s of PROP_SHEETS) {
+      expect(s.kind).toBe('prop')
+      expect(s.target).toBe(artTarget('prop', s.id))
+      // The strip's panel count and the drawing's states are one decision:
+      // a manifest that promises four panels and a spec that draws three
+      // leaves the slicer cutting a panel nobody painted.
+      const spec = PROP_SPECS[s.name.split(':')[1] as PropName]!
+      expect(spec.frames, s.id).toBe(s.frames)
+      expect(spec.id).toBe(s.id)
+    }
+    // What the §4b audit rules out for good, after its 2026-09-21 revision.
+    // NOT particles and not lights any more — a puff, a flake and a twinkle are
+    // one constant shape a transform repeats, and they are painted. These four
+    // have no constant shape AT ALL: a wave that follows an arbitrary
+    // shoreline polyline, a cone of light whose angle opens per frame, a ring
+    // whose stroke stays put while its radius grows, and lines drawn between
+    // points the sector hands over. A prop named after one is the mistake.
+    for (const banned of ['lap', 'beam', 'ripple', 'constellation', 'aurora', 'reflection']) {
+      expect(PROP_SHEETS.some((s) => s.id.includes(banned)), banned).toBe(false)
+    }
+    // And a bare GLOW stays drawn for a different reason: it is a wash with no
+    // outline and no silhouette, so there is nothing to paint. What is painted
+    // is the `mote`, which has a bright core — a shape — inside its glow.
+    expect(PROP_SHEETS.some((s) => /glow|halo|shimmer/.test(s.id))).toBe(false)
+  })
+
+  it('holds the first screen for the UBIQUITOUS props, and streams the rest', () => {
+    // A map page animates its props over the thumbnails from the first frame,
+    // so a prop that streams in behind the splash pops in under the cards.
+    // That argued for preloading all of them, and did, while the family was
+    // nine sheets. At forty-six it is ~350 kB — most of a first-timer's
+    // ~500 kB budget, spent on what the roadmap itself calls the mildest
+    // pop-in in the game. The splash now holds only the handful that are on
+    // screen wherever you look: one twinkle serves some sixty call sites, one
+    // butterfly twenty-five.
+    const wants = firstArtWants(0).map(([kind, id]) => `${kind}/${id}`)
+    for (const q of [PROP_ART.twinkle, PROP_ART.butterfly, PROP_ART.mote, PROP_ART.puff]) {
+      expect(wants, q.id).toContain(`${q.kind}/${q.id}`)
+    }
+    // If this creeps back toward the whole family the budget is gone again,
+    // and nobody notices until someone measures a first load.
+    const held = Object.values(PROP_ART).filter((q) => wants.includes(`${q.kind}/${q.id}`))
+    expect(held.length).toBeLessThanOrEqual(10)
+  })
+
+  it('tells the painter it is drawn standing still, and how small it is', () => {
+    for (const j of parsePromptDoc(promptDocs()['PROMPTS-PROPS.md']!, 'x') as Job[]) {
+      expect(j.prompt).toContain('HOW BIG IT IS IN PLAY')
+      expect(j.prompt).toContain('EXACTLY #FF00FF')
+      expect(j.prompt.startsWith('WHAT COMES BACK')).toBe(true)
+    }
+  })
+})
+
+describe('the wardrobe kiosk\'s room (§3.5.4)', () => {
+  it('paints the tent once per orientation, and the rug apart from it', () => {
+    expect(WARDROBE_SHEETS.map((s) => s.id)).toEqual([wardrobeArtId(false), wardrobeArtId(true)])
+    for (const s of WARDROBE_SHEETS) {
+      expect(s.target).toBe(artTarget('wardrobe', s.id))
+      // The two are a true 16:9 and 9:16 — a return re-composed to another
+      // aspect cannot be cut, and those are the two a painter is asked for.
+      expect(s.portrait ? s.h / s.w : s.w / s.h).toBeCloseTo(16 / 9, 2)
+      expect(s.floor).toBe(s.portrait ? WARDROBE_FLOOR.port : WARDROBE_FLOOR.land)
+    }
+    expect(WARDROBE_ITEM_SHEETS.map((s) => s.target)).toEqual([artTarget('wardrobe', WARDROBE_RUG.id)])
+    expect(ART_FOLDERS.wardrobe).toBe('images/wardrobe')
+  })
+
+  it('pins the floor line the renderer cuts the painting on', () => {
+    // `drawWardrobe` blits the wall band and the floor band either side of
+    // this fraction. A brief that names a different one hands back a horizon
+    // the renderer then lands somewhere else again, on every screen.
+    const jobs = parsePromptDoc(promptDocs()['PROMPTS-WARDROBE.md']!, 'x') as Job[]
+    for (const [i, s] of WARDROBE_SHEETS.entries()) {
+      expect(jobs[i]!.refName).toBe(`${s.file}.png`)
+      expect(jobs[i]!.prompt).toContain(`${Math.round(s.floor * 100)}% of the way down`)
+      expect(jobs[i]!.prompt).toContain('IT FILLS THE IMAGE')
+      expect(jobs[i]!.prompt).not.toContain('#FF00FF')
+    }
+  })
+
+  it('forbids the host painting what the game lays on top of it', () => {
+    const [land, , rug] = parsePromptDoc(promptDocs()['PROMPTS-WARDROBE.md']!, 'x') as Job[]
+    // Each of these is drawn over the painting every frame: a rug that moves
+    // with Aurora, a halo that pulses, a corner wash that would otherwise be
+    // welded into the biggest bitmap the wardrobe ships.
+    expect(land!.prompt).toContain('NO RUG')
+    expect(land!.prompt).toContain('NO GLOW')
+    expect(land!.prompt).toContain('no vignette')
+    expect(land!.prompt).toContain('THE REFERENCE IS A DIAGRAM, NOT A STYLE')
+    // And the rug, which lies ON a painted floor, may bring none of it.
+    expect(rug!.prompt).toContain('EXACTLY #FF00FF')
+    expect(rug!.prompt).toContain('NO shadow')
+  })
+
+  it('leaves the room out of the splash: nobody opens it in the first seconds', () => {
+    const wants = firstArtWants(0).map(([kind, id]) => `${kind}/${id}`)
+    for (const s of WARDROBE_SHEETS) expect(wants).not.toContain(`wardrobe/${s.id}`)
+    expect(wants).not.toContain(`${WARDROBE_RUG.kind}/${WARDROBE_RUG.id}`)
   })
 })
 

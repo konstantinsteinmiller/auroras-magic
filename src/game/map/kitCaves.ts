@@ -18,10 +18,13 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, fill, ink, lumpy } from '@/game/map/kit'
+import { type G2D, type Pot, INK, fill, ink, lumpy, moteAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
 import { type Pt, curve, samplesOf } from '@/game/map/kitBay'
 import { mix, zzz } from '@/game/map/kitSky'
 import type { TapCreature } from '@/game/map/sectorDef'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 /** A form's three tones: base, shade, light. */
@@ -916,12 +919,80 @@ export const railAt = (pts: readonly Pt[], u: number): readonly [number, number,
 
 /** A mine cart standing on its rails at (x, y), scale `s`, tipped `a`; with
  *  `load`, heaped with gems; `spin` turns its wheels. */
+/** The scale the mine rolls its cart at, and the rim width it gives. */
+const CART_S = 0.58
+const CART_UNIT = 136 * CART_S
+
+/**
+ * The cart's BODY and its gem load as a painted still.
+ *
+ * One panel, not two: both call sites load it, so a second "empty" panel would
+ * be a generation spent on a cart nobody sees. An unloaded one keeps the
+ * drawing.
+ *
+ * The WHEELS are a sheet of their own (`CART_WHEEL_ART`) because they turn
+ * about their own pins inside the cart, so no transform of the whole cart can
+ * carry them — the same reason a pinwheel is painted one blade at a time.
+ *
+ * `mineCart` is also called from 2-3's `paint()`, for the still cart the
+ * chapter's creature hides behind. That is fine: a sector whose painting
+ * exists never runs `paint()` at all, and one whose painting is missing is
+ * better off with a painted cart in it. It only matters if a sector reference
+ * is ever exported with the art layer forced on, which the bench never does.
+ */
+export const MINECART_ART: ItemSpec = {
+  ...PROP_ART.mineCart, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / CART_UNIT, s / CART_UNIT)
+    g.scale(CART_S, CART_S)
+    cartBody(g, true, [accent.base, accent.shade, accent.lite], 5 / CART_S)
+    g.restore()
+  }
+}
+
+/** One cart wheel as a painted still: the disc, its spokes and its hub. The
+ *  spin is the drawing's rotation, as it always was. */
+export const CART_WHEEL_ART: ItemSpec = {
+  ...PROP_ART.cartWheel, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / 28, s / 28)
+    cartWheel(g, 0, 4 / CART_S)
+    g.restore()
+  }
+}
+
 export const mineCart = (g: G2D, x: number, y: number, s: number, t: Tones, load = true, a = 0, spin = 0): void => {
   g.save()
   g.translate(x, y)
   g.rotate(a)
   g.scale(s, s)
   const w = 5 / s
+  const painted = load && drawItem(g, MINECART_ART, 136, 0, t[0])
+  if (painted) {
+    for (const wx of [-32, 32]) {
+      g.save()
+      g.translate(wx, -10)
+      g.rotate(spin)
+      if (!drawItem(g, CART_WHEEL_ART, 28)) cartWheel(g, spin, w * 0.8)
+      g.restore()
+    }
+    g.restore()
+    return
+  }
+  cartBody(g, load, t, w)
+  for (const wx of [-32, 32]) {
+    g.save()
+    g.translate(wx, -10)
+    cartWheel(g, spin, w * 0.8)
+    g.restore()
+  }
+  g.restore()
+}
+
+/** The cart's box, its rim and its gem load, in the cart's own units. */
+const cartBody = (g: G2D, load: boolean, t: Tones, w: number): void => {
   if (load) {
     const G: readonly (readonly [number, number, number, number])[] = [
       [-40, -74, 13, 0], [-16, -82, 14, 2], [10, -84, 15, 1], [36, -76, 13, 3], [-28, -94, 12, 4], [0, -100, 14, 0], [24, -96, 12, 2]
@@ -957,24 +1028,25 @@ export const mineCart = (g: G2D, x: number, y: number, s: number, t: Tones, load
     g.arc(rx, ry, 3.5, 0, TAU)
   }
   fill(g, INK)
-  for (const wx of [-32, 32]) {
-    g.beginPath()
-    g.arc(wx, -10, 14, 0, TAU)
-    fill(g, SAPPHIRE[1])
-    ink(g, w * 0.8)
-    g.beginPath()
-    g.moveTo(wx + cos(spin) * 9, -10 + sin(spin) * 9)
-    g.lineTo(wx - cos(spin) * 9, -10 - sin(spin) * 9)
-    g.moveTo(wx + cos(spin + PI / 2) * 9, -10 + sin(spin + PI / 2) * 9)
-    g.lineTo(wx - cos(spin + PI / 2) * 9, -10 - sin(spin + PI / 2) * 9)
-    g.lineWidth = 2.4 / s
-    g.strokeStyle = SAPPHIRE[2]
-    g.stroke()
-    g.beginPath()
-    g.arc(wx, -10, 4, 0, TAU)
-    fill(g, SAPPHIRE[2])
-  }
-  g.restore()
+}
+
+/** One wheel about its own pin, spokes turned `spin`. */
+const cartWheel = (g: G2D, spin: number, w: number): void => {
+  g.beginPath()
+  g.arc(0, 0, 14, 0, TAU)
+  fill(g, SAPPHIRE[1])
+  ink(g, w)
+  g.beginPath()
+  g.moveTo(cos(spin) * 9, sin(spin) * 9)
+  g.lineTo(-cos(spin) * 9, -sin(spin) * 9)
+  g.moveTo(cos(spin + PI / 2) * 9, sin(spin + PI / 2) * 9)
+  g.lineTo(-cos(spin + PI / 2) * 9, -sin(spin + PI / 2) * 9)
+  g.lineWidth = w * 0.6
+  g.strokeStyle = SAPPHIRE[2]
+  g.stroke()
+  g.beginPath()
+  g.arc(0, 0, 4, 0, TAU)
+  fill(g, SAPPHIRE[2])
 }
 
 /* ------------------------------------------------------------------ water */
@@ -1044,6 +1116,30 @@ export const glowLily = (g: G2D, x: number, y: number, s: number, t: Tones): voi
 }
 
 /** A little canoe afloat at (x, y) with a lantern on a crook. */
+/** The scale the lake floats its canoe at, and the hull length it gives. */
+const CANOE_S = 0.8
+const CANOE_UNIT = 164 * CANOE_S
+
+/**
+ * The canoe's HULL as a painted still, tinted whole.
+ *
+ * Whole rather than in one region because a hull is three tones of one stain,
+ * so a painting in neutral greys keeps its own waterline stripe and gunwale
+ * when the lake's colour is multiplied through it — the crystal charm's trick.
+ *
+ * Its pole is a hairline with no body and stays drawn, and the lantern on the
+ * pole's tip is the caves' own painted lantern, blitted here.
+ */
+export const CANOE_ART: ItemSpec = {
+  ...PROP_ART.canoe, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / CANOE_UNIT, s / CANOE_UNIT)
+    canoeHull(g, 0, 0, CANOE_S, [accent.base, accent.shade, accent.lite])
+    g.restore()
+  }
+}
+
 export const canoe = (g: G2D, x: number, y: number, s: number, hull: Tones): void => {
   const S = (v: number): number => v * s
   g.beginPath()
@@ -1056,7 +1152,20 @@ export const canoe = (g: G2D, x: number, y: number, s: number, hull: Tones): voi
   g.lineWidth = 4.5
   g.strokeStyle = CAVE.wood
   g.stroke()
-  lantern(g, x + S(62), y - S(98), s * 0.85)
+  g.save()
+  g.translate(x + S(62), y - S(98))
+  if (!drawItem(g, CAVE_LANTERN_ART, 34 * s * 0.85)) lantern(g, 0, 0, s * 0.85)
+  g.restore()
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, CANOE_ART, 164 * s, 0, hull[0])
+  g.restore()
+  if (!painted) canoeHull(g, x, y, s, hull)
+}
+
+/** The canoe's hull at (x, y), scale `s`, in `hull`'s three tones. */
+const canoeHull = (g: G2D, x: number, y: number, s: number, hull: Tones): void => {
+  const S = (v: number): number => v * s
   const body = (): void => {
     g.beginPath()
     g.moveTo(x - S(80), y - S(24))
@@ -1468,6 +1577,8 @@ export const spores = (g: G2D, x: number, y: number, w: number, h: number, t: nu
     const px = x + ((i * 0.618) % 1) * w + sin(t * 0.8 + i * 2) * 14
     const py = y + h - k * h
     const a = alive * sin(k * PI)
+    g.globalAlpha = a
+    if (moteAt(g, px, py, 9, col)) continue
     g.globalAlpha = a * 0.35
     disc(g, px, py, 9, col)
     g.globalAlpha = a
@@ -1523,6 +1634,29 @@ export const shimmer = (g: G2D, pts: readonly Pt[], t: number, alive: number): v
   g.globalAlpha = 1
 }
 
+/** The scale the caves hang their lanterns at, and the width it gives — what
+ *  the reference's line weight is judged against. */
+const CAVE_LANTERN_S = 0.62
+const CAVE_LANTERN_UNIT = 34 * CAVE_LANTERN_S
+
+/**
+ * The caves' brass lantern as a painted still.
+ *
+ * The seam is in `swingLantern`, the LIVE prop, and not in `lantern` itself —
+ * the posts along the bridge and the mine are drawn by `paint()`, and a
+ * painting blitted inside a sector's reference is a painting of a painting.
+ * Its swing, its sag along the string and its warm halo all stay drawn.
+ */
+export const CAVE_LANTERN_ART: ItemSpec = {
+  ...PROP_ART.caveLantern, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / CAVE_LANTERN_UNIT, s / CAVE_LANTERN_UNIT)
+    lantern(g, 0, 0, CAVE_LANTERN_S)
+    g.restore()
+  }
+}
+
 /** A lantern swinging gently on its hook at (x, y) — a live prop; still at rest. */
 export const swingLantern = (g: G2D, x: number, y: number, s: number, t: number, alive: number, ph = 0): void => {
   const a = alive > 0 ? sin(t * 1.6 + ph) * 0.12 * alive : 0
@@ -1530,7 +1664,7 @@ export const swingLantern = (g: G2D, x: number, y: number, s: number, t: number,
   g.save()
   g.translate(x, y)
   g.rotate(a)
-  lantern(g, 0, 0, s)
+  if (!drawItem(g, CAVE_LANTERN_ART, 34 * s)) lantern(g, 0, 0, s)
   g.restore()
 }
 
@@ -1565,7 +1699,46 @@ const WORM = { body: '#c8f77a', shade: '#93d65a', belly: '#f3ffcf', bulb: '#fff2
 export const glowworm = (g: G2D, x: number, y: number, s: number, dir: number, eye: number, lit: number, t: number): void => {
   g.save()
   g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, WORM_ART, WORM_UNIT * s, eye > 0.5 ? 1 : 0)
+  g.restore()
+  g.save()
+  g.translate(x, y)
   g.scale(s * dir, s)
+  // The bulbs' HALO is a wash with no silhouette, so it is never painted —
+  // it goes over the painting, at the still bulbs' own places (`art-roadmap`
+  // §4b). The wiggle goes with the drawing; a painted worm is a still.
+  if (painted) {
+    if (lit > 0) for (const [bx, by] of WORM_BULBS) glow(g, bx, by, 26, lit, '#fff6a0')
+  } else {
+    wormShape(g, s, eye, lit, t)
+  }
+  g.restore()
+}
+
+/** Bulb tip (-142) to the foot of the body (+9) at scale 1. */
+const WORM_UNIT = 151
+/** Where the two bulbs sit when the worm is still — the halo's anchors. */
+const WORM_BULBS: readonly Pt[] = [[-10, -134], [26, -130]]
+
+/**
+ * The glowworm's two moments (`CREATURE_ART.glowworm`): asleep in the dark,
+ * then blinking awake. One look, so nothing is tinted; the bulbs' halo and
+ * the crystal facet it lights stay drawn over the painting.
+ */
+export const WORM_ART: ItemSpec = {
+  ...CREATURE_ART.glowworm, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / WORM_UNIT
+    g.save()
+    g.scale(k, k)
+    wormShape(g, 1, f, 0, 0)
+    g.restore()
+  }
+}
+
+/** The worm itself, its foot at the origin, facing +x, in its own units. */
+const wormShape = (g: G2D, s: number, eye: number, lit: number, t: number): void => {
   const w = 5 / s
   const wig = sin(t * 7) * 3 * lit
   // Body segments.
@@ -1648,7 +1821,6 @@ export const glowworm = (g: G2D, x: number, y: number, s: number, dir: number, e
   g.ellipse(hx + 26, hy + 10, 6, 3.6, 0, 0, TAU)
   fill(g, WORM.blush)
   g.globalAlpha = 1
-  g.restore()
 }
 
 /** A crystal facet lit up by the glowworm: bright, haloed, twinkling. */
@@ -1697,7 +1869,7 @@ export const wormTap = (p: WormSpot, cover: (g: G2D) => void, r = 70): TapCreatu
       glowworm(g, p.x + p.dir * 4 * e, p.y + (1 - e) * p.rise, p.s, p.dir, clamp(k * 2.4 - 0.5, 0, 1), e, t)
       g.restore()
     }
-    cover(g)
+    tapCover(g, cover)
     facetLight(g, p.facet, clamp(k * 1.6 - 0.3, 0, 1), t)
   }
 })
@@ -1707,6 +1879,84 @@ export const wormTap = (p: WormSpot, cover: (g: G2D) => void, r = 70): TapCreatu
 const RAINBOW = ['#ff9ecf', '#ffb36b', '#ffe08a', '#9ff0d0', '#9fd8ff', '#c7a6ff'] as const
 const CLOUDY: Tones = ['#c9c2e4', '#a79fcc', '#e2def2']
 const CLEAR: Tones = ['#dff6ff', '#9fd4ff', '#ffffff']
+
+/** The shard's own height in SU at scale 1 — what the SIZE clause is judged by. */
+const CLEAR_SHARD_UNIT = 128
+
+/**
+ * The Shard of Clear Light, asleep and awake (`CREATURE_ART.clearShard`). The
+ * rainbow it throws across the floor, its halo, the sleep-zzz and the sparks
+ * are washes and particles and stay drawn; the ROCK it nests in belongs to
+ * the sector. What is painted is the crystal and the little face on it.
+ */
+export const CLEAR_SHARD_ART: ItemSpec = {
+  ...CREATURE_ART.clearShard, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / CLEAR_SHARD_UNIT
+    g.save()
+    g.scale(k, k)
+    clearShardShape(g, 1, 54, 128, f, f)
+    g.restore()
+  }
+}
+
+/** The shard itself, upright, its foot at the origin, in its own units. */
+const clearShardShape = (g: G2D, s: number, W: number, H: number, e: number, k: number): void => {
+  const S = (v: number): number => v * s
+  const tones: Tones = [mix(CLOUDY[0], CLEAR[0], e), mix(CLOUDY[1], CLEAR[1], e), mix(CLOUDY[2], CLEAR[2], e)]
+  crystal(g, 0, 0, W, H, 0, tones, 5)
+  if (e > 0.05) {
+    // A rainbow sheen inside it.
+    g.save()
+    g.globalAlpha = 0.55 * e
+    g.beginPath()
+    g.moveTo(-W * 0.2, -H * 0.18)
+    g.lineTo(W * 0.22, -H * 0.36)
+    g.lineWidth = S(6)
+    g.lineCap = 'round'
+    g.strokeStyle = '#ffc6e2'
+    g.stroke()
+    g.beginPath()
+    g.moveTo(-W * 0.2, -H * 0.08)
+    g.lineTo(W * 0.22, -H * 0.26)
+    g.strokeStyle = '#b8fbe9'
+    g.stroke()
+    g.globalAlpha = 1
+    g.restore()
+  }
+  // Its face on the middle facet.
+  const fy = -H * 0.5
+  if (k < 0.5) {
+    g.beginPath()
+    g.arc(-S(10), fy, S(5.5), PI * 0.15, PI * 0.85)
+    g.moveTo(S(15.5), fy + S(2.4))
+    g.arc(S(10), fy, S(5.5), PI * 0.15, PI * 0.85)
+    ink(g, 2.6)
+    g.beginPath()
+    g.arc(0, fy + S(14), S(3.4), 0.2, PI - 0.2)
+    ink(g, 2.2)
+  } else {
+    for (const ex of [-S(10), S(10)]) {
+      g.beginPath()
+      g.ellipse(ex, fy, S(5.5), S(7.5), 0, 0, TAU)
+      fill(g, INK)
+      g.beginPath()
+      g.arc(ex - S(1.8), fy - S(2.6), S(2.2), 0, TAU)
+      fill(g, '#ffffff')
+    }
+    g.beginPath()
+    g.arc(0, fy + S(10), S(6), 0.25, PI - 0.25)
+    fill(g, '#ff8fb0')
+    ink(g, 2.4)
+  }
+  g.globalAlpha = 0.5
+  g.beginPath()
+  g.ellipse(-S(17), fy + S(10), S(5), S(3), 0, 0, TAU)
+  g.moveTo(S(22), fy + S(10))
+  g.ellipse(S(17), fy + S(10), S(5), S(3), 0, 0, TAU)
+  fill(g, '#ff9eb5')
+  g.globalAlpha = 1
+}
 
 /**
  * The Shard of Clear Light, the chapter's rescue (§8.8 beat 3): a prism
@@ -1743,65 +1993,12 @@ export const clearShard = (g: G2D, x: number, y: number, s: number, k: number, t
   g.ellipse(x, y - S(12), S(74), S(28), 0, PI, TAU)
   fill(g, CAVE.rockShade)
   ink(g, 4)
-  // The shard.
-  const tones: Tones = [mix(CLOUDY[0], CLEAR[0], e), mix(CLOUDY[1], CLEAR[1], e), mix(CLOUDY[2], CLEAR[2], e)]
-  crystal(g, bx, by, W, H, tilt, tones, 5)
-  if (e > 0.05) {
-    // A rainbow sheen inside it.
-    g.save()
-    g.translate(bx, by)
-    g.rotate(tilt)
-    g.globalAlpha = 0.55 * e
-    g.beginPath()
-    g.moveTo(-W * 0.2, -H * 0.18)
-    g.lineTo(W * 0.22, -H * 0.36)
-    g.lineWidth = S(6)
-    g.lineCap = 'round'
-    g.strokeStyle = '#ffc6e2'
-    g.stroke()
-    g.beginPath()
-    g.moveTo(-W * 0.2, -H * 0.08)
-    g.lineTo(W * 0.22, -H * 0.26)
-    g.strokeStyle = '#b8fbe9'
-    g.stroke()
-    g.globalAlpha = 1
-    g.restore()
-  }
-  // Its face on the middle facet.
+  // The shard. Its LEAN is a rotation, so the painting carries it: the shape
+  // is painted upright and the drawing tips it back into the rock.
   g.save()
   g.translate(bx, by)
   g.rotate(tilt)
-  const fy = -H * 0.5
-  if (k < 0.5) {
-    g.beginPath()
-    g.arc(-S(10), fy, S(5.5), PI * 0.15, PI * 0.85)
-    g.moveTo(S(15.5), fy + S(2.4))
-    g.arc(S(10), fy, S(5.5), PI * 0.15, PI * 0.85)
-    ink(g, 2.6)
-    g.beginPath()
-    g.arc(0, fy + S(14), S(3.4), 0.2, PI - 0.2)
-    ink(g, 2.2)
-  } else {
-    for (const ex of [-S(10), S(10)]) {
-      g.beginPath()
-      g.ellipse(ex, fy, S(5.5), S(7.5), 0, 0, TAU)
-      fill(g, INK)
-      g.beginPath()
-      g.arc(ex - S(1.8), fy - S(2.6), S(2.2), 0, TAU)
-      fill(g, '#ffffff')
-    }
-    g.beginPath()
-    g.arc(0, fy + S(10), S(6), 0.25, PI - 0.25)
-    fill(g, '#ff8fb0')
-    ink(g, 2.4)
-  }
-  g.globalAlpha = 0.5
-  g.beginPath()
-  g.ellipse(-S(17), fy + S(10), S(5), S(3), 0, 0, TAU)
-  g.moveTo(S(22), fy + S(10))
-  g.ellipse(S(17), fy + S(10), S(5), S(3), 0, 0, TAU)
-  fill(g, '#ff9eb5')
-  g.globalAlpha = 1
+  if (!drawItem(g, CLEAR_SHARD_ART, H, k < 0.5 ? 0 : 1)) clearShardShape(g, s, W, H, e, k)
   g.restore()
   // The rock nest's front lip, wrapped round its foot.
   const lip = (): void => {

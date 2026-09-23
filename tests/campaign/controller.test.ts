@@ -7,7 +7,7 @@ import { resetDuel, updateSim, cast } from '@/game/duel/sim'
 import { FIRE, WIND, ICE, NATURE, PH_WIN, PH_LOSE, comboEnumerationIndex } from '@/game/duel/config'
 import { defaultCampaign } from '@/game/campaign/state'
 import { hasBit } from '@/game/campaign/bitset'
-import { duelSetup, COSMETICS, STARTING_RUNES } from '@/game/campaign/tables'
+import { duelSetup, COSMETICS, STARTING_RUNES, FIRST_GIFT_NODE } from '@/game/campaign/tables'
 import { installCampaignController, onUnboxComplete, markDialogueSeen, isReplay, lossStreakOf } from '@/game/campaign/controller'
 
 const STEP = 1 / 120
@@ -29,9 +29,14 @@ const win = (): void => {
   run(2)
   expect(S.phase).toBe(PH_WIN)
 }
+/**
+ * She lost. Taken straight to zero rather than burned there: the mercy floor
+ * (§6.14b) now holds against a dot as well as a spell, so a burn cannot end a
+ * duel while the player is still playing — and what these tests are about is
+ * what the CAMPAIGN does with a loss, not how one is arrived at.
+ */
 const lose = (): void => {
-  S.hp = 0.01
-  S.burn = 5
+  S.hp = 0
   run(0.1)
   expect(S.phase).toBe(PH_LOSE)
 }
@@ -89,9 +94,11 @@ describe('the campaign controller', () => {
     const g = onUnboxComplete(4)
     expect(g.rune).toBe(NATURE)
     expect(g.signature).toBeNull()
-    expect(COSMETICS[g.cosmetic!]!.slug).toBe('flowerCrown')
+    // Chapter 1's boss gives no keepsake any more — the crown moved to the
+    // second battle — but it is still the chest that hands over Nature.
+    expect(g.cosmetic).toBeNull()
     expect((S.campaign.runesUnlocked >> NATURE) & 1).toBe(1)
-    expect((S.campaign.giftsOwned >> g.cosmetic!) & 1).toBe(1)
+    expect(S.campaign.giftsOwned, 'no keepsake from this chest').toBe(0)
     expect(onUnboxComplete(4)).toEqual({ rune: null, signature: null, cosmetic: null })
   })
 
@@ -100,13 +107,34 @@ describe('the campaign controller', () => {
     expect(onUnboxComplete(0)).toEqual({ rune: ICE, signature: null, cosmetic: null })
     expect((S.campaign.runesUnlocked >> ICE) & 1).toBe(1)
     expect(onUnboxComplete(0)).toEqual({ rune: null, signature: null, cosmetic: null })
-    expect(onUnboxComplete(1)).toEqual({ rune: null, signature: null, cosmetic: null })
+    // Node 1 carries the first keepsake now; it still owes no rune.
+    expect(onUnboxComplete(1).rune).toBeNull()
     expect(onUnboxComplete(2)).toEqual({ rune: WIND, signature: null, cosmetic: null })
     expect(S.campaign.runesUnlocked).toBe(STARTING_RUNES | (1 << ICE) | (1 << WIND))
   })
 
+  it('gives the first keepsake after the SECOND battle, not at the boss', () => {
+    const g = onUnboxComplete(FIRST_GIFT_NODE)
+    expect(COSMETICS[g.cosmetic!]!.slug).toBe('flowerCrown')
+    expect(g.rune, 'the early keepsake node owes no rune').toBeNull()
+    expect(g.signature, 'a signature stays a boss reward').toBeNull()
+    expect(onUnboxComplete(FIRST_GIFT_NODE)).toEqual({ rune: null, signature: null, cosmetic: null })
+  })
+
+  it('still hands out every keepsake, none twice, once the crown moved', () => {
+    const seen: number[] = []
+    for (let n = 0; n < 50; n++) {
+      const c = onUnboxComplete(n).cosmetic
+      if (c !== null) seen.push(c)
+    }
+    expect(seen.length, 'every keepsake, across the story').toBe(COSMETICS.length)
+    expect(new Set(seen).size, 'and never the same one twice').toBe(COSMETICS.length)
+  })
+
   it('every other standard gift grants nothing (its payload is the tool)', () => {
-    for (const n of [1, 3, 5, 6, 7, 8, 11, 23, 48]) {
+    // The chests that carry something are node 1 (§8.2), every boss, and
+    // the second shelf's fourteen (§2.4 rule 20) — these are the rest.
+    for (const n of [5, 7, 11, 12, 15, 17, 20, 25, 30, 35, 40, 45, 47]) {
       expect(onUnboxComplete(n), `node ${n}`).toEqual({ rune: null, signature: null, cosmetic: null })
     }
     expect(S.campaign.runesUnlocked).toBe(STARTING_RUNES)

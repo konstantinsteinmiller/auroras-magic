@@ -19,11 +19,16 @@
  *     1152 × 672 (a 16:9 return is 2 % wider — invisible), plus any extra size
  *     it lists (a sector's 384 × 224 map thumb), all from the same pixels.
  *   • a KEYED sheet (an item, a rune, a keepsake badge, a portrait strip, an
- *     island) is magenta-keyed: `frames` panels side by side,
+ *     island) is magenta-keyed. A strip is first checked for whether it can be
+ *     cut at all — the right NUMBER of drawings, no ruled divider, and every
+ *     cut falling in air (`tools/strip-guards.mjs`) — and refused if not,
+ *     because nothing below that point can tell. Then: `frames` panels side by side,
  *     each holding the drawing's BOX at `crop`. The return is keyed, registered
  *     onto the reference's measured `fit` (ONE correction for the whole strip,
  *     so a cycle never jitters), and each panel's box is cut out and written
- *     as one strip, at most 256 px tall per frame.
+ *     as one strip, at most 256 px tall per frame — unless the sheet declares
+ *     an `exact` height, which the brand pair does because the DOM shows those
+ *     files at a size the renderer never chooses.
  *
  * Loud on purpose: every correction is printed, and anything it cannot do
  * safely it refuses (exit 1) instead of guessing. A refused painting whose
@@ -35,6 +40,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
+import { stripNote, stripRefusal } from './strip-guards.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SHEETS = join(ROOT, 'art-sheets')
@@ -112,11 +118,27 @@ const encode = async (d, w, h, file, quality = 92) => {
 /** Hard key: pure magenta is the only colour with G near zero AND R, B near full. */
 const isMagenta = (r, g, b) => g < 70 && r > 190 && b > 190
 
+/** How magenta a pixel is, 0..1. Pastel pinks sit at 0: #ff9ecf scores 49
+ *  against a floor of 50, while true #FF00FF scores the full 255. */
+const magentaness = (r, g, b) => Math.max(0, Math.min(1, (Math.min(r, b) - g - 50) / 205))
+
 /**
- * Key the magenta ground; then, only in a thin band where art meets keyed
- * ground, UNMIX the soft edge — a painted glow over magenta is part art,
- * part magenta, and the magenta share is known exactly, so it is subtracted
- * back out rather than left as a pink rim. Interior pinks are never touched.
+ * Key the magenta ground, then UNMIX the contaminated edge — a painted glow
+ * over magenta is part art, part magenta, and the magenta share is known
+ * exactly, so it is subtracted back out rather than left as a pink rim.
+ *
+ * THE CONTAMINATED REGION IS NOT A FIXED BAND. It used to be three pixels
+ * deep, which is right for a hard-edged subject with an anti-aliased rim and
+ * badly wrong for a SOFT one: a bubble, a mote's glow, a puff of smoke and a
+ * lantern's halo are translucent over tens of pixels, and they came back with
+ * 3–14 % of their body still magenta — a bright pink disc where a soft white
+ * one belonged. So the band is grown by FLOODING from the ground through
+ * whatever is still magenta-tinted.
+ *
+ * Flooding is safe where a blanket rule would not be, and for one reason:
+ * contamination is always CONNECTED to the ground it came from. A hot pink
+ * flower in the middle of the art is not reachable from the outside, so it is
+ * still never touched — which was the whole point of the band.
  */
 const keyMagenta = (px, w, h) => {
   const { d } = px
@@ -126,7 +148,7 @@ const keyMagenta = (px, w, h) => {
   for (let p = 0, i = 0; p < n; p++, i += 4) {
     if (isMagenta(d[i], d[i + 1], d[i + 2])) { bg[p] = 1; d[i + 3] = 0; keyed++ }
   }
-  // Distance (in px, up to 3) from keyed ground.
+  // Distance (in px, up to 3) from keyed ground: the ordinary anti-aliased rim.
   const near = new Uint8Array(n)
   for (let pass = 1; pass <= 3; pass++) {
     for (let y = 0; y < h; y++) {
@@ -138,12 +160,30 @@ const keyMagenta = (px, w, h) => {
       }
     }
   }
+  // …then follow the stain inward as far as it actually goes.
+  const stack = []
+  for (let p = 0; p < n; p++) if (bg[p] || near[p]) stack.push(p)
+  while (stack.length) {
+    const p = stack.pop()
+    const x = p % w
+    const y = (p - x) / w
+    const step = (q) => {
+      if (bg[q] || near[q]) return
+      const j = q * 4
+      if (magentaness(d[j], d[j + 1], d[j + 2]) <= 0.05) return
+      near[q] = 1
+      stack.push(q)
+    }
+    if (x > 0) step(p - 1)
+    if (x < w - 1) step(p + 1)
+    if (y > 0) step(p - w)
+    if (y < h - 1) step(p + w)
+  }
   let unmixed = 0
   for (let p = 0, i = 0; p < n; p++, i += 4) {
     if (!near[p]) continue
     const r = d[i], g = d[i + 1], b = d[i + 2]
-    // How much of this pixel is magenta: min(R, B) far above G.
-    const m = Math.max(0, Math.min(1, (Math.min(r, b) - g - 50) / 205))
+    const m = magentaness(r, g, b)
     if (m <= 0.02) continue
     if (m >= 0.97) { d[i + 3] = 0; continue }
     const a = 1 - m
@@ -178,6 +218,25 @@ const floodGround = (px, w, h) => {
   const share = border.filter(close).length / border.length
   if (share < 0.6) return { flooded: 0, share, colour: null }
   const seen = new Uint8Array(w * h)
+  // A GROUND THAT IS STILL MAGENTA, JUST NOT PURE, IS KEYED EVERYWHERE.
+  // Gemini washed one return's ground to rgb(221,66,183) — blue seven points
+  // under `isMagenta`'s bar — so the hard key took nothing and this flood ran
+  // instead. A flood enters only from the frame, so it cleaned the outside of
+  // a soap bubble and left its SEE-THROUGH MIDDLE a solid magenta disc: the
+  // one shape whose hole is the whole point of it.
+  //
+  // Safe here in a way a looser global threshold would not be. The nearest
+  // colour in the game's own palette scores 101 on `min(R,B) - G` and this
+  // ground scores 117 — nine points of daylight, which a JPEG can eat. This
+  // fires only when THIS frame's measured ground is itself magenta, and the
+  // art is told never to paint magenta at all.
+  if (Math.min(br, bb) - bgc > 90) {
+    let keyed = 0
+    for (let p = 0; p < w * h; p++) {
+      if (close(p)) { d[p * 4 + 3] = 0; keyed++ }
+    }
+    return { flooded: keyed, share, colour: `rgb(${br},${bgc},${bb})`, whole: true }
+  }
   const stack = border.filter(close)
   let flooded = 0
   while (stack.length) {
@@ -197,6 +256,35 @@ const floodGround = (px, w, h) => {
 }
 
 /** Bilinear sample of premultiplied RGBA at (x, y); outside is transparent. */
+/**
+ * Do the drawings in a keyed strip line up with the panel grid the sheet
+ * declares? Measured as: how much INK sits on each internal panel boundary.
+ *
+ * The one thing the slicer never checked, and the one way a strip can be wrong
+ * that nothing downstream can notice. `portrait-umbra` came back with NINE
+ * faces against the five it was briefed for, and every stage after the key did
+ * exactly what it was told with them: the aspect guard passed (a 9-panel strip
+ * is the same 16:9 as a 5-panel one), the fit normalisation passed (the content
+ * spans the sheet either way, so it just scaled everything down 15 %), and the
+ * cut divided the picture into five equal slices that each fell across two
+ * faces. It shipped, and the renderer drew one-and-a-half heads into every
+ * dialogue badge.
+ *
+ * COUNTING the drawings is the obvious test and the wrong one: several strips
+ * paint a pale backdrop disc behind each subject and those discs touch, so a
+ * column profile reads a perfectly good five-panel strip as one run. What
+ * cannot be faked is the GRID — a strip is only cuttable if its boundaries
+ * fall in air, whatever is on either side of them.
+ *
+ * Returns the worst boundary's ink as a fraction of the strip's own busiest
+ * column, so it is scale- and subject-independent. Measured over all 35
+ * multi-panel paintings in this project on 2026-09-23: thirty-three scored
+ * exactly 0.000, `portrait-umbra` scored 0.184 at every boundary (the even
+ * spacing is the signature of a wrong COUNT) and `portrait-nova` 0.363 at one
+ * (the signature of drawings placed wrong). There is no middle ground to tune
+ * against — hence the threshold at 0.10, two and a half times the largest
+ * value a good strip has ever produced.
+ */
 const sampler = (px) => {
   const { d, w, h } = px
   const pm = new Float32Array(w * h * 4)
@@ -368,6 +456,16 @@ for (const file of paintings) {
         log(`  · keyed ${(share * 100).toFixed(0)}% magenta, unmixed ${unmixed} edge px`)
       }
 
+      // CAN IT BE CUT AT ALL? Before measuring a single panel: the right
+      // NUMBER of drawings, no ruled divider, and every cut falling in air.
+      // Every stage below assumes all three and none of them can tell
+      // otherwise — `tools/strip-guards.mjs` has the whole story.
+      if (frames > 1) {
+        const refusal = stripRefusal(px.d, px.w, px.h, frames, panelW * sx)
+        if (refusal) throw new Error(refusal)
+        log(`  · ${stripNote(px.d, px.w, px.h, frames, panelW * sx)}`)
+      }
+
       // Measure the return's SOLID extent (α > 140) per panel, in reference px.
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
       const hs = new Array(frames).fill(null).map(() => [Infinity, -Infinity])
@@ -430,7 +528,13 @@ for (const file of paintings) {
 
       // Cut each panel's box out, at most `cap` px tall, never upsampled.
       const crop = sheet.crop
-      const cap = Math.min(sheet.maxEdge ?? 256, SIZE ?? Infinity)
+      // `exact` overrides the frame cap AND `--size`, and is the only thing
+      // that may raise either. It is set (`ItemSheet.exact`) for a sheet whose
+      // file is read at a fixed size by something OUTSIDE the renderer — the
+      // splash's <img>, the PWA manifest's 512 icon — where the cap is not a
+      // payload trade-off but a visibly soft picture. Everything the renderer
+      // blits at a drawable's own size keeps the cap.
+      const cap = sheet.exact ?? Math.min(sheet.maxEdge ?? 256, SIZE ?? Infinity)
       const native = crop.h * sy
       const fh = Math.max(8, Math.round(Math.min(cap, native)))
       const fw = Math.max(8, Math.round(crop.w * (fh / crop.h)))

@@ -52,7 +52,20 @@ export const itemBox = (spec: ItemSpec): ArtBox =>
 
 interface Tinted { img: HTMLImageElement; cv: HTMLCanvasElement }
 const tinted = new Map<string, Tinted>()
-const TINTS_KEPT = 16
+/**
+ * How many (drawable, colour) bakes are kept, least-recently-used first.
+ *
+ * Sixteen was right when the tinted drawables were a gift's ribbon and a
+ * chest's gem. The prop family's 2026-09-21 revision put a dozen more on it —
+ * a flag, a lantern, a balloon, a scrap of confetti, a twinkle — and each one
+ * wears a whole `cols` array per call site: a Friendship Festival map page
+ * alone asks for two dozen pairs, every frame. Under the old cap that is a
+ * full re-bake (and its `getImageData`) per prop per frame, for ever.
+ *
+ * Each entry is one sliced strip, which the slicer caps at 256 px on its
+ * longer edge, so a prop's bake is tens of kB and the whole cache is a few MB.
+ */
+const TINTS_KEPT = 64
 
 /** The strip with `colour` multiplied through its neutral region, baked once. */
 const tintedStrip = (spec: ItemSpec, img: HTMLImageElement, colour: string): HTMLCanvasElement => {

@@ -17,11 +17,14 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, flower } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, flower, twinkleAt, puffAt, lanternAt, streakAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
 import { K, skyPuff, inkFill, star5 } from '@/game/map/kitSky'
 import { type Pt, curve, scallop } from '@/game/map/kitBay'
 import type { TapCreature, RescueCollectible } from '@/game/map/sectorDef'
-import { disc, band, twinkleAt, type Tones } from '@/game/map/kitRidge'
+import { disc, band, type Tones } from '@/game/map/kitRidge'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 const LW = 5
@@ -360,16 +363,23 @@ export const sandFlow = (g: G2D, x: number, top: number, bot: number, w: number,
   g.clip()
   const H = bot - top
   const v = t * 130 * alive
+  // The grains are `STREAK_ART` where it has landed — one tile at the eight
+  // places the clock has pushed it — and the batched path where it has not.
+  g.globalAlpha = 0.8
+  let painted = false
   g.beginPath()
   for (let i = 0; i < 4; i++) {
     const cx = x - w * 0.34 + i * w * 0.22
     for (let j = 0; j < 2; j++) {
       const yy = top + ((v + j * (H / 2 + 20) + i * 53) % (H + 50)) - 30
-      g.roundRect(cx - w * 0.05, yy, w * 0.1, 34, w * 0.05)
+      painted = streakAt(g, cx - w * 0.05, yy, w * 0.1, 34, '#fff8d6')
     }
   }
-  g.fillStyle = 'rgba(255,248,214,0.8)'
-  g.fill()
+  g.globalAlpha = 1
+  if (!painted) {
+    g.fillStyle = 'rgba(255,248,214,0.8)'
+    g.fill()
+  }
   g.restore()
 }
 
@@ -378,8 +388,11 @@ export const sandPuffs = (g: G2D, x: number, y: number, w: number, t: number, al
   if (alive <= 0) return
   for (let i = 0; i < 3; i++) {
     const k = (t * 0.55 + i / 3) % 1
+    const px = x + (i - 1) * w * 0.4 + (i - 1) * k * 30
+    const py = y - 8 - k * 30
+    const r = 9 + k * 12
     g.globalAlpha = alive * 0.8 * (1 - k)
-    disc(g, x + (i - 1) * w * 0.4 + (i - 1) * k * 30, y - 8 - k * 30, 9 + k * 12, SS.sandLite)
+    if (!puffAt(g, px, py, r, SS.sandLite)) disc(g, px, py, r, SS.sandLite)
   }
   g.globalAlpha = 1
 }
@@ -388,13 +401,14 @@ export const sandPuffs = (g: G2D, x: number, y: number, w: number, t: number, al
 export const sandGlints = (g: G2D, x0: number, y0: number, w: number, h: number, t: number, alive: number, n = 6): void => {
   if (alive <= 0) return
   g.beginPath()
+  let lit = false
   for (let i = 0; i < n; i++) {
     const px = x0 + ((t * (14 + i * 3) + i * 173) % w)
     const py = y0 + ((sin(t * 0.7 + i * 2.3) + 1) / 2) * h
     const r = 7 * Math.max(0, sin(t * 2.4 + i * 1.7)) * alive
-    if (r > 0.8) twinkleAt(g, px, py, r)
+    if (r > 0.8) lit = twinkleAt(g, px, py, r, '#fff6c8')
   }
-  fill(g, '#fff6c8')
+  if (!lit) fill(g, '#fff6c8')
 }
 
 /* ---------------------------------------------------------------- flora */
@@ -431,6 +445,74 @@ export const palmTop = (x: number, y: number, s: number, lean: number): Pt => [x
 
 const FRONDS: readonly Pt[] = [[-2.95, 0.95], [-2.35, 1.05], [-1.8, 0.85], [-1.25, 0.9], [-0.6, 1.05], [0.05, 0.9]]
 
+/** How wide a frond is against its own length. */
+const FROND_HW = 24 / 118
+
+/**
+ * ONE palm frond, root at the origin, reaching 1 unit along +x and bowed
+ * upwards — the blade, its plum edge and its darker midrib.
+ */
+const frondShape = (g: G2D): void => {
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.quadraticCurveTo(0.62, -FROND_HW, 1, 0)
+  g.quadraticCurveTo(0.62, FROND_HW * 0.4, 0, 0)
+  fill(g, C.canopy)
+  ink(g, 4 / 118)
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.quadraticCurveTo(0.62, -FROND_HW * 0.28, 1, 0)
+  g.lineWidth = 3 / 118
+  g.strokeStyle = C.canopyShade
+  g.stroke()
+}
+
+/**
+ * A palm frond as a painted still — eighteen of them stand over the three
+ * oases, and they were the largest flat vectors left on a painted sector.
+ *
+ * One blade serves every frond on every palm: the crown fans them out by
+ * ROTATING this one shape, stretches it along its own length as the sway
+ * lengthens or shortens the reach, and MIRRORS it for the fronds on the far
+ * side — which is exactly what the drawing's `side` flip always did.
+ */
+export const FROND_ART: ItemSpec = {
+  ...PROP_ART.frond, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s, s)
+    frondShape(g)
+    g.restore()
+  }
+}
+
+/** The coconut cluster's width in SU at the scale the oases plant them. */
+const COCO_S = 0.88
+const COCO_UNIT = 40 * COCO_S
+
+/** The three nuts under a crown, at scale `s`. */
+const coconutShape = (g: G2D, s: number): void => {
+  g.beginPath()
+  for (const [dx, dy] of [[-11, 10], [9, 12], [-1, 22]] as const) {
+    g.moveTo(dx * s + 10 * s, dy * s)
+    g.arc(dx * s, dy * s, 10 * s, 0, TAU)
+  }
+  fill(g, SS.plankShade)
+  ink(g, 3)
+}
+
+/** The coconuts as a painted still. They hang under the crown and ride with
+ *  the palm, so one picture carried by a scale serves all three trees. */
+export const COCONUT_ART: ItemSpec = {
+  ...PROP_ART.coconuts, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / COCO_UNIT, s / COCO_UNIT)
+    coconutShape(g, COCO_S)
+    g.restore()
+  }
+}
+
 /** A palm's crown of fronds at (tx, ty), swayed by `sway` rad — a live prop. */
 export const palmCrown = (g: G2D, tx: number, ty: number, s: number, lean: number, sway: number): void => {
   for (let i = 0; i < FRONDS.length; i++) {
@@ -447,6 +529,26 @@ export const palmCrown = (g: G2D, tx: number, ty: number, s: number, lean: numbe
     const nx = (-dy / d) * 24 * s * L
     const ny = (dx / d) * 24 * s * L
     const side = cos(a) < 0 ? -1 : 1
+    // The blade under the AFFINE that carries the canonical frond onto this
+    // one: its root to the crown, its tip to (ex, ey), and its bow to this
+    // frond's own control point.
+    //
+    // A rotate-and-stretch is NOT enough, and the crown says so out loud: the
+    // control sits 0.62 of the way along the UNSQUASHED radial while the tip
+    // is squashed and drooped, so a frond reaching upwards doubles back and
+    // its chord is a third of its arc. Placed on the chord alone, the whole
+    // crown came out flat and the upward fronds collapsed into it. A shear
+    // puts the bow back where the drawing had it.
+    const cx = px - nx * side - tx
+    const cy = py - ny * side - ty
+    const vx = (0.62 * dx - cx) / FROND_HW
+    const vy = (0.62 * dy - cy) / FROND_HW
+    g.save()
+    g.translate(tx, ty)
+    g.transform(dx, dy, vx, vy, 0, 0)
+    const painted = drawItem(g, FROND_ART, 1)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.moveTo(tx, ty)
     g.quadraticCurveTo(px - nx * side, py - ny * side, ex, ey)
@@ -460,6 +562,11 @@ export const palmCrown = (g: G2D, tx: number, ty: number, s: number, lean: numbe
     g.strokeStyle = C.canopyShade
     g.stroke()
   }
+  g.save()
+  g.translate(tx, ty)
+  const nuts = drawItem(g, COCONUT_ART, 40 * s)
+  g.restore()
+  if (nuts) return
   g.beginPath()
   for (const [dx, dy] of [[-11, 10], [9, 12], [-1, 22]] as const) {
     g.moveTo(tx + dx * s + 10 * s, ty + dy * s)
@@ -1251,6 +1358,11 @@ export const lanterns = (g: G2D, a: Pt, b: Pt, sag: number, cols: readonly strin
       disc(g, lx, ly, 22, '#fff1a8')
       g.globalAlpha = 1
     }
+    g.save()
+    g.translate(lx, ly)
+    const painted = lanternAt(g, 22, cols[i]!)
+    g.restore()
+    if (painted) continue
     g.beginPath()
     g.ellipse(lx, ly, 11, 13, 0, 0, TAU)
     fill(g, cols[i]!)
@@ -1540,6 +1652,55 @@ export const brazier = (g: G2D, x: number, y: number, s: number): Pt => {
   return [x, y - 64 * s]
 }
 
+/** The flame's own height in SU, at the scale the braziers burn it. */
+const FLAME_UNIT = 80
+
+/**
+ * The four tongues about a base at the origin, all leaning together by
+ * `lean` (−1 … 1) — the moment each of the strip's three panels is painted
+ * from.
+ */
+const flameShape = (g: G2D, lean: number): void => {
+  const tongue = (dx: number, h: number, w: number, col: string, inked: boolean): void => {
+    const lx = lean * 6
+    g.beginPath()
+    g.moveTo(dx - w, 0)
+    g.bezierCurveTo(dx - w * 1.1, -h * 0.5, dx - w * 0.3 + lx, -h * 0.7, dx + lx * 1.4, -h)
+    g.bezierCurveTo(dx + w * 0.3 + lx, -h * 0.7, dx + w * 1.1, -h * 0.5, dx + w, 0)
+    g.quadraticCurveTo(dx, w * 0.4, dx - w, 0)
+    g.closePath()
+    fill(g, col)
+    if (inked) ink(g, 3)
+  }
+  tongue(-14, 50, 13, '#ff7a59', true)
+  tongue(14, 56, 13, '#ff7a59', true)
+  tongue(0, 80, 20, '#ff9a4a', true)
+  tongue(0, 50, 12, '#ffd84d', false)
+}
+
+/**
+ * The brazier's flame as a painted strip.
+ *
+ * §4b kept it as "tongues rebuilt per frame from a height and a lean", which
+ * is how it is coded rather than what it looks like: freeze any frame and
+ * there is a flame with an edge on it, and the two temple fires are the
+ * brightest flat shapes on a painted sector. So the lean becomes three panels
+ * that `drawItem` cross-fades — the dance, at a twelfth of its detail — while
+ * the height wobble and the waking-up stay the drawing's own y-scale.
+ *
+ * What it costs, stated rather than hidden: the four tongues used to dance out
+ * of phase with each other, and on the painting they lean together.
+ */
+export const FLAME_ART: ItemSpec = {
+  ...PROP_ART.flame, frames: 3,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / FLAME_UNIT, s / FLAME_UNIT)
+    flameShape(g, f - 1)
+    g.restore()
+  }
+}
+
 /** A cute flame of rounded tongues on (x, y) — a live prop; at rest, just
  *  two sleepy embers. */
 export const flame = (g: G2D, x: number, y: number, s: number, t: number, alive: number): void => {
@@ -1549,6 +1710,17 @@ export const flame = (g: G2D, x: number, y: number, s: number, t: number, alive:
     return
   }
   const k = alive
+  // The halo first and always: it is light with no edge, so it stays drawn
+  // under whichever flame is on top of it.
+  g.globalAlpha = k * 0.3
+  disc(g, x, y - 34 * s, 44 * s, '#ffe08a')
+  g.globalAlpha = 1
+  g.save()
+  g.translate(x, y)
+  g.scale(s, s * k * (1 + sin(t * 9) * 0.12))
+  const painted = drawItem(g, FLAME_ART, FLAME_UNIT, 1 + sin(t * 5))
+  g.restore()
+  if (painted) return
   const tongue = (dx: number, h: number, w: number, ph: number, col: string, wide = 5): void => {
     const f = sin(t * 9 + ph) * 0.12
     const hh = h * k * (1 + f)
@@ -1562,9 +1734,6 @@ export const flame = (g: G2D, x: number, y: number, s: number, t: number, alive:
     fill(g, col)
     if (wide) ink(g, 3)
   }
-  g.globalAlpha = k * 0.3
-  disc(g, x, y - 34 * s, 44 * s, '#ffe08a')
-  g.globalAlpha = 1
   tongue(-14 * s, 50 * s, 13 * s, 1.1, '#ff7a59')
   tongue(14 * s, 56 * s, 13 * s, 2.3, '#ff7a59')
   tongue(0, 80 * s, 20 * s, 0, '#ff9a4a')
@@ -1912,10 +2081,42 @@ export const trinket = (g: G2D, kind: Trinket, x: number, y: number, s: number):
  * paw holding `item` up high.
  */
 export const sandFox = (g: G2D, x: number, y: number, s: number, hold: number, item: Trinket, t: number): void => {
-  const w = LW / s
   g.save()
   g.translate(x, y)
+  const painted = drawItem(g, FOX_ART, FOX_UNIT * s)
   g.scale(s, s)
+  // The RAISED PAW and its trinket are never painted: the paw swings from the
+  // ground to over its head on `hold`, and the trinket is a different object
+  // in each of the five sectors — both are exactly what `art-roadmap` §4b
+  // keeps with the drawing. So the painting is the pup, and the arm it puts
+  // up is drawn over it.
+  if (!painted) foxShape(g, s)
+  foxPaw(g, s, hold, item, t)
+  g.restore()
+}
+
+/** Ear tip (-140) to the seat (0) at scale 1 — the pup's own height in SU. */
+const FOX_UNIT = 140
+
+/**
+ * The sand-fox pup (`CREATURE_ART.sandFox`), sitting, both front paws down.
+ * One panel: nothing about the pup itself changes between the five sectors
+ * or across the peek — only the arm, which is drawn.
+ */
+export const FOX_ART: ItemSpec = {
+  ...CREATURE_ART.sandFox, frames: 1,
+  draw: (g, sz) => {
+    const k = sz / FOX_UNIT
+    g.save()
+    g.scale(k, k)
+    foxShape(g, 1)
+    g.restore()
+  }
+}
+
+/** The pup itself, its seat at the origin, in its own units. */
+const foxShape = (g: G2D, s: number): void => {
+  const w = LW / s
   // The bushy tail, curling up behind on the left.
   g.beginPath()
   g.moveTo(-18, -8)
@@ -2000,7 +2201,11 @@ export const sandFox = (g: G2D, x: number, y: number, s: number, hold: number, i
   g.ellipse(28, -84, 6, 4, 0, 0, TAU)
   fill(g, SS.blush)
   g.globalAlpha = 1
-  // The raised paw with its trinket.
+}
+
+/** The arm the pup puts up, and whatever it is holding. */
+const foxPaw = (g: G2D, s: number, hold: number, item: Trinket, t: number): void => {
+  const w = LW / s
   const u = clamp(hold, 0, 1)
   const px = lerp(22, 52, u)
   const py = lerp(-20, -130, u)
@@ -2018,13 +2223,13 @@ export const sandFox = (g: G2D, x: number, y: number, s: number, hold: number, i
       const r = 10 * Math.max(0, sin(t * 6))
       if (r > 1) {
         g.beginPath()
-        twinkleAt(g, px + 22, py - 34, r)
-        fill(g, '#fffbe0')
-        ink(g, 1.8)
+        if (!twinkleAt(g, px + 22, py - 34, r, '#fffbe0')) {
+          fill(g, '#fffbe0')
+          ink(g, 1.8)
+        }
       }
     }
   }
-  g.restore()
 }
 
 /** How a sand-fox pup peeks: its cover's base at (x, y); `hid` / `out` are
@@ -2051,7 +2256,7 @@ export const foxTap = (p: FoxSpot, cover: (g: G2D) => void, r = 70): TapCreature
       sandFox(g, p.x, fy, p.s, clamp((e - 0.5) / 0.5, 0, 1), p.item, t)
       g.restore()
     }
-    cover(g)
+    tapCover(g, cover)
     if (p.dig && e > 0.05 && e < 0.98) {
       g.beginPath()
       for (let i = 0; i < 6; i++) {
@@ -2097,8 +2302,40 @@ export const sandClock = (g: G2D, x: number, y: number, s: number, k: number, t:
   g.save()
   g.translate(x, cy)
   g.rotate(lerp(PI / 2, 0, o))
-  g.scale(s, s)
-  const w = 4.5 / s
+  // The hourglass lies on its side asleep and stands up awake, which is a
+  // ROTATION — so the painting is made standing and the drawing turns it.
+  if (!drawItem(g, SAND_CLOCK_ART, SAND_CLOCK_UNIT * s, o < 0.5 ? 0 : 1)) {
+    g.scale(s, s)
+    sandClockShape(g, 1 / s, o, e, t)
+  }
+  g.restore()
+  if (e <= 0.4) return
+  sandClockTick(g, x, cy, s, e, t)
+}
+
+/** Cap to cap (112) at scale 1 — the hourglass's own height in SU. */
+const SAND_CLOCK_UNIT = 112
+
+/**
+ * The Hourglass of Ember, asleep and awake (`CREATURE_ART.sandClock`): on its
+ * side with the sand heaped along one wall, then upright and running. Its
+ * halo, its shadow on the sand and the tick-sparkle at the cap stay drawn.
+ * The falling grains stay drawn too — they are a particle stream.
+ */
+export const SAND_CLOCK_ART: ItemSpec = {
+  ...CREATURE_ART.sandClock, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / SAND_CLOCK_UNIT
+    g.save()
+    g.scale(k, k)
+    sandClockShape(g, 1, f, f, 0)
+    g.restore()
+  }
+}
+
+/** The hourglass itself, upright, centred on the origin, in its own units. */
+const sandClockShape = (g: G2D, w0: number, o: number, e: number, t: number): void => {
+  const w = 4.5 * w0
   // Posts.
   g.beginPath()
   for (const d of [-1, 1]) g.roundRect(d * 30 - 4, -48, 8, 96, 4)
@@ -2165,7 +2402,7 @@ export const sandClock = (g: G2D, x: number, y: number, s: number, k: number, t:
     g.quadraticCurveTo(-7, fy + 3.5, -3, fy)
     g.moveTo(3, fy)
     g.quadraticCurveTo(7, fy + 3.5, 11, fy)
-    ink(g, 2.2 / s)
+    ink(g, 2.2 * w0)
   } else {
     g.ellipse(-7, fy, 2.6, 3.6, 0, 0, TAU)
     g.moveTo(9.6, fy)
@@ -2174,7 +2411,7 @@ export const sandClock = (g: G2D, x: number, y: number, s: number, k: number, t:
   }
   g.beginPath()
   g.arc(0, fy + 6, o < 0.5 ? 2.4 : 3.6, 0.2, PI - 0.2)
-  ink(g, 2 / s)
+  ink(g, 2 * w0)
   g.globalAlpha = 0.5
   g.beginPath()
   g.ellipse(-13, fy + 5, 3.4, 2.2, 0, 0, TAU)
@@ -2192,7 +2429,7 @@ export const sandClock = (g: G2D, x: number, y: number, s: number, k: number, t:
     g.rect(-30, cy2 + 3, 56, 3)
     fill(g, '#ffc4c4')
   }
-  disc(g, 0, -66, 5, SS.gold, 2.4 / s)
+  disc(g, 0, -66, 5, SS.gold, 2.4 * w0)
   // Asleep: dimmed under a plum veil.
   if (e < 1) {
     g.globalAlpha = 0.32 * (1 - clamp(e * 1.5, 0, 1))
@@ -2204,25 +2441,29 @@ export const sandClock = (g: G2D, x: number, y: number, s: number, k: number, t:
     fill(g, INK)
     g.globalAlpha = 1
   }
-  g.restore()
-  if (e <= 0.4) return
-  // The tick: a sparkle popping at the cap every second, and a joyful twinkle.
+}
+
+/** The sparkle that pops at the cap once a second, once it is running. */
+const sandClockTick = (g: G2D, x: number, cy: number, s: number, e: number, t: number): void => {
+  const S = (v: number): number => v * s
   const a = clamp((e - 0.4) / 0.6, 0, 1)
   const ph = t % 1
   const r = S(14) * Math.max(0, 1 - ph / 0.35) * a
   g.globalAlpha = a
   if (r > 1) {
     g.beginPath()
-    twinkleAt(g, x + S(34), cy - S(70), r)
-    fill(g, '#fffbe0')
-    ink(g, 2)
+    if (!twinkleAt(g, x + S(34), cy - S(70), r, '#fffbe0')) {
+      fill(g, '#fffbe0')
+      ink(g, 2)
+    }
   }
   g.beginPath()
+  let lit = false
   for (let i = 0; i < 3; i++) {
     const rr = S(8) * Math.max(0, sin(t * 3 + i * 2))
-    if (rr > 0.5) twinkleAt(g, x + cos(i * 2.1 + 0.5) * S(62), cy + sin(i * 2.1 + 0.5) * S(46), rr)
+    if (rr > 0.5) lit = twinkleAt(g, x + cos(i * 2.1 + 0.5) * S(62), cy + sin(i * 2.1 + 0.5) * S(46), rr, '#fff6b0')
   }
-  fill(g, '#fff6b0')
+  if (!lit) fill(g, '#fff6b0')
   g.globalAlpha = 1
 }
 

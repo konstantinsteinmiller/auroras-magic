@@ -13,6 +13,7 @@ import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE } from '@/game/duel/fo
 import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, dustEase, onboarding, foeRate } from '@/game/duel/sim'
+import { AFK_S } from '@/game/duel/director'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -224,10 +225,24 @@ describe('the end of a duel', () => {
     expect('coins' in S).toBe(false)
   })
 
-  it('a loss ends the fight where it stands', () => {
+  // A DOT USED TO BE THE ONE WAY THROUGH THE MERCY FLOOR (§6.14b). The floor
+  // was written into the spell impact only, so a burn walked a child who was
+  // sitting at the floor straight through it — and a burn is exactly what is
+  // ticking while she scrambles to draw her way out. Measured on the win-rate
+  // model, it was killing the five-year-old in four duels out of five.
+  it('a burn cannot finish a player who is still playing', () => {
     S.hp = 0.01
     S.burn = 5
-    run(0.1)
+    run(0.5)
+    expect(S.phase).toBe(PH_DUEL)
+  })
+
+  it('a loss ends the fight where it stands, once she has put the phone down', () => {
+    S.hp = 0.01
+    // Long enough to still be ticking once the floor lifts — a five-second
+    // burn simply runs out while she is still protected.
+    S.burn = AFK_S + 3
+    run(AFK_S + 1.5)
     expect(S.phase).toBe(PH_LOSE)
     expect(S.foe).toBe(0)
   })

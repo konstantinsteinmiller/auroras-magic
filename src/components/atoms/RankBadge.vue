@@ -110,20 +110,28 @@ const ariaLabel = computed(() =>
 </template>
 
 <style scoped lang="sass">
-// Deliberately the same pill the rest of the HUD wears — dark plate, hairline
-// black rule, glyph then number — so the placing reads as one of the game's own
-// numbers rather than a widget bolted on. Gold, and a gold rule, because it is
-// the one number on the screen that is not about this run: it is about everyone
-// else.
+// ─── The badge / pill (ui-design-system.md §3.9) ───────────────────────────
+//
+// The shared badge material, and nothing on top of it: a gold face, a plum
+// line round it, plum ink inside and one plum lift. It was drawn for a dark
+// HUD — a near-transparent gold wash, a gold hairline and a white numeral on
+// a hard black shadow — which on cream paper was close to invisible. That is
+// why `MapScene` carries a `:deep(.rank-badge)` override repainting it gold
+// on ink; the BASE is now that, so the override is redundant and is deleted
+// with the map's own pass (§7).
+//
+// Gold rather than a quiet paper chip because it is the one number on the
+// screen that is not about this run: it is about everyone else.
 .rank-badge
   display: inline-flex
   align-items: baseline
   gap: 0.3em
   padding: clamp(0.15rem, 0.9vmin, 0.3rem) clamp(0.4rem, 2vmin, 0.7rem)
-  border: 2px solid rgba(255, 217, 60, 0.45)
+  border: 2px solid var(--am-ink)
   border-radius: 999px
-  background-color: rgba(255, 217, 60, 0.1)
-  color: #ffd93c
+  background-color: var(--am-gold)
+  color: var(--am-on-accent)
+  box-shadow: 0 2px 0 rgba(58, 35, 64, 0.3)
 
 .rank-badge__icon
   // `align-self` rather than `align-items: center` on the row: the numbers set
@@ -134,16 +142,25 @@ const ariaLabel = computed(() =>
   height: clamp(0.85rem, 4vmin, 1.2rem)
 
 .rank-badge__rank
-  color: #fff
-  font-weight: 900
+  color: var(--am-on-accent)
+  // 800, not 900: the system stack faux-bolds 900 badly on Android (§4.2).
+  font-weight: 800
   font-size: clamp(0.85rem, 4.2vmin, 1.3rem)
   line-height: 1
-  // Every number in this game sits on a hard black shadow; without it the pill
-  // looks like a different app's component.
-  text-shadow: 2px 2px 0 #000
+  // The hard black shadow every number in the game used to sit on is gone
+  // (§4.3). Plum on gold is 10.16:1 and a shadow there is only noise.
+  text-shadow: none
 
 .rank-badge__of
-  color: #b9cbe8
-  text-transform: uppercase
+  // Secondary ink so the population recedes behind the placing. On the FLAT
+  // gold face that is 5.11:1 — measured, and recorded in §2.6. (On the gold
+  // GRADIENT it would only be 3.92:1 at the foot, which is why this is the
+  // one place --am-ink-2 is allowed to sit on gold.)
+  color: var(--am-ink-2)
+  font-weight: 600
+  // Sentence case: the locale strings are already written that way and CSS
+  // was shouting them (§4.4).
+  text-transform: none
+  letter-spacing: 0
   font-size: clamp(0.5rem, 2.4vmin, 0.7rem)
 </style>

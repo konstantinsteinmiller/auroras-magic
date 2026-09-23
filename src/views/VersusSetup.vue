@@ -86,18 +86,19 @@ const back = (): void => {
   position: absolute
   inset: 0
   pointer-events: none
-  background: rgba(24, 14, 40, 0.28)
+  background: var(--am-scrim-soft)
 
 button
   pointer-events: auto
   cursor: pointer
-  border: none
+  // No `border: none`: both buttons here are `.duel-plate`, and the plum line
+  // is what makes a cream chip and a lilac button read as controls.
   -webkit-tap-highlight-color: transparent
   transition: transform 0.08s ease-out
   &:active
     transform: scale(0.95)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .back-btn
@@ -140,17 +141,17 @@ button
 
 .who
   margin: 0
-  color: #fffaf0
+  color: var(--am-on-night)
   font-size: clamp(18px, 2.4vw, 26px)
-  text-shadow: 0 2px 0 #3A2340
+  text-shadow: 0 2px 0 var(--am-ink)
 
 .name
   margin: 0 0 8px
   font-size: clamp(20px, 2.8vw, 32px)
-  color: #ffd76a
+  color: var(--am-gold)
 
 .right .name
-  color: #c08cff
+  color: var(--am-lilac)
 
 .ready
   min-width: 200px
@@ -161,14 +162,15 @@ button
   align-items: center
   justify-content: center
   gap: 10px
-  color: #fff
+  background: linear-gradient(to bottom, var(--am-lilac), var(--am-lilac-foot))
+  color: var(--am-on-accent)
   font-size: 26px
   .glyph
     width: 32px
     height: 32px
   &.on
-    background: #5ec26a
-    box-shadow: 0 0 0 4px #3A2340, 0 0 0 9px rgba(255, 215, 106, 0.8)
+    background: linear-gradient(to bottom, var(--am-mint), var(--am-mint-foot))
+    box-shadow: 0 0 0 4px var(--am-ink)
 
 .count
   position: absolute
@@ -176,7 +178,7 @@ button
   top: 42%
   transform: translate(-50%, -50%)
   font-size: 140px
-  color: #ffd76a
+  color: var(--am-gold)
   animation: count-pop 0.7s ease-out both
 
 @keyframes count-pop

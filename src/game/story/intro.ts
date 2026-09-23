@@ -38,6 +38,7 @@ import { readInsets } from '@/game/duel/layout'
 import { makeCanvas, bakeDust } from '@/game/restore/dust'
 import { sectorOf } from '@/game/map/sectors'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
+import { drawCloth } from '@/game/map/map'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { guardianOf } from '@/game/duel/foes'
 import { EMOTE_FACE } from '@/game/story/portrait'
@@ -691,12 +692,21 @@ export const drawIntro = (g: G2D): void => {
   g.setTransform(d, 0, 0, d, 0, 0)
   g.globalAlpha = 1
   g.globalCompositeOperation = 'source-over'
-  // The night page around the book, with its slow twinkles.
-  g.fillStyle = '#2b2048'
-  g.fillRect(0, 0, S.w, S.h)
-  g.fillStyle = '#fff4d6'
+  // The cloth around the book, with its slow motes — the map's own cloth, so
+  // the very first screen is not the one flat-coloured surround in the game.
+  drawCloth(g, S.w, S.h)
+  // The motes drifting on the cloth around the page. They used to be cream
+  // stars on a night-blue void; on the lilac cloth a LIGHT mote washes out
+  // exactly where the gradient is lightest (measured: cream at 0.32 alpha is
+  // 1.78:1 against the top stop but 1.25:1 against the bottom one, i.e. gone).
+  // A PLUM mote is the even one across the whole ramp (1.37 / 1.52 / 1.70), and
+  // it reads as petals and dust on daylight cloth rather than stars at night —
+  // which is what this surround now is. Alpha is scaled down to match the old
+  // visual weight, because a darker-than-ground mote carries further than a
+  // lighter-than-ground one at the same alpha.
+  g.fillStyle = '#3A2340'
   for (let band = 0; band < 3; band++) {
-    g.globalAlpha = 0.18 + 0.22 * (0.5 + 0.5 * sin(S.t * (0.9 + band * 0.4) + band * 2.1))
+    g.globalAlpha = 0.10 + 0.14 * (0.5 + 0.5 * sin(S.t * (0.9 + band * 0.4) + band * 2.1))
     g.beginPath()
     for (let i = band; i < TWINKLES.length; i += 3) {
       const [u, w, r] = TWINKLES[i]!

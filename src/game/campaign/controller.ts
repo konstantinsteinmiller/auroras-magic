@@ -86,15 +86,11 @@ export const onUnboxComplete = (node: number): ChestGrant => {
     S.campaign.runesUnlocked |= 1 << owed
     grant.rune = owed
   }
-  if (!nodeIsBoss(node)) {
-    if (grant.rune !== null) save()
-    return grant
-  }
-  const ch = CHAPTERS[nodeChapter(node)]!
-  if (ch.signatureSpell !== null && !((S.campaign.signaturesUnlocked >> ch.signatureSpell) & 1)) {
-    S.campaign.signaturesUnlocked |= 1 << ch.signatureSpell
-    grant.signature = ch.signatureSpell
-  }
+  // The KEEPSAKE is not boss-only any more (owner, 2026-09-21): the first one
+  // lands after the second battle, so the wardrobe has something in it while
+  // a child is still learning to draw, instead of standing empty for five
+  // duels. Any node carrying a `giftId` gives it; the signature spell below
+  // stays a boss's alone.
   const gift = NODES[node]?.giftId
   const def = gift !== null && gift !== undefined ? GIFTS[gift] : undefined
   if (def?.kind === 'cosmetic' && def.cosmeticId !== undefined && !((S.campaign.giftsOwned >> def.cosmeticId) & 1)) {
@@ -102,8 +98,43 @@ export const onUnboxComplete = (node: number): ChestGrant => {
     grant.cosmetic = def.cosmeticId
   }
   if (def?.kind === 'feature' && def.feature === 'versus') S.campaign.versusUnlocked = true
+
+  if (!nodeIsBoss(node)) {
+    if (grant.rune !== null || grant.cosmetic !== null) save()
+    return grant
+  }
+  const ch = CHAPTERS[nodeChapter(node)]!
+  if (ch.signatureSpell !== null && !((S.campaign.signaturesUnlocked >> ch.signatureSpell) & 1)) {
+    S.campaign.signaturesUnlocked |= 1 << ch.signatureSpell
+    grant.signature = ch.signatureSpell
+  }
   save()
   return grant
+}
+
+/**
+ * Hand over every keepsake whose chest is already BEHIND this player.
+ *
+ * The second shelf (§2.4 rule 20) put fourteen keepsakes on nodes that used
+ * to give only a tool. A save made before them has opened those chests and
+ * will never open them again, so without this a player who got to chapter 6
+ * on the old schedule would find eight permanent ghosts on the shelf — a
+ * wardrobe that says "you missed these" for things that did not exist.
+ *
+ * Deterministic and idempotent: it grants exactly what the same nodes would
+ * have granted, and only up to the furthest DUEL already won. Returns true
+ * when it actually gave something, so the caller can redraw.
+ */
+export const backfillKeepsakes = (): boolean => {
+  const before = S.campaign.giftsOwned
+  for (let n = 0; n <= S.campaign.furthestNode; n++) {
+    const gift = NODES[n]?.giftId
+    const def = gift !== null && gift !== undefined ? GIFTS[gift] : undefined
+    if (def?.kind === 'cosmetic' && def.cosmeticId !== undefined) S.campaign.giftsOwned |= 1 << def.cosmeticId
+  }
+  if (S.campaign.giftsOwned === before) return false
+  save()
+  return true
 }
 
 /** A node's dialogue has now been seen once (C12: skippable from then on). */

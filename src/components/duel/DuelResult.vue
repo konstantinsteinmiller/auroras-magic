@@ -50,7 +50,7 @@ const stageStyle = computed(() => ({
     //- letting the rest run off the plate is how the German loss screen came
     //- to read "Zum Duell tippe" with its tail under the Map button.
     div.stage-layer(v-if="!L.portrait" :style="stageStyle")
-      div.abs.duel-plate.panel(:style="box(376, 226, 528, 268)")
+      div.abs.duel-plate.is-night.panel(:style="box(376, 226, 528, 268)")
       span.abs.ink-text.title(v-fit="46" :style="box(404, 244, 472, 92)") {{ t('result.defeated') }}
       div.abs.dust(:style="box(540, 344, 200, 30)" aria-hidden="true")
         span.mote(v-for="i in 5" :key="i" :class="{ on: i <= motes }")
@@ -61,7 +61,7 @@ const stageStyle = computed(() => ({
         @click.stop="emit('retry')"
       )
         GameIcon.glyph(name="replay")
-        span.ink-text.retry-label(v-fit="28") {{ t('result.tapToDuel') }}
+        span.ink-text.ink-none.retry-label(v-fit="28") {{ t('result.tapToDuel') }}
       button.abs.duel-plate.map(
         v-if="hud.tapReady"
         :style="box(796, 384, 84, 84)"
@@ -71,14 +71,14 @@ const stageStyle = computed(() => ({
         GameIcon.glyph(name="back")
 
     //- ═════════ PORTRAIT: the same content in a centred card ═════════
-    div.port-card.duel-plate(v-else)
+    div.port-card.duel-plate.is-night(v-else)
       span.ink-text.port-title(v-fit) {{ t('result.defeated') }}
       div.dust(aria-hidden="true")
         span.mote(v-for="i in 5" :key="i" :class="{ on: i <= motes }")
       div.port-row(v-if="hud.tapReady")
         button.duel-plate.retry(:aria-label="t('result.tapToDuel')" @click.stop="emit('retry')")
           GameIcon.glyph(name="replay")
-          span.ink-text.retry-label(v-fit) {{ t('result.tapToDuel') }}
+          span.ink-text.ink-none.retry-label(v-fit) {{ t('result.tapToDuel') }}
         button.duel-plate.map(:aria-label="t('a11y.backToMap')" @click.stop="emit('map')")
           GameIcon.glyph(name="back")
 </template>
@@ -93,7 +93,7 @@ const stageStyle = computed(() => ({
 .dim
   position: absolute
   inset: 0
-  background: rgba(20, 12, 40, 0.62)
+  background: var(--am-scrim)
 
 .stage-layer
   position: absolute
@@ -104,9 +104,10 @@ const stageStyle = computed(() => ({
 .abs
   position: absolute
 
+// The card KEEPS its dark plate (§2.5) — it is the sleepy beat, and cream
+// would fight the "Zzz". The face and the cream ink come from `.is-night`.
 .panel
   --lw: 8px
-  background: #221a3e
   border-radius: 32px
 
 button
@@ -114,8 +115,10 @@ button
   padding: 0
   margin: 0
   font: inherit
-  color: #fff
-  border: none
+  // Plum, on gold (Retry) and on cream (Map) alike. `border: none` is gone
+  // with it: the plum line is `.duel-plate`'s, and on a paper chip it is the
+  // whole reason the control reads as a control.
+  color: var(--am-ink)
   display: flex
   align-items: center
   justify-content: center
@@ -126,11 +129,11 @@ button
   &:active
     transform: scale(0.96)
   &:focus-visible
-    outline: 3px solid var(--duel-gold)
+    outline: 3px solid var(--am-ink)
     outline-offset: 3px
 
 .retry
-  background: var(--duel-plate-live)
+  background: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
   border-radius: 20px
   min-height: 56px
   // Without this the caption is a flex item at its own intrinsic width, and a
@@ -159,17 +162,22 @@ button
   max-height: 2.8em
 
 .title
-  color: #c9b6ff
+  // 7.62:1 on the night card
+  color: var(--am-gold)
 
 .retry-label
   flex: 0 1 auto
   min-width: 0
+  // `.ink-text` fills white, and `.ink-none` takes away the plum outline that
+  // made white legible — so on the gold face this inherited to white-on-gold
+  // at 1.38:1, which is the §10.4 failure mode exactly (light ink left behind
+  // on a plate that stopped being dark). Plum on gold is 10.16:1.
+  color: var(--am-on-accent)
 
 .glyph
   width: 34px
   height: 34px
   flex: 0 0 auto
-  filter: drop-shadow(2px 2px 0 var(--duel-ink))
 
 // Dream Dust: sleepy sparkle motes, lit one per loss on this node.
 .dust
@@ -204,13 +212,12 @@ button
   align-items: center
   gap: 16px
   padding: 22px 16px 20px
-  background: #221a3e
   border-radius: 26px
 
 .port-title
   width: 100%
   font-size: clamp(26px, 8.5vw, 38px)
-  color: #c9b6ff
+  color: var(--am-gold)
   text-align: center
   white-space: normal
   overflow: hidden

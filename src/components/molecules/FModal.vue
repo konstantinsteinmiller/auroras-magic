@@ -138,6 +138,34 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
           div.f-modal__frame-wrap
             span.f-modal__frame-shadow(aria-hidden="true")
             div.f-modal__frame
+              //- The mane swirl (§5.6): the ONE watermark in the build, at 12%
+              //- in the top-left corner. It is not ornament — it carries no
+              //- meaning the copy does not already carry, which is why it needs
+              //- neither an i18n key nor an accessible name, only
+              //- `aria-hidden` and `pointer-events: none`.
+              svg.f-modal__swirl(viewBox="0 0 64 64" aria-hidden="true")
+                path(
+                  d="M2 30c10-2 18-8 22-18 2 9-1 17-8 22 9 1 17-3 22-11 1 11-5 20-15 24"
+                  fill="none"
+                  stroke="var(--am-ink-soft)"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                )
+
+              //- The rainbow rule (§5.5), under the header — the cheapest piece
+              //- of magic in the set and the one that does the most work.
+              //-
+              //- Absolutely positioned against the MEASURED header overhang
+              //- rather than placed inside the header: putting it in the header
+              //- would change what the ResizeObserver measures, and the overlap
+              //- system is not a thing to feed its own output back into. It also
+              //- must not scroll, which rules out the content slot.
+              div.f-modal__rule(
+                v-if="(tabs && tabs.length > 0) || title"
+                aria-hidden="true"
+              )
+
               button.f-modal__close(
                 v-if="isClosable"
                 type="button"
@@ -175,7 +203,10 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
 .f-modal__backdrop
   position: absolute
   inset: 0
-  background-color: rgba(0, 0, 0, 0.7)
+  // Plum, never black — the one dim value the whole game uses (§3.15).
+  background-color: var(--am-scrim)
+  // One of the two `backdrop-filter`s in the build, and it stays. Do not add
+  // a third.
   backdrop-filter: blur(4px)
 
 .f-modal__container
@@ -206,7 +237,8 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   inset: 0
   transform: translateY(4px)
   border-radius: clamp(0.6rem, 2.6vw, 1rem)
-  background-color: #1a2b4b
+  // The book's board under the banner, not a navy depth block.
+  background-color: var(--am-frame)
 
 .f-modal__ribbon-body
   position: relative
@@ -215,19 +247,24 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   justify-content: center
   min-height: 2.25rem
   padding: clamp(0.3rem, 1.4vw, 0.6rem) clamp(1.1rem, 6vw, 2.75rem)
-  border: 4px solid #0f1a30
+  border: 4px solid var(--am-ink)
   border-radius: clamp(0.6rem, 2.6vw, 1rem)
-  background-image: linear-gradient(to bottom, #ffcd00, #f7a000)
+  // A PAPER banner, not a gold one: gold is reserved for the thing you press,
+  // so the title never shouts louder than the CTA under it (§3.5).
+  background-image: linear-gradient(to bottom, var(--am-paper-raised), var(--am-parchment))
 
 .f-modal__ribbon-text
-  color: #fff
-  font-weight: 900
-  text-transform: uppercase
-  letter-spacing: 0.05em
+  color: var(--am-ink)
+  // 800 not 900; sentence case, no tracking, no five-way black ring — 11–13:1
+  // on paper needs none of it (§4.2, §4.3, §4.4).
+  font-weight: 800
+  text-transform: none
+  letter-spacing: 0
+  font-style: normal
   text-align: center
   font-size: clamp(0.95rem, 4.4vw, 1.85rem)
   line-height: 1.15
-  text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000
+  text-shadow: none
 
 .f-modal__frame-wrap
   position: relative
@@ -243,7 +280,8 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   inset: 0
   transform: translateY(8px)
   border-radius: clamp(1rem, 5vw, 2.5rem)
-  background-color: #0c1626
+  // The book's board showing under the page.
+  background-color: var(--am-frame)
 
 .f-modal__frame
   position: relative
@@ -251,16 +289,61 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   flex: 1 1 auto
   flex-direction: column
   min-height: 0
-  border: 5px solid #0f1a30
+  border: 5px solid var(--am-ink)
   border-radius: clamp(0.9rem, 4.4vw, 2rem)
-  background-color: #1a2b4b
+  background-color: var(--am-paper)
+
+  // The scalloped page edge (§5.7), so the panel reads as torn paper rather
+  // than as a card. `clip-path` only — cheaper than a mask, composited once.
+  //
+  // Inset by the corner radius so a tooth can never poke out past the rounded
+  // corner, and `pointer-events: none` so it can never intercept a drag aimed
+  // at the content scroller above it.
+  &::after
+    content: ''
+    position: absolute
+    inset-inline: clamp(0.9rem, 4.4vw, 2rem)
+    bottom: -9px
+    height: 10px
+    background: var(--am-paper)
+    clip-path: polygon(0 0, 100% 0, 96% 100%, 88% 0, 80% 100%, 72% 0, 64% 100%, 56% 0, 48% 100%, 40% 0, 32% 100%, 24% 0, 16% 100%, 8% 0, 0 100%)
+    pointer-events: none
+
+// The watermark (§5.6): one per modal, top-left, 12%, never interactive.
+.f-modal__swirl
+  position: absolute
+  top: clamp(0.3rem, 1.6vw, 0.7rem)
+  left: clamp(0.3rem, 1.6vw, 0.7rem)
+  z-index: 0
+  width: clamp(2.5rem, 12vw, 4rem)
+  height: clamp(2.5rem, 12vw, 4rem)
+  opacity: 0.12
+  pointer-events: none
+
+// The rainbow rule (§5.5). Sits on the MEASURED header overhang, so it lands
+// under the ribbon or the tab row at every viewport, in every language, and
+// never scrolls with the content.
+.f-modal__rule
+  position: absolute
+  z-index: 1
+  inset-inline: clamp(0.5rem, 3vw, 1.5rem)
+  top: calc(var(--fmodal-header-overlap, 0px) + clamp(0.3rem, 1.2vw, 0.55rem))
+  height: 3px
+  border-radius: 999px
+  background: var(--am-rainbow)
+  opacity: 0.9
+  pointer-events: none
 
 .f-modal__content
   flex: 1 1 auto
   min-height: 0
   overflow-y: auto
   overscroll-behavior: contain
-  color: #fff
+  // Firefox honours no `-webkit-scrollbar` rule, and the page is
+  // `color-scheme: only light` now (§3.17, §10.1) — without this it paints a
+  // UA scrollbar with no relation to the page. Thumb then track.
+  scrollbar-color: var(--am-lilac-foot) var(--am-paper-sunken)
+  color: var(--am-ink)
   text-align: center
   // The measured header overhang plus a breathing gap. This is the fix for the
   // "header overlaps the content" bug — it is derived, not guessed.
@@ -296,19 +379,27 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   background: none
   cursor: pointer
   -webkit-tap-highlight-color: transparent
-  transition: transform 90ms ease-out
+  transition: transform var(--am-dur-press) ease-out
 
   &:active
     translate: 28% -30%
     scale: 0.92
+
+  &:focus-visible
+    outline: 3px solid var(--am-ink)
+    outline-offset: 3px
 
 .f-modal__close-shadow
   position: absolute
   inset: 0
   transform: translateY(3px)
   border-radius: clamp(0.4rem, 1.8vw, 0.65rem)
-  background-color: #6b1212
+  background-color: var(--am-coral-plate)
 
+// A soft coral paper chip with a PLUM X (§3.11). It was a hazard red with a
+// white X: the single most adult-app mark on a children's screen, and the one
+// this pass most wanted gone. Geometry, `translate: 28% -34%`, the `:active`
+// nudge and the clamp metrics are unchanged.
 .f-modal__close-body
   position: relative
   display: flex
@@ -316,10 +407,10 @@ const handleTabChange = (val: string | number): void => emit('update:activeTab',
   justify-content: center
   width: 100%
   height: 100%
-  border: 2px solid #0f1a30
+  border: 3px solid var(--am-ink)
   border-radius: clamp(0.4rem, 1.8vw, 0.65rem)
-  background-color: #ff3e3e
-  color: #fff
+  background-image: linear-gradient(to bottom, var(--am-coral), var(--am-coral-foot))
+  color: var(--am-on-accent)
 
   // Nested to outrank `GameIcon`'s own `.game-icon` rule, which has the same
   // specificity a flat class selector would.

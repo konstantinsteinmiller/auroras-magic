@@ -120,14 +120,37 @@ const stateOf = (file, id) => {
   return { mark: '✓', state: `sliced ${String(seen.at).slice(0, 10)}`, rev }
 }
 
-const rows = [
-  ...manifest.SECTOR_SHEETS.map((s) => ({ title: `${s.chapter}-${(s.node % 5) + 1} ${s.title}`, doc: 'PROMPTS-SECTORS.md', file: s.file, id: s.id })),
-  ...manifest.PORTRAIT_SHEETS.map((s) => ({ title: s.title, doc: 'PROMPTS-PORTRAITS.md', file: s.file, id: s.id })),
-  ...manifest.STORY_SHEETS.map((s) => ({ title: `Intro ${s.panel} · ${s.title}`, doc: 'PROMPTS-STORY.md', file: s.file, id: s.id })),
-  ...[...manifest.ITEM_SHEETS, ...manifest.KEEPSAKE_SHEETS].map((s) => ({ title: s.title, doc: 'PROMPTS-ITEMS.md', file: s.file, id: s.id })),
-  ...manifest.RUNE_SHEETS.map((s) => ({ title: s.title, doc: 'PROMPTS-RUNES.md', file: s.file, id: s.id })),
-  ...manifest.ISLAND_SHEETS.map((s) => ({ title: s.title, doc: 'PROMPTS-ISLANDS.md', file: s.file, id: s.id }))
-].map((r) => ({ ...r, ...stateOf(r.file, r.id) }))
+/**
+ * Every drawable in the manifest, DERIVED — never re-listed here.
+ *
+ * This used to be a hand-written list of families, and it had quietly fallen
+ * two behind: `page` (23 drawables) and `wardrobe` (3) were in `sheetRows()`,
+ * in the bench and in the Art Desk, and in no version of this report. A paint
+ * pass that asked "is everything painted?" got "yes" while twenty-six
+ * drawables were never counted. Adding a family is already three edits; it
+ * must not silently be four.
+ *
+ * The prompt DOCUMENT each one lives in is found by looking for the reference
+ * in the documents themselves, which is the same string the Art Desk matches
+ * on — so there is no family→document map to fall out of date either.
+ */
+const stemOfTarget = (target) => String(target).replace(/^.*\//, '').replace(/\.[^.]+$/, '')
+const docOf = (file) => Object.entries(docs)
+  .find(([, text]) => text.includes(`(${file}.png`) || text.includes(`+ ${file}.png`))?.[0] ?? null
+
+const rows = manifest.sheetRows().map((r) => {
+  // Sectors read better with the chapter they belong to, which the reference
+  // name already carries: `sector-3-2-rainbow-bridge` → "3-2 Rainbow Bridge".
+  const at = /^sector-(\d+)-(\d+)-/.exec(r.file)
+  const doc = docOf(r.file)
+  if (!doc) console.log(`  ! ${r.file} is in no PROMPTS-*.md — it cannot be painted`)
+  return {
+    title: at ? `${at[1]}-${at[2]} ${r.title}` : r.title,
+    doc: doc ?? '—',
+    file: r.file,
+    id: stemOfTarget(r.target)
+  }
+}).map((r) => ({ ...r, ...stateOf(r.file, r.id) }))
 
 const tally = { '✓': 0, '!': 0, '?': 0, '·': 0 }
 for (const r of rows) tally[r.mark]++
@@ -157,9 +180,20 @@ if (!CHECK) {
   console.log(`  ✓ PAINT-STATUS.md  ${tally['✓']} sliced, ${tally['!']} stale, ${tally['?']} uncut, ${tally['·']} outstanding`)
 }
 
-console.log(`\n${rows.length} drawables (${manifest.SECTOR_SHEETS.length} sectors, ${manifest.STORY_SHEETS.length} intro pages, `
-  + `${manifest.ITEM_SHEETS.length + manifest.KEEPSAKE_SHEETS.length} items, ${manifest.RUNE_SHEETS.length} runes, `
-  + `${manifest.PORTRAIT_SHEETS.length} portrait strips, ${manifest.ISLAND_SHEETS.length} islands), `
-  + `${manifest.manifestTargets().size} target files`
+// Counted by FAMILY, off the same derived rows — the hand-written version
+// of this line had fallen behind too, and named nine families of eleven.
+const byFamily = new Map()
+for (const r of manifest.sheetRows()) byFamily.set(r.family, (byFamily.get(r.family) ?? 0) + 1)
+// The family ids are code, not English: name them the way the roadmap and
+// art-style.md do, so the line reads as a sentence.
+const NOUN = {
+  sector: ['sector', 'sectors'], story: ['intro page', 'intro pages'],
+  page: ['book page', 'book pages'], wardrobe: ['wardrobe piece', 'wardrobe pieces'],
+  item: ['item', 'items'], prop: ['prop', 'props'], creature: ['creature', 'creatures'],
+  rune: ['rune', 'runes'], portrait: ['portrait strip', 'portrait strips'],
+  island: ['island', 'islands'], brand: ['brand picture', 'brand pictures']
+}
+const tallies = [...byFamily].map(([f, n]) => `${n} ${(NOUN[f] ?? [f, `${f}s`])[n === 1 ? 0 : 1]}`).join(', ')
+console.log(`\n${rows.length} drawables (${tallies}), ${manifest.manifestTargets().size} target files`
   + (fits ? ' — SIZE clauses use the fits the bench measured' : ' — no sheet-index.json yet: SIZE clauses use the nominal extent'))
 if (CHECK && stale) process.exit(1)

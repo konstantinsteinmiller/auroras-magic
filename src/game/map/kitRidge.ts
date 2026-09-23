@@ -17,7 +17,10 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, flower } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, flower, butterflyAt, twinkleAt, puffAt, bubbleAt, streakAt } from '@/game/map/kit'
+import { tapCover } from '@/game/map/tapCover'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 import { K, skyPuff, inkFill, mix, star5 } from '@/game/map/kitSky'
 import { type Pt, curve, foam } from '@/game/map/kitBay'
 import type { TapCreature, RescueCollectible } from '@/game/map/sectorDef'
@@ -109,26 +112,18 @@ export const band = (g: G2D, w: number, col: string, edge = 4): void => {
   g.stroke()
 }
 
-/** A four-point twinkle added to the CURRENT path. */
-export const twinkleAt = (g: G2D, x: number, y: number, r: number): void => {
-  g.moveTo(x, y - r)
-  g.quadraticCurveTo(x + r * 0.16, y - r * 0.16, x + r, y)
-  g.quadraticCurveTo(x + r * 0.16, y + r * 0.16, x, y + r)
-  g.quadraticCurveTo(x - r * 0.16, y + r * 0.16, x - r, y)
-  g.quadraticCurveTo(x - r * 0.16, y - r * 0.16, x, y - r)
-}
-
 /** Twinkles winking at fixed spots — one path, one fill (a live prop). */
 export const glints = (g: G2D, pts: readonly Lobe[], t: number, alive: number, col = '#fffbe0'): void => {
   if (alive <= 0) return
   g.beginPath()
+  let painted = false
   for (let i = 0; i < pts.length; i++) {
     const [x, y, r] = pts[i]!
     const k = Math.max(0, sin(t * 2.2 + i * 1.9))
-    if (k > 0.05) twinkleAt(g, x, y, r * k * alive)
+    if (k > 0.05) painted = twinkleAt(g, x, y, r * k * alive, col)
   }
   g.globalAlpha = 1
-  fill(g, col)
+  if (!painted) fill(g, col)
 }
 
 /**
@@ -543,16 +538,24 @@ export const fallFlow = (g: G2D, x: number, top: number, bot: number, w: number,
   const H = bot - top
   const v = t * 150 * alive
   const cw = w / RAINBOW.length
+  // The dashes are `STREAK_ART` where it has landed, and the one batched fill
+  // they always were where it has not. The fall's own clip is unchanged: it
+  // is the call site's path, and that is why the BAND is the sheet.
+  g.globalAlpha = 0.6
+  let painted = false
   g.beginPath()
   for (let i = 0; i < RAINBOW.length; i++) {
     const cx = x - w / 2 + (i + 0.5) * cw
     for (let j = 0; j < 2; j++) {
       const yy = top + ((v + j * (H / 2 + 20) + i * 41) % (H + 50)) - 30
-      g.roundRect(cx - cw * 0.22, yy, cw * 0.44, 30, cw * 0.22)
+      painted = streakAt(g, cx - cw * 0.22, yy, cw * 0.44, 30, '#ffffff')
     }
   }
-  g.fillStyle = 'rgba(255,255,255,0.6)'
-  g.fill()
+  g.globalAlpha = 1
+  if (!painted) {
+    g.fillStyle = 'rgba(255,255,255,0.6)'
+    g.fill()
+  }
   g.restore()
 }
 
@@ -561,13 +564,49 @@ export const mist = (g: G2D, x: number, y: number, w: number, t: number, alive: 
   if (alive <= 0) return
   for (let i = 0; i < 3; i++) {
     const k = (t * 0.5 + i / 3) % 1
+    const px = x + (i - 1) * w * 0.34 + sin(k * 4 + i) * 6
+    const py = y - 10 - k * 46
+    const r = 10 + k * 14
     g.globalAlpha = alive * 0.75 * (1 - k)
-    disc(g, x + (i - 1) * w * 0.34 + sin(k * 4 + i) * 6, y - 10 - k * 46, 10 + k * 14, '#ffffff')
+    if (!puffAt(g, px, py, r, '#ffffff')) disc(g, px, py, r, '#ffffff')
   }
   g.globalAlpha = 1
 }
 
 /** A small arc rainbow of `n` bands at (x, y), outer radius r. */
+/** The arc the falls throw: 0.9π of it, six bands, outer radius 96. */
+const ARC_A0 = PI * 1.05
+const ARC_A1 = PI * 1.95
+const ARC_R = 96
+
+/**
+ * The waterfall's rainbow arc as a painted still.
+ *
+ * ONE arc, not `miniRainbow` in general: the span comes from the call site, so
+ * a 0.9π bow and the rescue cushions' 2.4-radian one are two different
+ * shapes. This is the one a sector flies as a live prop; the others keep their
+ * drawing, and `rainbowArc` simply reports that it did not paint.
+ */
+export const RAINBOW_ARC_ART: ItemSpec = {
+  ...PROP_ART.rainbowArc, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / ARC_R, s / ARC_R)
+    miniRainbow(g, 0, 0, ARC_R, 7, ARC_A0, ARC_A1, 6)
+    g.restore()
+  }
+}
+
+/** The falls' arc at (x, y), outer radius `r` — painted, or false so the
+ *  caller draws `miniRainbow` as before. */
+export const rainbowArc = (g: G2D, x: number, y: number, r: number): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, RAINBOW_ARC_ART, r)
+  g.restore()
+  return hit
+}
+
 export const miniRainbow = (g: G2D, x: number, y: number, r: number, bw: number, a0 = PI, a1 = TAU, n = 4): void => {
   g.lineWidth = bw + 0.6
   g.lineCap = 'butt'
@@ -1295,6 +1334,28 @@ export const kitePavilion = (g: G2D, x: number, y: number, w: number, pot: Pot):
   return [x, ut - 74 * k]
 }
 
+/** The charm crystal's width — what the reference's facet lines are judged
+ *  against. */
+const CHARM_UNIT = 20
+
+/**
+ * The hanging crystal charm as a painted still.
+ *
+ * TINTED WHOLE, not in one region: a crystal is three tones of one hue, so a
+ * painting in neutral greys keeps its own facets and light when the game
+ * multiplies the chapter's colour through it. The string and the sway stay
+ * drawn — the string reaches a point the sector picks.
+ */
+export const CHARM_ART: ItemSpec = {
+  ...PROP_ART.charm, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / CHARM_UNIT, s / CHARM_UNIT)
+    crystal(g, 0, 0, CHARM_UNIT, CHARM_UNIT * 2, 0, [accent.base, accent.shade, accent.lite], 3)
+    g.restore()
+  }
+}
+
 /** A crystal charm on a string from (x, y), `len` long, swaying `a` — a live prop. */
 export const charm = (g: G2D, x: number, y: number, len: number, a: number, t: Tones): void => {
   const ex = x + sin(a) * len
@@ -1303,17 +1364,17 @@ export const charm = (g: G2D, x: number, y: number, len: number, a: number, t: T
   g.moveTo(x, y)
   g.lineTo(ex, ey)
   ink(g, 2.4)
-  crystal(g, ex, ey - 2, 20, 40, PI + a * 0.5, t, 3)
+  g.save()
+  g.translate(ex, ey - 2)
+  g.rotate(PI + a * 0.5)
+  const painted = drawItem(g, CHARM_ART, CHARM_UNIT, 0, t[0])
+  g.restore()
+  if (!painted) crystal(g, ex, ey - 2, 20, 40, PI + a * 0.5, t, 3)
 }
 
-/** A crescent windsock on its pole top at (x, y), blowing toward `dir` — a live prop. */
-export const windsock = (g: G2D, x: number, y: number, s: number, t: number, alive: number, dir = 1): void => {
-  const lift = (1 - alive) * 1.15 + alive * (0.12 + sin(t * 2.3) * 0.08)
-  const wv = sin(t * 6) * 5 * alive
-  g.save()
-  g.translate(x, y)
-  g.scale(dir, 1)
-  g.rotate(lift)
+/** The windsock's four bands streaming from the origin at scale `s`, its
+ *  trailing end pushed by `wv`. */
+const windsockShape = (g: G2D, s: number, wv: number): void => {
   const cols = [RR.pink, '#ffffff', RR.pink, '#ffffff']
   for (let i = 0; i < 4; i++) {
     const a = i * 22 * s
@@ -1329,6 +1390,34 @@ export const windsock = (g: G2D, x: number, y: number, s: number, t: number, ali
     fill(g, cols[i]!)
     ink(g, 3)
   }
+}
+
+/** The scale the cliffs fly the one windsock at, and the length it gives. */
+const WINDSOCK_S = 0.9
+const WINDSOCK_UNIT = 88 * WINDSOCK_S
+
+/** The windsock as a painted still, hanging straight. Its lift into the wind
+ *  is a rotation and stays drawn; its slow ripple does not survive one
+ *  panel, and at a fifteenth of the scene's width nobody counts it. */
+export const WINDSOCK_ART: ItemSpec = {
+  ...PROP_ART.windsock, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / WINDSOCK_UNIT, s / WINDSOCK_UNIT)
+    windsockShape(g, WINDSOCK_S, 0)
+    g.restore()
+  }
+}
+
+/** A crescent windsock on its pole top at (x, y), blowing toward `dir` — a live prop. */
+export const windsock = (g: G2D, x: number, y: number, s: number, t: number, alive: number, dir = 1): void => {
+  const lift = (1 - alive) * 1.15 + alive * (0.12 + sin(t * 2.3) * 0.08)
+  const wv = sin(t * 6) * 5 * alive
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  g.rotate(lift)
+  if (!drawItem(g, WINDSOCK_ART, 88 * s)) windsockShape(g, s, wv)
   g.restore()
 }
 
@@ -1515,11 +1604,45 @@ const lift = (step: number, ph: number, trot: number): number => Math.max(0, sin
  * `trot` 0 (standing) … 1 (trotting).
  */
 export const rainbowFoal = (g: G2D, x: number, y: number, s: number, dir: number, step: number, trot: number): void => {
-  const w = LW / s
-  const bob = -Math.abs(sin(step)) * 3 * trot
+  g.save()
+  g.translate(x, y)
+  g.scale(dir, 1)
+  const painted = drawItem(g, RAINBOW_FOAL_ART, FOAL_UNIT * s, clamp(trot, 0, 1) * (1 + (sin(step) + 1) / 2))
+  g.restore()
+  if (painted) return
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
+  rainbowFoalShape(g, s, step, trot)
+  g.restore()
+}
+
+/** Horn tip (-110) to the hooves (0) at scale 1 — the foal's own height in SU. */
+const FOAL_UNIT = 112
+
+/**
+ * The rainbow foal's gait (`CREATURE_ART.rainbowFoal`): standing, then the two
+ * halves of a trot. `trot` walks it off the standing panel and `sin(step)`
+ * swings it between the other two, which `drawItem` cross-fades — the same
+ * trick the prop family's birds use for a wing-beat. Its mane is the whole
+ * rainbow, so nothing here is tinted, and the rainbow streak it leaves on the
+ * grass stays drawn.
+ */
+export const RAINBOW_FOAL_ART: ItemSpec = {
+  ...CREATURE_ART.rainbowFoal, frames: 3,
+  draw: (g, sz, f) => {
+    const k = sz / FOAL_UNIT
+    g.save()
+    g.scale(k, k)
+    rainbowFoalShape(g, 1, f < 1 ? 0 : (f - 1) * PI - PI / 2, f < 1 ? 0 : 1)
+    g.restore()
+  }
+}
+
+/** The foal itself, hooves at the origin, facing +x, in its own units. */
+const rainbowFoalShape = (g: G2D, s: number, step: number, trot: number): void => {
+  const w = LW / s
+  const bob = -Math.abs(sin(step)) * 3 * trot
   // The tail: three rainbow locks.
   const tail: readonly (readonly [number, number, number, string])[] = [
     [-34, -54 + bob, 12, RAINBOW[0]!], [-44, -42 + bob, 11, RAINBOW[2]!], [-42, -28 + bob, 9, RAINBOW[4]!]
@@ -1640,7 +1763,6 @@ export const rainbowFoal = (g: G2D, x: number, y: number, s: number, dir: number
   g.arc(51, -60, 5, PI * 0.2, PI * 0.8)
   ink(g, w * 0.45)
   g.restore()
-  g.restore()
 }
 
 const TRAIL = [RAINBOW[0]!, RAINBOW[2]!, RAINBOW[3]!, RAINBOW[4]!]
@@ -1682,17 +1804,18 @@ export const foalTap = (p: FoalSpot, cover: (g: G2D) => void, r = 72): TapCreatu
           g.stroke()
         }
         g.beginPath()
+        let lit = false
         for (let i = 0; i < 3; i++) {
           const u = (i + 0.5) / 3
           const rr = 9 * Math.max(0, sin(t * 7 + i * 2.1)) * e
-          if (rr > 1) twinkleAt(g, lerp(x0, x1, u), p.y - 16 - (i % 2) * 12, rr)
+          if (rr > 1) lit = twinkleAt(g, lerp(x0, x1, u), p.y - 16 - (i % 2) * 12, rr, '#fffbe0')
         }
-        fill(g, '#fffbe0')
+        if (!lit) fill(g, '#fffbe0')
         g.globalAlpha = 1
       }
       rainbowFoal(g, fx, p.y, p.s, p.dir, t * 15, Math.min(1, e * 1.2))
     }
-    cover(g)
+    tapCover(g, cover)
   }
 })
 
@@ -1722,6 +1845,123 @@ export const petalCushion = (g: G2D, x: number, y: number, s: number): void => {
   for (let i = 0; i < 5; i++) flower(g, x - 48 * s + i * 24 * s, y - 16 * s - (i % 2) * 12 * s, 7 * s, RAINBOW[(i * 2 + 1) % 6]!, i)
 }
 
+/** Tip (-62) to stem (48) at scale 1 — the petal's own height in SU. */
+const PRISM_PETAL_UNIT = 110
+
+/**
+ * The Prism Petal, folded and open (`CREATURE_ART.prismPetal`).
+ */
+export const PRISM_PETAL_ART: ItemSpec = {
+  ...CREATURE_ART.prismPetal, frames: 2,
+  draw: (g, sz, f) => {
+    const k = sz / PRISM_PETAL_UNIT
+    g.save()
+    g.scale(k, k)
+    prismPetalShape(g, 1, f, f, 0)
+    g.restore()
+  }
+}
+
+/** The petal itself, centred on the origin, in its own units. */
+const prismPetalShape = (g: G2D, s: number, o: number, e: number, t: number): void => {
+  const S = (v: number): number => v * s
+  // The petal: a broad rounded petal with a notch at its tip; folded, it is
+  // half as wide and creased down the middle.
+  const wf = lerp(0.5, 1, o)
+  const petal = (): void => {
+    g.beginPath()
+    g.moveTo(0, S(48))
+    g.bezierCurveTo(-S(50) * wf, S(34), -S(54) * wf, -S(40), -S(20) * wf, -S(58))
+    g.quadraticCurveTo(-S(7) * wf, -S(62), 0, -S(52))
+    g.quadraticCurveTo(S(7) * wf, -S(62), S(20) * wf, -S(58))
+    g.bezierCurveTo(S(54) * wf, -S(40), S(50) * wf, S(34), 0, S(48))
+    g.closePath()
+  }
+  petal()
+  fill(g, mix(SLEEP, '#fff4fb', o))
+  g.save()
+  petal()
+  g.clip()
+  if (o > 0) {
+    // The shimmer: pastel rainbow bands sliding diagonally.
+    g.globalAlpha = o
+    const sh = (t * 18) % 24
+    for (let i = -1; i < PETAL_BANDS.length + 1; i++) {
+      g.beginPath()
+      const yy = -S(60) + i * S(20) + sh * s * 0.3
+      g.moveTo(-S(70), yy + S(20))
+      g.lineTo(S(70), yy - S(10))
+      g.lineTo(S(70), yy + S(10))
+      g.lineTo(-S(70), yy + S(40))
+      g.closePath()
+      fill(g, PETAL_BANDS[(i + PETAL_BANDS.length) % PETAL_BANDS.length]!)
+    }
+    g.globalAlpha = 1
+  }
+  // The fold: the far half in shade while folded.
+  if (o < 1) {
+    g.globalAlpha = 1 - o
+    g.beginPath()
+    g.rect(0, -S(60), S(70), S(120))
+    fill(g, SLEEP_SHADE)
+    g.globalAlpha = 1
+  }
+  // Crystal facets: two lit planes from the stem to the lobes.
+  g.beginPath()
+  g.moveTo(0, S(44))
+  g.lineTo(-S(30) * wf, -S(44))
+  g.moveTo(0, S(44))
+  g.lineTo(S(30) * wf, -S(44))
+  g.lineWidth = S(3)
+  g.strokeStyle = 'rgba(255,255,255,0.7)'
+  g.stroke()
+  g.beginPath()
+  g.ellipse(-S(26) * wf, -S(26), S(6), S(13), 0.3, 0, TAU)
+  fill(g, '#ffffff')
+  g.restore()
+  petal()
+  ink(g, 4)
+  // The crease / the midrib.
+  g.beginPath()
+  g.moveTo(0, S(42))
+  g.quadraticCurveTo(S(2), 0, 0, -S(48))
+  ink(g, lerp(3, 1.8, o))
+  // The face.
+  const ey = S(6)
+  g.beginPath()
+  if (o < 0.5) {
+    g.moveTo(-S(15), ey)
+    g.quadraticCurveTo(-S(10), ey + S(4), -S(5), ey)
+    g.moveTo(S(5), ey)
+    g.quadraticCurveTo(S(10), ey + S(4), S(15), ey)
+    ink(g, 2.4)
+  } else {
+    g.ellipse(-S(10), ey, S(3.4), S(4.6), 0, 0, TAU)
+    g.moveTo(S(13.4), ey)
+    g.ellipse(S(10), ey, S(3.4), S(4.6), 0, 0, TAU)
+    fill(g, INK)
+    disc(g, -S(11), ey - S(2), S(1.4), '#ffffff')
+    disc(g, S(9), ey - S(2), S(1.4), '#ffffff')
+  }
+  g.beginPath()
+  g.arc(0, ey + S(8), S(o < 0.5 ? 3 : 5), 0.2, PI - 0.2)
+  ink(g, 2.2)
+  g.globalAlpha = 0.5
+  g.beginPath()
+  g.ellipse(-S(18), ey + S(8), S(5), S(3), 0, 0, TAU)
+  g.moveTo(S(23), ey + S(8))
+  g.ellipse(S(18), ey + S(8), S(5), S(3), 0, 0, TAU)
+  fill(g, RR.blush)
+  g.globalAlpha = 1
+  // Asleep: dimmed under a plum veil.
+  if (e < 1) {
+    g.globalAlpha = 0.3 * (1 - clamp(e * 1.5, 0, 1))
+    petal()
+    fill(g, INK)
+    g.globalAlpha = 1
+  }
+}
+
 /**
  * The Prism Petal, the chapter's rescue (§8.8 beat 3), resting on (x, y):
  * k = 0 folded shut, pale and asleep; k = 1 open, shimmering in pastel
@@ -1746,101 +1986,13 @@ export const prismPetal = (g: G2D, x: number, y: number, s: number, k: number, t
   g.ellipse(x, y - S(4), S(34), S(7), 0, 0, TAU)
   fill(g, INK)
   g.globalAlpha = 1
-  // The petal: a broad rounded petal with a notch at its tip; folded, it is
-  // half as wide and creased down the middle.
-  const wf = lerp(0.5, 1, o)
-  const petal = (): void => {
-    g.beginPath()
-    g.moveTo(x, cy + S(48))
-    g.bezierCurveTo(x - S(50) * wf, cy + S(34), x - S(54) * wf, cy - S(40), x - S(20) * wf, cy - S(58))
-    g.quadraticCurveTo(x - S(7) * wf, cy - S(62), x, cy - S(52))
-    g.quadraticCurveTo(x + S(7) * wf, cy - S(62), x + S(20) * wf, cy - S(58))
-    g.bezierCurveTo(x + S(54) * wf, cy - S(40), x + S(50) * wf, cy + S(34), x, cy + S(48))
-    g.closePath()
-  }
-  petal()
-  fill(g, mix(SLEEP, '#fff4fb', o))
+  // The petal FOLDS shut asleep and opens awake, which is a change of shape,
+  // so it is two panels. Its halo, its shadow on the cushion, the shimmer
+  // sliding across it and the little rainbows it throws stay drawn.
   g.save()
-  petal()
-  g.clip()
-  if (o > 0) {
-    // The shimmer: pastel rainbow bands sliding diagonally.
-    g.globalAlpha = o
-    const sh = (t * 18) % 24
-    for (let i = -1; i < PETAL_BANDS.length + 1; i++) {
-      g.beginPath()
-      const yy = cy - S(60) + i * S(20) + sh * s * 0.3
-      g.moveTo(x - S(70), yy + S(20))
-      g.lineTo(x + S(70), yy - S(10))
-      g.lineTo(x + S(70), yy + S(10))
-      g.lineTo(x - S(70), yy + S(40))
-      g.closePath()
-      fill(g, PETAL_BANDS[(i + PETAL_BANDS.length) % PETAL_BANDS.length]!)
-    }
-    g.globalAlpha = 1
-  }
-  // The fold: the far half in shade while folded.
-  if (o < 1) {
-    g.globalAlpha = 1 - o
-    g.beginPath()
-    g.rect(x, cy - S(60), S(70), S(120))
-    fill(g, SLEEP_SHADE)
-    g.globalAlpha = 1
-  }
-  // Crystal facets: two lit planes from the stem to the lobes.
-  g.beginPath()
-  g.moveTo(x, cy + S(44))
-  g.lineTo(x - S(30) * wf, cy - S(44))
-  g.moveTo(x, cy + S(44))
-  g.lineTo(x + S(30) * wf, cy - S(44))
-  g.lineWidth = S(3)
-  g.strokeStyle = 'rgba(255,255,255,0.7)'
-  g.stroke()
-  g.beginPath()
-  g.ellipse(x - S(26) * wf, cy - S(26), S(6), S(13), 0.3, 0, TAU)
-  fill(g, '#ffffff')
+  g.translate(x, cy)
+  if (!drawItem(g, PRISM_PETAL_ART, PRISM_PETAL_UNIT * s, o < 0.5 ? 0 : 1)) prismPetalShape(g, s, o, e, t)
   g.restore()
-  petal()
-  ink(g, 4)
-  // The crease / the midrib.
-  g.beginPath()
-  g.moveTo(x, cy + S(42))
-  g.quadraticCurveTo(x + S(2), cy, x, cy - S(48))
-  ink(g, lerp(3, 1.8, o))
-  // The face.
-  const ey = cy + S(6)
-  g.beginPath()
-  if (o < 0.5) {
-    g.moveTo(x - S(15), ey)
-    g.quadraticCurveTo(x - S(10), ey + S(4), x - S(5), ey)
-    g.moveTo(x + S(5), ey)
-    g.quadraticCurveTo(x + S(10), ey + S(4), x + S(15), ey)
-    ink(g, 2.4)
-  } else {
-    g.ellipse(x - S(10), ey, S(3.4), S(4.6), 0, 0, TAU)
-    g.moveTo(x + S(13.4), ey)
-    g.ellipse(x + S(10), ey, S(3.4), S(4.6), 0, 0, TAU)
-    fill(g, INK)
-    disc(g, x - S(11), ey - S(2), S(1.4), '#ffffff')
-    disc(g, x + S(9), ey - S(2), S(1.4), '#ffffff')
-  }
-  g.beginPath()
-  g.arc(x, ey + S(8), S(o < 0.5 ? 3 : 5), 0.2, PI - 0.2)
-  ink(g, 2.2)
-  g.globalAlpha = 0.5
-  g.beginPath()
-  g.ellipse(x - S(18), ey + S(8), S(5), S(3), 0, 0, TAU)
-  g.moveTo(x + S(23), ey + S(8))
-  g.ellipse(x + S(18), ey + S(8), S(5), S(3), 0, 0, TAU)
-  fill(g, RR.blush)
-  g.globalAlpha = 1
-  // Asleep: dimmed under a plum veil.
-  if (e < 1) {
-    g.globalAlpha = 0.3 * (1 - clamp(e * 1.5, 0, 1))
-    petal()
-    fill(g, INK)
-    g.globalAlpha = 1
-  }
   if (e <= 0.3) return
   // Tiny rainbows thrown round it, and twinkles.
   const a = clamp((e - 0.3) / 0.7, 0, 1)
@@ -1853,11 +2005,12 @@ export const prismPetal = (g: G2D, x: number, y: number, s: number, k: number, t
     miniRainbow(g, rx, ry, S(17), S(3.4), PI + ang + PI / 2 - 1.2, PI + ang + PI / 2 + 1.2)
   }
   g.beginPath()
+  let lit = false
   for (let i = 0; i < 4; i++) {
     const r = S(9) * Math.max(0, sin(t * 3 + i * 1.6))
-    if (r > 0.5) twinkleAt(g, x + cos(i * 1.7 + 0.4) * S(62), cy + sin(i * 2.3) * S(40), r)
+    if (r > 0.5) lit = twinkleAt(g, x + cos(i * 1.7 + 0.4) * S(62), cy + sin(i * 2.3) * S(40), r, '#fff6b0')
   }
-  fill(g, '#fff6b0')
+  if (!lit) fill(g, '#fff6b0')
   g.globalAlpha = 1
 }
 
@@ -1871,21 +2024,12 @@ export const petalRescue = (x: number, y: number, s: number): RescueCollectible 
 
 /* ------------------------------------------------------- small props */
 
-/** A butterfly on a lazy loop about (cx, cy) — a live prop, folded at rest. */
+/** A butterfly on a lazy loop about (cx, cy) — a live prop, folded at rest.
+ *  The same creature the woods' `butterfly` is, so it wears the same painting. */
 export const flutter = (g: G2D, cx: number, cy: number, t: number, i: number, col: string, alive: number): void => {
   const sp = t * (0.45 + i * 0.12) + i * 2.1
-  const x = cx + sin(sp) * 80 * alive
-  const y = cy + sin(sp * 2) * 30 * alive
   const flap = alive > 0 ? 0.25 + Math.abs(sin(t * 11 + i)) * 0.75 : 0.2
-  for (const side of [-1, 1]) {
-    g.beginPath()
-    g.ellipse(x + side * 9 * flap, y - 4, 10 * flap + 2, 12, side * 0.5, 0, TAU)
-    fill(g, col)
-    ink(g, 2.2)
-  }
-  g.beginPath()
-  g.ellipse(x, y, 2.6, 8, 0, 0, TAU)
-  fill(g, INK)
+  butterflyAt(g, cx + sin(sp) * 80 * alive, cy + sin(sp * 2) * 30 * alive, flap, col)
 }
 
 /** Colour bubbles rising from (x, y) — a live prop (none at rest). */
@@ -1897,17 +2041,15 @@ export const colourBubbles = (g: G2D, x: number, y: number, h: number, t: number
     const by = y - k * h
     const r = (6 + (i % 3) * 2.5) * (0.6 + k * 0.6)
     g.globalAlpha = alive * (k < 0.8 ? 1 : (1 - k) * 5)
+    if (bubbleAt(g, bx, by, r, RAINBOW[(i * 2) % RAINBOW.length]!)) continue
     disc(g, bx, by, r, RAINBOW[(i * 2) % RAINBOW.length]!, 2.4)
     disc(g, bx - r * 0.35, by - r * 0.35, r * 0.25, '#ffffff')
   }
   g.globalAlpha = 1
 }
 
-/** A little bird of paradise — a candy-coloured swallow gliding. */
-export const swallow = (g: G2D, x: number, y: number, s: number, flap: number, dir: number, col: string): void => {
-  g.save()
-  g.translate(x, y)
-  g.scale(s * dir, s)
+/** A swallow about the origin, facing right, wings at `flap` (−1 down … 1 up). */
+export const swallowShape = (g: G2D, flap: number, col: string): void => {
   const wy = -14 * flap
   g.beginPath()
   g.moveTo(-26, wy)
@@ -1916,7 +2058,30 @@ export const swallow = (g: G2D, x: number, y: number, s: number, flap: number, d
   g.quadraticCurveTo(12, -4 + wy * 0.2, 0, 6)
   g.quadraticCurveTo(-12, -4 + wy * 0.2, -26, wy)
   fill(g, col)
-  ink(g, 2.4 / s)
+  ink(g, 2.4)
+}
+
+/** The swallow's wingspan in SU at `s` = 1. */
+export const SWALLOW_UNIT = 52
+
+/** The swallow as a painted strip: wings down, level, up. It is a different
+ *  candy colour on every ridge, so its whole body is the colour-me region. */
+export const SWALLOW_ART: ItemSpec = {
+  ...PROP_ART.swallow, frames: 3, tinted: true,
+  draw: (g, s, f, accent) => {
+    g.save()
+    g.scale(s / SWALLOW_UNIT, s / SWALLOW_UNIT)
+    swallowShape(g, f - 1, accent.base)
+    g.restore()
+  }
+}
+
+/** A little bird of paradise — a candy-coloured swallow gliding. */
+export const swallow = (g: G2D, x: number, y: number, s: number, flap: number, dir: number, col: string): void => {
+  g.save()
+  g.translate(x, y)
+  g.scale(s * dir, s)
+  if (!drawItem(g, SWALLOW_ART, SWALLOW_UNIT, flap + 1, col)) swallowShape(g, flap, col)
   g.restore()
 }
 
