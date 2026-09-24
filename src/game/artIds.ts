@@ -350,6 +350,18 @@ export const keepsakeArtId = (slug: string): string =>
  */
 export const MOVIE_ICON = { kind: 'worldUi', id: 'movie-icon' } as const
 
+/**
+ * The duel's two HP-bar FRAMES (`HpBar.vue`, `game/duel/hpFrame.ts`): Aurora's
+ * warm cream-and-gold one with her star, and the night's — every foe's — deep
+ * indigo one with a silver crescent. DOM furniture, not canvas drawables: the
+ * bar lays the painting on as a CSS `border-image` and stretches only its
+ * plain middle, and shows the drawn frame (inline SVG + CSS) until one exists.
+ */
+export const HP_FRAMES = {
+  aurora: { kind: 'worldUi', id: 'hp-frame-aurora' },
+  foe: { kind: 'worldUi', id: 'hp-frame-foe' }
+} as const
+
 /* ──────────────────────────────────── the brand pair (art-style.md §11) ── */
 
 /**

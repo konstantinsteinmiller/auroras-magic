@@ -16,11 +16,14 @@ import { reactive, shallowRef } from 'vue'
 import { S, POP_LIFE, type Pop } from '@/game/duel/state'
 import { perfectSlot, perfectToken } from '@/game/duel/perfect'
 import { helpNoteUp, helpToken } from '@/game/duel/help'
+import { castInvite, chipsDue, lockedHint, nudgeUp } from '@/game/duel/lesson'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 import { HP_MAX, MAX_RUNES, PH_DUEL, type Rune } from '@/game/duel/config'
-import { spellOf } from '@/game/duel/sim'
+import { spellOf, foeTell } from '@/game/duel/sim'
 import type { SpellNameParts } from '@/use/useSpellName'
 import { LAYOUT, type DuelLayout } from '@/game/duel/layout'
-import { damp, clamp } from '@/game/duel/util'
+import { clamp } from '@/game/duel/util'
+import { barLowLevel, gaugeFill, newGhost, resetGhost, stepGhost, writeGauge, type LowLevel } from '@/game/duel/hpGauge'
 
 export interface HudState {
   phase: number
@@ -42,6 +45,11 @@ export interface HudState {
   ecast: SpellNameParts | null
   /** Lifetime duels won: the leaderboard's score. */
   wins: number
+  /** The low-health glow on the player's HP bar (`hpGauge.lowLevel`): 0 none,
+   *  1 a steady glow (≤ 30 %), 2 a gentle pulse (< 25 %). `elow` is player
+   *  2's in local versus, and always 0 against a foe. */
+  low: LowLevel
+  elow: LowLevel
   /**
    * The perfect-rune sparkle (retention item 7). `perfect` is a token that
    * bumps on every perfect rune — the slot's twinkle is keyed on it, so the
@@ -53,6 +61,27 @@ export interface HudState {
   /** Aurora's after-two-losses note (retention item 8): the help token while
    *  the line is up, 0 when it is not. */
   help: number
+  /** The first duel's lesson (`game/duel/lesson.ts`): the cast button's
+   *  re-invite token, bumped when it opens and on every stroke after. */
+  invite: number
+  /** A lesson nudge's callout is up: the step's top caption stands aside. */
+  nudge: boolean
+  /** Her KNOWN runes as a bitmask while the pad's rune chips are due
+   *  (`lesson.chipsDue`), 0 when they are not. */
+  chips: number
+  /** A stroke matched a rune she has not earned yet: the card's token (0 =
+   *  none up), the rune, and where the refusal would have stood (stage). */
+  locked: number
+  lockedRune: number
+  lockedX: number
+  lockedY: number
+  /** What the foe's slots warn of (`sim.foeTell`, story-spec §8.36): 2 a full
+   *  hand winding up to hit, 1 two runes of one, 0 nothing. */
+  eTell: number
+  /** The depth glimpse's hint (§8.36): the rune it names while it shows, -1
+   *  when it does not; and whether that rune has just found the gap. */
+  glimpse: number
+  glimpseYes: boolean
 }
 
 export const hud = reactive<HudState>({
@@ -70,9 +99,21 @@ export const hud = reactive<HudState>({
   cast: null,
   ecast: null,
   wins: 0,
+  low: 0,
+  elow: 0,
   perfect: 0,
   perfectSlot: -1,
-  help: 0
+  help: 0,
+  invite: 0,
+  nudge: false,
+  chips: 0,
+  locked: 0,
+  lockedRune: -1,
+  lockedX: 0,
+  lockedY: 0,
+  eTell: 0,
+  glimpse: -1,
+  glimpseYes: false
 })
 
 /** Callouts on screen. Membership is reactive; the motion is a CSS animation. */
@@ -116,22 +157,14 @@ export const isOnFoeHpBar = (x: number, y: number): boolean => {
   return r.width > 0 && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
 }
 
-/** Animated mirrors of HP that must not pollute S: they snap UP (a new duel)
- *  and lag DOWN, so damage drains as a red chunk. */
-let ha = HP_MAX
-let ea = HP_MAX
+/** The HP bars' damage chips — animated mirrors of HP that must not pollute
+ *  S: they snap UP (a new duel), and after a hit HOLD for a moment and then
+ *  drain, so each hit reads as a pale chunk (`hpGauge.stepGhost`). */
+const ha = newGhost(HP_MAX)
+const ea = newGhost(HP_MAX)
 /** Circumference of the forming ring, set by the component that owns it. */
 let ringLen = 0
 export const setRingLength = (n: number): void => { ringLen = n }
-
-/** Width, not scaleX: the fill is a pill, and scaling it would squash its
- *  rounded ends exactly when the bar is nearly empty and most watched. */
-const setWidth = (el: HTMLElement | null, v: number, vmax: number): void => {
-  if (!el) return
-  const k = clamp(v / (vmax || HP_MAX), 0, 1)
-  el.style.width = `${(k * 100).toFixed(2)}%`
-  el.style.visibility = k > 0.006 ? 'visible' : 'hidden'
-}
 
 const sameRunes = (a: readonly number[], b: readonly number[]): boolean =>
   a.length === b.length && a.every((v, i) => v === b[i])
@@ -139,13 +172,21 @@ const sameRunes = (a: readonly number[], b: readonly number[]): boolean =>
 /** Once per rendered frame, after the sim stepped. `dt` in seconds. */
 export const syncHud = (dt: number): void => {
   // ── continuous: direct DOM writes ──
-  ha = S.hp > ha ? S.hp : damp(ha, S.hp, 5, dt)
-  ea = S.ehp > ea ? S.ehp : damp(ea, S.ehp, 5, dt)
-  // Per side (F18): a boss's bar is full at HER max, not the player's.
-  setWidth(hot.hpFill, S.hp, S.hpMax)
-  setWidth(hot.hpGhost, ha, S.hpMax)
-  setWidth(hot.ehpFill, S.ehp, S.ehpMax)
-  setWidth(hot.ehpGhost, ea, S.ehpMax)
+  // Per side (F18): a boss's bar is full at HER max, not the player's. The
+  // fill never reads empty above 0 HP (`hpGauge.gaugeFill`), and the chip is
+  // never shorter than the fill it trails.
+  const hk = gaugeFill(S.hp, S.hpMax)
+  const ek = gaugeFill(S.ehp, S.ehpMax)
+  writeGauge(hot.hpFill, hk, 'left')
+  writeGauge(hot.hpGhost, Math.max(hk, gaugeFill(stepGhost(ha, S.hp, dt), S.hpMax)), 'left')
+  writeGauge(hot.ehpFill, ek, 'right')
+  writeGauge(hot.ehpGhost, Math.max(ek, gaugeFill(stepGhost(ea, S.ehp, dt), S.ehpMax)), 'right')
+  // The low-health glow: the player's bar, and player 2's in local versus.
+  const inDuel = S.phase === PH_DUEL
+  const low = barLowLevel(S.hp, S.hpMax, true, inDuel)
+  if (hud.low !== low) hud.low = low
+  const elow = barLowLevel(S.ehp, S.ehpMax, S.versus, inDuel)
+  if (hud.elow !== elow) hud.elow = elow
   if (hot.formRing && ringLen) hot.formRing.style.strokeDashoffset = String(ringLen * (1 - clamp(S.eForm, 0, 1)))
   if (hot.formGhost) hot.formGhost.style.opacity = String(0.22 + 0.7 * clamp(S.eForm, 0, 1))
 
@@ -163,6 +204,13 @@ export const syncHud = (dt: number): void => {
   const eSlot = S.equeue.length < MAX_RUNES && S.eForm > 0 ? S.equeue.length : -1
   if (hud.eSlot !== eSlot) hud.eSlot = eSlot
   if (hud.eRune !== S.eRune) hud.eRune = S.eRune
+  // The foe's telegraph and the depth glimpse (§8.36).
+  const tell = foeTell()
+  if (hud.eTell !== tell) hud.eTell = tell
+  const gl = S.phase === PH_DUEL && (S.glimpse === 2 || S.glimpse === 3) ? S.glimpseRune : -1
+  if (hud.glimpse !== gl) hud.glimpse = gl
+  const yes = gl >= 0 && S.glimpse === 3
+  if (hud.glimpseYes !== yes) hud.glimpseYes = yes
   // The CAST plate's spell: re-resolved only when the hand changes.
   if (castFor !== handKey()) {
     castFor = handKey()
@@ -185,6 +233,25 @@ export const syncHud = (dt: number): void => {
   }
   const help = helpNoteUp() ? helpToken() : 0
   if (hud.help !== help) hud.help = help
+  // The first duel's lesson and the pad's aids (`game/duel/lesson.ts`).
+  const inv = castInvite()
+  if (hud.invite !== inv) hud.invite = inv
+  const ng = nudgeUp(S.t)
+  if (hud.nudge !== ng) hud.nudge = ng
+  const chips = S.phase === PH_DUEL && !S.intro && S.flow.mode === 'campaign' && chipsDue(S.flow.node, S.campaign.furthestNode)
+    ? (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
+    : 0
+  if (hud.chips !== chips) hud.chips = chips
+  const lk = lockedHint()
+  const lkToken = lk ? lk.token : 0
+  if (hud.locked !== lkToken) {
+    hud.locked = lkToken
+    if (lk) {
+      hud.lockedRune = lk.rune
+      hud.lockedX = lk.x
+      hud.lockedY = lk.y
+    }
+  }
 
   // ── callouts: age while the game runs, publish membership changes ──
   const list = hudPops.value
@@ -203,8 +270,8 @@ export const agePops = (dt: number): void => {
 
 /** A new duel: the ghost bars snap back to full. */
 export const resetHudMirrors = (): void => {
-  ha = S.hpMax
-  ea = S.ehpMax
+  resetGhost(ha, S.hpMax)
+  resetGhost(ea, S.ehpMax)
   castFor = '-'
 }
 

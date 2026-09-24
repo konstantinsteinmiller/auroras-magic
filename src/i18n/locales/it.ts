@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'DISEGNA LA RUNA',
     'triangle': 'DISEGNA UN TRIANGOLO',
+    'square': 'DISEGNA UN QUADRATO',
+    'twoRunes': 'DUE RUNE, INCANTESIMO PIÙ FORTE!',
     'stored': 'SALVATA! FINO A 3',
     'cast': 'ORA LANCIALA'
   },
 
   'pop': {
     'notARune': 'NON È UNA RUNA',
+    'trySquare': 'PROVA IL QUADRATO!',
+    'tryTriangle': 'PROVA IL TRIANGOLO!',
     'noSlots': 'NIENTE SPAZIO!',
     'blocked': 'BLOCCATO',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'QUASI {rune}!'
+    'almostRune': 'QUASI {rune}!',
+    'tryRune': 'Prova con {rune}!',
+    'comingSoon': 'IN ARRIVO',
+    'lockedRune': 'La runa {rune} arriva presto'
   },
 
   'license': {

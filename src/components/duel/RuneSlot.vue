@@ -37,6 +37,14 @@ const props = defineProps<{
    * on a finished one.
    */
   sparkle?: number
+  /**
+   * THE FOE'S TELEGRAPH (story-spec §8.36), on her filled slots: 2 = her hand
+   * is full and winding up to HIT (a warm pulse), 1 = two runes of a hit (a
+   * softer, still glow), 0/absent = nothing to warn of. Warm coral and gold,
+   * never red: "a big one is coming — put a wall up", not a threat. Under
+   * reduced motion the pulse settles into a steady glow.
+   */
+  warn?: number
 }>()
 
 const { t } = useI18n()
@@ -88,6 +96,7 @@ onUnmounted(unbind)
 
 <template lang="pug">
   div.rune-slot
+    span.slot-warn(v-if="warn && rune !== undefined" :class="warn >= 2 ? 'full' : 'soft'" aria-hidden="true")
     div.slot-plate.duel-plate(:style="tint")
     RuneGlyph.slot-glyph(v-if="rune !== undefined" :rune="rune")
     template(v-else-if="forming")
@@ -197,6 +206,42 @@ onUnmounted(unbind)
   100%
     opacity: 0
     transform: scale(1.05) rotate(10deg)
+
+// The telegraph's glow (§8.36): a warm halo standing just outside the plate —
+// behind it, so it never tints the glyph that names the rune. Gold ring, coral
+// bloom: the "something good is about to happen" colours, turned toward
+// "watch out", and nowhere near the red a child reads as danger.
+.slot-warn
+  position: absolute
+  inset: -12%
+  border-radius: 32%
+  pointer-events: none
+  box-shadow: 0 0 0 3px var(--am-gold), 0 0 16px 6px var(--am-coral)
+  &.soft
+    inset: -8%
+    opacity: 0.5
+    box-shadow: 0 0 0 2px var(--am-gold), 0 0 10px 3px var(--am-coral)
+  &.full
+    animation: slot-warn 0.36s ease-in-out infinite alternate
+
+@keyframes slot-warn
+  from
+    opacity: 0.55
+    transform: scale(0.96)
+  to
+    opacity: 1
+    transform: scale(1.08)
+
+// An ambient loop settles when less motion is asked for — by the device or
+// by the game's own Options toggle (`.am-reduced` on <html>): a steady glow.
+@media (prefers-reduced-motion: reduce)
+  .slot-warn.full
+    animation: none
+    opacity: 1
+
+html.am-reduced .slot-warn.full
+  animation: none
+  opacity: 1
 
 .slot-ring
   // the forming ring takes its stroke from here — 7.06:1 on the slot's well

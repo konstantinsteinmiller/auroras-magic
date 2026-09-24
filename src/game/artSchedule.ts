@@ -54,7 +54,7 @@ import {
 } from '@/game/art'
 import {
   sectorArtId, islandArtId, pageArtId, frontPageArtId, runeArtId, RUNE_SLUGS, RIG_ART, ITEM_ART, STORY_PANELS,
-  storyPanelId, portraitSetOf, portraitArtId, wardrobeArtId, WARDROBE_RUG, KEEPSAKE_ICON_SLUGS, keepsakeArtId, MOVIE_ICON
+  storyPanelId, portraitSetOf, portraitArtId, wardrobeArtId, WARDROBE_RUG, KEEPSAKE_ICON_SLUGS, keepsakeArtId, MOVIE_ICON, HP_FRAMES
 } from '@/game/artIds'
 import {
   nodeChapter, nodePosInChapter, nodeIsBoss, toolOf, runeForNode, duelSetup, STARTING_RUNES, LAST_BUILT_NODE,
@@ -167,11 +167,15 @@ const giftOf = (n: number): ArtWant =>
   item(nodeIsBoss(n) ? ITEM_ART.chest : toolOf(n) === 'eraser' ? ITEM_ART.boxGift : ITEM_ART.gift)
 
 /** Node `n`'s DUEL: the page it is fought on, the island, the two duelists,
- *  the HUD's runes — and, on the cold boot's node, the opener's faces. */
+ *  the HUD's runes and its two HP frames — and, on the cold boot's node, the
+ *  opener's faces. */
 export const duelWants = (n: number, save: ScheduleSave, env: ScheduleEnv): ArtWant[] => [
   ['sector', sectorArtId(n)],
   ['island', islandArtId(nodeChapter(n))],
   ...RIG,
+  // On screen from the duel's first frame to its last (`HpBar.vue`).
+  item(HP_FRAMES.aurora),
+  item(HP_FRAMES.foe),
   ...wornStills(save),
   ...runesOf(n, save),
   ...(n === OPENING_NODE ? facesOf(dialogueFor(n), save) : []),
@@ -322,7 +326,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
 
   if (screen.mode === 'versus' || (screen.scene === 'duel' && n < 0) || screen.scene === 'versusSetup') {
     // Local 2P: the Festival's island and the two duelists; no page.
-    p.hold.push(['island', islandArtId(9)], ...RIG)
+    p.hold.push(['island', islandArtId(9)], ...RIG, item(HP_FRAMES.aurora), item(HP_FRAMES.foe))
     return p
   }
 

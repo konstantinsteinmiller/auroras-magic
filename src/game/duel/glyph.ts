@@ -89,10 +89,12 @@ const SIDES = [3, 0, 3, 4]
  * The glyph as sub-paths of [x, y] points, centred on (x, y) with radius r.
  * `f` < 1 walks only that fraction of the outline (the onboarding traces the
  * triangle with it). `head` is the point the stroke has reached, so a finger
- * can ride it.
+ * can ride it. `from` starts a closed base rune (the triangle, the square) at
+ * another corner — the lesson draws its square from the top-left, where a
+ * child's pen starts; the shape itself is the same.
  */
 export const glyphPoints = (
-  k: number, x: number, y: number, r: number, f = 1
+  k: number, x: number, y: number, r: number, f = 1, from = 0
 ): { paths: [number, number][][]; head: [number, number] } => {
   if (k >= 4) return walkStory(k, x, y, r, f)
   const paths: [number, number][][] = []
@@ -116,7 +118,7 @@ export const glyphPoints = (
   const e = n * f
   const V = (i: number): [number, number] => {
     if (z) return [x + (i & 1 ? r : -r), y + (i < 2 ? -r : r) * 0.8]
-    const A = (k === 3 ? PI / 4 : -PI / 2) + (i / n) * TAU
+    const A = (k === 3 ? PI / 4 : -PI / 2) + ((i + from) / n) * TAU
     return [x + cos(A) * R, y + sin(A) * R]
   }
   const sub: [number, number][] = []
@@ -138,9 +140,9 @@ export const glyphPoints = (
  * `a`. Returns the head of the stroke (see `glyphPoints`).
  */
 export const drawGlyph = (
-  g: CanvasRenderingContext2D, k: number, x: number, y: number, r: number, a = 1, f = 1
+  g: CanvasRenderingContext2D, k: number, x: number, y: number, r: number, a = 1, f = 1, from = 0
 ): [number, number] => {
-  const { paths, head } = glyphPoints(k, x, y, r, f)
+  const { paths, head } = glyphPoints(k, x, y, r, f, from)
   g.save()
   g.globalAlpha = a
   g.lineCap = g.lineJoin = 'round'

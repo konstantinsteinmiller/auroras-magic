@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'DESENHE A RUNA',
     'triangle': 'DESENHE UM TRIÂNGULO',
+    'square': 'DESENHE UM QUADRADO',
+    'twoRunes': 'DUAS RUNAS, FEITIÇO MAIS FORTE!',
     'stored': 'GUARDADA! ATÉ 3',
     'cast': 'AGORA LANCE'
   },
 
   'pop': {
     'notARune': 'NÃO É UMA RUNA',
+    'trySquare': 'TENTE O QUADRADO!',
+    'tryTriangle': 'TENTE O TRIÂNGULO!',
     'noSlots': 'SEM ESPAÇO!',
     'blocked': 'BLOQUEADO',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'QUASE {rune}!'
+    'almostRune': 'QUASE {rune}!',
+    'tryRune': 'Experimente {rune}!',
+    'comingSoon': 'EM BREVE',
+    'lockedRune': 'A runa {rune} chega em breve'
   },
 
   'license': {

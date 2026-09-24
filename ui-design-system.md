@@ -180,6 +180,20 @@ graphics 3:1. sRGB relative luminance.
 | `--am-lilac-plate` `#6F55C9` | `#FFFAF0` TurnSideways card | **5.29:1** | The rotate arrow — graphic, was gold at 1.33:1 | ✓ |
 | `--am-on-accent` `#3A2340` | `--am-gold` `#FFD76A` | **10.16:1** | `DuelResult`'s retry caption — was inheriting `.ink-text` white at 1.38:1 | AA ✓ |
 
+**Added 2026-09-24 — the HP bars redesigned (§3.13), all measured:**
+
+| Foreground | Background | Ratio | Where | Pass |
+| --- | --- | --- | --- | --- |
+| `--am-ink` `#3A2340` | `--am-paper` `#FDF6E7` | **13.06:1** | Aurora's name plate | AA ✓ |
+| `--am-on-night` `#FFF6E6` | `--am-moon-night` `#3A3570` | **10.18:1** | The foe's name plate | AA ✓ |
+| `--am-hp-mark-lite` `#D8C8F0` at 0.8 | `--am-night-deep` `#3B2A54` | **5.83:1** | A notch on the EMPTY track | ✓ (graphic) |
+| `--am-ink` | `--am-gold` / `--am-gold-foot` | **10.16 / 7.80:1** | A notch on Aurora's fill, top / foot | ✓ (graphic) |
+| `--am-ink` | `#C9B6FF` / `--am-lilac-foot` | **7.78 / 5.15:1** | A notch on the foe's fill, top / foot | ✓ (graphic) |
+| `--am-ink` | `--am-hp-chip` `#FFF1DE` | **12.64:1** | A notch on the damage chip | ✓ (graphic) |
+| `--am-ink` | gold foot under the low tint at 0.5 (`#F89251`) | **6.17:1** | A notch on her fill at its reddest | ✓ (graphic) |
+| `--am-hp-chip` | `--am-night-deep` | **11.48:1** | The chip a hit leaves, against the track | ✓ (graphic) |
+| `--am-hp-low` `#FF6B5B` | `--am-night-deep` | **4.56:1** | The low-health glow round the track | ✓ (graphic) |
+
 **Corrected 2026-09-21, measured:** the two page-on-cloth rows above are
 `#FDF6E7` on `#9E7CBE` = **3.21:1** (not 4.08) and `#F5E7C0` on `#CBA6D6` =
 **1.71:1** (not 1.83). Both remain graphic-only and both are still governed by
@@ -726,6 +740,36 @@ face and `#0a0713` border; name is `.ink-text` (white + near-black outline).
 ```
 
 `DuelHud.vue` passes `color="#c08cff"` for the foe bar — change to `#C9B6FF`.
+
+**Superseded 2026-09-24 — a TRADITIONAL health bar** (owner; testers could not
+read the capsule: "no visible health numbers, just colour bars", "my bar
+looked empty before the defeat"). `HpBar.vue` + `game/duel/hpGauge.ts` (the
+arithmetic) + `game/duel/hpFrame.ts` (the frame's shape):
+
+- **A framed, recessed track** (`--am-night-deep`, still the one night well)
+  with **notches at 25 / 50 / 75 %** — light (`--am-hp-mark-lite`) on the empty
+  track, ink on the fill and the chip. Each fill layer spans the whole track
+  and is CLIPPED (`clip-path`, written by `useDuelHud` through
+  `hpGauge.writeGauge`), so its own ink notches sit exactly over the light
+  ones and are cut away with it. No width writes any more.
+- **Empty means 0.** Any HP above 0 shows at least 4 % of the track, and a CSS
+  cap (`.hp-fill-cap`) keeps the round end filled on the narrowest bar.
+- **The damage chip** (`--am-hp-chip`, was the coral ghost): it HOLDS 0.4 s
+  after each hit, a second hit restarting the hold, then drains into the fill.
+- **Low health, player only:** a steady warm glow at ≤ 30 %, a gentle 1.5 s
+  pulse under 25 % (`--am-hp-low` round the rail, a coral wash over the fill);
+  a still glow under reduced motion (the game's toggle OR the device's). The
+  foe's bar never glows; player 2's does in local versus.
+- **Two frames, one layout**, both a medallion + a plain rail + a finial:
+  Aurora's cream-and-gold with her star (left), the night's — every foe's —
+  deep indigo with moonlit silver and a crescent (right), plus a soft halo in
+  the foe's own glow colour (`FoePalette[8]`). Drawn as inline SVG + CSS until
+  the painting exists, then laid on as a 9-slice `border-image` whose plain
+  rail is the only part stretched (art-roadmap.md, 2026-09-24).
+- **The name has its own plate**, tucked onto the rail by the medallion:
+  paper and ink for Aurora (13.06:1), night and cream for the foe (10.18:1).
+  Measured in all 21 locales at 320 × 658 and 740 × 360: every name fits at
+  full size.
 
 ### 3.14 The board row (leaderboard)
 

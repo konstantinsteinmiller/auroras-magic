@@ -693,6 +693,30 @@ export const hasteSpark = (x: number, y: number, level: number): void =>
     burst(x, y, 2 + level * 2, -240, 0.26, 7, K_GLINT, C_WHITE, C_PASTEL + 1, 0, TAU, 0, 30 + level * 18))
 
 /**
+ * THE TELEGRAPH (sim.ts, §8.36): her full hand is winding up to HIT. Warm
+ * gold and ember sparks rush in to her horn — the gather vocabulary again,
+ * warmer and bigger than the haste's, so "full slots" and "a big one is
+ * coming" become one picture. `k` 0..1: how far the wind-up has come.
+ */
+export const chargeSpark = (x: number, y: number, k: number): void =>
+  borrowDice(tellDice, () =>
+    burst(x, y, 2 + k * 3, -300, 0.28, 8 + k * 3, K_GLINT, C_GOLD, C_HI, 0, TAU, 0, 40 + k * 26))
+
+/**
+ * THE RE-ANCHOR (director.ts, §8.36): she came back to the phone under the
+ * mercy floor and is being lifted up to it. Soft gold and white motes rise
+ * off her while her bar refills — a kindness, not a power-up, so it is small
+ * and slow. `liftBloom` is the moment it starts; `liftMote` keeps it going.
+ */
+export const liftBloom = (x: number, y: number): void =>
+  borrowDice(tellDice, () => {
+    burst(x, y, 12, 90, 1, 7, K_GLINT, C_WHITE, C_GOLD, 0.1)
+    ring(x, y, C_GOLD, 24, 200, 0.45, K_GLINT)
+  })
+export const liftMote = (x: number, y: number): void =>
+  borrowDice(tellDice, () => burst(x + (rnd() - 0.5) * 80, y + (rnd() - 0.5) * 70, 3, 70, 0.8, 6, K_GLINT, C_WHITE, C_GOLD, 0, 1.2, -PI / 2))
+
+/**
  * The flash itself: the shell's own light, thrown outward as a ring from the
  * point of contact. Drawn over whichever silhouette the ward happens to be,
  * so all five flavours react the same way without five pieces of code.

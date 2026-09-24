@@ -23,7 +23,7 @@
  *   A rune the player has not earned is not a smaller target, it is no target.
  *   That keeps the active alphabet small and accurate for young hands.
  */
-import { RUNE_DEFS, FROZEN_MASK, type RuneId, type RuneRecognition } from '@/game/duel/runeDefs'
+import { RUNE_DEFS, FROZEN_MASK, ALL_RUNES_MASK, type RuneId, type RuneRecognition } from '@/game/duel/runeDefs'
 import { hypot, atan2, min, max, sqrt, sin, cos, TAU } from '@/game/duel/util'
 
 export { FROZEN_MASK, ALL_RUNES_MASK } from '@/game/duel/runeDefs'
@@ -298,6 +298,31 @@ export const recognise = (raw: readonly number[], activeMask: number = FROZEN_MA
     bestR = def.id
   }
   return bestR
+}
+
+/**
+ * A stroke her runes refused — was it a rune she has NOT earned yet? Returns
+ * that rune's id, or -1. (The playtest: a child drew a circle, a shape the
+ * game really has, and was told "no rune" with nothing to go on.)
+ *
+ * The SAME bar an owned rune has to clear, never a lower one:
+ *   1. `recognise` over the locked runes — the 0.78 threshold, every
+ *      structure envelope, winding and crossing gate, unchanged;
+ *   2. and the locked rune's best template must out-score every rune she
+ *      owns. A sloppy square that failed Earth's corner count is still
+ *      closer to Earth than to anything locked, and must not be told "Water
+ *      is coming soon" — it is the near-miss nudge's case, not this one.
+ * So a stroke is only ever named as a locked rune when the recogniser, had
+ * that rune been unlocked, would have stored it.
+ */
+export const recogniseLocked = (raw: readonly number[], activeMask: number): RuneId | -1 => {
+  const locked = (ALL_RUNES_MASK & ~activeMask) >>> 0
+  if (!locked || raw.length < 12) return -1
+  const r = recognise(raw, locked)
+  if (r < 0) return -1
+  const [, own] = rawScore(raw, activeMask)
+  const [, its] = rawScore(raw, 1 << r)
+  return its > own ? r : -1
 }
 
 /**

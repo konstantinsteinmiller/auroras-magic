@@ -22,13 +22,16 @@ vi.hoisted(() => {
   Math.random = () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646
 })
 
-import { CTR, EARTH, FIRE, NO_EASE, PH_DUEL, resolveSpell, type Rune } from '@/game/duel/config'
+import { CTR, EARTH, FIRE, ICE, NO_EASE, PH_DUEL, PH_LOSE, PH_WIN, resolveSpell, AX, UX, GY, type Rune } from '@/game/duel/config'
 import { duelSetup, runeForNode } from '@/game/campaign/tables'
 import { earlyEase } from '@/game/campaign/easing'
 import { FOES, VERSUS_FOE, guardianOf } from '@/game/duel/foes'
-import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, foeRate, foeRush, strokeStart, strokeEnd } from '@/game/duel/sim'
-import { AFK_S, HASTE, hasteLevel, hasteReadout, hasteTarget, press } from '@/game/duel/director'
+import { S, type Shot } from '@/game/duel/state'
+import { resetDuel, updateSim, cast, foeRate, foeRush, strokeStart, strokeEnd, KO_STOP } from '@/game/duel/sim'
+import {
+  AFK_S, HASTE, KO_HP, LIFT_S, MERCY_FRAC, afk, floorLifted, hasteLevel, hasteReadout, hasteTarget, lifting, mercyFloor,
+  press
+} from '@/game/duel/director'
 
 const DT = 1 / 60
 
@@ -349,5 +352,215 @@ describe('the haste (§8.35)', () => {
     expect(seen.young.max, 'the small child: the haste at its highest').toBeLessThan(1.1)
     expect(seen.core.sum / seen.core.t, 'the core child: the haste on average').toBeLessThan(1.08)
     expect(seen.core.max, 'the core child: at its highest').toBeLessThan(1.8)
+  })
+})
+
+/**
+ * THE EMPTY-BAR FREEZE (story-spec §8.36; the blind playtest, 2026-09-24).
+ *
+ * `mercyFloor()` is `min(10 %, hp)`. While the player was away the AFK rule
+ * lifted it, a burn tick left her on 0.4 HP, and the moment she acted again
+ * the floor re-formed AT 0.4: nothing could take the last step, the bar read
+ * 0, and the gamer tester sat on it for 46 s until he won. Three promises:
+ *   1. a player who comes back UNDER the floor is lifted up to it, smoothly
+ *      and visibly, and it holds from there — and it is not invulnerability:
+ *      away again, she can still be finished off;
+ *   2. with the floor lifted, a sliver is a knockout, not a place to live;
+ *   3. a PRESENT player is never under the floor, down any damage path.
+ */
+describe('the floor re-anchors, and a lifted floor never leaves a sliver (§8.36)', () => {
+  const FLOOR = 100 * MERCY_FRAC
+  /** A duel at NODE with the foe held: nothing hits unless the test says so. */
+  const quiet = (): void => {
+    S.wins = 20
+    S.losses = 0
+    S.intro = 0
+    S.campaign.signaturesUnlocked = 0
+    S.campaign.runesUnlocked = 0xfff
+    resetDuel({ foe: duelSetup(NODE).foe, usesMagic: false, lossStreak: 0, ease: { ...NO_EASE } })
+    S.eThink = 1e9
+  }
+  /** Step `secs`, the foe held (unless `loose`), calling `each` per step. */
+  const run = (secs: number, each?: () => void, loose = false): void => {
+    for (let t = 0; t < secs && S.phase === PH_DUEL; t += DT) {
+      if (!loose) {
+        S.eThink = 1e9
+        S.equeue.length = 0
+        S.eForm = 0
+      }
+      updateSim(DT)
+      each?.()
+    }
+  }
+  /** A spell in flight about to land: on the foe (`onFoe`) or on Aurora. */
+  const shotAt = (onFoe: boolean, dmg: number, r = FIRE): Shot => ({
+    x: onFoe ? UX - 5 : AX + 5, y: GY - 90, tx: onFoe ? UX : AX, r: r as Rune, k: 0, dmg, dot: 0, slow: 0,
+    dir: onFoe ? 1 : -1, w: 0, p: 0, n: 1, delay: 0, life: 0, b: dmg, ls: 0, sp: 0, rf: 0
+  })
+
+  it('lifts a player who comes back under the floor up to it — and it holds, and it is no shield', () => {
+    quiet()
+    S.hp = 14
+    run(AFK_S + 0.5)
+    expect(afk(), 'she is away').toBe(true)
+    expect(floorLifted()).toBe(true)
+    // A burn ticks on while she is away, and nothing stops it.
+    S.burn = 3
+    run(2.2)
+    expect(S.hp, 'under the floor').toBeLessThan(FLOOR)
+    expect(S.hp, 'but not knocked out').toBeGreaterThan(KO_HP)
+    // She comes back: one rune, cast.
+    S.pops.length = 0
+    S.queue.push(FIRE as Rune)
+    cast()
+    expect(lifting(), 'the re-anchor has begun').toBeGreaterThan(0)
+    expect(S.pops.some((p) => p.k === 'heal' && p.x === AX), 'and it shows on her').toBe(true)
+    // It rises — never a jump, never down — to the floor in LIFT_S, while
+    // the burn is still ticking.
+    let prev = S.hp
+    let biggest = 0
+    run(LIFT_S + 0.05, () => {
+      expect(S.hp).toBeGreaterThanOrEqual(prev - 1e-9)
+      biggest = Math.max(biggest, S.hp - prev)
+      prev = S.hp
+    })
+    expect(biggest, 'largest rise in one step').toBeLessThan(0.5)
+    expect(S.hp).toBeCloseTo(FLOOR, 9)
+    expect(lifting()).toBe(0)
+    // It holds from there: the foe let loose on a player who is here (a rune
+    // cast every 1.4 s) never takes her under it — and her own spells land.
+    const foeWas = S.ehp
+    let low = S.hp
+    let clock = 0
+    run(20, () => {
+      clock += DT
+      if (clock >= 1.4) {
+        clock -= 1.4
+        S.queue.push(ICE as Rune)
+        cast()
+      }
+      low = Math.min(low, S.hp)
+    }, true)
+    expect(S.phase).toBe(PH_DUEL)
+    expect(low, 'lowest while present').toBeGreaterThanOrEqual(FLOOR - 1e-9)
+    expect(S.ehp, 'her hits land on the foe').toBeLessThan(foeWas)
+    // …and it is no shield: away again, she is finished off. (The foe healed
+    // up and nothing left in the air, so the only way out is the foe's.)
+    S.hp = FLOOR
+    S.ehp = S.ehpMax
+    S.shots.length = 0
+    run(AFK_S + 60, undefined, true)
+    expect(S.phase).toBe(PH_LOSE)
+    expect(S.hp).toBe(0)
+  })
+
+  it('knocks out a player the lifted floor has left on a sliver: a bar that reads empty IS empty', () => {
+    quiet()
+    run(AFK_S + 0.1)
+    S.hp = 0.4
+    updateSim(DT)
+    expect(S.phase).toBe(PH_LOSE)
+    expect(S.hp, 'exactly empty').toBe(0)
+    // Above the line she is still in it, away or not…
+    quiet()
+    run(AFK_S + 0.1)
+    S.hp = 0.6
+    updateSim(DT)
+    expect(S.phase).toBe(PH_DUEL)
+    // …and the line never touches a player who is here.
+    quiet()
+    S.hp = FLOOR
+    run(2)
+    expect(S.phase).toBe(PH_DUEL)
+    // Local versus: the floor is always lifted, so the line is always live.
+    resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 0, versus: true })
+    S.hp = 0.3
+    updateSim(DT)
+    expect(S.phase).toBe(PH_LOSE)
+    // The foe has no floor at all: a sliver of hers is a knockout too.
+    quiet()
+    S.ehp = 0.3
+    updateSim(DT)
+    expect(S.phase).toBe(PH_WIN)
+    expect(S.ehp).toBe(0)
+  })
+
+  it('never leaves a present player under the floor, down any damage path', () => {
+    const paths: [string, () => void][] = [
+      ['a spell hit', () => { S.shots.push(shotAt(false, 60)) }],
+      // Her own wind wall, which an Ice bolt seeps a quarter through (§8.35).
+      ['a ward seep', () => {
+        S.guard = 5
+        S.guardK = 0
+        S.shots.push(shotAt(false, 200, ICE))
+      }],
+      ['a burn', () => { S.burn = 20 }],
+      ['a lingering spell', () => {
+        S.linger = 20
+        S.lingerRate = 30
+      }],
+      // Her own spell, bounced back by the foe's Crystal Ward (§6.5).
+      ['her own spell, reflected', () => {
+        S.eGuard = 5
+        S.eGuardK = 4
+        S.shots.push(shotAt(true, 120))
+      }]
+    ]
+    for (const [name, hurt] of paths) {
+      quiet()
+      S.hp = FLOOR + 0.5
+      hurt()
+      let low = S.hp
+      run(3, () => { low = Math.min(low, S.hp) })
+      expect(S.phase, name).toBe(PH_DUEL)
+      expect(low, `${name}: lowest`).toBeGreaterThanOrEqual(FLOOR - 1e-9)
+      // …and the path really did bite: it took her all the way down to it.
+      expect(S.hp, `${name}: it hit`).toBeLessThan(FLOOR + 0.01)
+    }
+  })
+
+  it('keeps a present player at or over the floor through whole duels, across the story', () => {
+    for (const node of [4, 12, 22, 34, 44]) {
+      const { foe, usesMagic } = duelSetup(node)
+      S.wins = 20
+      S.losses = 0
+      S.intro = 0
+      S.campaign.signaturesUnlocked = 0
+      S.campaign.runesUnlocked = 0xfff
+      resetDuel({ foe, usesMagic, lossStreak: 0, ease: { ...NO_EASE } })
+      let low = 1
+      let clock = 0
+      for (let t = 0; t < 90 && S.phase === PH_DUEL; t += DT) {
+        S.pops.length = 0
+        clock += DT
+        if (clock >= 1.4) {
+          clock -= 1.4
+          S.queue.push(0 as Rune)
+          cast()
+        }
+        updateSim(DT)
+        low = Math.min(low, S.hp / S.hpMax)
+      }
+      expect(low, `node ${node}: lowest`).toBeGreaterThanOrEqual(MERCY_FRAC - 1e-9)
+    }
+  })
+
+  it('holds the finishing blow before she folds (the knockout beat)', () => {
+    quiet()
+    run(AFK_S + 0.1)
+    S.pops.length = 0
+    S.hp = 0.2
+    updateSim(DT)
+    expect(S.phase).toBe(PH_LOSE)
+    expect(S.stop, 'the hold').toBeCloseTo(KO_STOP, 9)
+    // Nothing folds while it holds…
+    for (let t = DT; t < KO_STOP - 1e-9; t += DT) updateSim(DT)
+    expect(S.over).toBe(0)
+    // …and then she does.
+    for (let i = 0; i < 30; i++) updateSim(DT)
+    expect(S.over).toBeGreaterThan(0.3)
+    // No "ZZZ…" shouted at the moment of the blow: the Z's are drawn over her
+    // once she has folded (render.drawKoSleep).
+    expect(S.pops.some((p) => p.k === 'defeated')).toBe(false)
   })
 })

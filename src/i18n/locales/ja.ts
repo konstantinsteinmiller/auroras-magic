@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'ルーンを描こう',
     'triangle': '三角を描こう',
+    'square': '四角を描こう',
+    'twoRunes': 'ルーン2つで もっと強い魔法！',
     'stored': 'ストック！最大3つ',
     'cast': 'さあ、発動！'
   },
 
   'pop': {
     'notARune': 'ルーンじゃない',
+    'trySquare': '四角を描いてみよう！',
+    'tryTriangle': '三角を描いてみよう！',
     'noSlots': '空きなし！',
     'blocked': 'ブロック',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'もう少しで{rune}！'
+    'almostRune': 'もう少しで{rune}！',
+    'tryRune': '{rune}を ためしてみて！',
+    'comingSoon': 'もうすぐ！',
+    'lockedRune': '{rune}のルーンは もうすぐ手に入るよ'
   },
 
   'license': {

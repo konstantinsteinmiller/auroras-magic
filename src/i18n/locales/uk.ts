@@ -114,12 +114,16 @@ export default {
   'intro': {
     'draw': 'НАМАЛЮЙТЕ РУНУ',
     'triangle': 'НАМАЛЮЙТЕ ТРИКУТНИК',
+    'square': 'НАМАЛЮЙТЕ КВАДРАТ',
+    'twoRunes': 'ДВІ РУНИ — ЧАРИ СИЛЬНІШІ!',
     'stored': 'ЗБЕРЕЖЕНО! ДО 3',
     'cast': 'ТЕПЕР ЧАКЛУЙТЕ'
   },
 
   'pop': {
     'notARune': 'ЦЕ НЕ РУНА',
+    'trySquare': 'СПРОБУЙТЕ КВАДРАТ!',
+    'tryTriangle': 'СПРОБУЙТЕ ТРИКУТНИК!',
     'noSlots': 'НЕМАЄ МІСЦЯ!',
     'blocked': 'ВІДБИТО',
     'hit': '-{n}',
@@ -552,7 +556,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'МАЙЖЕ {rune}!'
+    'almostRune': 'МАЙЖЕ {rune}!',
+    'tryRune': 'Спробуй руну «{rune}»!',
+    'comingSoon': 'НЕЗАБАРОМ',
+    'lockedRune': 'Руна «{rune}» скоро з’явиться'
   },
 
   'license': {

@@ -116,12 +116,16 @@ export default {
   'intro': {
     'draw': 'DESSINEZ LA RUNE',
     'triangle': 'DESSINEZ UN TRIANGLE',
+    'square': 'DESSINEZ UN CARRÉ',
+    'twoRunes': 'DEUX RUNES, SORT PLUS FORT !',
     'stored': 'STOCKÉE ! JUSQU’À 3',
     'cast': 'LANCEZ-LA MAINTENANT'
   },
 
   'pop': {
     'notARune': 'PAS UNE RUNE',
+    'trySquare': 'ESSAYEZ LE CARRÉ !',
+    'tryTriangle': 'ESSAYEZ LE TRIANGLE !',
     'noSlots': 'PLUS DE PLACE !',
     'blocked': 'BLOQUÉ',
     'hit': '-{n}',
@@ -553,7 +557,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'PRESQUE {rune} !'
+    'almostRune': 'PRESQUE {rune} !',
+    'tryRune': 'Essaie la rune {rune} !',
+    'comingSoon': 'BIENTÔT',
+    'lockedRune': 'La rune {rune} arrive bientôt'
   },
 
   'license': {

@@ -30,7 +30,11 @@
  *  3. THE AFK RULE. The floor is the one thing that could let a player put
  *     the phone down and never lose. So after `AFK_S` seconds with no drawing
  *     at all, the floor lifts and the foe is allowed to finish. Touch the
- *     screen and it comes straight back.
+ *     screen and it comes straight back — and if a blow took her UNDER it
+ *     while she was away, she is lifted back up to it (`LIFT_S`, below):
+ *     the floor re-anchors, it does not freeze where she happened to be.
+ *     And a lifted floor never leaves a sliver: under `KO_HP` it is a
+ *     knockout (story-spec §8.36).
  *
  *  4. THE HASTE (owner, 2026-09-23). A player who has learned to draw FAST
  *     out-paces all of the above: she lands a spell a second while the foe
@@ -48,12 +52,38 @@
  * one of them would be cheating.
  */
 import { S } from '@/game/duel/state'
+import { PH_DUEL } from '@/game/duel/config'
 import { clamp, max, min } from '@/game/duel/util'
 
 /** Seconds of no drawing before the foe is allowed to land the last blow. */
 export const AFK_S = 10
 /** The share of her health the foe's spells can never take her below. */
-const MERCY_FRAC = 0.1
+export const MERCY_FRAC = 0.1
+/**
+ * THE KNOCKOUT LINE (story-spec §8.36). With the floor lifted — the player
+ * away, or local versus — a duelist under this much health is knocked out,
+ * not left standing on 0.4 HP: a bar that READS empty has to BE empty. The
+ * blind playtest watched a child sit on "0" for 46 s, invulnerable, because a
+ * burn tick had left her a fraction and the floor then re-formed around it.
+ */
+export const KO_HP = 0.5
+/**
+ * Seconds the RE-ANCHOR takes (story-spec §8.36): a player who comes back to
+ * the phone below the floor — a blow landed while she was away — is lifted
+ * back up to it, smoothly and visibly, rather than the floor re-forming
+ * wherever she happened to be. That second thing is the freeze: the floor is
+ * `min(10 %, hp)`, so a player on 0.4 HP who acts again has a floor of 0.4,
+ * and nothing in the game can ever take the last step.
+ */
+export const LIFT_S = 0.6
+/**
+ * Seconds after the game RESUMES — a menu closed (Options, the spellbook), an
+ * ad ended, the tab came back — in which the foe may not RELEASE a spell. She
+ * keeps forming; she just cannot throw the combo she queued the instant the
+ * book shuts in front of a child who is still finding the pad (owner,
+ * 2026-09-24: "Spellbook is a menu").
+ */
+export const RESUME_GRACE_S = 1
 /** How far apart the two bars may drift before the foe presses or eases. */
 const SLACK = 0.08
 /** The hardest and gentlest the foe's damage is ever scaled. */
@@ -66,6 +96,11 @@ const FOLLOW = 2.2
 let idle = 0
 /** The live damage multiplier on the foe's spells. */
 let scale = 1
+/** The re-anchor under way: HP a second, and seconds left. */
+let liftRate = 0
+let liftT = 0
+/** Seconds of the resume grace left. */
+let grace = 0
 
 /* ------------------------------ the haste ------------------------------ */
 /**
@@ -137,6 +172,7 @@ export const resetDirector = (): void => {
   scale = 1
   pace = runesIn = trend = lastGap = age = 0
   boost = 1
+  liftRate = liftT = grace = 0
 }
 
 /** The player cast `runes` runes (`sim.castSide`) — the haste's pace tally. */
@@ -144,20 +180,57 @@ export const notePlayerCast = (runes: number): void => {
   runesIn += runes
 }
 
-/** The player drew — she is here, and the mercy floor applies. */
-export const noteAct = (): void => {
+/** The health the floor stands at, whole: `MERCY_FRAC` of her maximum. */
+const floorHp = (): number => S.hpMax * MERCY_FRAC
+
+/**
+ * The player drew or cast — she is here, and the mercy floor applies.
+ *
+ * Returns true when this is her COMING BACK from the AFK rule below the
+ * floor: the re-anchor has started, and the caller (`sim.ts`) shows it on
+ * her. Only a player who was away can be under the floor at all — every
+ * damage path clamps to `mercyFloor()` while she is here.
+ */
+export const noteAct = (): boolean => {
+  const back = idle >= AFK_S
   idle = 0
+  if (!back || S.versus || S.phase !== PH_DUEL || !(S.hp > 0) || S.hp >= floorHp()) return false
+  liftT = LIFT_S
+  liftRate = (floorHp() - S.hp) / LIFT_S
+  return true
 }
 
 /** Whether the player has been away long enough to be finished off. */
 export const afk = (): boolean => idle >= AFK_S
 
+/** Seconds of the re-anchor still to run — 0 when none is under way. */
+export const lifting = (): number => liftT
+
+/** Is the floor lifted — the player away, or a person on the other side?
+ *  Then, and only then, a sliver of health is a knockout (`KO_HP`). */
+export const floorLifted = (): boolean => S.versus || afk()
+
+/** The game resumed (`AppScene`, on the pause gate's falling edge). */
+export const noteResume = (): void => {
+  grace = RESUME_GRACE_S
+}
+
+/** May the foe release a spell now? Not in the second after a resume. */
+export const foeMayRelease = (): boolean => grace <= 0
+
 /**
  * The lowest health the foe's spells may leave the player on.
  *
  * Zero in versus (a person on the other side earns the win), zero once the
- * player has gone quiet, and zero if she is somehow already under it —
- * nothing here ever HEALS her, it only refuses to take the last step.
+ * player has gone quiet, and her own health if she is already under it — a
+ * BLOW never heals her, it only refuses to take the last step. The one way
+ * back up is the re-anchor (`noteAct`), which is how she can only ever be
+ * under it: a blow that landed while she was away.
+ *
+ * EVERY damage path on the player clamps to this — the spell's hit and a
+ * ward's seep (`sim.strike`, which a reflected spell also lands through), a
+ * burn tick and a lingering spell's tick (`sim.tick`). A new one must too;
+ * `tests/duel/director.test.ts` walks a present player through all of them.
  */
 export const mercyFloor = (): number => {
   if (S.versus || afk()) return 0
@@ -309,6 +382,17 @@ const stepHaste = (dt: number, mine: number, hers: number): void => {
  */
 export const stepDirector = (dt: number): void => {
   idle += dt
+  if (grace > 0) grace = max(0, grace - dt)
+  // THE RE-ANCHOR: she came back under the floor, so she rises to it over
+  // `LIFT_S`. Only ever UP, only as far as the floor, only in a live duel —
+  // her own heals may have got there first, and a won duel is not lifted.
+  if (liftT > 0) {
+    const t = min(dt, liftT)
+    liftT = max(0, liftT - dt)
+    const floor = floorHp()
+    if (S.phase !== PH_DUEL || !(S.hp > 0) || S.hp >= floor) liftT = 0
+    else S.hp = liftT > 0 ? min(floor, S.hp + liftRate * t) : floor
+  }
   if (S.versus) {
     scale = 1
     boost = 1

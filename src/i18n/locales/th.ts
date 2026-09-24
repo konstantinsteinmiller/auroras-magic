@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'วาดรูนเลย',
     'triangle': 'วาดรูปสามเหลี่ยม',
+    'square': 'วาดรูปสี่เหลี่ยม',
+    'twoRunes': 'สองรูน เวทแรงกว่า!',
     'stored': 'เก็บแล้ว! สูงสุด 3',
     'cast': 'ร่ายเวทเลย!'
   },
 
   'pop': {
     'notARune': 'ไม่ใช่รูน',
+    'trySquare': 'ลองวาดสี่เหลี่ยมดู!',
+    'tryTriangle': 'ลองวาดสามเหลี่ยมดู!',
     'noSlots': 'ช่องเต็ม!',
     'blocked': 'ถูกบล็อก',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'เกือบเป็น{rune}แล้ว!'
+    'almostRune': 'เกือบเป็น{rune}แล้ว!',
+    'tryRune': 'ลอง{rune}ดูสิ!',
+    'comingSoon': 'เร็ว ๆ นี้',
+    'lockedRune': 'รูน{rune}กำลังจะมาเร็ว ๆ นี้'
   },
 
   'license': {

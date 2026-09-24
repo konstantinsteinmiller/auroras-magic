@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'DIBUJA LA RUNA',
     'triangle': 'DIBUJA UN TRIÁNGULO',
+    'square': 'DIBUJA UN CUADRADO',
+    'twoRunes': '¡DOS RUNAS, HECHIZO MÁS FUERTE!',
     'stored': '¡GUARDADA! HASTA 3',
     'cast': 'AHORA LÁNZALA'
   },
 
   'pop': {
     'notARune': 'NO ES UNA RUNA',
+    'trySquare': '¡PRUEBA EL CUADRADO!',
+    'tryTriangle': '¡PRUEBA EL TRIÁNGULO!',
     'noSlots': '¡SIN HUECOS!',
     'blocked': 'BLOQUEADO',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': '¡CASI {rune}!'
+    'almostRune': '¡CASI {rune}!',
+    'tryRune': '¡Prueba con {rune}!',
+    'comingSoon': 'MUY PRONTO',
+    'lockedRune': 'La runa {rune} llegará pronto'
   },
 
   'license': {

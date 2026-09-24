@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': '画出符文',
     'triangle': '画一个三角形',
+    'square': '画一个正方形',
+    'twoRunes': '两个符文，魔法更强！',
     'stored': '已储存！最多 3 个',
     'cast': '现在施法'
   },
 
   'pop': {
     'notARune': '不是符文',
+    'trySquare': '试试画正方形！',
+    'tryTriangle': '试试画三角形！',
     'noSlots': '槽位已满！',
     'blocked': '格挡',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': '差一点就是{rune}！'
+    'almostRune': '差一点就是{rune}！',
+    'tryRune': '试试{rune}！',
+    'comingSoon': '即将解锁',
+    'lockedRune': '{rune}符文即将解锁'
   },
 
   'license': {

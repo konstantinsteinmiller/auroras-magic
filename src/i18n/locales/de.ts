@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'ZEICHNE DIE RUNE',
     'triangle': 'ZEICHNE EIN DREIECK',
+    'square': 'ZEICHNE EIN QUADRAT',
+    'twoRunes': 'ZWEI RUNEN, STÄRKERER ZAUBER!',
     'stored': 'GESPEICHERT! BIS ZU 3',
     'cast': 'JETZT ZAUBERN'
   },
 
   'pop': {
     'notARune': 'KEINE RUNE',
+    'trySquare': 'VERSUCH DAS QUADRAT!',
+    'tryTriangle': 'VERSUCH DAS DREIECK!',
     'noSlots': 'KEIN PLATZ!',
     'blocked': 'GEBLOCKT',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'FAST {rune}!'
+    'almostRune': 'FAST {rune}!',
+    'tryRune': 'Probier’s mit {rune}!',
+    'comingSoon': 'BALD DA',
+    'lockedRune': 'Die Rune {rune} kommt bald'
   },
 
   'license': {

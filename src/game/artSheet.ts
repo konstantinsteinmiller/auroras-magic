@@ -43,7 +43,7 @@ import {
   STORY_PANELS, storyPanelId, PORTRAIT_SETS, portraitArtId, ISLAND_SLUGS, islandArtId,
   KEEPSAKE_ICON_SLUGS, keepsakeArtId, pageArtId, frontPageArtId, PROP_ART,
   wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG, BRAND_LOGO, BRAND_MASCOT,
-  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, type PortraitEmote, type PropName, type CreatureName, type RigPart
+  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, HP_FRAMES, type PortraitEmote, type PropName, type CreatureName, type RigPart
 } from '@/game/artIds'
 import { ACTIVE_STYLE } from '@/game/artStyle'
 
@@ -364,6 +364,83 @@ export const RUNE_SHEETS: readonly ItemSheet[] = RUNE_SLUGS.map((_, k) => {
 /* ────────────────────────────────── the book's own furniture (§8.28) ── */
 
 /**
+ * The duel's two HP-bar FRAMES (`artIds.HP_FRAMES`, `game/duel/hpFrame.ts`).
+ *
+ * The one pair of sheets in the manifest that the game STRETCHES: the bar is
+ * ~140 px a side on a portrait phone and ~400 stage units in landscape, so
+ * `HpBar.vue` lays the painting on as a CSS 9-slice `border-image` — the
+ * medallion end and the finial end at their own size, the rail between them
+ * stretched. That only works if the rail's middle stretch is PLAIN, which is
+ * the one rule in these briefs that the game cannot survive without, so it
+ * is said three ways: in `keep`, in the checks, and as the thing the
+ * reference itself shows (a short plain rail between two ornate ends).
+ *
+ * The TRACK is a hole — the game draws the health there, behind the frame —
+ * so it is `holes`, which puts the exception into the magenta contract where
+ * the flat rule would otherwise have the last word.
+ *
+ * One wide panel (`canvas`), because a frame is ~2.6:1 with its air and a
+ * square would spend three quarters of the return on magenta. The default
+ * 256 px frame cap is kept: the file is read at ~40–80 device px tall.
+ */
+const hpFrameSheet = (side: 'aurora' | 'foe'): ItemSheet => {
+  const { kind, id } = HP_FRAMES[side]
+  const aurora = side === 'aurora'
+  const [nearEnd, farEnd, runs] = aurora ? ['LEFT', 'RIGHT', 'to the RIGHT'] : ['RIGHT', 'LEFT', 'to the LEFT']
+  const metal = aurora ? 'gold' : 'silver-edged indigo'
+  return {
+    name: `worldUi:${id}` as const,
+    kind,
+    id,
+    title: aurora ? 'HP bar frame — Aurora' : 'HP bar frame — the night (every foe)',
+    frames: 1,
+    anchor: 'centre' as const,
+    panels: [],
+    canvas: { w: 1536, h: 864 },
+    noun: 'frame',
+    blurb: aurora
+      ? 'The FRAME of a health bar in a children\'s storybook game, lying flat and level. On the LEFT end, a round MEDALLION: a warm cream disc set in a gold ring studded with eight little pearls, with a soft, chubby five-pointed gold STAR in its middle and a tiny twinkle beside it. Running RIGHT out of the medallion, a long gold RAIL with a rounded end, going all the way round a long empty WINDOW. At the rail\'s right end, a small FINIAL: two little gold leaves curling back along the rail, and a round pearl bead on the tip. It is the ornate edge of a bar the game fills with colour — Aurora\'s, the sunny heroine\'s.'
+      : 'The FRAME of a health bar in a children\'s storybook game, lying flat and level. On the RIGHT end, a round MEDALLION: a deep night-indigo disc set in a moonlit-silver ring studded with eight tiny silver twinkles, with a smooth silver CRESCENT MOON in its middle, opening toward the bar, and one small twinkle in the crescent\'s curve. Running LEFT out of the medallion, a long deep-indigo RAIL edged in soft silver, with a rounded end, going all the way round a long empty WINDOW. At the rail\'s left end, a small FINIAL: two little silver leaves curling back along the rail, and a round pale moonstone bead on the tip. It is the edge of the bar of the friend Aurora duels — the calm, dreamy NIGHT to Aurora\'s sunny day.',
+    colour: aurora
+      ? 'Warm butter-gold for the rail, the ring, the star and the leaves — pale gold where the light lands along their top edges, a deeper honey-gold along their feet. A warm cream disc; cream pearls and a cream pearl bead. Sunny, soft and friendly.'
+      : 'Deep night indigo — a blue-violet, never black — for the rail and the disc, a little deeper along the rail\'s foot. Moonlit silver-lavender for the ring, the rail\'s lit top edge, the crescent and the leaves, pale where the light lands. A milky lilac moonstone. Cool, soft and quiet, like a starry sky at bedtime.',
+    not: [
+      `Draw ONLY what the reference shows: the medallion, the rail round the window, the two leaves and the bead. No hearts, no gems or studs along the rail, no ribbon, no banner, no name plate, no characters, no ground.`,
+      'NOTHING IN THE WINDOW. The game fills it with the health bar itself, behind your frame; anything you paint there hides the health.',
+      'No text, letters or numbers anywhere — the game writes the name itself, on a plate of its own.',
+      'NOT a button, a badge or a panel: no card, plate or shape behind the frame. The magenta touches its outline all the way round, and shows through the window.',
+      aurora
+        ? 'The star HAS NO FACE — no eyes, no smile, no cheeks. It is an emblem, not a character.'
+        : 'The moon HAS NO FACE — no eyes, no mouth, no cheeks. It is an emblem, not a character.',
+      ...(aurora ? [] : ['IT IS THE FRIENDLY NIGHT, NOT A THREAT: every edge round, every tip blunt, every shape soft and calm. Nothing sharp and nothing spooky anywhere on it.'])
+    ],
+    holes: 'THE WINDOW — the long rounded slot inside the rail, where the game draws the health — is an open gap. It is flat magenta inside, right up to the rail\'s inner edge: not a dark well, not a track, not glass, and nothing is painted in it at all.',
+    keep: [
+      'THE MIDDLE OF THE RAIL IS PLAIN, AND THE SAME ALL THE WAY ALONG — the one rule the game cannot work without.',
+      `· The game fits this frame to every screen, from a small phone to a big monitor, by stretching ONLY the middle stretch of the rail: the part between the medallion and the leaves. So that stretch is one plain ${metal} band above the window and one below it — the same colour, the same thickness and the same soft light along its top edge at every point along it.`,
+      `· Every ornament lives on the two ENDS: the medallion on the ${nearEnd.toLowerCase()}, the leaves and the bead on the ${farEnd.toLowerCase()}. Nothing on the middle stretch — no pearl, no gem, no knot, no curl, no bright spot, no blotch, no change of colour.`,
+      '· The rail is the same thickness above the window as below it, all the way along.',
+      '· THE ONE PLACE A STRAIGHT EDGE IS RIGHT: the rail\'s long edges, top and bottom, run level and parallel from the medallion to the leaves — drawn by hand, but never bending, bulging, wobbling or tapering, because the game stretches them. Everything else keeps its hand-drawn irregularity.',
+      'THE WINDOW KEEPS ITS SHAPE. It is the game\'s: a long slot with round ends, the rail round it on every side. Keep its height, its rounded ends and where it starts and stops exactly as the reference draws them — starting just clear of the medallion, ending just before the leaves.',
+      'IT IS SEEN SMALL — about a fingertip tall on a phone — so it is a bold, clear shape first: a round medallion, one clear emblem, a clean rail. Still hand-painted, never a flat vector: the paint varies softly along the metal and the plum line swells and fades.'
+    ].join('\n'),
+    view: 'THE VIEW: flat, level and square-on, exactly as the reference shows it — the medallion a round disc facing you, the rail running level. No perspective, no tilt, no curve, no bevel seen from an angle.',
+    facing: `The medallion is on the ${nearEnd} end and the bar runs ${runs}, exactly as in the reference. The game uses this painting the way round it is, so a mirrored one puts the medallion at the wrong end of the bar.`,
+    checks: [
+      `· The medallion is on the ${nearEnd}; the leaves and the bead are on the ${farEnd}.`,
+      '· Cover both ends with your hands and look at what is left: a plain band above a magenta slot and a plain band below it, the same from one end to the other. Paint out any ornament, spot or change you find there.',
+      '· The window is flat #FF00FF inside, right up to the rail: nothing painted in it.',
+      aurora
+        ? '· Count them: eight pearls on the ring, one star, one twinkle beside it, two leaves, one bead.'
+        : '· Count them: eight twinkles on the ring, one crescent, one twinkle in its curve, two leaves, one bead.',
+      '· Look at the magenta directly UNDER the frame and under the medallion: it must be the same flat magenta as the four corners of the sheet. No shadow, no glow, no halo.'
+    ],
+    file: `worldui-${id}`,
+    target: artTarget(kind, id)
+  }
+}
+
+/**
  * The chrome of the book itself — the things a player looks at on every map
  * screen and which, until now, had no painted seam at all.
  */
@@ -453,7 +530,9 @@ export const WORLD_UI_SHEETS: readonly ItemSheet[] = [
     ],
     file: `worldui-${MOVIE_ICON.id}`,
     target: artTarget(MOVIE_ICON.kind, MOVIE_ICON.id)
-  }
+  },
+  hpFrameSheet('aurora'),
+  hpFrameSheet('foe')
 ]
 
 /* ───────────────────────────────────── the sectors' live props (§8.8) ── */
@@ -2782,9 +2861,14 @@ const sizeClause = (s: ItemSheet, fit: Fit | undefined): string => {
 
 /** The prompt for one item or rune. */
 export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
-  const { w, h } = itemSheetSize(s.frames)
+  // A sheet with a canvas of its own (`ItemSheet.canvas`) is briefed in that
+  // canvas's shape: the HP frames are ONE wide panel, not a square.
+  const { w, h } = s.canvas ?? itemSheetSize(s.frames)
   const many = s.frames > 1
-  const shape = many
+  const wide = !many && !!s.canvas && s.canvas.w > s.canvas.h
+  const shape = wide
+    ? `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne WIDE landscape image, 16:9, holding the single ${s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size. One picture — not a strip of panels, not a close-up of one part of it.`
+    : many
     ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS, NOT ONE PICTURE.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings of the same ${s.title.toLowerCase()} side by side, left to right, each in its own equal share of the width — on the same layout as the attached reference.\n· Exactly ${s.frames} panels. Not 1, not ${s.frames + 1}, not ${s.frames * 2}. One row.\n· ONE big drawing filling the canvas is the wrong answer however well it is painted.\n· THE COUNT IS THE WHOLE JOB, and it is the one mistake that cannot be repaired afterwards. The game cuts this picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT WHAT IS IN IT. One drawing too many and every slice lands across two of them — all ${s.frames} ship as halves, not just the extra one.\n· SO SPACE THEM EVENLY AND KEEP THE JOINS EMPTY. Share the width out equally between them in your head and put one drawing in the middle of each share, with a clear band of plain magenta between every neighbouring pair that nothing reaches into — no mane, no ear, no backdrop, no shadow.\n· DO NOT DRAW THE DIVISIONS. No lines, rules, bars, gutters, boxes, frames or guides between the drawings, in any colour. THE PANELS ARE INVISIBLE — they are only where the drawings happen to sit on one unbroken magenta sheet. A line you draw is paint: it survives the cut and ends up inside the pictures either side of it.`
     : `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding the single ${s.kind === 'rune' ? 'rune' : s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size.`
   const lines = [
@@ -2823,7 +2907,7 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   lines.push(s.character ? withCharacter(STYLE_ITEM) : STYLE_ITEM, '', sizeClause(s, fit), '', magentaFor(s.holes), '')
   lines.push(
     'BEFORE YOU CALL IT FINISHED, count and check:',
-    many ? `· COUNT THE DRAWINGS left to right. There must be exactly ${s.frames} — not ${s.frames + 1}. One row, 16:9 landscape.` : `· One ${s.noun ?? 'object'}, in the middle of a square canvas.`,
+    many ? `· COUNT THE DRAWINGS left to right. There must be exactly ${s.frames} — not ${s.frames + 1}. One row, 16:9 landscape.` : `· One ${s.noun ?? 'object'}, in the middle of a ${wide ? 'wide 16:9' : 'square'} canvas.`,
     ...(many ? [`· The gaps: ${s.frames - 1} clear bands of plain magenta, one between each neighbouring pair, all about the same width, with nothing reaching into any of them. And NO line, rule, bar or frame drawn anywhere on the sheet.`] : []),
     '· Nothing in any panel is anywhere near filling it.',
     ...(s.tinted ? [`· ${s.tinted[0]!.toUpperCase()}${s.tinted.slice(1)}: pale neutral lilac-grey, no hue.`] : []),
@@ -2831,7 +2915,7 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
     ...STYLE_CHECKS,
     '· Every pixel that is not the object is flat, vivid #FF00FF — hold it against a pure magenta swatch, not against your memory of one.',
     '',
-    `OUTPUT: one image, ${many ? '16:9 landscape' : '1:1 square'} (the reference is ${w} x ${h} pixels), PNG — not JPEG. If your tool has an aspect-ratio control, set it to ${many ? '16:9' : '1:1'}${many ? ' — a square return crushes the panels and cannot be cut' : ''}. No labels, captions, numbers or watermarks.`
+    `OUTPUT: one image, ${many || wide ? '16:9 landscape' : '1:1 square'} (the reference is ${w} x ${h} pixels), PNG — not JPEG. If your tool has an aspect-ratio control, set it to ${many || wide ? '16:9' : '1:1'}${many ? ' — a square return crushes the panels and cannot be cut' : ''}. No labels, captions, numbers or watermarks.`
   )
   return lines.join('\n')
 }

@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': '룬을 그리세요',
     'triangle': '삼각형을 그리세요',
+    'square': '사각형을 그리세요',
+    'twoRunes': '룬 두 개면 더 강한 마법!',
     'stored': '저장! 최대 3개',
     'cast': '이제 시전하세요'
   },
 
   'pop': {
     'notARune': '룬이 아니에요',
+    'trySquare': '사각형을 그려 봐요!',
+    'tryTriangle': '삼각형을 그려 봐요!',
     'noSlots': '빈 칸 없음!',
     'blocked': '막힘',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': '거의 {rune}!'
+    'almostRune': '거의 {rune}!',
+    'tryRune': '{rune} 룬을 써 봐!',
+    'comingSoon': '곧 만나요',
+    'lockedRune': '{rune} 룬은 곧 만날 수 있어요'
   },
 
   'license': {

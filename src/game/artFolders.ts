@@ -20,9 +20,11 @@
  *                beat stays drawn (the lid, the bow, the burst).
  *   tool         the Stardust Brush and the Magic Eraser.
  *   worldUi      the book's own furniture on the map — the wardrobe tent, the
- *                node badges, the bookmark ribbon — and the rewarded-ad
- *                button's movie camera, the one DOM glyph here (`ArtIcon`,
- *                `artIds.MOVIE_ICON`).
+ *                node badges, the bookmark ribbon — and the DOM's painted
+ *                chrome: the rewarded-ad button's movie camera (`ArtIcon`,
+ *                `artIds.MOVIE_ICON`) and the duel's two HP-bar frames, laid
+ *                on as a stretched `border-image` (`HpBar.vue`,
+ *                `artIds.HP_FRAMES`).
  *   cosmetic     keepsakes painted as stills on Aurora's rig (the crown, the
  *                pet star). The others follow the rig's own deformation and
  *                stay drawn (§9.7).

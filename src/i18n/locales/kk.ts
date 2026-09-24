@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'РУНАНЫ СЫЗЫҢЫЗ',
     'triangle': 'ҮШБҰРЫШ СЫЗЫҢЫЗ',
+    'square': 'ШАРШЫ СЫЗЫҢЫЗ',
+    'twoRunes': 'ЕКІ РУНА — КҮШТІРЕК СИҚЫР!',
     'stored': 'САҚТАЛДЫ! 3-КЕ ДЕЙІН',
     'cast': 'ЕНДІ СИҚЫРЛАҢЫЗ'
   },
 
   'pop': {
     'notARune': 'БҰЛ РУНА ЕМЕС',
+    'trySquare': 'ШАРШЫНЫ СЫЗЫП КӨРІҢІЗ!',
+    'tryTriangle': 'ҮШБҰРЫШТЫ СЫЗЫП КӨРІҢІЗ!',
     'noSlots': 'ОРЫН ЖОҚ!',
     'blocked': 'БӨГЕЛДІ',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'СӘЛ ҚАЛДЫ — {rune}!'
+    'almostRune': 'СӘЛ ҚАЛДЫ — {rune}!',
+    'tryRune': '{rune} рунасын байқап көр!',
+    'comingSoon': 'ЖАҚЫНДА',
+    'lockedRune': '{rune} руна жақында келеді'
   },
 
   'license': {

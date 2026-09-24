@@ -7,8 +7,8 @@
  * onboarding trace. The HUD, the callouts and the result panel are Vue
  * components layered over this canvas — see `components/duel/`.
  */
-import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
-import { S } from '@/game/duel/state'
+import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING, EARTH } from '@/game/duel/config'
+import { S, pulse } from '@/game/duel/state'
 import { drawCloth } from '@/game/map/map'
 import { drawSky, drawSkyWash, drawIsland, drawWeather } from '@/game/duel/arena'
 import { drawDuelPage, drawDuelPageBelow } from '@/game/duel/duelPage'
@@ -16,15 +16,16 @@ import { castLook, bodyRadius, heft, type Body, type Mark, type CastLook } from 
 import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
-import { drawGlyph } from '@/game/duel/glyph'
+import { drawGlyph, glyphPoints } from '@/game/duel/glyph'
+import { guideClock, guideFlare, guideRune } from '@/game/duel/lesson'
 import { LAYOUT, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
-import { traceAssistNow } from '@/use/useAccessibility'
+import { traceAssistNow, reducedMotion } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
 import { FOES } from '@/game/duel/foes'
-import { decoyX } from '@/game/duel/sim'
+import { decoyX, foeCharge, foeTell } from '@/game/duel/sim'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 import { helpOn } from '@/game/duel/help'
 
@@ -492,14 +493,35 @@ const drawSnap = (g: G2D): void => {
 }
 
 /**
- * Onboarding beat 0: a ghost finger traces a glowing triangle on a loop, then
- * a short beat of held shape before the loop restarts. The caption is DOM.
+ * The first duel's lesson (`duel/lesson.ts`), beats A and B: a ghost finger
+ * traces the glowing rune — the triangle, then the square — on a loop, then a
+ * short beat of held shape before the loop restarts. A gold START DOT marks
+ * the corner the finger sets off from, and a nudge restarts the loop from it
+ * with a brief flare, so a child who drew the wrong thing sees the right one
+ * drawn again at once. The captions are DOM.
  */
 const drawIntroTrace = (g: G2D, t: number): void => {
+  const k = guideRune()
+  if (k < 0) return
   const [cx, cy] = zoneCentre()
   const R = zoneSpan() * 0.26
-  drawGlyph(g, 0, cx, cy, R, 0.16)
-  const p = drawGlyph(g, 0, cx, cy, R, 1, clamp(((t * 0.45) % 1.3) * 1.18, 0, 1))
+  // The square starts top-left and runs clockwise, as a child writes; the
+  // triangle at its apex, as it always has.
+  const from = k === EARTH ? 2 : 0
+  const flare = guideFlare(t)
+  const u = guideClock(t)
+  drawGlyph(g, k, cx, cy, R, 0.16 + 0.34 * flare, 1, from)
+  const p = drawGlyph(g, k, cx, cy, R, 1, clamp(((u * 0.45) % 1.3) * 1.18, 0, 1), from)
+  // The start dot OVER the traced stroke, so it stays where to begin while
+  // the finger is away round the shape.
+  const [sx, sy] = glyphPoints(k, cx, cy, R, 0, from).head
+  g.beginPath()
+  g.arc(sx, sy, R * (0.13 + 0.05 * pulse(t, 0.9)), 0, TAU)
+  g.fillStyle = '#ffd76a'
+  g.fill()
+  g.lineWidth = R * 0.045
+  g.strokeStyle = '#3A2340'
+  g.stroke()
   g.beginPath()
   g.arc(p[0], p[1], R * 0.18, 0, TAU)
   g.fillStyle = '#fff'
@@ -601,6 +623,104 @@ const drawDreamDust = (g: G2D, t: number): void => {
   g.lineWidth = 3
   g.strokeStyle = '#e7d6ff'
   g.stroke()
+  g.restore()
+}
+
+/* ── The telegraph and the knockout (story-spec §8.36) ─────────────── */
+
+/**
+ * THE TELEGRAPH at her horn: her hand is full and winding up to HIT. A warm
+ * gold-and-coral glow swells on the horn tip while a thin ring closes onto it
+ * — the same closing ring as a cast's gather, so the release reads as the end
+ * of what was building — and it pulses fast, the way her slots do. Two runes
+ * of a hit get a small, still ember: "she is one rune from it". Under
+ * reduced motion the glow is steady and the ring does not close.
+ */
+const drawChargeTell = (g: G2D, t: number): void => {
+  if (S.versus || S.phase !== PH_DUEL) return
+  const k = foeCharge()
+  const tell = foeTell()
+  if (k < 0 && tell < 1) return
+  const x = UX - 59 + castKick(S.eCastAnim)
+  const y = GY - 172
+  const still = reducedMotion.value
+  const p = k < 0 ? 0 : still ? 0.8 : 0.5 + 0.5 * Math.sin(t * TAU * 2.8)
+  const r = k < 0 ? 11 : 16 + 16 * k + 4 * p
+  g.save()
+  // The glow: three soft discs, gold over coral — no blur, no gradient.
+  g.fillStyle = '#ffb3a3'
+  g.globalAlpha = k < 0 ? 0.18 : 0.22 + 0.16 * p
+  g.beginPath()
+  g.arc(x, y, r * 1.9, 0, TAU)
+  g.fill()
+  g.fillStyle = '#ffd76a'
+  g.globalAlpha = k < 0 ? 0.3 : 0.4 + 0.25 * p
+  g.beginPath()
+  g.arc(x, y, r * 1.2, 0, TAU)
+  g.fill()
+  g.fillStyle = '#fff6e6'
+  g.globalAlpha = k < 0 ? 0.35 : 0.55 + 0.35 * p
+  g.beginPath()
+  g.arc(x, y, r * 0.55, 0, TAU)
+  g.fill()
+  if (k >= 0 && !still) {
+    // The ring closing in as the wind-up comes to its end.
+    g.globalAlpha = 0.5 + 0.5 * k
+    g.lineWidth = 3
+    g.strokeStyle = '#ffd76a'
+    g.beginPath()
+    g.arc(x, y, 18 + 70 * (1 - k), 0, TAU)
+    g.stroke()
+  }
+  g.restore()
+}
+
+/** One drawn Z — a picture of sleep, the same in every locale. */
+const drawZ = (g: G2D, x: number, y: number, s: number, alpha: number): void => {
+  g.globalAlpha = alpha
+  g.beginPath()
+  g.moveTo(x - s, y - s)
+  g.lineTo(x + s, y - s)
+  g.lineTo(x - s, y + s)
+  g.lineTo(x + s, y + s)
+  g.lineCap = 'round'
+  g.lineJoin = 'round'
+  g.lineWidth = 3 + s * 0.42
+  g.strokeStyle = '#3A2340'
+  g.stroke()
+  g.lineWidth = 1.5 + s * 0.2
+  g.strokeStyle = '#f3e8ff'
+  g.stroke()
+}
+
+/**
+ * THE KNOCKOUT BEAT: the loser dozes off. Once she has folded onto the grass
+ * (the rig's own collapse, `lose` in chars.ts) a little stream of Z's drifts
+ * up off her head — Aurora on a loss, the foe on a win, either side in versus
+ * — so the order is unmistakable: the blow, the hold, she folds, she sleeps,
+ * and only then the result card (`duelFlow.KO_BEAT_MS`). Under reduced
+ * motion the Z's stand still, three in a rising row.
+ */
+const drawKoSleep = (g: G2D, t: number): void => {
+  if (S.phase === PH_DUEL) return
+  const foe = S.phase === PH_WIN
+  // Faded in once the body has landed (the drop ends at `lose` 0.55).
+  const a = clamp((S.over - 0.6) / 0.35, 0, 1)
+  if (a <= 0) return
+  // Over the sleeper's head, which lies forward of her hooves; the Z's drift
+  // up and away from her face.
+  const dir = foe ? -1 : 1
+  const hx = (foe ? UX : AX) + dir * 64
+  const hy = GY - 112
+  g.save()
+  if (reducedMotion.value) {
+    for (let i = 0; i < 3; i++) drawZ(g, hx + dir * (14 + i * 22), hy - 18 - i * 30, 8 + i * 4, a * 0.9)
+  } else {
+    for (let i = 0; i < 3; i++) {
+      const u = ((t * 0.5 + i / 3) % 1 + 1) % 1
+      drawZ(g, hx + dir * (10 + u * 46), hy - 10 - u * 92, 7 + u * 9, a * Math.sin(u * Math.PI) * 0.95)
+    }
+  }
   g.restore()
 }
 
@@ -985,6 +1105,8 @@ export const render = (g: G2D): void => {
   drawDecoys(g, false, AST, t, true)
   drawDecoys(g, true, UST, t, true)
   drawDreamDust(g, t)
+  drawChargeTell(g, t)
+  drawKoSleep(g, t)
 
   drawShots(g)
   // A won sector's gift drops onto the island during the flourish (§3.2.2).
@@ -1013,6 +1135,6 @@ export const render = (g: G2D): void => {
 
   if (S.draw && S.portrait) drawStroke(g)
   if (S.versus) return
-  if (S.intro && !S.book && S.phase === PH_DUEL && S.introStep < 1) drawIntroTrace(g, t)
+  if (S.intro && !S.book && S.phase === PH_DUEL && guideRune() >= 0) drawIntroTrace(g, t)
   else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0) drawAssistTrace(g, t, helpOn())
 }

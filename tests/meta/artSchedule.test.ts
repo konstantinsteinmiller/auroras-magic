@@ -73,10 +73,15 @@ describe('a fresh save: the splash holds for the first DUEL', () => {
     const faces = [...new Set(keys(facesOf(dialogueFor(OPENING_NODE), fresh)))]
     expect(faces.length).toBeGreaterThan(0)
     for (const f of faces) expect(hold).toContain(f)
+    // The HUD's two HP frames, on screen from the duel's first frame.
+    expect(hold).toContain('worldUi/hp-frame-aurora')
+    expect(hold).toContain('worldUi/hp-frame-foe')
     // NOT the map: no page, no thumbnail, no badge, no gift, no tool, no
     // picture book, no wardrobe — none of it is drawn before the first win.
+    // The HP frames are the only world-UI a duel draws.
     for (const k of hold) {
-      expect(k).not.toMatch(/^(sectorThumb|story|wardrobe|gift|tool|worldUi)\//)
+      expect(k).not.toMatch(/^(sectorThumb|story|wardrobe|gift|tool)\//)
+      expect(k).not.toMatch(/^worldUi\/(?!hp-frame-)/)
       expect(k).not.toMatch(/^page\/page-/)
     }
     expect(new Set(hold).size).toBeLessThanOrEqual(16)

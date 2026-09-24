@@ -148,6 +148,10 @@ export default {
     // Under beat 0's ghost trace: the shape, named, for the players the
     // animated finger alone does not reach.
     'triangle': 'DRAW A TRIANGLE',
+    // Beat B: the second starting rune, taught like the first, and the
+    // one-line reason to hold two (`game/duel/lesson.ts`).
+    'square': 'DRAW A SQUARE',
+    'twoRunes': 'TWO RUNES, STRONGER SPELL!',
     'stored': 'STORED! UP TO 3',
     'cast': 'NOW CAST IT'
   },
@@ -155,6 +159,9 @@ export default {
   // ─── Floating callouts ────────────────────────────────────────────────────
   'pop': {
     'notARune': 'NOT A RUNE',
+    // The first duel's lesson refusing a shape: a nudge back to its guide.
+    'trySquare': 'TRY THE SQUARE!',
+    'tryTriangle': 'TRY THE TRIANGLE!',
     'noSlots': 'NO SLOTS!',
     'blocked': 'BLOCKED',
     'hit': '-{n}',
@@ -655,7 +662,14 @@ export default {
   // The near-miss callout (§5.12): shouted like the other callouts; the
   // rune's name is upper-cased by the locale at render time.
   'duel': {
-    'almostRune': 'ALMOST {rune}!'
+    'almostRune': 'ALMOST {rune}!',
+    // The depth glimpse (story-spec §8.36): a friendly nudge over the foe's
+    // ward, naming the one of her runes that gets through it. Not shouted.
+    'tryRune': 'Try {rune}!',
+    // A stroke that matched a rune not earned yet: the card under its
+    // icon and lock, and what a screen reader hears for the whole card.
+    'comingSoon': 'COMING SOON',
+    'lockedRune': 'The {rune} rune is coming soon'
   },
 
   'license': {

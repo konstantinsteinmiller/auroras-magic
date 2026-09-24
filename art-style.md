@@ -672,3 +672,26 @@ tightest screen is not a narrow phone but a landscape one: at 412 px tall the
 mascot is dropped entirely and the mark plus the title carry the screen. The
 title's margin is its STROKE — `.ink-text` rings it in 0.28em of plum, which
 overflows the line box and is invisible to the flex gap.
+
+## 12. DOM chrome that stretches — the HP frames (2026-09-24)
+
+Everything else in the catalogue is drawn at a size the renderer (or the
+splash) chooses. The duel's two HP frames are the first paintings the game
+STRETCHES: `HpBar.vue` lays each on as a CSS 9-slice `border-image`, so only
+their plain rail grows with the bar, from a 320 px phone to a 1920 desktop.
+
+- **The rule a stretched painting lives by:** every ornament on the two ends,
+  nothing on the middle — no stud, knot, highlight spot or change of colour —
+  and the rail's two long edges level and parallel. Say it in the brief, put
+  it in the check list, and DRAW it in the reference (a short plain rail
+  between two ornate ends): the three together got it first time, twice.
+- **A window the game fills is a `holes` clause**, never "paint a dark well":
+  the track, its fill, its notches and the damage chip are all DOM, drawn
+  behind the painting.
+- **Aurora's frame is warm, the foe's is the NIGHT, not a villain**: deep
+  indigo — never black — moonlit silver, a crescent with no face, every edge
+  round and every tip blunt. It is the frame of the friend she duels.
+- **The drawn frame is the reference**: `hpFrame.ts` builds the ends once as
+  path data, and both the bar's inline-SVG fallback and the bench's canvas
+  reference draw those paths. Change the geometry there and re-export — the
+  slice lines move with it.

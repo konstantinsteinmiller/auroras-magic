@@ -19,16 +19,20 @@ import {
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
 import {
   HASTE, foeDamageScale, hasteLevel, hasteRush, mercyFloor, noteAct, notePlayerCast, playerDamageScale, press,
-  resetDirector, stepDirector
+  resetDirector, stepDirector, KO_HP, MERCY_FRAC, floorLifted, foeMayRelease, lifting
 } from '@/game/duel/director'
 import { S, save, pop, type Shot } from '@/game/duel/state'
-import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
+import { recognise, recogniseLocked, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
+import {
+  endLesson, lessonCastOpen, lessonCastRefused, lessonMiss, lessonStored, lessonTakes, resetLesson, stepLesson,
+  showLockedRune
+} from '@/game/duel/lesson'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
   impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
   decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, seepThrough, lingerMote, hasteSpark,
-  BAR_CRYSTAL, BAR_FROST
+  chargeSpark, liftBloom, liftMote, punchAdd, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { mixRune } from '@/game/duel/spellArt'
@@ -104,6 +108,19 @@ export const duelTally = {
   lingerToPlayer: 0
 }
 
+/**
+ * The player drew or cast: she is here (director.ts's AFK rule). If she is
+ * coming BACK and a blow took her under the mercy floor while she was away,
+ * the director lifts her to it over `LIFT_S` — and it is shown on her, so the
+ * bar filling back up has a cause a child can see (story-spec §8.36).
+ */
+const present = (): void => {
+  if (!noteAct()) return
+  liftBloom(AX, GY - 110)
+  sfx('chime')
+  pop('heal', '#9dffb0', AX, GY - 285, { n: max(1, Math.round(S.hpMax * MERCY_FRAC - S.hp)) })
+}
+
 /* ------------------------------ drawing ----------------------------- */
 /**
  * Pointer went down (anywhere that is not a button). `e` = player 2's hand,
@@ -112,7 +129,7 @@ export const duelTally = {
  */
 export const strokeStart = (x: number, y: number, e = false): void => {
   if (e ? S.eFrozen > 0 : S.frozen > 0) return
-  if (!e) noteAct()
+  if (!e) present()
   const p = e ? S.epts : S.pts
   if (e) S.edraw = 1
   else S.draw = 1
@@ -182,7 +199,17 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
         margin: sc - 0.78
       }
   if (info) emit('stroke', undefined, info)
+  // A refused stroke that is a rune she has not earned yet (lesson.ts):
+  // named, with its icon and a lock, instead of "not a rune". Judged at the
+  // same bar an owned rune must clear (`recogniseLocked`).
+  const locked = !e && r < 0 ? recogniseLocked(p, active) : -1
   p.length = 0
+  // The first duel's lesson answers its own misses and refusals (lesson.ts).
+  if (!e && S.intro && (r < 0 ? lessonMiss(calloutX, calloutY) : !lessonTakes(r, calloutX, calloutY))) return
+  if (r < 0 && locked >= 0) {
+    showLockedRune(locked, calloutX, calloutY)
+    return
+  }
   if (r < 0) {
     // The ONLY visual sign a stroke was rejected — muted players need it.
     // A stroke that was plausibly reaching for a rune the player HAS names it
@@ -214,10 +241,7 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
   S.snap = { r: rune, t: 0 }
   sfx('snap', rune)
   emit('rune', undefined, info)
-  if (S.intro && S.introStep < 1) {
-    S.introStep = 1
-    S.introT = 0
-  }
+  if (S.intro) lessonStored()
 }
 
 /* ------------------------------ casting ----------------------------- */
@@ -501,11 +525,7 @@ const launch = (q: Rune[], e: boolean): void => {
     S.combo = q.length
     lastCast = { key: sp.key, index: comboEnumerationIndex(q), count: q.length }
     pop('spell', RUNES[q[0]!]![0], 640, 250, spellPopParams(sp))
-    if (S.intro) {
-      S.intro = 0
-      S.introStep = 3
-      save()
-    }
+    if (S.intro) endLesson()
     emit('cast')
   }
   q.length = 0
@@ -521,11 +541,17 @@ export const cast = (): void => castSide(false)
 export const castSide = (e: boolean): void => {
   const q = e ? S.equeue : S.queue
   if (S.phase !== PH_DUEL || !q.length || (e ? S.eFrozen : S.frozen) > 0) return
+  // The first duel's lesson holds every cast path shut until its step D
+  // (lesson.ts) — the button, the keys, the right mouse button, all here.
+  if (!e && S.intro && !lessonCastOpen()) {
+    lessonCastRefused()
+    return
+  }
   // Casting counts as being here, not just drawing does: the AFK rule is
   // about a player who has put the phone down, and this is also the only
   // signal a programmatic player (the win-rate harness) ever sends.
   if (!e) {
-    noteAct()
+    present()
     // The haste's pace tally (§8.35): how many runes a second she is casting.
     if (!S.versus) notePlayerCast(q.length)
   }
@@ -660,6 +686,11 @@ const strike = (shot: Shot, e: boolean): void => {
     seepThrough(tx - s.dir * 58, tx, GY - 90, s.r, share, fromAbove(s.k))
     s = { ...s, dmg: s.dmg * share, dot: 0, slow: 0, ls: 0, lg: 0 }
     seeped = true
+    // The depth glimpse's answer, found (§8.36): the hint says yes.
+    if (e && S.glimpse === 2) {
+      S.glimpse = 3
+      S.glimpseT = 0
+    }
   }
 
   // A decoy swallows the WHOLE spell (§6.8 rule 3) — no HP, no rider, and a
@@ -734,7 +765,9 @@ const strike = (shot: Shot, e: boolean): void => {
   if (s.ls > 0) mend(!e, s.dmg * s.ls)
   // A weakness the player cannot SEE landing is a weakness they will not learn
   // to aim for, so the counter-hit says so in its own colour.
-  pop(s.w ? 'weakHit' : 'hit', s.w ? '#7dffa8' : e ? '#ffd76a' : '#ff6a8a', tx, GY - 250, { n: s.dmg | 0 })
+  // WHOSE it is (§8.36): over the one who took it, in her side's colour,
+  // drifting off her — the HUD reads `v` (`DuelPopups.vue`).
+  pop(s.w ? 'weakHit' : 'hit', s.w ? '#7dffa8' : e ? '#ffd76a' : '#ff6a8a', tx, GY - 250, { n: s.dmg | 0 }, e ? 1 : 0)
   if (s.n > 1 && e && !seeped) pop('combo', '#fff', tx, GY - 300, { n: s.n })
 }
 
@@ -844,6 +877,9 @@ const think = (dt: number): void => {
   // Frost Lock (§6.5): a frozen foe does nothing at all — no forming, no
   // casting, not even the panic dump.
   if (S.eFrozen > 0) return
+  // The depth glimpse (§8.36): while her teaching ward stands and the hint
+  // shows, she neither forms nor casts.
+  if (stepGlimpse(dt)) return
   const lv = FOES[S.foe]!.aiTier
   // HASTE.minForm is a readability limit, not a balance cap (director.ts).
   const rate = min(1 / HASTE.minForm, foeRate() * foeRush())
@@ -853,7 +889,12 @@ const think = (dt: number): void => {
   S.eForm += dt * rate
   if (S.eForm >= 1) {
     S.eForm = 0
-    if (S.equeue.length < MAX_RUNES) S.equeue.push(S.eRune as Rune)
+    if (S.equeue.length < MAX_RUNES) {
+      S.equeue.push(S.eRune as Rune)
+      // THE TELEGRAPH (§8.36): a hand that has just filled and will HIT
+      // winds up before it may leave — her slots glow, her horn charges.
+      if (S.equeue.length === MAX_RUNES && hits(foeSpellOf(S.equeue))) windUp()
+    }
     S.eRune = chooseRune()
   }
 
@@ -896,7 +937,134 @@ const think = (dt: number): void => {
   // is what "the foe never hits anything" looked like from the sofa: she was
   // holding a good hand and waiting for a better one.
   const eager = (0.02 + lv * 0.02) * (1 + 0.5 * press())
+  // Nothing leaves in the second after a menu closes (director.ts), and a
+  // full hand that will hit leaves only once it has wound up (§8.36) — a
+  // wall or a decoy still goes up the moment she wants it.
+  if (!foeMayRelease() || (S.eCharge > 0 && hits(sp))) return
   if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < eager)) launch(q, true)
+}
+
+/* ---------------------------- the telegraph ------------------------- */
+/**
+ * THE FOE'S COMBO TELEGRAPH (story-spec §8.36). The blind playtest watched
+ * her fill three slots and land a big spell with no warning at all: a full
+ * hand left on her next quarter-second thought, so "full slots" was never on
+ * screen long enough to mean anything. Now a full hand that will HIT winds up
+ * for `CHARGE_S` first — her three slots pulse warm gold (`RuneSlot.vue`) and
+ * her horn gathers sparks (`fx.chargeSpark`, `render.drawChargeTell`) — so a
+ * child can learn the one sentence that matters: full slots, big spell, put
+ * a wall up. Two runes of a hit get a softer, still glow (`foeTell`).
+ *
+ * A wall or a decoy in hand is no threat and winds up nothing. A hurried foe
+ * (the haste) winds up faster, never under `CHARGE_MIN`, so the grown-up the
+ * haste exists for still meets her at his pace; a child meets the full beat.
+ */
+export const CHARGE_S = 0.75
+const CHARGE_MIN = 0.35
+/** This wind-up's whole length, for its progress. */
+let chargeLen = CHARGE_S
+/** Does a spell of hers HIT — anything but a ward or a decoy? */
+const hits = (sp: ResolvedSpell): boolean => sp.kind !== 2 && sp.kind !== 5
+const windUp = (): void => {
+  chargeLen = max(CHARGE_MIN, CHARGE_S / hasteRush())
+  S.eCharge = chargeLen
+  chargeSpark(hornX(true), HORN_Y, 0)
+}
+/** How far her wind-up has come, 0..1, or -1 when she is not winding up. */
+export const foeCharge = (): number => (S.eCharge > 0 ? clamp(1 - S.eCharge / chargeLen, 0, 1) : -1)
+
+let tellKey = -1
+let tellVal = 0
+/**
+ * What her slots warn of (§8.36): 2 = a full hand that will hit (they pulse),
+ * 1 = two runes of a hit (a softer, still glow), 0 = nothing to fear. Never
+ * in versus, where the right-hand slots are a person's. Memoised on her hand,
+ * so the HUD may ask every frame.
+ */
+export const foeTell = (): number => {
+  const q = S.equeue
+  if (S.versus || S.phase !== PH_DUEL || q.length < 2) return 0
+  const key = ((S.foe * 2 + (S.usesMagic ? 1 : 0)) * 4 + q.length) * 4096 + q[0]! * 256 + q[1]! * 16 + (q[2] ?? 0)
+  if (key !== tellKey) {
+    tellKey = key
+    tellVal = hits(foeSpellOf(q)) ? (q.length >= MAX_RUNES ? 2 : 1) : 0
+  }
+  return tellVal
+}
+
+/* --------------------------- the depth glimpse ---------------------- */
+/**
+ * ONE EARLY LOOK AT THE RULES' DEPTH (story-spec §8.36). The playtest's gamer
+ * "exhausted the strategy space in a minute": nothing early in the story shows
+ * that runes answer each other. So once, early, the foe raises a ward the
+ * player's likely spell does not beat — a WIND WALL, which stops a Fire bolt
+ * dead — and a small hint over it shows the rune of HERS that gets through:
+ * Ice, which `WEAK_POINTS` lets a quarter through a wind wall (rock and ice
+ * are too heavy to blow aside).
+ *
+ * True in the rules, not staged: the rune is read off `WEAK_POINTS` and her
+ * own kit (`glimpseRuneFor`), and the ward is the real wind wall, so Fire is
+ * blocked, Ice seeps through and two Fires — a FIELD — creep under it, exactly
+ * as they always do. The hint is the HUD's (`DuelGlimpse.vue`).
+ *
+ * It must not cost a child the duel: from the moment the ward goes up until
+ * the hint is gone the foe forms nothing and casts nothing, and it happens
+ * once — one ward, in one duel (which duel is the campaign's call,
+ * `campaign/glimpse.ts`, handed over as `DuelStart.glimpse`).
+ */
+export const GLIMPSE = {
+  /** The ward: a wind wall (`guardK` 0). */
+  ward: 0,
+  /** How long it stands, seconds — the wind wall's own 6, and one to read. */
+  secs: 7,
+  /** Seconds into the duel before it may come up (it also waits for a calm
+   *  moment: nothing in flight, no ward or wind-up of hers). */
+  after: 6,
+  /** The "yes!" beat once her rune found the gap, before the foe wakes. */
+  yes: 1.2,
+  /** A breath after the hint goes, before the foe's first thought. */
+  wake: 1
+} as const
+
+/**
+ * Which of the player's runes (`mask`) finds the glimpse ward's weak point
+ * cast ALONE — a spell that hits, that the ward stops, and that a share of
+ * gets through anyway. -1 if none does (node 0's Fire and Earth: a lone Earth
+ * is a wall of her own, and Fire is exactly what a wind wall stops).
+ */
+export const glimpseRuneFor = (mask: number): number => {
+  for (let r = 0; r < RUNES.length; r++) {
+    if (!((mask >> r) & 1)) continue
+    const sp = resolveSpell([r])
+    if (hits(sp) && stops(GLIMPSE.ward, sp.kind) && seep(GLIMPSE.ward, sp.kind, sp.lead) > 0) return r
+  }
+  return -1
+}
+
+/** One step of the glimpse, inside the foe's `think`. True while she is held. */
+const stepGlimpse = (dt: number): boolean => {
+  const st = S.glimpse
+  if (st !== 1 && st !== 2 && st !== 3) return false
+  S.glimpseT += dt
+  if (st === 1) {
+    if (S.dur < GLIMPSE.after || S.shots.length || S.eGuard > 0 || S.eCharge > 0 || S.eWindup > 0 ||
+      S.ehp < S.ehpMax * 0.25) return false
+    S.glimpse = 2
+    S.glimpseT = 0
+    // She raises it like any cast of hers: the gather at her horn, the wall.
+    castBurst(hornX(true), HORN_Y, WIND)
+    S.eCastAnim = 0.55
+    raise(true, GLIMPSE.ward, GLIMPSE.secs, 0)
+    sfx('guard')
+    return true
+  }
+  // The ward stands and the hint shows — or her rune found the gap, and the
+  // "yes!" beat reads for a moment. Then the foe wakes, after a breath.
+  if (st === 2 ? S.eGuard > 0 : S.glimpseT < GLIMPSE.yes) return true
+  S.glimpse = 4
+  S.glimpseT = 0
+  S.eThink = max(S.eThink, GLIMPSE.wake)
+  return false
 }
 
 /** Which rune the foe reaches for, given the state of the duel. */
@@ -1016,6 +1184,20 @@ const tick = (dt: number): void => {
     if (S.eLinger > 0) lingerMote(UX, GY - 100, S.eLingerLook)
     const h = hasteLevel()
     if (h > 0.05) hasteSpark(hornX(true), HORN_Y, h)
+    // The telegraph's wind-up at her horn, and the re-anchor lifting Aurora
+    // (§8.36).
+    if (S.eCharge > 0) chargeSpark(hornX(true), HORN_Y, foeCharge())
+    if (lifting() > 0) liftMote(AX, GY - 120)
+  }
+  // The telegraph (§8.36): a hand that stopped being full (thrown away, frozen
+  // away) stops winding up; a finished wind-up leaves on her very next
+  // thought, as the glow peaks.
+  if (S.eCharge > 0) {
+    if (S.equeue.length < MAX_RUNES) S.eCharge = 0
+    else if ((S.eCharge -= dt) <= 0) {
+      S.eCharge = 0
+      S.eThink = 0
+    }
   }
   // Heal over time (Nature's bloom), capped at the side's own max.
   if (S.regen > 0) {
@@ -1079,9 +1261,24 @@ const tick = (dt: number): void => {
   }
 }
 
+/** The finishing blow's hold, seconds (§8.36): twice the longest hit-stop
+ *  a blow gets mid-fight (`fx.stopAdd`'s tenth), so the end is felt. */
+export const KO_STOP = 0.2
+
 /** End the duel once, and only once. */
 const finish = (won: boolean): void => {
   S.phase = won ? PH_WIN : PH_LOSE
+  // THE KNOCKOUT BEAT (story-spec §8.36): the loser's bar reads EXACTLY
+  // empty — a knockout under `KO_HP` leaves no sliver to argue with — and the
+  // finishing blow is HELD, longer than any hit-stop mid-fight, so the end is
+  // a beat of its own: the blow, the hold, then she folds and drifts off to
+  // sleep (`render.drawKoSleep`), and only then the result.
+  if (won) S.ehp = 0
+  else S.hp = 0
+  S.stop = max(S.stop, KO_STOP)
+  punchAdd(0.45)
+  S.eCharge = 0
+  if (S.glimpse) S.glimpse = 4
   S.over = S.panelT = 0
   S.resultUp = false
   S.shots.length = 0
@@ -1112,7 +1309,9 @@ const finish = (won: boolean): void => {
     pop('victory', '#ffe98a', 640, 240)
   } else {
     S.losses++
-    pop('defeated', '#ff6a8a', 640, 240)
+    // No "ZZZ…" shouted from the middle of the screen the instant the blow
+    // lands: she has not fallen asleep yet. The Zzz is drawn over HER, once
+    // she has folded (§8.36) — a picture of sleep, the same in every locale.
   }
   shakeAdd(0.6)
   sfx(won ? 'win' : 'lose')
@@ -1133,6 +1332,8 @@ export interface DuelStart {
   ease?: DuelEase
   /** Local 2P versus (§6.19): the right-hand duelist is player 2. */
   versus?: boolean
+  /** Arm the depth glimpse (§8.36) for this duel — the campaign's call. */
+  glimpse?: boolean
 }
 
 /** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15).
@@ -1215,6 +1416,14 @@ export const resetDuel = (start?: DuelStart): void => {
   S.dur = S.over = S.panelT = 0
   S.resultUp = false
   S.eThink = 1.2 // a grace beat before the foe opens
+  // The telegraph and the depth glimpse (§8.36) start clean; the glimpse only
+  // when the campaign armed it, and only if her kit holds a rune that answers.
+  S.eCharge = 0
+  chargeLen = CHARGE_S
+  tellKey = -1
+  S.glimpseRune = start?.glimpse && !S.versus ? glimpseRuneFor((S.campaign.runesUnlocked | STARTING_RUNES) >>> 0) : -1
+  S.glimpse = S.glimpseRune >= 0 ? 1 : 0
+  S.glimpseT = 0
   // Her committed next rune belongs to the last duel's foe: pick afresh.
   S.eRune = -1
   S.snap = S.esnap = null
@@ -1223,6 +1432,8 @@ export const resetDuel = (start?: DuelStart): void => {
   S.landed = 0
   S.sky = 0.5
   S.round++
+  // A lesson still owed starts over from its first beat (lesson.ts).
+  resetLesson()
 }
 
 /** One simulation step. Called at a fixed timestep by the scene. */
@@ -1245,14 +1456,10 @@ export const updateSim = (dt: number): void => {
   S.dur += dt
   tick(dt)
   stepShots(dt)
-  if (S.intro) {
-    // Beat 1 ("stored") reads for a moment, then hands over to beat 2 ("cast").
-    S.introT += dt
-    if (S.introStep === 1 && S.introT > 1.5) {
-      S.introStep = 2
-      S.introT = 0
-    }
-  } else if (!S.versus) think(dt)
+  // The first duel's lesson runs INSTEAD of the foe: she is held until the
+  // first cast (lesson.ts).
+  if (S.intro) stepLesson(dt)
+  else if (!S.versus) think(dt)
 
   // A boss crossing half her HP shifts phase (§6.11): a 1.8 s wind-up in which
   // she forms nothing — the universal tell — then her chapter's mechanic.
@@ -1278,6 +1485,10 @@ export const updateSim = (dt: number): void => {
   S.sky = damp(S.sky, clamp(bal, 0, 1), 1.4, dt)
   setMood(S.sky)
 
-  if (S.ehp <= 0) finish(true)
-  else if (S.hp <= 0) finish(false)
+  // A knockout (§8.36). The foe has no floor, so a sliver of hers is a
+  // knockout too; the player's is only while her floor is lifted (away, or
+  // versus) — while she is here the floor stands at 10 % and she never gets
+  // near it.
+  if (S.ehp < KO_HP) finish(true)
+  else if (S.hp <= 0 || (S.hp < KO_HP && floorLifted())) finish(false)
 }

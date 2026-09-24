@@ -114,12 +114,16 @@ export default {
   'intro': {
     'draw': 'NARYSUJ RUNĘ',
     'triangle': 'NARYSUJ TRÓJKĄT',
+    'square': 'NARYSUJ KWADRAT',
+    'twoRunes': 'DWIE RUNY, SILNIEJSZY CZAR!',
     'stored': 'ZAPISANO! MAKS. 3',
     'cast': 'TERAZ RZUĆ CZAR'
   },
 
   'pop': {
     'notARune': 'TO NIE RUNA',
+    'trySquare': 'TERAZ KWADRAT!',
+    'tryTriangle': 'NAJPIERW TRÓJKĄT!',
     'noSlots': 'BRAK MIEJSCA!',
     'blocked': 'ZABLOKOWANO',
     'hit': '-{n}',
@@ -552,7 +556,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'PRAWIE {rune}!'
+    'almostRune': 'PRAWIE {rune}!',
+    'tryRune': 'Spróbuj: {rune}!',
+    'comingSoon': 'JUŻ WKRÓTCE',
+    'lockedRune': 'Runa {rune} już wkrótce'
   },
 
   'license': {

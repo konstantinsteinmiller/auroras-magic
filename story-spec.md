@@ -7601,6 +7601,69 @@ and `tests/duel/weakPoints.test.ts` (the table, each weak point in the real
 duel, riders withheld, the mercy floor through a seep, the foe's answer, the
 three lingering spells' names/numbers/refresh/wash-off/floor/AFK/reflect).
 
+### §8.36 Blind playtest + owner, 2026-09-24 — combat feedback, and the empty-bar freeze
+
+Found by the first blind playtest (four testers, node 0–2) and the owner's
+*"Spellbook is a menu and should pause gameplay and sound and music."* Five
+changes, all in the duel (`director.ts`, `sim.ts`, `render.ts`, the HUD):
+
+**1. The floor re-anchors (the freeze).** `mercyFloor()` is `min(10 %, hp)`.
+The AFK rule lifted it, a burn tick left the gamer tester on 0.4 HP, and the
+moment he acted again the floor re-formed AT 0.4: nothing could take the last
+step, the bar read 0, and the duel could only end in his win (46 s of it).
+Now:
+- **Coming back under the floor lifts her TO it** (`noteAct` → `LIFT_S` =
+  0.6 s): a smooth rise, only up, only in a live duel, with a gold bloom on
+  Aurora, a soft chime and a mint `+n` (`fx.liftBloom`/`liftMote`). Only a
+  player who was away can be under the floor at all.
+- **A lifted floor never leaves a sliver**: with the player away (or in
+  versus, where there is no floor) HP under `KO_HP` = 0.5 is a knockout, and
+  the foe's own sliver is one too. The loser's bar is set to exactly 0.
+- **Every damage path on the player clamps to `mercyFloor()`** — the hit, a
+  ward's seep, a reflected spell (it lands through `strike`), the burn and the
+  lingering tick. `tests/duel/director.test.ts` walks a present player through
+  all five and through whole duels across the story.
+
+**2. The foe's combo telegraph.** A full hand used to leave on her next
+quarter-second thought, so "full slots" never meant anything. A full hand
+that will HIT (anything but a ward or a decoy) now winds up for `CHARGE_S`
+= 0.75 s (a hurried foe faster, never under 0.35 s): her three slots pulse
+warm gold and coral (`RuneSlot` `warn`), her horn swells with a ring closing
+onto it (`render.drawChargeTell`, `fx.chargeSpark`), and it leaves exactly as
+the ring closes. Two runes of a hit: a softer, still glow on the slots and a
+small ember at the horn. Reduced motion: steady glows. Never in versus.
+
+**3. The knockout beat.** The finishing blow holds for `KO_STOP` = 0.2 s
+(twice any mid-fight hit-stop), the loser folds (the rig's own collapse) and a
+stream of drawn Z's rises off her head (`render.drawKoSleep` — Aurora on a
+loss, the foe on a win); the centre "ZZZ…" that used to be shouted the instant
+the blow landed is gone. A loss's sting is now `KO_BEAT_MS` = 2.1 s so the
+doze reads before the card; the interstitial still comes after the sting and
+before the result, exactly where the ads pass put it.
+
+**4. Whose number.** A hit's number is spawned over its victim and carries her
+side (`Pop.v`): warm coral over Aurora, lilac over the foe, drifting off her
+outward (`DuelPopups`). A weak hit keeps its mint.
+
+**5. The depth glimpse** (`sim.GLIMPSE`, `campaign/glimpse.ts`). Once, in
+node 2's first duel (first play, once a session), the foe raises a WIND WALL —
+it stops a Fire bolt dead — and a hint over it names the one of her runes that
+gets through: the Ice rune's painted icon, pulsing, and "Try Ice!"
+(`duel.tryRune`, 21 locales). True in the rules: `glimpseRuneFor` reads
+`WEAK_POINTS` and her kit (Fire, Earth and node 0's Ice): a lone Ice bolt
+seeps a quarter through a wind wall. Node 0 cannot host it (no rune of hers
+answers the wall). While the ward stands the foe forms and casts nothing;
+when her Ice finds the gap the hint turns mint for 1.2 s, then the foe wakes
+after a breath. Measured on `winRate.test.ts`'s children at node 2 (n = 120):
+core 120/120 with and without, small child 114 vs 115/120.
+
+**And the menu grace.** The spellbook now acquires through `acquireMenuOpen`
+like every FModal: gameplay holds, the AudioContext is suspended and the
+music stops (verified in a real build: context `suspended`, its clock frozen,
+the sequencer off, Poki's bracket closed — and the same for Options). After
+ANY pause ends (a menu, an ad, the tab) the foe may not release a spell for
+`RESUME_GRACE_S` = 1 s (`noteResume`, wired in `AppScene`); she keeps forming.
+
 ## §9 Rendering, assets & performance
 
 ### §9.0 Lane boundary

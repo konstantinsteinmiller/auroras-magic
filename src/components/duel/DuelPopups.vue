@@ -46,6 +46,17 @@ const scale = computed(() => {
   return props.portrait ? Math.max(L.vs, 20 / 46) : 1
 })
 
+/**
+ * WHOSE A DAMAGE NUMBER IS (story-spec §8.36). The playtest saw a "−7" pop at
+ * the end of a duel and nobody could say who had taken it. A plain hit's
+ * number now wears its VICTIM's side — warm coral over Aurora, lilac over the
+ * foe, each the family of her own health bar — and drifts off her, outward,
+ * the way the blow pushed her, so it can never be read as the other one's.
+ * A WEAK hit keeps its mint (the counter-hit says so in its own colour, and
+ * only ever lands on the foe) and drifts the same way.
+ */
+const side = (p: Pop): string => (p.v === undefined ? '' : p.v ? 'on-foe' : 'on-aurora')
+
 const style = (p: Pop) => {
   const L = hudLayout.value
   const x = props.portrait ? L.vx + p.x * L.vs : p.x
@@ -53,7 +64,8 @@ const style = (p: Pop) => {
   return {
     left: `${x}px`,
     top: `${y}px`,
-    color: p.c,
+    // A side's plain hit takes its colour from the stylesheet's tokens.
+    ...(p.v !== undefined && p.k === 'hit' ? {} : { color: p.c }),
     fontSize: `${46 * scale.value}px`,
     '--k': String(scale.value),
     // A callout that is re-rendered mid-flight (a locale switch, a resize)
@@ -66,7 +78,7 @@ const style = (p: Pop) => {
 
 <template lang="pug">
   div.duel-pops(:class="{ fixed: portrait }" aria-live="polite")
-    span.duel-pop.ink-text(v-for="p in hudPops" :key="p.id" :style="style(p)") {{ text(p) }}
+    span.duel-pop.ink-text(v-for="p in hudPops" :key="p.id" :class="side(p)" :style="style(p)") {{ text(p) }}
 </template>
 
 <style scoped lang="sass">
@@ -80,4 +92,26 @@ const style = (p: Pop) => {
   animation-name: duel-pop
   animation-timing-function: linear
   animation-fill-mode: both
+
+// A damage number drifts OFF its victim: Aurora's to the left, the foe's to
+// the right — `--dx` is the direction, `--k` the portrait scale.
+.on-aurora, .on-foe
+  animation-name: duel-pop-drift
+.on-aurora
+  --dx: -1
+  color: var(--am-coral)
+.on-foe
+  --dx: 1
+  color: var(--am-lilac)
+
+// `duel-pop`'s rise and shrink (duel.sass), plus the sideways drift.
+@keyframes duel-pop-drift
+  0%
+    transform: translate(-50%, -50%) translate(0, 0) scale(1.4)
+    opacity: 1
+  72%
+    opacity: 1
+  100%
+    transform: translate(-50%, -50%) translate(calc(var(--dx, 0) * 46px * var(--k, 1)), calc(-84px * var(--k, 1))) scale(1)
+    opacity: 0
 </style>

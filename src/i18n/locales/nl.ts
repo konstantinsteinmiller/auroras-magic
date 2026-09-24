@@ -114,12 +114,16 @@ export default {
   'intro': {
     'draw': 'TEKEN DE RUNE',
     'triangle': 'TEKEN EEN DRIEHOEK',
+    'square': 'TEKEN EEN VIERKANT',
+    'twoRunes': 'TWEE RUNES, STERKERE SPREUK!',
     'stored': 'OPGESLAGEN! TOT 3',
     'cast': 'TOVER NU'
   },
 
   'pop': {
     'notARune': 'GEEN RUNE',
+    'trySquare': 'PROBEER HET VIERKANT!',
+    'tryTriangle': 'PROBEER DE DRIEHOEK!',
     'noSlots': 'GEEN PLEK!',
     'blocked': 'GEBLOKKEERD',
     'hit': '-{n}',
@@ -551,7 +555,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'BIJNA {rune}!'
+    'almostRune': 'BIJNA {rune}!',
+    'tryRune': 'Probeer {rune}!',
+    'comingSoon': 'BINNENKORT',
+    'lockedRune': 'De rune {rune} komt binnenkort'
   },
 
   'license': {

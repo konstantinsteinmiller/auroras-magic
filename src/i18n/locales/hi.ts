@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'रून बनाएँ',
     'triangle': 'त्रिभुज बनाएँ',
+    'square': 'वर्ग बनाएँ',
+    'twoRunes': 'दो रून, ज़्यादा ताकतवर जादू!',
     'stored': 'जमा हुआ! 3 तक',
     'cast': 'अब जादू करें'
   },
 
   'pop': {
     'notARune': 'यह रून नहीं',
+    'trySquare': 'वर्ग बनाकर देखें!',
+    'tryTriangle': 'त्रिभुज बनाकर देखें!',
     'noSlots': 'जगह नहीं!',
     'blocked': 'रोका गया',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'लगभग {rune}!'
+    'almostRune': 'लगभग {rune}!',
+    'tryRune': '{rune} आज़माओ!',
+    'comingSoon': 'जल्द आ रहा है',
+    'lockedRune': '{rune} रून जल्द आ रहा है'
   },
 
   'license': {

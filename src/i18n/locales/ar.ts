@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'ارسم الرمز',
     'triangle': 'ارسم مثلثًا',
+    'square': 'ارسم مربعًا',
+    'twoRunes': 'رمزان، تعويذة أقوى!',
     'stored': 'تم الحفظ! حتى 3',
     'cast': 'والآن ألقِه'
   },
 
   'pop': {
     'notARune': 'ليس رمزًا',
+    'trySquare': 'جرّب المربع!',
+    'tryTriangle': 'جرّب المثلث!',
     'noSlots': 'الخانات ممتلئة!',
     'blocked': 'تم الصدّ',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'تقريبًا {rune}!'
+    'almostRune': 'تقريبًا {rune}!',
+    'tryRune': 'جرّب {rune}!',
+    'comingSoon': 'قريبًا',
+    'lockedRune': 'رمز {rune} قادم قريبًا'
   },
 
   'license': {

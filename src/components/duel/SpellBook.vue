@@ -28,6 +28,7 @@ import { S } from '@/game/duel/state'
 import { nextRuneAfter } from '@/game/campaign/tables'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { useArtImage } from '@/use/useArtImage'
+import { acquireMenuOpen } from '@/use/useModalState'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import RuneTrace from '@/components/duel/RuneTrace.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
@@ -107,7 +108,21 @@ const watchRows = (): void => {
   for (const el of list.value.querySelectorAll<HTMLElement>('.row.fresh')) io.observe(el)
 }
 
+/**
+ * THE SPELLBOOK IS A MENU (owner, 2026-09-24: "Spellbook is a menu and should
+ * pause gameplay and sound and music"). It takes the SAME path Options does —
+ * every FModal acquires through `acquireMenuOpen` — so while it is open the
+ * sim holds, the AudioContext is suspended and the music stops
+ * (`useGamePauseAudio`, `useSound`), and on Poki it is a `gameplayStop` like
+ * any menu (`flow/bracket.ts`). The overlay's own modal lock in `AppScene` is
+ * refcounted beside it, so the two compose; closing the book releases both
+ * and the director's resume grace (`noteResume`) keeps the foe's hand in for
+ * a second.
+ */
+let releaseMenu: (() => void) | null = null
+
 onMounted(async () => {
+  releaseMenu = acquireMenuOpen()
   refreshBook()
   await nextTick()
   if (typeof IntersectionObserver === 'undefined') return
@@ -130,6 +145,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  releaseMenu?.()
+  releaseMenu = null
   io?.disconnect()
   for (const id of timers.values()) window.clearTimeout(id)
   timers.clear()

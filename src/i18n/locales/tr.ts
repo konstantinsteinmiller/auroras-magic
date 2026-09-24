@@ -114,12 +114,16 @@ export default {
   'intro': {
     'draw': 'RÜNÜ ÇİZ',
     'triangle': 'ÜÇGEN ÇİZ',
+    'square': 'KARE ÇİZ',
+    'twoRunes': 'İKİ RÜN, DAHA GÜÇLÜ BÜYÜ!',
     'stored': 'SAKLANDI! EN FAZLA 3',
     'cast': 'ŞİMDİ BÜYÜ YAP'
   },
 
   'pop': {
     'notARune': 'RÜN DEĞİL',
+    'trySquare': 'KAREYİ DENE!',
+    'tryTriangle': 'ÜÇGENİ DENE!',
     'noSlots': 'YER YOK!',
     'blocked': 'ENGELLENDİ',
     'hit': '-{n}',
@@ -553,7 +557,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'NEREDEYSE {rune}!'
+    'almostRune': 'NEREDEYSE {rune}!',
+    'tryRune': '{rune} dene!',
+    'comingSoon': 'YAKINDA',
+    'lockedRune': '{rune} rünü yakında geliyor'
   },
 
   'license': {

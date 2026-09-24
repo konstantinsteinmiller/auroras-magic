@@ -15,7 +15,8 @@ import {
   WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, SECTOR_REF,
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
-import { MOVIE_ICON, type ItemName, type PropName, type CreatureName, type RigPart } from '@/game/artIds'
+import { MOVIE_ICON, HP_FRAMES, type ItemName, type PropName, type CreatureName, type RigPart } from '@/game/artIds'
+import { HP_FRAME_ART } from '@/game/duel/hpFrame'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
 import { NEUTRAL } from '@/game/artTint'
@@ -233,11 +234,18 @@ const MOVIE_ICON_ART: ItemSpec = {
   }
 }
 
-/** The book's own furniture and the one DOM glyph, by id (`WORLD_UI_SHEETS`). */
+/**
+ * The book's own furniture and the DOM's painted chrome, by id
+ * (`WORLD_UI_SHEETS`). The two HP frames are drawn by `hpFrame.ts` from the
+ * same paths the bar's drawn frame is made of, so the painter is shown the
+ * exact layout the game lays the painting on — with the track left a hole.
+ */
 const WORLD_UI_SPECS: Readonly<Record<string, ItemSpec>> = {
   'node-badge': BADGE_ART,
   bookmark: BOOKMARK_ART,
-  [MOVIE_ICON.id]: MOVIE_ICON_ART
+  [MOVIE_ICON.id]: MOVIE_ICON_ART,
+  [HP_FRAMES.aurora.id]: HP_FRAME_ART.aurora,
+  [HP_FRAMES.foe.id]: HP_FRAME_ART.foe
 }
 
 /** `RuneGlyph.vue`'s box: 100 units around a glyph of radius 30, in units of R. */

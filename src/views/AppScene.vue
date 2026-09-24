@@ -54,7 +54,8 @@ import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDue
 import { flowHud, openingHud } from '@/use/useFlow'
 import { duelBeat } from '@/use/useDuelBeat'
 import { restoreHud } from '@/use/useRestoreHud'
-import { isGamePaused, acquireAppPause } from '@/use/useGamePause'
+import { isGamePaused, acquireAppPause, onPauseChange } from '@/use/useGamePause'
+import { noteResume } from '@/game/duel/director'
 import { acquireModalOpen } from '@/use/useModalState'
 import { registerQaAdTap, breakQaAdChain, breakBookmarkChain } from '@/use/useQaAdTrigger'
 import { runeGift, closeRuneGift } from '@/use/useRuneGift'
@@ -500,6 +501,9 @@ onMounted(() => {
   offs.push(installCampaignController())
   offs.push(installDuelFlow())
   offs.push(installGameplayBracket())
+  // A menu closed, an ad ended, the tab came back: the foe may not release a
+  // spell for a second (director.ts, story-spec §8.36).
+  offs.push(onPauseChange((paused) => { if (!paused) noteResume() }))
   setMapTapHandler(onMapTap)
   offs.push(onDuelEvent((e, _won, info) => {
     if (e === 'stroke' && info) {

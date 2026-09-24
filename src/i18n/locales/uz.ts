@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'RUNANI CHIZING',
     'triangle': 'UCHBURCHAK CHIZING',
+    'square': 'KVADRAT CHIZING',
+    'twoRunes': 'IKKI RUNA — KUCHLIROQ SEHR!',
     'stored': 'SAQLANDI! 3 TAGACHA',
     'cast': 'ENDI SEHRLANG'
   },
 
   'pop': {
     'notARune': 'BU RUNA EMAS',
+    'trySquare': 'KVADRATNI SINAB KO‘RING!',
+    'tryTriangle': 'UCHBURCHAKNI SINAB KO‘RING!',
     'noSlots': 'JOY YO‘Q!',
     'blocked': 'TO‘SILDI',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'DEYARLI {rune}!'
+    'almostRune': 'DEYARLI {rune}!',
+    'tryRune': '{rune} runasini sinab ko‘r!',
+    'comingSoon': 'TEZ ORADA',
+    'lockedRune': '{rune} runasi tez orada keladi'
   },
 
   'license': {

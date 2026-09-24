@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'VẼ PHÙ VĂN',
     'triangle': 'VẼ HÌNH TAM GIÁC',
+    'square': 'VẼ HÌNH VUÔNG',
+    'twoRunes': 'HAI PHÙ VĂN, PHÉP MẠNH HƠN!',
     'stored': 'ĐÃ LƯU! TỐI ĐA 3',
     'cast': 'GIỜ HÃY TUNG PHÉP'
   },
 
   'pop': {
     'notARune': 'KHÔNG PHẢI PHÙ VĂN',
+    'trySquare': 'THỬ HÌNH VUÔNG NHÉ!',
+    'tryTriangle': 'THỬ HÌNH TAM GIÁC NHÉ!',
     'noSlots': 'HẾT CHỖ!',
     'blocked': 'ĐÃ CHẶN',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'SUÝT NỮA LÀ {rune}!'
+    'almostRune': 'SUÝT NỮA LÀ {rune}!',
+    'tryRune': 'Thử {rune} xem!',
+    'comingSoon': 'SẮP CÓ',
+    'lockedRune': 'Phù văn {rune} sắp có'
   },
 
   'license': {

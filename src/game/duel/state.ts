@@ -90,6 +90,10 @@ export interface Pop {
   y: number
   /** Age in seconds. The callout lives 1.3 s. */
   a: number
+  /** WHOSE it is (story-spec §8.36): the side that TOOK a blow — 0 Aurora, 1
+   *  the foe. A damage number is tinted by it and drifts off that duelist, so
+   *  a "−7" can never be read as the other one's. Absent on every other pop. */
+  v?: 0 | 1
 }
 
 export const POP_LIFE = 1.3
@@ -134,6 +138,16 @@ export interface DuelState {
   /** The rune the foe is forming, or -1 before the first pick. */
   eRune: number
   eThink: number
+  /** THE TELEGRAPH (story-spec §8.36): seconds her full, hitting hand still
+   *  winds up before it may leave — her slots glow and her horn charges. */
+  eCharge: number
+  /** The depth glimpse (§8.36): 0 none this duel, 1 armed, 2 her ward is up
+   *  and the hint shows, 3 the hint's "yes!" beat, 4 done. */
+  glimpse: number
+  /** Seconds in the current glimpse stage. */
+  glimpseT: number
+  /** The rune the glimpse's hint names — one of hers that finds the gap. */
+  glimpseRune: number
   guard: number
   eGuard: number
   /** Barrier flavour: 0 wind · 1 earth · 2 ice pillar. */
@@ -322,6 +336,10 @@ export const auroras_magic_state: DuelState = {
      counter — GDD 3.4 wants a ghostly outline of the real rune. */
   eRune: -1,
   eThink: 1.2,
+  eCharge: 0,
+  glimpse: 0,
+  glimpseT: 0,
+  glimpseRune: -1,
   guard: 0,
   eGuard: 0,
   guardK: 0,
@@ -461,8 +479,9 @@ export const rainbow = (v: number, l = 60, a = 1): string =>
 export const pulse = (t: number, speed = 1): number => 0.5 + 0.5 * sin(t * speed * TAU)
 
 let popId = 0
-/** Queue a HUD callout at stage coords (x, y). */
-export const pop = (k: string, c?: string, x?: number, y?: number, p?: Pop['p']): void => {
-  S.pops.push({ id: ++popId, k, p, c: c || '#fff', x: x ?? 640, y: y ?? 300, a: 0 })
+/** Queue a HUD callout at stage coords (x, y). `v` = the side that took the
+ *  blow it counts, for a damage number (`Pop.v`). */
+export const pop = (k: string, c?: string, x?: number, y?: number, p?: Pop['p'], v?: 0 | 1): void => {
+  S.pops.push({ id: ++popId, k, p, c: c || '#fff', x: x ?? 640, y: y ?? 300, a: 0, ...(v === undefined ? {} : { v }) })
   if (S.pops.length > 6) S.pops.shift()
 }

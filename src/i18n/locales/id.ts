@@ -113,12 +113,16 @@ export default {
   'intro': {
     'draw': 'GAMBAR RUNE-NYA',
     'triangle': 'GAMBAR SEGITIGA',
+    'square': 'GAMBAR PERSEGI',
+    'twoRunes': 'DUA RUNE, MANTRA LEBIH KUAT!',
     'stored': 'TERSIMPAN! HINGGA 3',
     'cast': 'SEKARANG RAPALKAN'
   },
 
   'pop': {
     'notARune': 'BUKAN RUNE',
+    'trySquare': 'COBA PERSEGINYA!',
+    'tryTriangle': 'COBA SEGITIGANYA!',
     'noSlots': 'SLOT PENUH!',
     'blocked': 'DITANGKIS',
     'hit': '-{n}',
@@ -550,7 +554,10 @@ export default {
   },
 
   'duel': {
-    'almostRune': 'HAMPIR {rune}!'
+    'almostRune': 'HAMPIR {rune}!',
+    'tryRune': 'Coba {rune}!',
+    'comingSoon': 'SEGERA HADIR',
+    'lockedRune': 'Rune {rune} segera hadir'
   },
 
   'license': {

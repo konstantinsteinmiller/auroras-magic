@@ -33,6 +33,7 @@ import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tabl
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { noteFirstWin } from '@/game/campaign/session'
 import { earlyEase } from '@/game/campaign/easing'
+import { glimpseDue } from '@/game/campaign/glimpse'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
@@ -55,6 +56,9 @@ import { versusHud } from '@/use/useVersus'
 
 /** The flourish / sting: an ad must never cut either off mid-note. */
 export const AD_BEAT_MS = 1400
+/** A loss's whole knockout beat (story-spec §8.36): the sting, plus the time
+ *  to watch her fall asleep before the result card (or an ad) arrives. */
+export const KO_BEAT_MS = AD_BEAT_MS + 700
 const wait = (ms: number): Promise<void> => new Promise((r) => window.setTimeout(r, ms))
 
 const { startBattleMusic } = useMusic()
@@ -74,7 +78,9 @@ export const startDuel = (n: number): void => {
     foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n),
     // The teaching chapters cost a beginner less (`campaign/easing.ts`); from
     // chapter 4 on this is all 1 and the fight is the roster's own.
-    ease: earlyEase(n), versus: false
+    ease: earlyEase(n), versus: false,
+    // One early look at how the runes answer each other (story-spec §8.36).
+    glimpse: glimpseDue(n, replay)
   })
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
@@ -242,9 +248,11 @@ const onFinish = async (won: boolean): Promise<void> => {
     })
     return
   }
-  // LOSS: the doze-off sting plays uninterrupted first (safety rule 14).
+  // LOSS: the doze-off sting plays uninterrupted first (safety rule 14) —
+  // and long enough to SEE her doze (§8.36): the finishing blow's hold, the
+  // fold, then her Zzz for a moment before the card covers the arena.
   duelBeat.phase = 'sting'
-  await wait(AD_BEAT_MS)
+  await wait(KO_BEAT_MS)
   if (my !== gen) return
   await maybeShowInterstitial('loss')
   if (my !== gen) return

@@ -102,6 +102,22 @@ export type AnalyticsEvent =
   | 'keepsake_equip'
   | 'spellbook_open'
   | 'node_replay'
+  // ── The first duel's lesson (`game/duel/lesson.ts`), once per step per
+  //    duel except the nudge. The triangle half is `first_rune` above.
+  /** The square's guide came up (beat B). `{}` */
+  | 'tutorial_square_shown'
+  /** The square was stored — two runes in hand. `{ tries }` */
+  | 'tutorial_square_done'
+  /** A child who could not manage the square was let through on the triangle. `{ tries }` */
+  | 'tutorial_square_skipped'
+  /** The two-slot lightbox began (beat C). `{ runes }` */
+  | 'tutorial_lightbox'
+  /** The cast button opened (beat D). `{ square }` */
+  | 'tutorial_cast_ready'
+  /** A stroke or a cast the lesson refused, with a nudge back to its guide. `{ step }` */
+  | 'tutorial_nudge'
+  /** A stroke matched a rune she has not earned yet ("coming soon"). `{ rune }` */
+  | 'locked_rune'
   // ── DECLARED, NOT YET FIRED. These are not dead names: each belongs to a
   //    retention-roadmap feature that is still to be built, and the name is
   //    settled here so the union is the ONE place event names are chosen and

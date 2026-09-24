@@ -1030,3 +1030,50 @@ warm line left) → **`0.20/0.4`** (painterly clouds, no hard edge anywhere).
   like the runes — 280 × 256, 5.5 kB. Judged at 24 px on cream and on the
   reward gold: reads as a film camera on both.
 - `art:status`: **260 painted, 0 still drawn, 260 in the catalogue.**
+
+## 2026-09-24 — the HP frames: the first painting the game STRETCHES
+
+`artIds.HP_FRAMES` — `worldui-hp-frame-aurora` and `worldui-hp-frame-foe`, the
+duel HUD's two health-bar frames (`HpBar.vue`, `game/duel/hpFrame.ts`).
+Aurora's: a cream disc with a gold star in a pearl-set gold ring, a gold rail,
+a two-leaf finial with a pearl. The night's — every foe's — the same layout
+mirrored: a silver crescent on deep indigo in a twinkle-set silver ring, an
+indigo rail edged in silver, silver leaves and a moonstone. **One roll each,
+both kept**: 11.2 kB and 9.7 kB after `--fresh` (708 × 256, the default cap),
+0.105 % and 0.000 % leftover magenta.
+
+- **How it stretches.** The bar is ~140 px a side on a portrait phone and
+  ~400 stage units in landscape, so the painting is laid on as a CSS 9-slice
+  `border-image`: the medallion end and the finial end at their own size,
+  only the rail between them stretched. The slice lines are geometry, not
+  measurement (`hpFrame.paintedSlices`): the reference's box is its extent
+  plus `measureBox`'s 6 % air, and the medallion is the frame's tallest part
+  on purpose, so that box is known before the bench measures it (analytic
+  2.757:1, bench 2.765:1). Each slice sits well into plain rail — a quarter
+  rail past the track's round end at the medallion, clear of the leaves'
+  tips at the finial — so a return a few percent off still slices clean.
+- **The brief says PLAIN three ways**: in `keep` ("the one rule the game
+  cannot work without"), as a check ("cover both ends with your hands"), and
+  in the reference itself, which draws a short plain rail between two ornate
+  ends. It also says the rail's long edges are the one straight thing in the
+  picture — the style block otherwise asks for no straight edge anywhere.
+- **The track is a HOLE** (`holes`): the game draws the health behind the
+  frame. Measured on the cut: the painted window lands within 0.03 R of the
+  drawn one; the DOM track tucks 0.05 R under the painting so it never shows
+  a seam.
+- **`itemPrompt` learned `canvas`.** A single wide panel (1536 × 864) is now
+  briefed as ONE WIDE 16:9 image instead of "one square image"; only these
+  two sheets set it (the mascot has its own prompt).
+- **The reference's ink is thin** (`REF_INK` 0.013 R): the creature lesson —
+  an evenly inked reference comes back an evenly inked sticker.
+- **Painted in a tab of its own.** Another project's desk (merge-legions, on
+  5178) was running a queue in the SHARED Gemini window, and a desk drives the
+  first gemini tab it finds — two desks would fight over one tab. The two
+  generations went through the desk's own modules (`gemini.mjs`,
+  `pipeline.mjs`) from a script that opens and closes its own tab, counts
+  each generation in `~/.art-desk/usage.json`, and hands the return to
+  `processReturn` (file → slice → compress `--fresh --only`).
+- In the duel's hold (`artSchedule.duelWants`, and the versus plan): on screen
+  from the first frame to the last. `tests/meta/artSchedule.test.ts` now
+  allows exactly these two `worldUi/` entries in a duel's hold.
+- `art:status`: **262 painted, 0 still drawn, 262 in the catalogue.**
