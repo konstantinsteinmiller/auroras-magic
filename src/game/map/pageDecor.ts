@@ -36,6 +36,7 @@
  */
 import { seeded, sin, cos, TAU, PI } from '@/game/duel/util'
 import { makeCanvas } from '@/game/restore/dust'
+import { backingDpr } from '@/game/renderScale'
 
 type G2D = CanvasRenderingContext2D
 
@@ -506,7 +507,9 @@ const drawWash = (g: G2D, w: number, h: number, wash: readonly [string, string],
  *  during a turn, and one spare for the way back. */
 const CACHE = 3
 /** Device pixels per CSS pixel to bake at. Past 2 the fibre is finer than
- *  anyone can see and the canvas is four times the memory. */
+ *  anyone can see and the canvas is four times the memory. Below it, the
+ *  canvas's own ratio (`renderScale.ts`): a bake finer than the canvas it is
+ *  drawn into is paid for and then thrown away by the downscale. */
 const MAX_DPR = 2
 const bakes = new Map<string, HTMLCanvasElement>()
 
@@ -523,7 +526,7 @@ export const pageDecorBake = (
   w: number, h: number, c: number, built: boolean, portrait: boolean,
   wash: readonly [string, string], keepOut: readonly KeepOut[], ground: number
 ): HTMLCanvasElement => {
-  const dpr = Math.min(MAX_DPR, Math.max(1, typeof devicePixelRatio === 'number' ? devicePixelRatio : 1))
+  const dpr = Math.min(MAX_DPR, backingDpr())
   const key = `${c}:${built ? 1 : 0}:${portrait ? 1 : 0}:${wash[0]}${wash[1]}:${Math.round(w)}x${Math.round(h)}@${dpr}`
   const hit = bakes.get(key)
   if (hit) return hit

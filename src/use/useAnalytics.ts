@@ -154,6 +154,9 @@ export type AnalyticsEvent =
   | 'photo_taken'
   /** The adaptive quality tier settled somewhere new (item 17). `{ tier, fdt }` */
   | 'quality_tier'
+  /** The canvas resolution cap dropped on a device that could not fill it
+   *  (`game/renderScale.ts`). `{ cap, from, medianMs }` */
+  | 'render_scale'
 
 export type AnalyticsValue = string | number | boolean
 export type AnalyticsProps = Record<string, AnalyticsValue | undefined>

@@ -177,7 +177,6 @@ export default {
     'haptics': 'Titreşim',
     'on': 'Açık',
     'off': 'Kapalı',
-    'close': 'Kaydet ve Kapat',
     'traceAssist': 'Rün ipuçlarını göster',
     'reducedMotion': 'Hareketi azalt',
     'watchIntro': 'Girişi izle',

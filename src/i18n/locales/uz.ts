@@ -176,7 +176,6 @@ export default {
     'haptics': 'Tebranish',
     'on': 'Yoqilgan',
     'off': 'O‘chirilgan',
-    'close': 'Saqlash va yopish',
     'traceAssist': 'Runa chizmalarini ko‘rsatish',
     'reducedMotion': 'Harakatni kamaytirish',
     'watchIntro': 'Kirishni koʻrish',

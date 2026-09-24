@@ -176,7 +176,6 @@ export default {
     'haptics': '震动',
     'on': '开',
     'off': '关',
-    'close': '保存并关闭',
     'traceAssist': '显示符文描画指引',
     'reducedMotion': '减弱动态效果',
     'watchIntro': '观看开场动画',

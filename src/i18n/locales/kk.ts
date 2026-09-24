@@ -176,7 +176,6 @@ export default {
     'haptics': 'Діріл',
     'on': 'Қосулы',
     'off': 'Өшірулі',
-    'close': 'Сақтап жабу',
     'traceAssist': 'Руна сызбаларын көрсету',
     'reducedMotion': 'Қозғалысты азайту',
     'watchIntro': 'Кіріспені көру',

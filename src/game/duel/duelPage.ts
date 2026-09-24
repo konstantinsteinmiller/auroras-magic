@@ -123,6 +123,17 @@ let stash: { node: number; packed: string } | null = null
 /** Is a page being fought on? */
 export const duelPageActive = (): boolean => !!shown
 
+/**
+ * Bumped whenever what `drawDuelPage` / `drawDuelPageBelow` would draw
+ * changes — a spell landed, the page re-baked, it reset. The backdrop cache
+ * (`backdrop.ts`) holds a picture made from the page and keys on this.
+ */
+let version = 0
+export const duelPageVersion = (): number => version
+const resetHooks: (() => void)[] = []
+/** Whoever holds something made from the page lets go of it when it resets. */
+export const onDuelPageReset = (fn: () => void): void => { resetHooks.push(fn) }
+
 /** How much of the page this duel has blown clean, 0..1 (before the cap). */
 export const duelPageCleared = (): number => (node < 0 || restored ? 0 : coverage01(cov))
 
@@ -164,6 +175,7 @@ const bakeLayers = (): boolean => {
   live = restored ? sec : null
   colour = cv
   softDirty = true
+  version++
   if (restored) {
     // Nothing to clear: the page is hers already, and IS what is shown.
     shown = colour
@@ -245,6 +257,8 @@ export const resetDuelPage = (): void => {
   restored = false
   dirty = false
   resetCoverage(cov)
+  version++
+  for (const f of resetHooks) f()
 }
 
 /**
@@ -288,6 +302,7 @@ export const duelPageHit = (x: number, y: number, clean: boolean, power: number)
     // page, but she cannot take back what Aurora already won (D1).
     if (clean && a > 0.6) stamp(cov, bx, by, r, 0.55, 1)
   }
+  version++
   const r = HIT_R * (0.7 + 0.5 * p)
   blow(sx, sy, r, 1)
   for (let i = 0; i < 2; i++) {

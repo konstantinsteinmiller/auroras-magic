@@ -29,11 +29,19 @@
 //   --reps <n>        repetitions of each arm, interleaved      (default 6)
 //   --throttle <n>    CPU throttling rate; 4 ≈ a mid-range 2021 Android (4)
 //   --frames <n>      frames recorded per run                   (default 600)
-//   --metric <k>      workP95 | workP50 | intervalP95           (workP95)
+//   --metric <k>      workP95 | workP50 | intervalP50 | intervalP95 (workP95)
 //   --chrome <path>   Chrome executable
 //   --drive <name>    scenario to play while recording: `none` (default, the
 //                     scene the page happens to boot into) or `duel`
 //   --mobile 1        915x412 DPR 2 touch, the mid-range Android proxy
+//   --view WxH@dpr    a specific phone instead, touch + Android UA
+//                     (e.g. 914x411@1.75, the moto e(7i) power)
+//   --gpu sw          software raster and compositing (`--disable-gpu`). A
+//                     low-end Android canvas is fill-bound; on a desktop GPU
+//                     the fill is free and a pixel change measures as nothing.
+//                     With the canvas drawn on the CPU, its raster lands in
+//                     the frame INTERVAL (not in work-per-frame, which ends
+//                     before the raster runs) — use `--metric intervalP95`.
 //   --quiet <pct>     hold each rep until the box is below this CPU load (55)
 //
 // The page must publish `window.__perf` and set `window.__perfDone`; both come
@@ -75,6 +83,11 @@ const PROFILE = arg('profile', mkdtempSync(join(tmpdir(), 'perf-ab-')))
 const DRIVE = arg('drive', 'none')
 const MOBILE = arg('mobile', '0') === '1'
 const QUIET = Number(arg('quiet', 55))
+const GPU = arg('gpu', 'hw')
+const VIEW = (() => {
+  const m = /^(\d+)x(\d+)@([\d.]+)$/.exec(arg('view', ''))
+  return m ? { width: +m[1], height: +m[2], deviceScaleFactor: +m[3] } : null
+})()
 
 /* ─── Contention gate ───────────────────────────────────────────────────────
  *
@@ -134,7 +147,8 @@ const CHROME_ARGS = [
   '--disable-background-timer-throttling',
   '--disable-renderer-backgrounding',
   '--disable-backgrounding-occluded-windows',
-  MOBILE ? '--window-size=940,500' : '--window-size=520,1000',
+  VIEW ? `--window-size=${VIEW.width + 30},${VIEW.height + 90}` : MOBILE ? '--window-size=940,500' : '--window-size=520,1000',
+  ...(GPU === 'sw' ? ['--disable-gpu'] : []),
   'about:blank'
 ]
 const chrome = spawn(CHROME, CHROME_ARGS, { stdio: 'ignore' })
@@ -257,9 +271,9 @@ const runOnce = async url => {
     await send('Page.enable')
     await send('Runtime.enable')
     await send('Emulation.setCPUThrottlingRate', { rate: THROTTLE })
-    if (MOBILE) {
+    if (MOBILE || VIEW) {
       await send('Emulation.setDeviceMetricsOverride',
-        { width: 915, height: 412, deviceScaleFactor: 2, mobile: true })
+        { ...(VIEW ?? { width: 915, height: 412, deviceScaleFactor: 2 }), mobile: true })
       await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
       await send('Emulation.setUserAgentOverride', { userAgent:
         'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36' })
@@ -278,7 +292,7 @@ const runOnce = async url => {
     for (let i = 0; i < 1200; i++) {
       await sleep(500)
       const r = await send('Runtime.evaluate', {
-        expression: 'window.__perfDone ? JSON.stringify({ ...window.__perf, tier: window.__S?.q ?? null, tier0: window.__abTierAtStart ?? null, tierMin: window.__abTierMin ?? null, flips: window.__abFlips ?? 0, mix: +(window.__S?.qx ?? 0).toFixed(2), scene: window.__flow?.state().scene ?? null }) : ""',
+        expression: 'window.__perfDone ? JSON.stringify({ ...window.__perf, tier: window.__S?.q ?? null, tier0: window.__abTierAtStart ?? null, tierMin: window.__abTierMin ?? null, flips: window.__abFlips ?? 0, mix: +(window.__S?.qx ?? 0).toFixed(2), scene: window.__flow?.state().scene ?? null, canvas: (c => c ? c.width + "x" + c.height : "?")(document.querySelector("canvas")) }) : ""',
         returnByValue: true
       })
       if (r?.result?.value) return JSON.parse(r.result.value)
@@ -318,7 +332,7 @@ const version = await waitForChrome()
 console.log(`browser    ${version.Browser}`)
 console.log(`base       ${BASE}`)
 console.log(`arms       A "${A_QS || '(none)'}"   B "${B_QS || '(none)'}"`)
-console.log(`throttle   ${THROTTLE}x    frames/rep ${FRAMES}    reps ${REPS}`)
+console.log(`throttle   ${THROTTLE}x    frames/rep ${FRAMES}    reps ${REPS}    gpu ${GPU}${VIEW ? `    view ${VIEW.width}x${VIEW.height}@${VIEW.deviceScaleFactor}` : ''}`)
 console.log(`metric     ${METRIC}\n`)
 
 const runs = { A_base: [], B_test: [] }
@@ -351,7 +365,7 @@ for (let rep = 0; rep < REPS; rep++) {
     runs[name].push(r)
     console.log(`rep ${String(rep + 1).padStart(2)} ${name}  ` +
       `workP50=${r.workP50.toFixed(3)}  workP95=${r.workP95.toFixed(3)}  workP99=${r.workP99.toFixed(3)}  ` +
-      `intervalP95=${r.intervalP95.toFixed(2)}  longTasks=${r.longTasks}  ` +
+      `intervalP50=${r.intervalP50.toFixed(2)}  intervalP95=${r.intervalP95.toFixed(2)}  longTasks=${r.longTasks}  canvas=${r.canvas}  ` +
       `heap=${(r.heapSlope / 1024).toFixed(1)}KB/f` +
       (r.tier === null || r.tier === undefined ? '' : `  q=${r.tier0}→${r.tier} (min ${r.tierMin}, ${r.flips} flips) qx=${r.mix} [${r.scene}]`) +
       `  cpu=${r.load}%`)

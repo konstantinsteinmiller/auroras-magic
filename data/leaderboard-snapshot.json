@@ -1,8 +1,8 @@
 {
   "source": "https://auroras-magic-leaderboard.rodent-race.workers.dev",
-  "fetchedAt": 1790199732480,
-  "updatedAt": 1790199732573,
-  "total": 62,
+  "fetchedAt": 1790272903680,
+  "updatedAt": 1790272903558,
+  "total": 74,
   "entries": [
     {
       "rank": 1,
@@ -375,6 +375,78 @@
       "name": "Frosty Pony 111",
       "score": 1,
       "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Jolly Pony 694",
+      "score": 1,
+      "flair": 5
+    },
+    {
+      "rank": 20,
+      "name": "Happy Meadow 146",
+      "score": 1,
+      "flair": 4
+    },
+    {
+      "rank": 20,
+      "name": "Jolly Maple 521",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Glowy Fawn 337",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Misty Unicorn 141",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Gentle Panda 356",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Frosty Maple 519",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Shiny Rainbow 110",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Rosy Petal 353",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Golden Comet 420",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Cozy Firefly 339",
+      "score": 1,
+      "flair": 1
+    },
+    {
+      "rank": 20,
+      "name": "Cozy Firefly 106",
+      "score": 1,
+      "flair": 1
     }
   ],
   "dist": [
@@ -412,7 +484,7 @@
     ],
     [
       1,
-      43
+      55
     ]
   ]
 }

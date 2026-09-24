@@ -43,7 +43,7 @@ const currentTab = ref('general')
 /**
  * Two columns whenever the screen is short and wide — a landscape phone, AND
  * a desktop embed like a Chromebook's 764 × 385 portal frame, which is not a
- * touch device and used to get the one-column list with SAVE & CLOSE lying
+ * touch device and used to get the one-column list with CLOSE lying
  * over the music slider (S7 viewport QA).
  */
 const twoColumns = computed(() =>
@@ -130,7 +130,7 @@ const confirmLeave = ref(false)
 const leaveWell = ref<HTMLElement | null>(null)
 /** Same treatment as the reset confirm below, and for the same reason: in the
  *  two-column landscape layout this well opened with its ANSWERS under the
- *  SAVE & CLOSE footer, so the question was on screen and neither reply was. */
+ *  CLOSE footer, so the question was on screen and neither reply was. */
 const openLeaveConfirm = async (): Promise<void> => {
   confirmLeave.value = true
   await nextTick()
@@ -187,7 +187,7 @@ const confirming = computed(() => confirmLeave.value || confirmReset.value)
  * On a landscape phone the general tab is two columns and already taller than
  * the viewport, and the well replaces a one-line button with four lines and
  * two more buttons — which on a 915 x 412 screen opens the question with its
- * ANSWERS below the fold, behind the SAVE & CLOSE footer. The locale-fit audit
+ * ANSWERS below the fold, behind the CLOSE footer. The locale-fit audit
  * does not see it, and correctly: the panel scrolls, so nothing is clipped and
  * nothing overflows. It is simply a dialog whose buttons the player has to go
  * looking for.
@@ -230,7 +230,7 @@ watch(() => props.isOpen, (open) => { if (!open) confirmReset.value = false })
     div(v-if="currentTab === 'general'")
       //- Landscape mobile lays the controls out in 2 columns so all of them
       //- (language, the two sliders, vibration) fit the short viewport
-      //- without the SAVE & CLOSE footer overlapping them.
+      //- without the CLOSE footer overlapping them.
       div(:class="twoColumns ? 'grid grid-cols-2 gap-x-4 gap-y-1 p-1 items-start' : 'flex flex-col gap-2 p-2'")
         //- Everything a confirm displaces — see `confirming`. A `template`
         //- rather than a wrapper div, so in the landscape layout these rows
@@ -333,7 +333,7 @@ watch(() => props.isOpen, (open) => { if (!open) confirmReset.value = false })
       hr.am-rule(class="my-1 md:my-2")
 
     template(#footer)
-      FButton(class="px-6 sm:px-8" @click="emit('close')") {{ t('options.close') }}
+      FButton(class="px-6 sm:px-8" @click="emit('close')") {{ t('close') }}
 </template>
 
 <style lang="sass" scoped>

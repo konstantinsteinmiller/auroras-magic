@@ -177,7 +177,6 @@ export default {
     'haptics': 'Вибрация',
     'on': 'Вкл.',
     'off': 'Выкл.',
-    'close': 'Сохранить и закрыть',
     'traceAssist': 'Показывать подсказки рун',
     'reducedMotion': 'Меньше анимации',
     'watchIntro': 'Смотреть вступление',

@@ -176,7 +176,6 @@ export default {
     'haptics': 'การสั่น',
     'on': 'เปิด',
     'off': 'ปิด',
-    'close': 'บันทึกและปิด',
     'traceAssist': 'แสดงเส้นนำวาดรูน',
     'reducedMotion': 'ลดการเคลื่อนไหว',
     'watchIntro': 'ดูบทนำ',

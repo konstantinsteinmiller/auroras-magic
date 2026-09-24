@@ -9,7 +9,7 @@ export default {
   // Auroras Magic's P4D game id. The previous id was survivalist's — a deploy
   // with it would upload THIS build to THAT game. deploy.mjs refuses to run
   // until it is set.
-  gameId: '',
+  gameId: 'f52e9339-65b0-4352-a7e5-772e9f62772d',
   gameName: 'Auroras Magic',
 
   build: 'pnpm build:poki',

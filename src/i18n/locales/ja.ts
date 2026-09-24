@@ -176,7 +176,6 @@ export default {
     'haptics': 'バイブレーション',
     'on': 'オン',
     'off': 'オフ',
-    'close': '保存して閉じる',
     'traceAssist': 'ルーンのお手本を表示',
     'reducedMotion': '動きを減らす',
     'watchIntro': 'オープニングを見る',

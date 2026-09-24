@@ -176,7 +176,6 @@ export default {
     'haptics': 'Vibrazione',
     'on': 'Attivo',
     'off': 'Disattivo',
-    'close': 'Salva e chiudi',
     'traceAssist': 'Mostra le guide delle rune',
     'reducedMotion': 'Movimento ridotto',
     'watchIntro': 'Guarda l’intro',

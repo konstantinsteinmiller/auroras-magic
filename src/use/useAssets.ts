@@ -224,11 +224,13 @@ export default () => {
     // duel's modules stay out of the eager chunk.
     const bake = (async () => {
       try {
-        const [{ applyLayout }, { primeArena }] = await Promise.all([
+        const [{ applyLayout }, { primeArena }, { backingDpr }] = await Promise.all([
           import('@/game/duel/layout'),
-          import('@/game/duel/arena')
+          import('@/game/duel/arena'),
+          import('@/game/renderScale')
         ])
-        applyLayout(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 2))
+        // The canvas's own ratio, so the bake is made at the scale it is drawn at.
+        applyLayout(window.innerWidth, window.innerHeight, backingDpr())
         primeArena()
       } catch (e) {
         console.warn('[assets] arena bake failed; the scene will bake on its first frame', e)

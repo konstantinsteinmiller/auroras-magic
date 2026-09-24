@@ -177,7 +177,6 @@ export default {
     'haptics': 'Wibracje',
     'on': 'Wł.',
     'off': 'Wył.',
-    'close': 'Zapisz i zamknij',
     'traceAssist': 'Pokazuj podpowiedzi run',
     'reducedMotion': 'Mniej animacji',
     'watchIntro': 'Obejrzyj intro',

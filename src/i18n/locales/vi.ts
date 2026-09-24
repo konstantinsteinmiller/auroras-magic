@@ -176,7 +176,6 @@ export default {
     'haptics': 'Rung',
     'on': 'Bật',
     'off': 'Tắt',
-    'close': 'Lưu & Đóng',
     'traceAssist': 'Hiện hướng dẫn vẽ phù văn',
     'reducedMotion': 'Giảm chuyển động',
     'watchIntro': 'Xem phần mở đầu',

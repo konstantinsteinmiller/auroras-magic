@@ -176,7 +176,6 @@ export default {
     'haptics': '진동',
     'on': '켜기',
     'off': '끄기',
-    'close': '저장 후 닫기',
     'traceAssist': '룬 안내선 표시',
     'reducedMotion': '동작 줄이기',
     'watchIntro': '인트로 보기',

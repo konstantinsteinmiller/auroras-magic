@@ -176,7 +176,6 @@ export default {
     'haptics': 'Getaran',
     'on': 'Aktif',
     'off': 'Nonaktif',
-    'close': 'Simpan & Tutup',
     'traceAssist': 'Tampilkan panduan rune',
     'reducedMotion': 'Kurangi gerakan',
     'watchIntro': 'Tonton intro',

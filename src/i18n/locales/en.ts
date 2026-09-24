@@ -242,7 +242,6 @@ export default {
     'haptics': 'Vibration',
     'on': 'On',
     'off': 'Off',
-    'close': 'Save & Close',
     // Comfort settings (story-spec §3.11, §5.13).
     'traceAssist': 'Show rune guides',
     'reducedMotion': 'Reduced motion',

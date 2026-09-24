@@ -176,7 +176,6 @@ export default {
     'haptics': 'कंपन',
     'on': 'चालू',
     'off': 'बंद',
-    'close': 'सहेजें और बंद करें',
     'traceAssist': 'रून की रूपरेखा दिखाएँ',
     'reducedMotion': 'कम हलचल',
     'watchIntro': 'परिचय देखें',

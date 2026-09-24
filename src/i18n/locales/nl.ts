@@ -177,7 +177,6 @@ export default {
     'haptics': 'Trillen',
     'on': 'Aan',
     'off': 'Uit',
-    'close': 'Opslaan en sluiten',
     'traceAssist': 'Runehulplijnen tonen',
     'reducedMotion': 'Minder beweging',
     'watchIntro': 'Intro bekijken',

@@ -575,6 +575,14 @@ const drawPaintedIsland = (g: G2D): boolean => {
   return true
 }
 
+/** Whether the island is its PAINTING right now — a still picture, which the
+ *  backdrop cache (`backdrop.ts`) may hold. The drawn island's tufts sway,
+ *  so it never may. */
+export const islandIsPainting = (): boolean => {
+  const img = spriteFor('island', islandArtId(S.theme))
+  return !!img && measureIsle(img).ok
+}
+
 /** The floating island: one blit, the live tufts, one mask-fill of tint. */
 export const drawIsland = (g: G2D): void => {
   sync(g)

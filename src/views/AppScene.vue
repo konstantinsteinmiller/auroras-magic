@@ -65,6 +65,7 @@ import { haptic } from '@/use/useHaptics'
 import { trackRecognition, exposeAnalytics, track } from '@/use/useAnalytics'
 import { frameStart, frameEnd } from '@/use/usePerfProbe'
 import { stepQuality } from '@/game/duel/quality'
+import { backingDpr, stepRenderScale } from '@/game/renderScale'
 import { isDebug } from '@/use/useMatch'
 import { useMusic } from '@/use/useSound'
 import { SPELLBOOK } from '@/game/duel/config'
@@ -102,8 +103,9 @@ const resize = (): void => {
   if (!cv) return
   const w = window.innerWidth
   const h = window.innerHeight
-  // Cap DPR: a 3x phone would rasterise 3x the pixels for no visible gain.
-  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  // Cap DPR: a 3x phone would rasterise 3x the pixels for no visible gain,
+  // and a phone that cannot fill even that gets fewer (`game/renderScale.ts`).
+  const dpr = backingDpr()
   cv.width = Math.round(w * dpr)
   cv.height = Math.round(h * dpr)
   cv.style.width = `${w}px`
@@ -420,6 +422,9 @@ const frame = (now: number): void => {
   const dt = Math.min(Math.max(raw, 0), 0.25)
 
   stepQuality(raw, lastWork, dt)
+  // Resolution is the last lever, pulled only once the tier is spent. A frame
+  // under a menu, an ad, a page turn or the boot is no evidence about the device.
+  if (stepRenderScale(raw, !blocked() && !document.hidden && S.flow.scene !== 'boot', S.flow.scene)) resize()
 
   syncOverlayLock()
   const paused = isGamePaused.value

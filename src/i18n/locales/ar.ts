@@ -176,7 +176,6 @@ export default {
     'haptics': 'الاهتزاز',
     'on': 'تشغيل',
     'off': 'إيقاف',
-    'close': 'حفظ وإغلاق',
     'traceAssist': 'إظهار مسارات الرموز',
     'reducedMotion': 'تقليل الحركة',
     'watchIntro': 'شاهد المقدمة',

@@ -10,8 +10,8 @@
 import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING, EARTH } from '@/game/duel/config'
 import { S, pulse } from '@/game/duel/state'
 import { drawCloth } from '@/game/map/map'
-import { drawSky, drawSkyWash, drawIsland, drawWeather } from '@/game/duel/arena'
-import { drawDuelPage, drawDuelPageBelow } from '@/game/duel/duelPage'
+import { drawWeather } from '@/game/duel/arena'
+import { drawBackdrop, drawBackdropPad } from '@/game/duel/backdrop'
 import { castLook, bodyRadius, heft, type Body, type Mark, type CastLook } from '@/game/duel/spellArt'
 import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
@@ -1061,19 +1061,66 @@ const drawPadFrame = (g: G2D, d: number): void => {
   toWorld(g)
 }
 
+/**
+ * The cloth, only where it SHOWS. It used to be laid across the whole canvas
+ * every frame and then covered: in landscape by the stage (on a 914 × 411
+ * phone the stage is 80 % of the screen), in portrait by the page card. On a
+ * fill-bound phone that was a full-screen layer a frame for nothing
+ * (`renderScale.ts` has the measurement), so it is drawn into the strips
+ * round what covers it — the same picture, clipped.
+ *
+ * What covers it: in landscape the stage as it lies THIS frame, shaken and
+ * punched in with the world (so this runs after the world transform is
+ * known); in portrait the card's opaque paper, inside its rounded corners —
+ * the corners and the cel shadow sit on the cloth. One device pixel is left
+ * to the cloth all round, so an antialiased edge never shows last frame.
+ */
+const drawSurround = (g: G2D, d: number): void => {
+  const W = S.w * d
+  const H = S.h * d
+  let x0: number, y0: number, x1: number, y1: number
+  if (S.portrait) {
+    const c = LAYOUT.card
+    const r = LAYOUT.border * 2
+    x0 = (c.x + r) * d
+    y0 = (c.y + r) * d
+    x1 = (c.x + c.w - r) * d
+    y1 = (c.y + c.h - r) * d
+  } else {
+    x0 = WX
+    y0 = WY
+    x1 = WX + SW * WK
+    y1 = WY + SH * WK
+  }
+  x0 = Math.max(0, Math.ceil(x0) + 1)
+  y0 = Math.max(0, Math.ceil(y0) + 1)
+  x1 = Math.min(W, Math.floor(x1) - 1)
+  y1 = Math.min(H, Math.floor(y1) - 1)
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  if (x1 <= x0 || y1 <= y0) {
+    drawCloth(g, W, H)
+    return
+  }
+  clothStrip(g, W, H, 0, 0, W, y0)
+  clothStrip(g, W, H, 0, y1, W, H - y1)
+  clothStrip(g, W, H, 0, y0, x0, y1 - y0)
+  clothStrip(g, W, H, x1, y0, W - x1, y1 - y0)
+}
+const clothStrip = (g: G2D, W: number, H: number, x: number, y: number, w: number, h: number): void => {
+  if (w <= 0 || h <= 0) return
+  g.save()
+  g.beginPath()
+  g.rect(x, y, w, h)
+  g.clip()
+  drawCloth(g, W, H)
+  g.restore()
+}
+
 export const render = (g: G2D): void => {
   const t = S.t
   // The canvas backing store is CSS size x dpr, so EVERY transform here must
   // carry dpr.
   const d = S.dpr
-  g.setTransform(1, 0, 0, 1, 0, 0)
-  // Letterbox bars (and the portrait pad) are the same cloth the book lies
-  // on everywhere else — the duel is fought ON a page (`duelPage.ts`), so
-  // what surrounds it is the surround, not a black bar. Matches
-  // `--am-surround` and `.app-scene` exactly; they meet at the safe area.
-  drawCloth(g, S.w * d, S.h * d)
-  if (S.portrait) drawPageCard(g, d)
-
   const so = shakeOffset()
   const k = S.vs * d
   // THE PUNCH (§8.31): the camera leans in on a hit — a couple of per cent,
@@ -1085,15 +1132,22 @@ export const render = (g: G2D): void => {
   WK = k * pz
   WX = (S.vx + so[0] * S.vs) * d - px
   WY = (S.vy + so[1] * S.vs) * d - py
+  // Letterbox bars (and the portrait pad) are the same cloth the book lies
+  // on everywhere else — the duel is fought ON a page (`duelPage.ts`), so
+  // what surrounds it is the surround, not a black bar. Matches
+  // `--am-surround` and `.app-scene` exactly; they meet at the safe area.
+  drawSurround(g, d)
+  if (S.portrait) drawPageCard(g, d)
   toWorld(g)
 
+  // Portrait: the pad's foot, stage units — the page goes on under the pad to here.
+  const foot = (LAYOUT.zonePx.y + LAYOUT.zonePx.h - S.vy) / S.vs + 40
   g.save()
   if (S.portrait) {
     // The pad first, in its own clip: the page goes on under it, and the
     // sky's mood with it (to the pad's foot, with room for the shake).
     portraitClip(g, d, PAD)
-    const foot = (LAYOUT.zonePx.y + LAYOUT.zonePx.h - S.vy) / S.vs + 40
-    drawSkyWash(g, drawDuelPageBelow(g, foot), SH - 40, foot)
+    drawBackdropPad(g, t, foot)
     g.restore()
   }
   // Landscape clips to the stage like the jam build; portrait to the
@@ -1109,9 +1163,9 @@ export const render = (g: G2D): void => {
 
   // The duel is fought over the page it is about to restore (§8.29): the
   // sector under Umbra's dust, with the sky's mood laid over it.
-  const onPage = drawDuelPage(g)
-  drawSky(g, t, onPage)
-  drawIsland(g)
+  // On the thrift tier the page, the sky and the island are one cached blit
+  // (`backdrop.ts`); otherwise they are drawn live, as they always were.
+  drawBackdrop(g, t, foot)
   drawFxUnder(g)
 
   AST.cast = castPose(S.castAnim)
