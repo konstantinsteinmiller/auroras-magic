@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'U SEHR QILMOQDA!',
+    'blockSquare': 'TO‘SISH UCHUN KVADRAT CHIZING!',
+    'blocked': 'SIZ TO‘SIB QOLDINGIZ!',
+    'attack': 'ENDI IKKI RUNA BILAN HUJUM QILING!',
     'draw': 'RUNANI CHIZING',
     'triangle': 'UCHBURCHAK CHIZING',
     'square': 'KVADRAT CHIZING',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'G‘ALABA!',
     'defeated': 'Zzz... yana urinib ko‘ramizmi?',
-    'tapToDuel': 'Duel uchun bosing'
+    'tapToDuel': 'Duel uchun bosing',
+    'tip': {
+      'block': 'Uning runalari shoxiga uchganda, to‘sish uchun KVADRAT chizing!',
+      'stack': 'Ikki runa kuchliroq sehr yaratadi!',
+      'keepDrawing': 'Chizishda davom eting! Chizayotganingizda sehringiz sizni himoya qiladi.',
+      'drawBig': 'Katta va shoshilmay chizilgan shakllar eng yaxshi ishlaydi!',
+      'mix': 'Yangi sehrlarni topish uchun turli runalarni aralashtiring!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'DEYARLI {rune}!',
     'tryRune': '{rune} runasini sinab ko‘r!',
     'comingSoon': 'TEZ ORADA',
-    'lockedRune': '{rune} runasi tez orada keladi'
+    'lockedRune': '{rune} runasi tez orada keladi',
+    'newRuneGuide': 'Yangi runa: {rune}!',
+    'great': 'Barakalla!'
   },
 
   'license': {

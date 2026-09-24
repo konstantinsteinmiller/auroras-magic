@@ -11,6 +11,7 @@
  */
 import { emptyBitset, hasBit, countBits } from '@/game/campaign/bitset'
 import { STARTING_RUNES } from '@/game/campaign/tables'
+import { taughtFromCombos } from '@/game/campaign/newRune'
 
 export const NODE_COUNT = 50
 /** 24 × 14 coverage cells per sector (C9). */
@@ -49,6 +50,10 @@ export interface CampaignState {
   /** Bit i = rune i unlocked. Default: the frozen four. Written only by the
    *  campaign controller's unbox handler (S2). */
   runesUnlocked: number
+  /** Bit i = rune i has been drawn (stored) by her hand at least once — the
+   *  new-rune guide shows a rune on the pad until it is (`newRune.ts`). A save
+   *  from before the field reads it off `combosSeen`; always ORs the pair. */
+  runesTaught: number
   /** Bit i = `SIGNATURE_SPELLS[i]` unlocked. */
   signaturesUnlocked: number
   /** Over the fixed 454-combo enumeration (§4.3.1). */
@@ -115,6 +120,7 @@ export const defaultCampaign = (): CampaignState => ({
   wipeCoverage: null,
   wipeHalf: null,
   runesUnlocked: STARTING_RUNES,
+  runesTaught: STARTING_RUNES,
   signaturesUnlocked: 0,
   combosSeen: emptyBitset(COMBO_COUNT),
   combosViewed: emptyBitset(COMBO_COUNT),
@@ -187,6 +193,7 @@ export const readCampaign = (raw: unknown): CampaignState => {
   }
   const furthestNode = int(r.furthestNode, -1, NODE_COUNT - 1, -1)
   const dialoguesSeen = b64(r.dialoguesSeen, d.dialoguesSeen)
+  const combosSeen = b64(r.combosSeen, d.combosSeen)
   return {
     furthestNode,
     sectorsDone: b64(r.sectorsDone, d.sectorsDone),
@@ -195,8 +202,13 @@ export const readCampaign = (raw: unknown): CampaignState => {
     // A save from before the runes were earned (§8.30) holds the old frozen
     // four and keeps them: nobody is taken back down to two.
     runesUnlocked: int(r.runesUnlocked, 0, 0xfff, d.runesUnlocked) | STARTING_RUNES,
+    // The new-rune guide's memory (`newRune.ts`). A save from before it counts
+    // every rune in a spell it has CAST as drawn — it clearly was.
+    runesTaught: r.runesTaught === undefined || r.runesTaught === null
+      ? taughtFromCombos(combosSeen)
+      : (int(r.runesTaught, 0, 0xfff, d.runesTaught) | STARTING_RUNES) >>> 0,
     signaturesUnlocked: int(r.signaturesUnlocked, 0, 0b11, 0),
-    combosSeen: b64(r.combosSeen, d.combosSeen),
+    combosSeen,
     combosViewed: b64(r.combosViewed, d.combosViewed),
     dialoguesSeen,
     giftsOwned: int(r.giftsOwned, 0, 0x7fffffff, 0),

@@ -112,6 +112,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'ONA RZUCA CZAR!',
+    'blockSquare': 'NARYSUJ KWADRAT, BY ZABLOKOWAĆ!',
+    'blocked': 'UDAŁO SIĘ ZABLOKOWAĆ!',
+    'attack': 'TERAZ ZAATAKUJ DWIEMA RUNAMI!',
     'draw': 'NARYSUJ RUNĘ',
     'triangle': 'NARYSUJ TRÓJKĄT',
     'square': 'NARYSUJ KWADRAT',
@@ -142,7 +146,14 @@ export default {
   'result': {
     'victory': 'ZWYCIĘSTWO!',
     'defeated': 'Chrrr... jeszcze raz?',
-    'tapToDuel': 'Dotknij, aby walczyć'
+    'tapToDuel': 'Dotknij, aby walczyć',
+    'tip': {
+      'block': 'Gdy jej runy lecą do rogu, narysuj KWADRAT, by zablokować!',
+      'stack': 'Dwie runy dają silniejszy czar!',
+      'keepDrawing': 'Rysuj dalej! Dopóki rysujesz, twoja magia cię chroni.',
+      'drawBig': 'Duże, spokojne kształty działają najlepiej!',
+      'mix': 'Łącz różne runy, by odkryć nowe czary!'
+    }
   },
 
   'book': {
@@ -559,7 +570,9 @@ export default {
     'almostRune': 'PRAWIE {rune}!',
     'tryRune': 'Spróbuj: {rune}!',
     'comingSoon': 'JUŻ WKRÓTCE',
-    'lockedRune': 'Runa {rune} już wkrótce'
+    'lockedRune': 'Runa {rune} już wkrótce',
+    'newRuneGuide': 'Nowa runa: {rune}!',
+    'great': 'Świetnie!'
   },
 
   'license': {

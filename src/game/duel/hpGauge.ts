@@ -89,6 +89,19 @@ export const lowLevel = (hp: number, max: number): LowLevel => {
 export const barLowLevel = (hp: number, max: number, player: boolean, inDuel: boolean): LowLevel =>
   player && inDuel ? lowLevel(hp, max) : 0
 
+/** The foe's bar shimmers gold under this share of her HP. */
+export const ALMOST = 0.25
+
+/**
+ * "ALMOST THERE!" (second blind playtest, 2026-09-24): the foe's bar gets its
+ * own cue under `ALMOST` — a soft GOLD shimmer, good news, never the player's
+ * warm red warning (which is why the foe still gets no `LowLevel`). Only a
+ * FOE's bar, and only while the duel is on: in local versus the right-hand
+ * bar is player 2's, and that one glows red like player 1's.
+ */
+export const foeAlmost = (hp: number, max: number, player: boolean, inDuel: boolean): boolean =>
+  !player && inDuel && hp > 0 && max > 0 && hp / max < ALMOST
+
 /**
  * The chip a hit leaves behind: it snaps UP with the HP (a new duel, a heal),
  * HOLDS where it was for `GHOST_HOLD` s after every hit — a second hit inside

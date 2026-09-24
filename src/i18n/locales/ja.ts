@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'あいてが まほうを つかうよ！',
+    'blockSquare': '四角を描いて ふせごう！',
+    'blocked': 'ふせいだ！',
+    'attack': 'こんどは ルーン2つで こうげき！',
     'draw': 'ルーンを描こう',
     'triangle': '三角を描こう',
     'square': '四角を描こう',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': '勝利！',
     'defeated': 'スヤスヤ…もう一回？',
-    'tapToDuel': 'タップで対戦'
+    'tapToDuel': 'タップで対戦',
+    'tip': {
+      'block': 'ルーンが角に集まったら、四角を描いてブロック！',
+      'stack': 'ルーン2つで もっと強い魔法に！',
+      'keepDrawing': '描きつづけよう！描いているあいだは、魔法が守ってくれるよ。',
+      'drawBig': '大きく、ゆっくり描くとうまくいくよ！',
+      'mix': 'ちがうルーンを組み合わせて、新しい魔法を見つけよう！'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'もう少しで{rune}！',
     'tryRune': '{rune}を ためしてみて！',
     'comingSoon': 'もうすぐ！',
-    'lockedRune': '{rune}のルーンは もうすぐ手に入るよ'
+    'lockedRune': '{rune}のルーンは もうすぐ手に入るよ',
+    'newRuneGuide': 'あたらしいルーン：{rune}！',
+    'great': 'やったね！'
   },
 
   'license': {

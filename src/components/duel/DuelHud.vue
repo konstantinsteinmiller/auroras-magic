@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CTR, PH_DUEL, MAX_RUNES, RUNE_IDS, SPELLBOOK, SW, SH, elemMul } from '@/game/duel/config'
 import { FOES } from '@/game/duel/foes'
@@ -18,11 +18,15 @@ import GameIcon from '@/components/icons/GameIcon.vue'
 import { vFit } from '@/use/vFit'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 import { GLYPH_INK_W } from '@/game/duel/glyph'
-import { LESSON } from '@/game/duel/lesson'
+import { LESSON, isCastStep } from '@/game/duel/lesson'
 import { reducedMotion } from '@/use/useAccessibility'
 import DuelLightbox from '@/components/duel/DuelLightbox.vue'
 import RuneChips from '@/components/duel/RuneChips.vue'
 import LockedRuneHint from '@/components/duel/LockedRuneHint.vue'
+import NewRuneGuide from '@/components/duel/NewRuneGuide.vue'
+import SpellForge from '@/components/duel/SpellForge.vue'
+import { sfx } from '@/game/duel/audio'
+import { noteCastNope } from '@/use/useCastNope'
 
 /**
  * The duel's chrome, as the jam build laid it out.
@@ -76,16 +80,73 @@ const cast2Live = computed(() => duel.value && hud.equeue.length > 0)
 const cast2Label = computed(() => (hud.ecast ? spellName(t, locale.value, hud.ecast) : props.keyboard ? t('versus.castKey2') : t('hud.cast')))
 const showDrawHint2 = computed(() => duel.value && !hud.equeue.length)
 /**
- * The first duel's lesson (`game/duel/lesson.ts`) holds the cast shut until
- * its beat D. The gate itself is in the sim (every cast path passes it); this
- * only SHOWS it: runes in hand, the plate dimmed with a small lock — "not
- * yet", never hidden.
+ * The first duel's lessons (`game/duel/lesson.ts`) hold the cast shut outside
+ * their two cast beats (lesson 1's wall, lesson 2's combo). The gate itself is
+ * in the sim (every cast path passes it); this only SHOWS it: runes in hand,
+ * the plate dimmed with a small lock — "not yet", never hidden.
  */
-const castLocked = computed(() => introBeat.value >= 0 && introBeat.value < LESSON.CAST)
-/** …and then invites the cast: a gold bump and a swelling ring, replayed on
- *  every stroke she makes instead (`hud.invite`), until the first cast. */
-const castInviting = computed(() => introBeat.value === LESSON.CAST)
+const castLocked = computed(() => introBeat.value >= 0 && !isCastStep(introBeat.value))
+/** …and in a cast beat invites the cast: a gold bump and a swelling ring,
+ *  replayed on every stroke she makes instead (`hud.invite`). */
+const castInviting = computed(() => introBeat.value >= 0 && isCastStep(introBeat.value))
+/** The new-rune guide's card (`NewRuneGuide.vue`): up while the guide shows
+ *  or its "Great!" does — and never over Aurora's help note or the locked-rune
+ *  card, which stand in the same place. */
+const runeCard = computed(() => duel.value && !versus.value && !help.value && !lockedUp.value &&
+  (hud.runeGuide >= 0 || hud.runeGreat > 0))
 const castLive = computed(() => duel.value && hud.queue.length > 0 && !castLocked.value)
+/**
+ * A REFUSED CAST TAP (second blind playtest: "nothing happened"). The sim
+ * says why (`hud.refusedAt` / `hud.refusedWhy`); the button answers every
+ * time: a ~300 ms sideways shake — an outline flash under reduced motion — a
+ * soft "nope" (the stroke refusal's own cue), and a hint for the reason:
+ * 'empty' pulses the pad's "DRAW A RUNE", 'busy' puts a small hourglass on
+ * the button while the spell still forges, 'lesson' is the lesson's own to
+ * answer (its guide reads `useCastNope`). The two class names alternate, so a
+ * second refusal inside the shake restarts it instead of being swallowed.
+ */
+const nope = ref(0)
+const nopeOn = ref(false)
+const emptyPulse = ref(0)
+const pulseOn = ref(false)
+const busyGlyph = ref(false)
+let nopeTimer = 0
+let busyTimer = 0
+let pulseTimer = 0
+let nopeSoundAt = -1e9
+const nopeClass = computed(() => (nopeOn.value ? (nope.value % 2 ? 'nope-a' : 'nope-b') : ''))
+watch(() => hud.refusedAt, (at, was) => {
+  if (!(at >= 0) || at === was) return
+  const why = hud.refusedWhy
+  nope.value++
+  nopeOn.value = true
+  window.clearTimeout(nopeTimer)
+  nopeTimer = window.setTimeout(() => { nopeOn.value = false }, 420)
+  if (why === 'empty') {
+    emptyPulse.value++
+    pulseOn.value = true
+    window.clearTimeout(pulseTimer)
+    pulseTimer = window.setTimeout(() => { pulseOn.value = false }, 700)
+  }
+  if (why === 'busy') {
+    busyGlyph.value = true
+    window.clearTimeout(busyTimer)
+    busyTimer = window.setTimeout(() => { busyGlyph.value = false }, 1200)
+  }
+  // The lesson answers its own refusals (a nudge and a click); a mashed
+  // button gets one soft "nope", not a buzz per tap.
+  const now = performance.now()
+  if (why !== 'lesson' && now - nopeSoundAt > 350) {
+    nopeSoundAt = now
+    sfx('bad')
+  }
+  noteCastNope(why)
+})
+onUnmounted(() => {
+  window.clearTimeout(nopeTimer)
+  window.clearTimeout(busyTimer)
+  window.clearTimeout(pulseTimer)
+})
 /** Beat C: the lightbox, with her filled slots glowing inside its spotlight. */
 const lit = computed(() => introBeat.value === LESSON.LIGHTBOX)
 const litSlot = (i: number): boolean => lit.value && i < hud.queue.length
@@ -106,9 +167,14 @@ const castLabel = computed(() => {
  * place is no message: hers says the same thing and shows the shape as well.
  */
 const help = computed(() => (duel.value && !hud.intro && !versus.value ? hud.help : 0))
-const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length && !help.value && !lockedUp.value)
+const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length && !help.value && !lockedUp.value && !runeCard.value)
 /** The perfect-rune twinkle (retention item 7), for the slot that earned it. */
 const sparkleOf = (i: number): number => (hud.perfectSlot === i ? hud.perfect : 0)
+/** THE SPELL FORGE (§8.37): the slots a forge has just emptied give a soft
+ *  pop, keyed on the forge's token, only while it runs (so a remount never
+ *  replays one). */
+const liftOf = (i: number): number => (hud.forging && i < hud.forgeQ.length ? hud.forgeN : 0)
+const eliftOf = (i: number): number => (hud.eforging && i < hud.eforgeQ.length ? hud.eforgeN : 0)
 // Onboarding teaches one player; a versus match never shows it.
 const introBeat = computed(() => (duel.value && hud.intro && !hud.book && !versus.value ? hud.introStep : -1))
 
@@ -182,6 +248,14 @@ const underTriangle = (z: { x: number; y: number; w: number; h: number }, font: 
 }
 const TRI_FONT = 28
 const triFont = computed(() => Math.round(zoneFont.value * 0.8))
+/**
+ * The lessons' longer top lines ("NOW ATTACK WITH TWO RUNES!", "SIE ZAUBERT!"
+ * in a long locale) get a box and `v-fit` shrinks them into it: landscape,
+ * the band between the two slot rows (x 290..990 is clear of both, and of
+ * the weakness hint); portrait, the pad's width.
+ */
+const TOP_W = 660
+const zoneTopW = computed(() => Math.round(L.value.zonePx.w - 24))
 const triCaption = computed(() => {
   const z = L.value.zonePx
   return { left: `${z.x + z.w / 2}px`, top: `${underTriangle(z, triFont.value)}px`, width: `${z.w - 24}px` }
@@ -224,7 +298,7 @@ const helpStyle = computed(() => {
       div.abs.hp-land(:style="box(16, 30, 390, 40)")
         HpBar(side="left" :name="auroraName" :label="auroraName" :low="hud.low")
       div.abs.hp-land(:style="box(874, 30, 390, 40)")
-        HpBar(side="right" :name="foeName" :label="foeName" :low="hud.elow" :tint="foeTint")
+        HpBar(side="right" :name="foeName" :label="foeName" :low="hud.elow" :tint="foeTint" :almost="hud.ealmost")
 
       //- What this foe fears: the rune to draw, beside the multiplier it pays.
       template(v-if="weakTo >= 0")
@@ -234,33 +308,39 @@ const helpStyle = computed(() => {
 
       div.abs(:aria-label="t('hud.yourRunes')" role="list")
         div.abs(v-for="i in slots" :key="'p' + i" role="listitem" data-my-slot :class="{ 'lesson-lit': litSlot(i) }" :style="box(30 + i * 64, 80, 60, 60)")
-          RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)")
+          RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]")
       div.abs(:aria-label="t('hud.foeRunes')" role="list")
-        div.abs(v-for="i in slots" :key="'e' + i" role="listitem" :style="box(1190 - i * 64, 80, 60, 60)")
-          RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell")
+        div.abs(v-for="i in slots" :key="'e' + i" role="listitem" data-foe-slot :style="box(1190 - i * 64, 80, 60, 60)")
+          RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell" :lift="eliftOf(i)" :lift-rune="hud.eforgeQ[i]")
 
       //- Aurora's help, on the stage's own coordinates: centred above the
       //- drawing box, clear of both slot rows (which end at x 222 / 1000).
       div.abs.help-slot(v-if="help" :key="help" :style="box(370, 106, 540, 80)")
         DuelHelpNote
 
-      span.abs.ink-text.prompt(v-if="showDrawHint && !versus" :style="[at(640, 142, 30), { color: 'var(--am-gold)' }]") {{ t('hud.drawARune') }}
+      span.abs.ink-text.prompt(v-if="showDrawHint && !versus" :key="'dp' + emptyPulse" :class="{ pulse: pulseOn }" :style="[at(640, 142, 30), { color: 'var(--am-gold)' }]") {{ t('hud.drawARune') }}
       //- Local versus: each half invites its own player.
       template(v-if="versus")
         span.abs.ink-text.breathe(v-if="showDrawHint" :style="[at(320, 200, 28), { color: 'var(--am-gold)' }]") {{ t('hud.drawARune') }}
         span.abs.ink-text.breathe(v-if="showDrawHint2" :style="[at(960, 200, 28), { color: 'var(--am-lilac)' }]") {{ t('hud.drawARune') }}
 
-      //- Onboarding: three beats, none of which block play. The ghost trace of
-      //- beat 0 is drawn on the canvas; these are its captions.
-      template(v-if="introBeat === 0")
-        span.abs.ink-text(v-if="!hud.nudge" :style="[at(640, 138, 36), { color: 'var(--am-gold)' }]") {{ t('intro.draw') }}
+      //- The first duel's two lessons (`game/duel/lesson.ts`). The ghost
+      //- traces are drawn on the canvas; these are their captions.
+      //- Lesson 1: the foe's spell is coming — the square is the shield.
+      template(v-if="introBeat === LESSON.BLOCK")
+        span.abs.ink-text.top-hint(v-if="!hud.nudge" v-fit="36" :style="[at(640, 138, 36), { width: TOP_W + 'px', color: 'var(--am-gold)' }]") {{ t('intro.blockCasting') }}
+        span.abs.ink-text.tri-hint(v-fit="TRI_FONT" :style="[at(640, underTriangle(L.zone, TRI_FONT, SQUARE_REACH), TRI_FONT), { width: L.zone.w + 'px', color: 'var(--am-gold)' }]") {{ t('intro.blockSquare') }}
+      span.abs.ink-text.top-hint.cheer(v-else-if="introBeat === LESSON.BLOCKED" v-fit="40" :style="[at(640, 138, 40), { width: TOP_W + 'px', color: 'var(--am-mint)' }]") {{ t('intro.blocked') }}
+      //- Lesson 2: the attack — the triangle, then the square, then the stack.
+      template(v-else-if="introBeat === LESSON.TRIANGLE")
+        span.abs.ink-text.top-hint(v-if="!hud.nudge" v-fit="36" :style="[at(640, 138, 36), { width: TOP_W + 'px', color: 'var(--am-gold)' }]") {{ t('intro.attack') }}
         span.abs.ink-text.tri-hint(v-fit="TRI_FONT" :style="[at(640, underTriangle(L.zone, TRI_FONT), TRI_FONT), { width: L.zone.w + 'px', color: 'var(--am-gold)' }]") {{ t('intro.triangle') }}
-      span.abs.ink-text(v-else-if="introBeat === 1" :style="[at(640, 138, 34), { color: 'var(--am-gold)' }]") {{ t('intro.stored') }}
-      //- Beat B: the square, taught like the triangle — and why two.
+      span.abs.ink-text(v-else-if="introBeat === LESSON.STORED" :style="[at(640, 138, 34), { color: 'var(--am-gold)' }]") {{ t('intro.stored') }}
       template(v-else-if="introBeat === LESSON.SQUARE")
         span.abs.ink-text(v-if="!hud.nudge" :style="[at(640, 138, 36), { color: 'var(--am-gold)' }]") {{ t('intro.square') }}
         span.abs.ink-text.tri-hint(v-fit="TRI_FONT" :style="[at(640, underTriangle(L.zone, TRI_FONT, SQUARE_REACH), TRI_FONT), { width: L.zone.w + 'px', color: 'var(--am-gold)' }]") {{ t('intro.twoRunes') }}
-      template(v-else-if="introBeat === LESSON.CAST")
+      //- Both cast beats: the wall (lesson 1) and the combo (lesson 2).
+      template(v-else-if="castInviting")
         span.abs.ink-text(:style="[at(640, 490, 36), { color: 'var(--am-gold)' }]") {{ t('intro.cast') }}
         svg.abs.intro-arrow(:style="box(600, 514, 80, 78)" viewBox="600 514 80 78" aria-hidden="true")
           path(d="M640 524 L640 582 M640 582 L620.9 564.4 M640 582 L659.1 564.4" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round")
@@ -268,13 +348,18 @@ const helpStyle = computed(() => {
       template(v-if="!versus")
         button.abs.duel-plate.cast-btn(
           :style="box(467.5, 593.5, 345, 85)"
-          :class="{ live: castLive, locked: castLocked && hud.queue.length > 0, invite: castInviting }"
+          :class="[{ live: castLive, locked: castLocked && hud.queue.length > 0, invite: castInviting }, nopeClass]"
           :aria-label="castLive ? castLabel : t('hud.castAria')"
           :aria-disabled="castLocked ? 'true' : undefined"
           @click="emit('cast')"
         )
           span.cast-glow(v-if="castLive")
           span.cast-invite(v-if="castInviting" :key="hud.invite")
+          //- A refused tap while her spell still forges: a small hourglass.
+          span.cast-wait(v-if="busyGlyph" aria-hidden="true")
+            svg(viewBox="0 0 24 24")
+              path(d="M6 3h12M6 21h12M7.5 3c0 5 4.5 6 4.5 9s-4.5 4-4.5 9M16.5 3c0 5-4.5 6-4.5 9s4.5 4 4.5 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
+              path(d="M9.2 19.6h5.6L12 16.4z" fill="currentColor")
           GameIcon.cast-lock(v-if="castLocked && hud.queue.length > 0" name="lock")
           span.cast-keys(v-if="keyboard" aria-hidden="true")
             svg.key.bar(viewBox="0 0 34 18")
@@ -323,8 +408,9 @@ const helpStyle = computed(() => {
 
       DuelGlimpse(:portrait="false")
       DuelPopups(:portrait="false")
-      RuneChips(v-if="chips" :mask="chips" :portrait="false")
+      RuneChips(v-if="chips" :mask="chips" :portrait="false" :caption="hud.chipsCaption")
       LockedRuneHint(v-if="lockedUp" :portrait="false")
+      NewRuneGuide(v-if="runeCard" :portrait="false")
 
     //- ═════════════════════════════ PORTRAIT ══════════════════════════════
     template(v-else-if="!versus")
@@ -333,46 +419,55 @@ const helpStyle = computed(() => {
           div.port-bar
             HpBar(side="left" :name="auroraName" :label="auroraName" :low="hud.low")
           div.port-bar
-            HpBar(side="right" :name="foeName" :label="foeName" :low="hud.elow" :tint="foeTint")
+            HpBar(side="right" :name="foeName" :label="foeName" :low="hud.elow" :tint="foeTint" :almost="hud.ealmost")
         div.port-row.slots
           div.port-slots(role="list" :aria-label="t('hud.yourRunes')")
             div.port-slot(v-for="i in slots" :key="'p' + i" role="listitem" data-my-slot :class="{ 'lesson-lit': litSlot(i) }")
-              RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)")
+              RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]")
           div.port-weak(v-if="weakTo >= 0" role="img" :aria-label="weakLabel")
             RuneGlyph.port-weak-glyph(:rune="weakTo")
             span.ink-text(style="color: var(--am-mint)" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
           div.port-slots.rev(role="list" :aria-label="t('hud.foeRunes')")
-            div.port-slot(v-for="i in slots" :key="'e' + i" role="listitem")
-              RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell")
+            div.port-slot(v-for="i in slots" :key="'e' + i" role="listitem" data-foe-slot)
+              RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell" :lift="eliftOf(i)" :lift-rune="hud.eforgeQ[i]")
 
       div.port-help(v-if="help" :key="help" :style="helpStyle")
         DuelHelpNote
 
-      span.fixed-caption.ink-text.prompt(v-if="showDrawHint" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
-      template(v-if="introBeat === 0")
-        span.fixed-caption.ink-text(v-if="!hud.nudge" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
+      span.fixed-caption.ink-text.prompt(v-if="showDrawHint" :key="'dp' + emptyPulse" :class="{ pulse: pulseOn }" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
+      template(v-if="introBeat === LESSON.BLOCK")
+        span.fixed-caption.ink-text.top-hint(v-if="!hud.nudge" v-fit="zoneFont" :style="[zoneCaption, { width: zoneTopW + 'px', color: 'var(--am-gold)' }]") {{ t('intro.blockCasting') }}
+        span.fixed-caption.ink-text.tri-hint(v-fit="triFont" :style="[squareCaption, { color: 'var(--am-gold)' }]") {{ t('intro.blockSquare') }}
+      span.fixed-caption.ink-text.top-hint.cheer(v-else-if="introBeat === LESSON.BLOCKED" v-fit="zoneFont" :style="[zoneCaption, { width: zoneTopW + 'px', color: 'var(--am-mint)' }]") {{ t('intro.blocked') }}
+      template(v-else-if="introBeat === LESSON.TRIANGLE")
+        span.fixed-caption.ink-text.top-hint(v-if="!hud.nudge" v-fit="zoneFont" :style="[zoneCaption, { width: zoneTopW + 'px', color: 'var(--am-gold)' }]") {{ t('intro.attack') }}
         span.fixed-caption.ink-text.tri-hint(v-fit="triFont" :style="[triCaption, { color: 'var(--am-gold)' }]") {{ t('intro.triangle') }}
-      span.fixed-caption.ink-text(v-else-if="introBeat === 1" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.stored') }}
+      span.fixed-caption.ink-text(v-else-if="introBeat === LESSON.STORED" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.stored') }}
       template(v-else-if="introBeat === LESSON.SQUARE")
         span.fixed-caption.ink-text(v-if="!hud.nudge" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.square') }}
         span.fixed-caption.ink-text.tri-hint(v-fit="triFont" :style="[squareCaption, { color: 'var(--am-gold)' }]") {{ t('intro.twoRunes') }}
-      span.fixed-caption.ink-text(v-else-if="introBeat === LESSON.CAST" :style="[zoneBottomCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.cast') }}
-      RuneChips(v-if="chips" :mask="chips" :portrait="true")
+      span.fixed-caption.ink-text(v-else-if="castInviting" :style="[zoneBottomCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.cast') }}
+      RuneChips(v-if="chips" :mask="chips" :portrait="true" :caption="hud.chipsCaption")
+      NewRuneGuide(v-if="runeCard" :portrait="true")
 
       div.port-bottom(:style="bottomStyle")
         button.duel-plate.icon-btn.port-icon(:aria-label="t('options.title')" @click="emit('options')")
           GameIcon.gear.small(name="settings")
         div.port-cast-wrap
-          svg.port-arrow(v-if="introBeat === LESSON.CAST" viewBox="-20 -34 40 34" aria-hidden="true")
+          svg.port-arrow(v-if="castInviting" viewBox="-20 -34 40 34" aria-hidden="true")
             path(d="M0 -30 L0 -4 M0 -4 L-12 -15 M0 -4 L12 -15" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round")
           button.duel-plate.cast-btn.port-cast(
-            :class="{ live: castLive, locked: castLocked && hud.queue.length > 0, invite: castInviting }"
+            :class="[{ live: castLive, locked: castLocked && hud.queue.length > 0, invite: castInviting }, nopeClass]"
             :aria-label="castLive ? castLabel : t('hud.castAria')"
             :aria-disabled="castLocked ? 'true' : undefined"
             @click="emit('cast')"
           )
             span.cast-glow(v-if="castLive")
             span.cast-invite(v-if="castInviting" :key="hud.invite")
+            span.cast-wait.small(v-if="busyGlyph" aria-hidden="true")
+              svg(viewBox="0 0 24 24")
+                path(d="M6 3h12M6 21h12M7.5 3c0 5 4.5 6 4.5 9s-4.5 4-4.5 9M16.5 3c0 5-4.5 6-4.5 9s4.5 4 4.5 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round")
+                path(d="M9.2 19.6h5.6L12 16.4z" fill="currentColor")
             GameIcon.cast-lock.small(v-if="castLocked && hud.queue.length > 0" name="lock")
             span.ink-text.ink-none.cast-label(v-fit :style="{ color: castLive ? 'var(--am-ink)' : 'var(--am-ink-3)' }") {{ castLabel }}
         button.duel-plate.icon-btn.port-icon(v-if="SPELLBOOK" :class="{ 'book-new': bookHud.hasNew }" :aria-label="t('hud.spellbook')" @click="emit('book')")
@@ -387,6 +482,9 @@ const helpStyle = computed(() => {
     //- The lesson's beat C, over everything the duel shows: last, so it paints
     //- on top of both layouts. It cuts its own spotlight round the slots.
     DuelLightbox(v-if="lit && !versus")
+    //- The spell forge's runes, flying out of the slots (§8.37) — over the
+    //- slots and the HP bars in both layouts.
+    SpellForge
 </template>
 
 <style scoped lang="sass">
@@ -490,6 +588,106 @@ button
     opacity: 0
     transform: scale(1.22)
 
+// A REFUSED TAP: a quick "no-no" wiggle, ~300 ms, damped. Two identical
+// animations under two names (`nopeClass` alternates them), so a second tap
+// inside the first restarts the wiggle instead of being lost in it. It is a
+// `translate` — its own property — so it never fights the `:active` press or
+// the lesson's invite bump, which both use `transform`.
+.cast-btn.nope-a
+  animation: cast-nope-a 0.32s ease-out both
+.cast-btn.nope-b
+  animation: cast-nope-b 0.32s ease-out both
+@keyframes cast-nope-a
+  0%, 100%
+    translate: 0 0
+  15%
+    translate: -9px 0
+  35%
+    translate: 8px 0
+  55%
+    translate: -5px 0
+  75%
+    translate: 3px 0
+@keyframes cast-nope-b
+  0%, 100%
+    translate: 0 0
+  15%
+    translate: -9px 0
+  35%
+    translate: 8px 0
+  55%
+    translate: -5px 0
+  75%
+    translate: 3px 0
+// Reduced motion: no wiggle — the plate's outline flares coral once instead.
+.am-still .cast-btn.nope-a
+  animation: cast-nope-flash-a 0.42s ease-out both
+.am-still .cast-btn.nope-b
+  animation: cast-nope-flash-b 0.42s ease-out both
+@keyframes cast-nope-flash-a
+  0%
+    box-shadow: 0 0 0 0 var(--am-coral)
+  30%
+    box-shadow: 0 0 0 6px var(--am-coral)
+  100%
+    box-shadow: 0 0 0 0 var(--am-coral)
+@keyframes cast-nope-flash-b
+  0%
+    box-shadow: 0 0 0 0 var(--am-coral)
+  30%
+    box-shadow: 0 0 0 6px var(--am-coral)
+  100%
+    box-shadow: 0 0 0 0 var(--am-coral)
+@media (prefers-reduced-motion: reduce)
+  .cast-btn.nope-a
+    animation: cast-nope-flash-a 0.42s ease-out both
+  .cast-btn.nope-b
+    animation: cast-nope-flash-b 0.42s ease-out both
+
+// …and a refused tap while her last spell still forges: a small hourglass on
+// a paper chip at the plate's corner — violet, the colour of "something is
+// happening" — that turns once.
+.cast-wait
+  position: absolute
+  right: -12px
+  top: -14px
+  width: 38px
+  height: 38px
+  box-sizing: border-box
+  padding: 5px
+  border-radius: 50%
+  background: var(--am-paper)
+  border: 3px solid var(--am-ink)
+  color: var(--am-lilac-plate)
+  pointer-events: none
+  animation: cast-wait-in 0.25s var(--am-ease-pop) both
+  svg
+    display: block
+    width: 100%
+    height: 100%
+    animation: cast-wait-turn 1s ease-in-out 0.2s both
+  &.small
+    right: -8px
+    top: -10px
+    width: 28px
+    height: 28px
+    padding: 3px
+    border-width: 2px
+.am-still .cast-wait, .am-still .cast-wait svg
+  animation: none
+@keyframes cast-wait-in
+  from
+    opacity: 0
+    transform: scale(0.4)
+  to
+    opacity: 1
+    transform: none
+@keyframes cast-wait-turn
+  0%, 40%
+    transform: rotate(0deg)
+  80%, 100%
+    transform: rotate(180deg)
+
 // Beat C: her filled slots glow gold inside the lightbox's spotlight.
 .lesson-lit
   z-index: 1
@@ -586,6 +784,19 @@ button
     border-radius: 999px
     background: var(--am-scrim)
     filter: blur(7px)
+  // A Cast tap with nothing in hand: the prompt swells once, "draw first!".
+  // `scale` is its own property, so the centring `transform` stays put.
+  &.pulse
+    animation: duel-breathe 2s ease-in-out infinite, prompt-pulse 0.6s var(--am-ease-pop) both
+@keyframes prompt-pulse
+  0%
+    scale: 1
+  35%
+    scale: 1.28
+  100%
+    scale: 1
+.am-still .prompt.pulse
+  animation: duel-breathe 2s ease-in-out infinite
 
 .weak
   --from: 0.55
@@ -677,6 +888,29 @@ button
   overflow: hidden
   text-align: center
   padding: 0.2em
+
+// The lessons' top lines, in a box `v-fit` shrinks them into (`TOP_W`).
+.top-hint
+  overflow: hidden
+  text-align: center
+  padding: 0.2em
+
+// Lesson 1's "YOU BLOCKED IT!": one pop, like the rewards elsewhere — kept
+// under reduced motion, because it IS the reward. The keyframes carry the
+// caption's own centring translate: a bare `scale` would scale that
+// translate too, and the line would swing sideways while it pops.
+.cheer
+  animation: lesson-cheer 0.5s var(--am-ease-pop) both
+
+@keyframes lesson-cheer
+  0%
+    opacity: 0
+    transform: translate(-50%, -50%) scale(0.7)
+  60%
+    opacity: 1
+    transform: translate(-50%, -50%) scale(1.12)
+  100%
+    transform: translate(-50%, -50%) scale(1)
 
 // Landscape: the card lives in the stage layer, so one stage unit IS its unit.
 .help-slot

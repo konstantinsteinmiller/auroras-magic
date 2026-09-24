@@ -78,7 +78,34 @@ export interface Shot {
   lg?: number
   lgT?: number
   lgR?: number
+  /** THE CAST LOCK (§8.37): 1 while this shot holds its caster's lock — her
+   *  next spell may not leave until it has landed or fizzled. A reflected
+   *  copy holds nobody's. */
+  lk?: 0 | 1
 }
+
+/**
+ * A spell being FORGED (story-spec §8.37): pressing CAST lifts the runes out
+ * of their slots, and for `forge.FORGE_S` they fly together into one orb, pour
+ * into the horn and swell there before the spell leaves. One per side,
+ * allocated once and reused — the slots, the renderer and the HUD all read it.
+ */
+export interface Forge {
+  /** Seconds since CAST was pressed; -1 when this side is not forging. */
+  t: number
+  /** The runes it took, in slot order: slot i held `q[i]`. */
+  q: Rune[]
+  /** What it will be: the lead rune (the orb's main colour), the rune mixed
+   *  into it (-1 = pure; it tints the orb's rim, like `Shot.m`), the spell
+   *  kind and its combo key ('' unless it is one of the golden 22). */
+  lead: number
+  mix: number
+  kind: number
+  key: string
+  /** Bumps on every new forge of this side — the slots' "pop" is keyed on it. */
+  n: number
+}
+const forge = (): Forge => ({ t: -1, q: [], lead: 0, mix: -1, kind: 0, key: '', n: 0 })
 
 /** A floating HUD callout. `k` is an i18n key under `pop.`; `p` its params. */
 export interface Pop {
@@ -100,6 +127,14 @@ export const POP_LIFE = 1.3
 
 /** The clean rune flashing after a recognised stroke. */
 export interface Snap { r: Rune; t: number }
+
+/**
+ * Why the player's last cast request was refused (`sim.castSide`, story-spec
+ * §8.37): her hand was empty, a spell of hers is still forging or in flight
+ * (the cast lock — or she is frozen), or the first duel's lesson holds the
+ * cast shut. '' = nothing refused yet this duel.
+ */
+export type CastRefusal = '' | 'empty' | 'busy' | 'lesson'
 
 export interface DuelState {
   /* viewport + stage transform */
@@ -138,9 +173,11 @@ export interface DuelState {
   /** The rune the foe is forming, or -1 before the first pick. */
   eRune: number
   eThink: number
-  /** THE TELEGRAPH (story-spec §8.36): seconds her full, hitting hand still
-   *  winds up before it may leave — her slots glow and her horn charges. */
-  eCharge: number
+  /** THE SPELL FORGE (story-spec §8.37) of each side — Aurora's and the
+   *  right-hand duelist's (the foe, or player 2). It replaced §8.36's 0.75 s
+   *  wind-up: the foe's forge IS her warning. */
+  forge: Forge
+  eForge: Forge
   /** The depth glimpse (§8.36): 0 none this duel, 1 armed, 2 her ward is up
    *  and the hint shows, 3 the hint's "yes!" beat, 4 done. */
   glimpse: number
@@ -172,6 +209,17 @@ export interface DuelState {
   eCastAnim: number
   hurt: number
   eHurt: number
+  /**
+   * THE CAST REFUSAL (story-spec §8.37) — a contract the HUD reads (the cast
+   * button's shake, the lesson). `castRefusedAt` is `S.t` (the app clock the
+   * HUD's own timers run on) at the moment a cast request of the PLAYER's
+   * (left side) was refused, -1 when none has been this duel; it changes on
+   * every refusal, so a watcher can key an animation on it. `castRefusedWhy`
+   * says which rule refused it. Set only by `sim.castSide`; reset by
+   * `resetDuel`.
+   */
+  castRefusedAt: number
+  castRefusedWhy: CastRefusal
 
   /* drawing */
   draw: 0 | 1
@@ -336,7 +384,8 @@ export const auroras_magic_state: DuelState = {
      counter — GDD 3.4 wants a ghostly outline of the real rune. */
   eRune: -1,
   eThink: 1.2,
-  eCharge: 0,
+  forge: forge(),
+  eForge: forge(),
   glimpse: 0,
   glimpseT: 0,
   glimpseRune: -1,
@@ -360,6 +409,8 @@ export const auroras_magic_state: DuelState = {
   eCastAnim: 0,
   hurt: 0,
   eHurt: 0,
+  castRefusedAt: -1,
+  castRefusedWhy: '',
 
   draw: 0,
   pts: [],

@@ -13,17 +13,19 @@
 // directly — the hot-path DOM write the playbook asks for.
 
 import { reactive, shallowRef } from 'vue'
-import { S, POP_LIFE, type Pop } from '@/game/duel/state'
+import { S, POP_LIFE, type CastRefusal, type Pop } from '@/game/duel/state'
 import { perfectSlot, perfectToken } from '@/game/duel/perfect'
 import { helpNoteUp, helpToken } from '@/game/duel/help'
-import { castInvite, chipsDue, lockedHint, nudgeUp } from '@/game/duel/lesson'
+import {
+  castInvite, chipsCaptionDue, chipsDue, lockedHint, nudgeUp, runeGreat, runeGuideRune
+} from '@/game/duel/lesson'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 import { HP_MAX, MAX_RUNES, PH_DUEL, type Rune } from '@/game/duel/config'
-import { spellOf, foeTell } from '@/game/duel/sim'
+import { spellOf, foeTell, castBusy } from '@/game/duel/sim'
 import type { SpellNameParts } from '@/use/useSpellName'
 import { LAYOUT, type DuelLayout } from '@/game/duel/layout'
 import { clamp } from '@/game/duel/util'
-import { barLowLevel, gaugeFill, newGhost, resetGhost, stepGhost, writeGauge, type LowLevel } from '@/game/duel/hpGauge'
+import { barLowLevel, foeAlmost, gaugeFill, newGhost, resetGhost, stepGhost, writeGauge, type LowLevel } from '@/game/duel/hpGauge'
 
 export interface HudState {
   phase: number
@@ -50,6 +52,9 @@ export interface HudState {
    *  2's in local versus, and always 0 against a foe. */
   low: LowLevel
   elow: LowLevel
+  /** The FOE's "almost there!" gold shimmer (`hpGauge.foeAlmost`): under a
+   *  quarter of her HP — good news, never player 2's red glow. */
+  ealmost: boolean
   /**
    * The perfect-rune sparkle (retention item 7). `perfect` is a token that
    * bumps on every perfect rune — the slot's twinkle is keyed on it, so the
@@ -69,6 +74,14 @@ export interface HudState {
   /** Her KNOWN runes as a bitmask while the pad's rune chips are due
    *  (`lesson.chipsDue`), 0 when they are not. */
   chips: number
+  /** …and whether they wear their "Your runes" caption (`chipsCaptionDue`). */
+  chipsCaption: boolean
+  /** The new-rune guide (`lesson.runeGuideRune`): the rune it shows on the
+   *  pad, -1 when none; and its "Great!" — a token while it is up (0 none)
+   *  and the rune it praised. */
+  runeGuide: number
+  runeGreat: number
+  runeGreatRune: number
   /** A stroke matched a rune she has not earned yet: the card's token (0 =
    *  none up), the rune, and where the refusal would have stood (stage). */
   locked: number
@@ -82,6 +95,25 @@ export interface HudState {
    *  when it does not; and whether that rune has just found the gap. */
   glimpse: number
   glimpseYes: boolean
+  /** THE CAST REFUSAL (story-spec §8.37), mirrored from `S.castRefusedAt` /
+   *  `S.castRefusedWhy`: the `S.t` of the player's last refused cast request
+   *  (-1 none this duel) — it changes on every refusal, so an animation can be
+   *  keyed on it — and which rule refused it. */
+  refusedAt: number
+  refusedWhy: CastRefusal
+  /** THE CAST LOCK (§8.37): a spell of the player's (`busy`) / of the right-hand
+   *  side's (`ebusy`) is forging or still in flight, so a cast now is refused. */
+  busy: boolean
+  ebusy: boolean
+  /** THE SPELL FORGE (§8.37), per side: is one forging now, its token (bumps
+   *  on every new forge — the slots' "pop" is keyed on it) and the runes it
+   *  took, in slot order. */
+  forging: boolean
+  eforging: boolean
+  forgeN: number
+  eforgeN: number
+  forgeQ: number[]
+  eforgeQ: number[]
 }
 
 export const hud = reactive<HudState>({
@@ -101,19 +133,34 @@ export const hud = reactive<HudState>({
   wins: 0,
   low: 0,
   elow: 0,
+  ealmost: false,
   perfect: 0,
   perfectSlot: -1,
   help: 0,
   invite: 0,
   nudge: false,
   chips: 0,
+  chipsCaption: false,
+  runeGuide: -1,
+  runeGreat: 0,
+  runeGreatRune: -1,
   locked: 0,
   lockedRune: -1,
   lockedX: 0,
   lockedY: 0,
   eTell: 0,
   glimpse: -1,
-  glimpseYes: false
+  glimpseYes: false,
+  refusedAt: -1,
+  refusedWhy: '',
+  busy: false,
+  ebusy: false,
+  forging: false,
+  eforging: false,
+  forgeN: 0,
+  eforgeN: 0,
+  forgeQ: [],
+  eforgeQ: []
 })
 
 /** Callouts on screen. Membership is reactive; the motion is a CSS animation. */
@@ -162,6 +209,14 @@ export const isOnFoeHpBar = (x: number, y: number): boolean => {
  *  drain, so each hit reads as a pale chunk (`hpGauge.stepGhost`). */
 const ha = newGhost(HP_MAX)
 const ea = newGhost(HP_MAX)
+/**
+ * The spell forge's DOM layer (`SpellForge.vue`, story-spec §8.37): the runes
+ * leaving the slots are moved by direct style writes once a frame, from
+ * `syncHud` — the same frame the canvas draws the orb they turn into.
+ */
+let forgeLayer: (() => void) | null = null
+export const registerForgeLayer = (fn: (() => void) | null): void => { forgeLayer = fn }
+
 /** Circumference of the forming ring, set by the component that owns it. */
 let ringLen = 0
 export const setRingLength = (n: number): void => { ringLen = n }
@@ -187,6 +242,8 @@ export const syncHud = (dt: number): void => {
   if (hud.low !== low) hud.low = low
   const elow = barLowLevel(S.ehp, S.ehpMax, S.versus, inDuel)
   if (hud.elow !== elow) hud.elow = elow
+  const ealmost = foeAlmost(S.ehp, S.ehpMax, S.versus, inDuel)
+  if (hud.ealmost !== ealmost) hud.ealmost = ealmost
   if (hot.formRing && ringLen) hot.formRing.style.strokeDashoffset = String(ringLen * (1 - clamp(S.eForm, 0, 1)))
   if (hot.formGhost) hot.formGhost.style.opacity = String(0.22 + 0.7 * clamp(S.eForm, 0, 1))
 
@@ -211,6 +268,29 @@ export const syncHud = (dt: number): void => {
   if (hud.glimpse !== gl) hud.glimpse = gl
   const yes = gl >= 0 && S.glimpse === 3
   if (hud.glimpseYes !== yes) hud.glimpseYes = yes
+  // The cast refusal and the cast lock (§8.37).
+  if (hud.refusedAt !== S.castRefusedAt) hud.refusedAt = S.castRefusedAt
+  if (hud.refusedWhy !== S.castRefusedWhy) hud.refusedWhy = S.castRefusedWhy
+  const busy = inDuel && castBusy(false)
+  if (hud.busy !== busy) hud.busy = busy
+  const ebusy = inDuel && castBusy(true)
+  if (hud.ebusy !== ebusy) hud.ebusy = ebusy
+  // The forges (§8.37): whose, since when, and which runes left the slots.
+  const fg = inDuel && S.forge.t >= 0
+  if (hud.forging !== fg) hud.forging = fg
+  const efg = inDuel && S.eForge.t >= 0
+  if (hud.eforging !== efg) hud.eforging = efg
+  if (hud.forgeN !== S.forge.n) {
+    hud.forgeN = S.forge.n
+    hud.forgeQ = [...S.forge.q]
+  }
+  if (hud.eforgeN !== S.eForge.n) {
+    hud.eforgeN = S.eForge.n
+    hud.eforgeQ = [...S.eForge.q]
+  }
+  // …and the runes flying out of the slots, which the forge layer moves by
+  // hand every frame (`SpellForge.vue`), like the HP bars above.
+  forgeLayer?.()
   // The CAST plate's spell: re-resolved only when the hand changes.
   if (castFor !== handKey()) {
     castFor = handKey()
@@ -242,6 +322,16 @@ export const syncHud = (dt: number): void => {
     ? (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
     : 0
   if (hud.chips !== chips) hud.chips = chips
+  const cap = chips !== 0 && chipsCaptionDue(S.flow.node, S.campaign.furthestNode)
+  if (hud.chipsCaption !== cap) hud.chipsCaption = cap
+  const rg = runeGuideRune()
+  if (hud.runeGuide !== rg) hud.runeGuide = rg
+  const great = runeGreat()
+  const gt = great ? great.token : 0
+  if (hud.runeGreat !== gt) {
+    hud.runeGreat = gt
+    if (great) hud.runeGreatRune = great.rune
+  }
   const lk = lockedHint()
   const lkToken = lk ? lk.token : 0
   if (hud.locked !== lkToken) {

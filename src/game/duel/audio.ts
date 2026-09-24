@@ -241,6 +241,8 @@ const SNAP: readonly VoiceArgs[] = [
 
 export type Cue =
   | 'draw' | 'snap' | 'bad' | 'cast' | 'hit' | 'guard' | 'hurt' | 'win' | 'lose' | 'ui'
+  // the spell forge (story-spec §8.37): the runes flying into the horn
+  | 'forge'
   // a rune drawn well past the accept line (retention item 7)
   | 'perfect'
   // restoration (story-spec §8.5)
@@ -317,6 +319,20 @@ const CUES: Record<Cue, (v?: number) => void> = {
       const f = nf(i) * 2
       V(SAW, f, f * 2, 0.3 + 0.12 * n, 0.07 + 0.02 * n, 3 + 2 * n, i * 0.045)
     }
+  },
+
+  /* THE SPELL FORGE (story-spec §8.37): CAST was pressed and the runes lift
+     out of their slots, fly together and pour into the horn. A soft pluck per
+     rune as it lifts, then a shimmer swelling over the forge's 1.5 s into the
+     `cast` itself. v = rune count 1..3. */
+  forge: (v) => {
+    const n = cl((v ?? 1) | 0, 1, 3)
+    for (let i = 0; i < n; i++) {
+      const f = nf(i * 2) * 4
+      V(SIN, f, f * 1.02, 0.28, 0.05, 1, i * 0.06)
+    }
+    V(TRI, nf(0) * 2, nf(0) * 4, 1.4, 0.045, 3, 0.12, 1)
+    V(NOISE, 700, 5200, 1.35, 0.028, 1, 0.1, 1.05)
   },
 
   /* Spell connects. v = power 0..1 scales body, brightness and length. */

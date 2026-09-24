@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'SIE ZAUBERT!',
+    'blockSquare': 'ZEICHNE DAS QUADRAT ZUM BLOCKEN!',
+    'blocked': 'DU HAST IHN GEBLOCKT!',
+    'attack': 'JETZT GREIF MIT ZWEI RUNEN AN!',
     'draw': 'ZEICHNE DIE RUNE',
     'triangle': 'ZEICHNE EIN DREIECK',
     'square': 'ZEICHNE EIN QUADRAT',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'SIEG!',
     'defeated': 'Zzz... nochmal versuchen?',
-    'tapToDuel': 'Zum Duell tippen'
+    'tapToDuel': 'Zum Duell tippen',
+    'tip': {
+      'block': 'Fliegen ihre Runen zu ihrem Horn, zeichne ein QUADRAT zum Blocken!',
+      'stack': 'Zwei Runen machen einen stärkeren Zauber!',
+      'keepDrawing': 'Zeichne weiter! Solange du zeichnest, schützt dich deine Magie.',
+      'drawBig': 'Große, ruhige Formen klappen am besten!',
+      'mix': 'Mische verschiedene Runen und finde neue Zauber!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'FAST {rune}!',
     'tryRune': 'Probier’s mit {rune}!',
     'comingSoon': 'BALD DA',
-    'lockedRune': 'Die Rune {rune} kommt bald'
+    'lockedRune': 'Die Rune {rune} kommt bald',
+    'newRuneGuide': 'Neue Rune: {rune}!',
+    'great': 'Super!'
   },
 
   'license': {

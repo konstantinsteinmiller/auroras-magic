@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'STA LANCIANDO UN INCANTESIMO!',
+    'blockSquare': 'DISEGNA IL QUADRATO PER PARARE!',
+    'blocked': 'L’HAI PARATO!',
+    'attack': 'ORA ATTACCA CON DUE RUNE!',
     'draw': 'DISEGNA LA RUNA',
     'triangle': 'DISEGNA UN TRIANGOLO',
     'square': 'DISEGNA UN QUADRATO',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'VITTORIA!',
     'defeated': 'Zzz... riproviamo?',
-    'tapToDuel': 'Tocca per il duello'
+    'tapToDuel': 'Tocca per il duello',
+    'tip': {
+      'block': 'Quando le sue rune volano al corno, disegna un QUADRATO per bloccare!',
+      'stack': 'Due rune fanno un incantesimo più forte!',
+      'keepDrawing': 'Continua a disegnare! Finché disegni, la tua magia ti protegge.',
+      'drawBig': 'Le forme grandi e calme funzionano meglio!',
+      'mix': 'Mescola rune diverse per scoprire nuovi incantesimi!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'QUASI {rune}!',
     'tryRune': 'Prova con {rune}!',
     'comingSoon': 'IN ARRIVO',
-    'lockedRune': 'La runa {rune} arriva presto'
+    'lockedRune': 'La runa {rune} arriva presto',
+    'newRuneGuide': 'Nuova runa: {rune}!',
+    'great': 'Ottimo!'
   },
 
   'license': {

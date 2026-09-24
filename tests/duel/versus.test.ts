@@ -9,8 +9,9 @@ import { RUNE_IDS, PH_DUEL, WIND, ICE, TIME, LOVE, type Rune } from '@/game/duel
 import { VERSUS_FOE } from '@/game/duel/foes'
 import { S } from '@/game/duel/state'
 import { defaultCampaign } from '@/game/campaign/state'
-import { resetDuel, updateSim, strokeStart, strokeMove, strokeEnd, castSide, cast, finisherOpen } from '@/game/duel/sim'
+import { resetDuel, updateSim, strokeStart, strokeMove, strokeEnd, cast, finisherOpen } from '@/game/duel/sim'
 import { DRAWN, realize, stream } from './rune-draws'
+import { castNow } from './forged'
 
 const STEP = 1 / 120
 const run = (s: number): void => {
@@ -67,7 +68,7 @@ describe('local 2P versus (§6.19)', () => {
     expect(S.dust).toBe(1)
     expect(S.onboard).toBe(1)
     S.queue.push(0 as Rune)
-    cast()
+    castNow()
     run(1)
     expect(S.ehp).toBe(92) // a plain fire bolt: no elemental bonus either way
   })
@@ -75,7 +76,7 @@ describe('local 2P versus (§6.19)', () => {
   it('both hold the full kit: player 2 can Frost Lock player 1, whose hand freezes', () => {
     S.queue.push(0 as Rune, 0 as Rune)
     S.equeue.push(WIND, ICE, ICE)
-    castSide(true)
+    castNow(true)
     expect(S.eGuardK).toBe(1)
     expect(S.frozen).toBeCloseTo(2.5, 5)
     expect(S.queue).toEqual([]) // discarded
@@ -83,14 +84,16 @@ describe('local 2P versus (§6.19)', () => {
     expect(S.draw).toBe(0) // a frozen hand cannot draw
     cast()
     expect(S.shots.length).toBe(0) // nor cast
+    expect(S.forge.t).toBe(-1)
+    expect(S.castRefusedWhy).toBe('empty') // (the ice took her hand)
   })
 
   it("a slow landing on player 2 shaves her guard — versus has no forming timer (§6.19)", () => {
     S.equeue.push(WIND, WIND)
-    castSide(true) // her wind wall
+    castNow(true) // her wind wall
     const g = S.eGuard
     S.queue.push(TIME, TIME)
-    cast() // an hourglass field: a field creeps under a wind wall
+    castNow() // an hourglass field: a field creeps under a wind wall
     run(0.6)
     expect(S.eGuard).toBeLessThan(g * 0.75)
     expect(S.eSlow).toBe(0)
@@ -100,7 +103,7 @@ describe('local 2P versus (§6.19)', () => {
     S.hitsLanded = 4
     expect(finisherOpen(true)).toBe(true)
     S.equeue.push(LOVE, LOVE, LOVE)
-    castSide(true)
+    castNow(true)
     expect(S.eUsedFinisher).toBe(true)
     expect(S.shots[0]!.k).toBe(3)
   })

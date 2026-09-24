@@ -112,6 +112,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'ZE TOVERT!',
+    'blockSquare': 'TEKEN HET VIERKANT OM TE BLOKKEREN!',
+    'blocked': 'JE HEBT HEM GEBLOKKEERD!',
+    'attack': 'VAL NU AAN MET TWEE RUNES!',
     'draw': 'TEKEN DE RUNE',
     'triangle': 'TEKEN EEN DRIEHOEK',
     'square': 'TEKEN EEN VIERKANT',
@@ -142,7 +146,14 @@ export default {
   'result': {
     'victory': 'OVERWINNING!',
     'defeated': 'Zzz... nog een keer?',
-    'tapToDuel': 'Tik om te duelleren'
+    'tapToDuel': 'Tik om te duelleren',
+    'tip': {
+      'block': 'Vliegen haar runes naar haar hoorn? Teken een VIERKANT om te blokkeren!',
+      'stack': 'Twee runes maken een sterkere spreuk!',
+      'keepDrawing': 'Blijf tekenen! Zolang je tekent, beschermt je magie je.',
+      'drawBig': 'Grote, rustige vormen werken het best!',
+      'mix': 'Mix verschillende runes en ontdek nieuwe spreuken!'
+    }
   },
 
   'book': {
@@ -558,7 +569,9 @@ export default {
     'almostRune': 'BIJNA {rune}!',
     'tryRune': 'Probeer {rune}!',
     'comingSoon': 'BINNENKORT',
-    'lockedRune': 'De rune {rune} komt binnenkort'
+    'lockedRune': 'De rune {rune} komt binnenkort',
+    'newRuneGuide': 'Nieuwe rune: {rune}!',
+    'great': 'Goed zo!'
   },
 
   'license': {

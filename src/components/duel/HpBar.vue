@@ -41,7 +41,10 @@ const props = withDefaults(defineProps<{
   low?: LowLevel
   /** The foe's own glow colour, for the halo behind her medallion. */
   tint?: string
-}>(), { low: 0, tint: '' })
+  /** "Almost there!" (`hpGauge.foeAlmost`) — only a FOE's bar: a soft gold
+   *  shimmer runs along what is left of her fill, good news for the player. */
+  almost?: boolean
+}>(), { low: 0, tint: '', almost: false })
 
 const root = ref<HTMLElement | null>(null)
 const fill = ref<HTMLElement | null>(null)
@@ -132,12 +135,15 @@ const artStyle = computed(() => {
 })
 
 const lowClass = computed(() => (props.low ? [`low-${props.low}`, { still: reducedMotion.value }] : []))
+const almostClass = computed(() => (props.almost ? ['almost', { still: reducedMotion.value }] : []))
 </script>
 
 <template lang="pug">
-  div.hp-bar(ref="root" :class="[side, frameSide, lowClass, { painted: !!frameSrc }]" role="img" :aria-label="label")
-    //- Behind everything: the low-health glow, and the foe's own halo.
+  div.hp-bar(ref="root" :class="[side, frameSide, lowClass, almostClass, { painted: !!frameSrc }]" role="img" :aria-label="label")
+    //- Behind everything: the low-health glow, the foe's "almost" glow, and
+    //- the foe's own halo.
     div.hp-glow(v-if="low" :style="glowStyle" aria-hidden="true")
+    div.hp-almost(v-if="almost" :style="glowStyle" aria-hidden="true")
     div.hp-halo(v-if="tint" :style="haloStyle" aria-hidden="true")
 
     div.hp-rail(v-if="!frameSrc" :style="railStyle" aria-hidden="true")
@@ -152,6 +158,9 @@ const lowClass = computed(() => (props.low ? [`low-${props.low}`, { still: reduc
         div.hp-tint
         div.hp-marks
           span.hp-mark(v-for="m in MARKS" :key="m" :class="{ half: m === 0.5 }" :data-at="m" :style="markStyle(m)")
+        //- Inside the fill, so its clip keeps the shimmer on what is LEFT.
+        div.hp-shine(v-if="almost" aria-hidden="true")
+          span.hp-spark(v-for="i in 3" :key="i")
       //- The last sliver's floor: a stub of fill as wide as the track's round
       //- end, under the fill, shown whenever the fill is not empty.
       div.hp-fill-cap
@@ -373,6 +382,110 @@ const lowClass = computed(() => (props.low ? [`low-${props.low}`, { still: reduc
     opacity: 0.25
   50%
     opacity: 0.5
+
+// ── the foe's "almost there!": gold, soft, and GOOD news ──
+// Mirrors the player's low-health glow on the other bar, but it is a reward,
+// not a warning: gold (never the coral-red `--am-hp-low`), a slow breath
+// behind the bar, and a band of light running along what is left of her fill
+// with three little sparkles on it. Reduced motion: a still gold glow and a
+// still gold sheen.
+.hp-almost
+  z-index: 0
+  top: calc(var(--R) * -0.06)
+  bottom: calc(var(--R) * -0.06)
+  border-radius: calc(var(--R) * 0.55)
+  background: var(--am-gold)
+  box-shadow: 0 0 calc(var(--R) * 0.55) calc(var(--R) * 0.2) var(--am-gold)
+  opacity: 0.6
+  animation: hp-almost-breathe 2.2s ease-in-out infinite
+
+.hp-shine
+  position: absolute
+  inset: 0
+  overflow: hidden
+  pointer-events: none
+  // A soft band of gold light, repeating every three rails and sliding one
+  // period per beat: however short her fill is, a glint crosses it.
+  background-image: linear-gradient(100deg, transparent 22%, var(--am-gold-lite) 44%, var(--am-gold) 50%, var(--am-gold-lite) 56%, transparent 78%)
+  background-size: calc(var(--R) * 3) 100%
+  background-repeat: repeat-x
+  opacity: 0.8
+  animation: hp-shine 1.4s linear infinite
+.right .hp-shine
+  animation-direction: reverse
+
+// Three tiny four-point sparkles, near her anchored end (the right for a foe)
+// where the fill always is.
+.hp-spark
+  position: absolute
+  top: 18%
+  width: calc(var(--R) * 0.34)
+  height: calc(var(--R) * 0.34)
+  background: var(--am-paper-raised)
+  clip-path: var(--am-spark-clip)
+  opacity: 0
+  animation: hp-twinkle 1.8s ease-in-out infinite
+  &:nth-child(1)
+    right: 3%
+  &:nth-child(2)
+    right: 9%
+    top: 44%
+    animation-delay: 0.6s
+  &:nth-child(3)
+    right: 15%
+    animation-delay: 1.2s
+.left .hp-spark
+  right: auto
+  &:nth-child(1)
+    left: 3%
+  &:nth-child(2)
+    left: 9%
+  &:nth-child(3)
+    left: 15%
+
+.almost.still
+  .hp-almost
+    animation: none
+    opacity: 0.8
+  .hp-shine
+    animation: none
+    background-image: linear-gradient(var(--am-gold-lite) 0 30%, transparent 70%)
+    background-size: 100% 100%
+    opacity: 0.55
+  .hp-spark
+    animation: none
+    opacity: 0.9
+@media (prefers-reduced-motion: reduce)
+  .almost
+    .hp-almost
+      animation: none
+      opacity: 0.8
+    .hp-shine
+      animation: none
+      background-image: linear-gradient(var(--am-gold-lite) 0 30%, transparent 70%)
+      background-size: 100% 100%
+      opacity: 0.55
+    .hp-spark
+      animation: none
+      opacity: 0.9
+
+@keyframes hp-almost-breathe
+  0%, 100%
+    opacity: 0.45
+  50%
+    opacity: 0.9
+@keyframes hp-shine
+  from
+    background-position-x: 0
+  to
+    background-position-x: calc(var(--R) * 3)
+@keyframes hp-twinkle
+  0%, 100%
+    opacity: 0
+    transform: scale(0.4) rotate(0deg)
+  50%
+    opacity: 1
+    transform: scale(1) rotate(45deg)
 
 // ── the foe's halo: her own glow colour, soft behind the medallion ──
 .hp-halo

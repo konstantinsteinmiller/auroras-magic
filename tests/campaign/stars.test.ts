@@ -10,7 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, castBusy } from '@/game/duel/sim'
 import { CTR, FIRE, WIND, NATURE, MAX_RUNES, PH_WIN, PH_LOSE, type Rune } from '@/game/duel/config'
 import { FOES, guardianOf } from '@/game/duel/foes'
 import { defaultCampaign, NODE_COUNT } from '@/game/campaign/state'
@@ -151,10 +151,19 @@ const duelAt = (n: number, mode: 'campaign' | 'versus' = 'campaign'): void => {
 const winWith = (...runes: Rune[]): void => {
   S.queue.push(...runes)
   cast()
+  // The cast lock (story-spec §8.37): the next spell waits for this one to
+  // forge, leave and land — the foe's bar is topped up so it cannot end it.
+  for (let i = 0; i < 1200 && castBusy(false); i++) {
+    S.ehp = S.ehpMax
+    updateSim(STEP)
+  }
   S.ehp = 1
+  // (A boss past her phase shift: a 1.5 s forge is long enough for Pearl's
+  // wind-up to end in a bubble ward that would catch the finishing bolt.)
+  S.ePhase = Math.max(S.ePhase, 2)
   S.queue.push(FIRE)
   cast()
-  run(2)
+  run(3)
   expect(S.phase).toBe(PH_WIN)
 }
 

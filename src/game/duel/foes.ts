@@ -35,6 +35,9 @@ export interface FoeDef {
    *  player-only (C14). */
   sigs: number
   pal: FoePalette
+  /** A softer face (`chars.ts`): no glow round the eye and a sleepy, rounded
+   *  lid instead of the half-lidded glare. Chapter 1's shadow only. */
+  gentle?: boolean
 }
 
 /**
@@ -71,6 +74,19 @@ const shade = (mane: string, streak: string, glow: string): FoePalette =>
   ['#213', '#102', glow, mane, streak, streak, '#539', streak, glow, '#639']
 
 /**
+ * CHAPTER 1'S SHADOW, SOFTENED (second blind playtest, 2026-09-24). She is the
+ * first foe any child meets, and the parent tester's six-year-old found her
+ * too scary: "black unicorn, glowing green eyes, laser beam". So she wears the
+ * FRIENDLY NIGHT of every foe's HP frame (`--am-moon-*`) instead of Umbra's
+ * black and acid green: a deep moonlit indigo coat, a lilac mane with
+ * moon-silver streaks and horn, a lilac glow and bounce rim, a soft indigo eye
+ * and a rosier blush — and the `gentle` face in `chars.ts`. Nothing is
+ * repainted: the painted rig parts take their colour from this palette.
+ * Chapter 2 on keeps Umbra's coat and her menace.
+ */
+const MOONLIT: FoePalette = ['#3d3874', '#2a2656', '#b9a6ff', '#a08ff0', '#ece6ff', '#dcd4fa', '#4b3f8a', '#7a6ad0', '#c9b6ff', '#d08ad8']
+
+/**
  * HP by chapter (0-based), measured on the real duel against §7.2's core
  * child (S4 tuning, `tests/duel/winRate.test.ts`): a standard foe 100 + 1 per
  * chapter — flat 100 where she has no weakness to exploit — and a boss
@@ -103,7 +119,7 @@ const CH: readonly (readonly [number, number])[] = [
 ]
 
 const SHADOW_TINT: readonly (readonly [string, string, string])[] = [
-  ['#3fae4a', '#a6f58a', '#5fd35a'], // mossy green
+  ['#a08ff0', '#ece6ff', '#c9b6ff'], // moonlit lilac (was mossy green) — see MOONLIT
   ['#2f8fb0', '#8ff0ff', '#4fc8ff'],
   ['#6f79c9', '#e6ecff', '#9fb0ff'],
   ['#5a6f9a', '#bfe9ff', '#8fd0ff'],
@@ -135,7 +151,8 @@ for (let c = 0; c < 10; c++) {
   const [mane, streak, glow] = SHADOW_TINT[c]!
   roster.push({
     slug: 'shadow', element, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
-    pal: c === 9 ? UMBRA : shade(mane, streak, glow)
+    pal: c === 9 ? UMBRA : c === 0 ? MOONLIT : shade(mane, streak, glow),
+    ...(c === 0 ? { gentle: true } : {})
   })
 }
 for (let c = 0; c < 10; c++) {

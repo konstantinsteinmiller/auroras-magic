@@ -693,14 +693,16 @@ export const hasteSpark = (x: number, y: number, level: number): void =>
     burst(x, y, 2 + level * 2, -240, 0.26, 7, K_GLINT, C_WHITE, C_PASTEL + 1, 0, TAU, 0, 30 + level * 18))
 
 /**
- * THE TELEGRAPH (sim.ts, §8.36): her full hand is winding up to HIT. Warm
- * gold and ember sparks rush in to her horn — the gather vocabulary again,
- * warmer and bigger than the haste's, so "full slots" and "a big one is
- * coming" become one picture. `k` 0..1: how far the wind-up has come.
+ * THE FORGE SWELLING IN A HORN (sim.ts, story-spec §8.37): the orb has poured
+ * in and the horn is gathering the spell. Sparks of the spell's OWN colour
+ * (its lead rune) and white rush in to the tip — the gather vocabulary, more
+ * of them as the swell comes on. `k` 0..1: how far the swell has come.
  */
-export const chargeSpark = (x: number, y: number, k: number): void =>
-  borrowDice(tellDice, () =>
-    burst(x, y, 2 + k * 3, -300, 0.28, 8 + k * 3, K_GLINT, C_GOLD, C_HI, 0, TAU, 0, 40 + k * 26))
+export const forgeSpark = (x: number, y: number, rune: number, k: number): void =>
+  borrowDice(tellDice, () => {
+    const r = fxRune(rune)
+    burst(x, y, 2 + k * 3, -300, 0.28, 7 + k * 4, K_GLINT, hi(r) || C_HI, C_WHITE, 0, TAU, 0, 34 + k * 30)
+  })
 
 /**
  * THE RE-ANCHOR (director.ts, §8.36): she came back to the phone under the

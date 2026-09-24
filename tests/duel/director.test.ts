@@ -27,10 +27,10 @@ import { duelSetup, runeForNode } from '@/game/campaign/tables'
 import { earlyEase } from '@/game/campaign/easing'
 import { FOES, VERSUS_FOE, guardianOf } from '@/game/duel/foes'
 import { S, type Shot } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, foeRate, foeRush, strokeStart, strokeEnd, KO_STOP } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, castBusy, foeRate, foeRush, strokeStart, strokeEnd, KO_STOP } from '@/game/duel/sim'
 import {
   AFK_S, HASTE, KO_HP, LIFT_S, MERCY_FRAC, afk, floorLifted, hasteLevel, hasteReadout, hasteTarget, lifting, mercyFloor,
-  press
+  notePlayerCast, press
 } from '@/game/duel/director'
 
 const DT = 1 / 60
@@ -69,8 +69,10 @@ const play = (seconds: number, present: boolean, beat = 1.4): Run => {
     clock += DT
     if (present && clock >= beat) {
       clock -= beat
-      // One rune, cast alone: about the weakest thing a player can do.
-      S.queue.push(0 as Rune)
+      // One rune, cast alone: about the weakest thing a player can do. (Her
+      // last one may still be in the air — the cast lock, §8.37 — and then
+      // the press is refused and the rune waits in her hand.)
+      if (!S.queue.length) S.queue.push(0 as Rune)
       cast()
     }
     updateSim(DT)
@@ -136,10 +138,12 @@ describe('the haste (§8.35)', () => {
     S.eThink = 1e9
     S.equeue.length = 0
   }
-  /** A player casting three Earth runes every `every` seconds for `secs`
-   *  seconds — 1.8 s is the fast grown-up (1.67 runes a second). The foe is
-   *  held throughout, so she lands nothing and the player's lead only grows.
-   *  Calls `each` after every step. */
+  /** A player drawing three Earth runes every `every` seconds for `secs`
+   *  seconds — 1.8 s is the fast grown-up (1.67 runes a second) — and
+   *  casting each hand the moment the cast lock lets her (§8.37: a Boulder
+   *  forges for 1.5 s and hangs 1.7 s before it falls, so the lock, not her
+   *  hand, is what paces her). The foe is held throughout, so she lands
+   *  nothing and the player's lead only grows. Calls `each` after every step. */
   const outpace = (secs: number, every = 1.8, each?: () => void): void => {
     let clock = 0
     for (let t = 0; t < secs; t += DT) {
@@ -147,9 +151,25 @@ describe('the haste (§8.35)', () => {
       clock += DT
       if (clock >= every) {
         clock -= every
-        S.queue.push(EARTH as Rune, EARTH as Rune, EARTH as Rune)
-        cast()
+        if (!S.queue.length) S.queue.push(EARTH as Rune, EARTH as Rune, EARTH as Rune)
       }
+      if (S.queue.length && !castBusy(false)) cast()
+      updateSim(DT)
+      each?.()
+    }
+  }
+  /**
+   * The CONTROLLER on its own: fed a pace of `runesPerSec` straight into its
+   * tally (`notePlayerCast`), with the foe held and her bar held 0.55 below
+   * the player's. Since the cast lock (§8.37) no real hand casts much faster
+   * than a rune a second — the lock, not the haste, is what bounds a player's
+   * pace now — so what the haste does with a faster pace is measured here.
+   */
+  const drive = (secs: number, runesPerSec: number, each?: () => void): void => {
+    for (let t = 0; t < secs; t += DT) {
+      hold()
+      S.ehp = S.ehpMax * 0.45
+      notePlayerCast(runesPerSec * DT)
       updateSim(DT)
       each?.()
     }
@@ -189,13 +209,21 @@ describe('the haste (§8.35)', () => {
   })
 
   it('has no 2× cap: a faster player meets a faster foe, up to the readability limit only', () => {
+    // The real fast grown-up, through the cast lock (§8.37): his three-rune
+    // Boulders forge for 1.5 s and hang 1.7 s, so he casts about a rune a
+    // second, not 1.67 — and he still meets a hasted foe.
+    open()
+    let real = 1
+    outpace(12, 1.8, () => { real = Math.max(real, hasteReadout().boost) })
+    expect(real, 'the lock-bound grown-up').toBeGreaterThan(1.2)
+    // The controller itself: a grown-up's pace, and a faster one.
     open()
     let fastest = 1
-    outpace(12, 1.8, () => { fastest = Math.max(fastest, hasteReadout().boost) })
+    drive(12, 1.67, () => { fastest = Math.max(fastest, hasteReadout().boost) })
     const grownUp = fastest
     open()
     fastest = 1
-    outpace(12, 1.2, () => { fastest = Math.max(fastest, hasteReadout().boost) })
+    drive(12, 2.5, () => { fastest = Math.max(fastest, hasteReadout().boost) })
     expect(grownUp, 'a fast grown-up').toBeGreaterThan(2)
     expect(fastest, 'a faster one still').toBeGreaterThan(grownUp + 0.5)
     // The chain × the LARGER of the trade's press and the haste — never both.
@@ -203,7 +231,7 @@ describe('the haste (§8.35)', () => {
     // …and a superhuman six runes a second meets the SAFETY limit: no rune
     // forms in less than `minForm`, so her ghost rune can still be read.
     open()
-    outpace(10, 0.5)
+    drive(10, 6)
     expect(foeRate() * foeRush(), 'wanted').toBeGreaterThan(1 / HASTE.minForm)
     S.eForm = 0
     S.eRune = FIRE
@@ -216,7 +244,7 @@ describe('the haste (§8.35)', () => {
     open()
     let up = 0
     let prev = 1
-    outpace(12, 1.8, () => {
+    drive(12, 1.67, () => {
       up = Math.max(up, hasteReadout().boost - prev)
       prev = hasteReadout().boost
     })
@@ -249,7 +277,7 @@ describe('the haste (§8.35)', () => {
   it('a hasted foe who catches up does not run the player over', () => {
     open()
     S.ehpMax = S.ehp = 160
-    outpace(6, 1.8)
+    drive(6, 1.67)
     expect(hasteReadout().boost).toBeGreaterThan(1.8)
     // Let her go.
     S.eThink = 0
@@ -284,7 +312,8 @@ describe('the haste (§8.35)', () => {
     open(true)
     let most = 1
     outpace(12, 1.2, () => { most = Math.max(most, hasteReadout().boost) })
-    expect(S.ehp, 'player 1 really was running away with it').toBeLessThan(S.ehpMax * 0.75)
+    // (Through the cast lock, §8.37: a Boulder every 3.2 s or so.)
+    expect(S.ehp, 'player 1 really was running away with it').toBeLessThan(S.ehpMax * 0.9)
     expect(most).toBe(1)
     expect(hasteLevel()).toBe(0)
     expect(foeRush()).toBe(1)
@@ -327,6 +356,7 @@ describe('the haste (§8.35)', () => {
           resetDuel({ foe, usesMagic, lossStreak: 0, ease: earlyEase(node) })
           duels++
           let clock = 0
+          let want = false
           for (let t = 0; t < 150 && S.phase === PH_DUEL; t += DT) {
             S.pops.length = 0
             clock += DT
@@ -334,10 +364,17 @@ describe('the haste (§8.35)', () => {
               clock -= p.beat
               if (!(Math.random() < p.idle) && Math.random() < p.hand) {
                 const r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
-                if (r === counter && solo && S.queue.length) cast()
-                S.queue.push(r as Rune)
-                if (S.queue.length >= 2 || Math.random() < p.single || (r === counter && solo)) cast()
+                if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
+                if (S.queue.length < 3) {
+                  S.queue.push(r as Rune)
+                  if (S.queue.length >= 2 || Math.random() < p.single || (r === counter && solo)) want = true
+                }
               }
+            }
+            // The cast lock (§8.37): she presses CAST the moment it is live.
+            if (want && S.queue.length && !castBusy(false)) {
+              cast()
+              want = false
             }
             updateSim(DT)
             const b = hasteReadout().boost
@@ -431,12 +468,15 @@ describe('the floor re-anchors, and a lifted floor never leaves a sliver (§8.36
     // cast every 1.4 s) never takes her under it — and her own spells land.
     const foeWas = S.ehp
     let low = S.hp
+    // Let her go. (§8.36's wind-up used to wake a held foe as a side effect;
+    // the forge wakes nobody, so the test does it.)
+    S.eThink = 0
     let clock = 0
     run(20, () => {
       clock += DT
       if (clock >= 1.4) {
         clock -= 1.4
-        S.queue.push(ICE as Rune)
+        if (!S.queue.length) S.queue.push(ICE as Rune)
         cast()
       }
       low = Math.min(low, S.hp)
@@ -449,6 +489,7 @@ describe('the floor re-anchors, and a lifted floor never leaves a sliver (§8.36
     S.hp = FLOOR
     S.ehp = S.ehpMax
     S.shots.length = 0
+    S.eThink = 0
     run(AFK_S + 60, undefined, true)
     expect(S.phase).toBe(PH_LOSE)
     expect(S.hp).toBe(0)
@@ -535,7 +576,7 @@ describe('the floor re-anchors, and a lifted floor never leaves a sliver (§8.36
         clock += DT
         if (clock >= 1.4) {
           clock -= 1.4
-          S.queue.push(0 as Rune)
+          if (!S.queue.length) S.queue.push(0 as Rune)
           cast()
         }
         updateSim(DT)

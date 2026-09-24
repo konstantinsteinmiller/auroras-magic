@@ -144,6 +144,14 @@ export default {
 
   // ─── Onboarding — three beats, none of which block play ───────────────────
   'intro': {
+    // Lesson 1, the block (`game/duel/lesson.ts`): the foe's spell is on its
+    // way (the top line) and the square is the shield (under its guide).
+    'blockCasting': 'SHE’S CASTING!',
+    'blockSquare': 'DRAW THE SQUARE TO BLOCK!',
+    // …her wall took the foe's spell.
+    'blocked': 'YOU BLOCKED IT!',
+    // Lesson 2 opens: the attack, over the triangle's guide.
+    'attack': 'NOW ATTACK WITH TWO RUNES!',
     'draw': 'DRAW THE RUNE',
     // Under beat 0's ghost trace: the shape, named, for the players the
     // animated finger alone does not reach.
@@ -190,7 +198,22 @@ export default {
     // The loss beat's title: she dozed off, and may try again.
     'defeated': 'Zzz... try again?',
     // Reused as the Retry button's name after a loss.
-    'tapToDuel': 'Tap to duel'
+    'tapToDuel': 'Tap to duel',
+    // ONE tip on the loss card, chosen from what happened in that duel
+    // (`game/duel/lossTip.ts`), with the rune it is about painted beside it.
+    // Read by a child or aloud by a parent: short, warm, one idea each.
+    'tip': {
+      // She never raised a wall. "Her runes" are the foe's, flying to her horn
+      // as she forges a spell; the SQUARE is the Earth rune, a wall.
+      'block': 'When her runes fly to her horn, draw a SQUARE to block!',
+      // Every spell she cast was one rune.
+      'stack': 'Two runes make a stronger spell!',
+      // She stopped drawing for a while (the duel only ends while she is idle).
+      'keepDrawing': 'Keep drawing! While you draw, your magic keeps you safe.',
+      // General tips, in rotation.
+      'drawBig': 'Big, calm shapes work best!',
+      'mix': 'Mix different runes to find new spells!'
+    }
   },
 
   // ─── Spellbook (story-spec §3.9.1) ────────────────────────────────────────
@@ -669,7 +692,12 @@ export default {
     // A stroke that matched a rune not earned yet: the card under its
     // icon and lock, and what a screen reader hears for the whole card.
     'comingSoon': 'COMING SOON',
-    'lockedRune': 'The {rune} rune is coming soon'
+    'lockedRune': 'The {rune} rune is coming soon',
+    // The new-rune guide on the pad: a rune a chest gave her that she has
+    // not drawn yet. {rune} is its name, upper-cased by the locale. `great`
+    // replaces it the moment she draws it.
+    'newRuneGuide': 'New rune: {rune}!',
+    'great': 'Great!'
   },
 
   'license': {

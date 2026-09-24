@@ -20,6 +20,14 @@
  * most once a session, so a retry after a loss is the plain duel. It needs no
  * save field; a child who comes back another day to a node 2 she still has
  * not won meets it once more, which is no bad thing.
+ *
+ * ONE TEACHER AT A TIME. Node 2 is also where the NEW-RUNE GUIDE is likeliest
+ * to be up (`newRune.ts`): Ice is node 0's chest's rune, and a child who has
+ * not drawn it yet arrives with its guide on the pad. Both would be teaching
+ * Ice. So while the glimpse's hint is up (`S.glimpse` 2 and 3) the guide
+ * stands aside (`lesson.runeGuideRune`), and comes back once the hint has
+ * gone if she still has not drawn it; an Ice drawn under the hint — the
+ * glimpse's own answer — ends the guide quietly, with no second "Great!".
  */
 
 /** The node whose first duel opens with the glimpse armed. */

@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': '她在施法！',
+    'blockSquare': '画正方形来格挡！',
+    'blocked': '你挡住了！',
+    'attack': '现在用两个符文进攻！',
     'draw': '画出符文',
     'triangle': '画一个三角形',
     'square': '画一个正方形',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': '胜利！',
     'defeated': 'Zzz……再试一次？',
-    'tapToDuel': '点击开始对决'
+    'tapToDuel': '点击开始对决',
+    'tip': {
+      'block': '当她的符文飞向独角时，画一个正方形来格挡！',
+      'stack': '两个符文能组成更强的魔法！',
+      'keepDrawing': '继续画！只要你在画，魔法就会保护你。',
+      'drawBig': '画得大一点、慢一点，效果最好！',
+      'mix': '混合不同的符文，发现新魔法！'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': '差一点就是{rune}！',
     'tryRune': '试试{rune}！',
     'comingSoon': '即将解锁',
-    'lockedRune': '{rune}符文即将解锁'
+    'lockedRune': '{rune}符文即将解锁',
+    'newRuneGuide': '新符文：{rune}！',
+    'great': '太棒了！'
   },
 
   'license': {

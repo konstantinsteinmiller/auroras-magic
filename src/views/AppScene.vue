@@ -25,7 +25,7 @@ import { S, load, save } from '@/game/duel/state'
 import { applyLayout, toStage, LAYOUT } from '@/game/duel/layout'
 import { render } from '@/game/duel/render'
 import { updateFx } from '@/game/duel/fx'
-import { updateSim, strokeStart, strokeMove, strokeEnd, cast, castSide, onDuelEvent } from '@/game/duel/sim'
+import { updateSim, strokeStart, strokeMove, strokeEnd, cast, castSide, onDuelEvent, forgeReadout } from '@/game/duel/sim'
 import { initAudio, tickAudio, sfx, setAmbience } from '@/game/duel/audio'
 import { gotoScene, arm, openOverlay, closeOverlay, type SceneId } from '@/game/flow/scene'
 import { installGameplayBracket, bracketLive, pokiBracketLive } from '@/game/flow/bracket'
@@ -607,6 +607,9 @@ onMounted(() => {
     }
     w.__versus = { open: openVersus, start: startVersus, state: () => ({ ...versusHud, versus: S.versus }) }
     w.__castSide = castSide
+    /** The spell forge (story-spec §8.37): who is forging, how far (0..1) and
+     *  which spell — so a harness can `__hold()` and screenshot mid-forge. */
+    w.__forge = forgeReadout
     w.__campaign = {
       state: () => S.campaign,
       reset: qaWipe.reset,

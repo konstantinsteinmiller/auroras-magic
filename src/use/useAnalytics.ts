@@ -102,9 +102,22 @@ export type AnalyticsEvent =
   | 'keepsake_equip'
   | 'spellbook_open'
   | 'node_replay'
-  // ── The first duel's lesson (`game/duel/lesson.ts`), once per step per
-  //    duel except the nudge. The triangle half is `first_rune` above.
-  /** The square's guide came up (beat B). `{}` */
+  // ── The first duel's lessons (`game/duel/lesson.ts`), once per step per
+  //    duel except the nudge. Lesson 1 is the BLOCK, lesson 2 the two-rune
+  //    COMBO (its triangle half is `first_rune` above).
+  /** Lesson 1 began: the foe's spell is on its way, the square's guide is up. `{}` */
+  | 'tutorial_block_shown'
+  /** Lesson 1's square is in her hand — drawn, or placed for her after `TRIES` misses. `{ tries, helped }` */
+  | 'tutorial_block_square'
+  /** She raised the wall (lesson 1's cast). `auto`: the lesson pressed it for her. `{ auto }` */
+  | 'tutorial_block_cast'
+  /** The foe's held spell broke on her wall. `{}` */
+  | 'tutorial_block_done'
+  /** Lesson 1 gave up on the block and moved on (never seen in a normal run). `{ why: 'noWall' | 'noBlock' }` */
+  | 'tutorial_block_skipped'
+  /** The lesson did a beat for her after `TRIES` refused tries (lesson 2's triangle, a cast beat). `{ step, tries }` */
+  | 'tutorial_helped'
+  /** The square's guide came up (lesson 2's square beat). `{}` */
   | 'tutorial_square_shown'
   /** The square was stored — two runes in hand. `{ tries }` */
   | 'tutorial_square_done'
@@ -118,6 +131,10 @@ export type AnalyticsEvent =
   | 'tutorial_nudge'
   /** A stroke matched a rune she has not earned yet ("coming soon"). `{ rune }` */
   | 'locked_rune'
+  /** The new-rune guide was armed for a duel: a rune a chest gave her that she has never drawn. `{ rune }` */
+  | 'rune_guide_shown'
+  /** …and she drew it (`seen`: while the guide was on screen, not under the glimpse's hint). `{ rune, seen }` */
+  | 'rune_guide_done'
   // ── DECLARED, NOT YET FIRED. These are not dead names: each belongs to a
   //    retention-roadmap feature that is still to be built, and the name is
   //    settled here so the union is the ONE place event names are chosen and

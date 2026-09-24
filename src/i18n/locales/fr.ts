@@ -114,6 +114,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'ELLE LANCE UN SORT !',
+    'blockSquare': 'DESSINEZ LE CARRÉ POUR BLOQUER !',
+    'blocked': 'VOUS L’AVEZ BLOQUÉ !',
+    'attack': 'ATTAQUEZ AVEC DEUX RUNES !',
     'draw': 'DESSINEZ LA RUNE',
     'triangle': 'DESSINEZ UN TRIANGLE',
     'square': 'DESSINEZ UN CARRÉ',
@@ -144,7 +148,14 @@ export default {
   'result': {
     'victory': 'VICTOIRE !',
     'defeated': 'Zzz... on réessaie ?',
-    'tapToDuel': 'Touchez pour un duel'
+    'tapToDuel': 'Touchez pour un duel',
+    'tip': {
+      'block': 'Quand ses runes filent vers sa corne, dessinez un CARRÉ pour bloquer !',
+      'stack': 'Deux runes font un sort plus fort !',
+      'keepDrawing': 'Continuez à dessiner ! Tant que vous dessinez, votre magie vous protège.',
+      'drawBig': 'Les formes grandes et calmes marchent le mieux !',
+      'mix': 'Mélangez des runes différentes pour trouver de nouveaux sorts !'
+    }
   },
 
   'book': {
@@ -560,7 +571,9 @@ export default {
     'almostRune': 'PRESQUE {rune} !',
     'tryRune': 'Essaie la rune {rune} !',
     'comingSoon': 'BIENTÔT',
-    'lockedRune': 'La rune {rune} arrive bientôt'
+    'lockedRune': 'La rune {rune} arrive bientôt',
+    'newRuneGuide': 'Nouvelle rune : {rune} !',
+    'great': 'Bravo !'
   },
 
   'license': {

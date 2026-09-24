@@ -1068,6 +1068,31 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
     g.beginPath()
     g.arc(9, win ? 3 : -8, 7, win ? PI + 0.4 : 0.4, win ? -0.4 : PI - 0.4)
     ink(0, 3.4)
+  } else if (foe?.gentle) {
+    // CHAPTER 1'S GENTLE FOE (`FoeDef.gentle`, second blind playtest): a
+    // round eye under a heavy, sleepy lid — no glow, no glare. The first foe
+    // a six-year-old meets should look drowsy, not dangerous.
+    const h = 8.8 * (1 - bl) * (fc ? fc.eye : 1) + 0.7
+    const lid = -2 - h + 2 * h * 0.38 // the lid's edge, 38 % down the eye
+    el(10, -2, 6.4, h)
+    ink(EY, 1.8)
+    g.save()
+    el(10, -2, 6.4, h)
+    g.clip()
+    g.fillStyle = CO
+    g.fillRect(2, -3 - h, 17, lid + 1 + h)
+    g.restore()
+    if (!F && h > 3) {
+      el(12, lid + 2.6, 2.3, 2.1) // the glint, just under the lid...
+      ink('#fff')
+      el(7.4, 3.2, 1.4, 1.4) // ...and a small bounce catchlight
+      g.fill()
+    }
+    // The lid's edge droops across the eye; a short lash flicks off its back.
+    g.beginPath()
+    g.ellipse(10, lid - 1.4, 6.9, 2.4, 0, 0.1, PI - 0.1)
+    g.lineTo(1.2, lid - 3.6)
+    ink(0, 3.4)
   } else {
     if (D && !F) {
       g.globalAlpha = 0.28 // the foe's eye actually glows — a halo, no blur

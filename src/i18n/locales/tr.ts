@@ -112,6 +112,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'BÜYÜ YAPIYOR!',
+    'blockSquare': 'ENGELLEMEK İÇİN KARE ÇİZ!',
+    'blocked': 'ENGELLEDİN!',
+    'attack': 'ŞİMDİ İKİ RÜNLE SALDIR!',
     'draw': 'RÜNÜ ÇİZ',
     'triangle': 'ÜÇGEN ÇİZ',
     'square': 'KARE ÇİZ',
@@ -142,7 +146,14 @@ export default {
   'result': {
     'victory': 'ZAFER!',
     'defeated': 'Zzz... bir kez daha?',
-    'tapToDuel': 'Düello için dokun'
+    'tapToDuel': 'Düello için dokun',
+    'tip': {
+      'block': 'Rünleri boynuzuna uçunca, engellemek için bir KARE çiz!',
+      'stack': 'İki rün daha güçlü bir büyü yapar!',
+      'keepDrawing': 'Çizmeye devam et! Sen çizdikçe büyün seni korur.',
+      'drawBig': 'Büyük ve sakin şekiller en iyi sonucu verir!',
+      'mix': 'Yeni büyüler bulmak için farklı rünleri karıştır!'
+    }
   },
 
   'book': {
@@ -560,7 +571,9 @@ export default {
     'almostRune': 'NEREDEYSE {rune}!',
     'tryRune': '{rune} dene!',
     'comingSoon': 'YAKINDA',
-    'lockedRune': '{rune} rünü yakında geliyor'
+    'lockedRune': '{rune} rünü yakında geliyor',
+    'newRuneGuide': 'Yeni rün: {rune}!',
+    'great': 'Harika!'
   },
 
   'license': {

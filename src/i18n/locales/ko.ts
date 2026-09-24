@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': '상대가 주문을 외우고 있어요!',
+    'blockSquare': '사각형을 그려서 막으세요!',
+    'blocked': '막아냈어요!',
+    'attack': '이제 룬 두 개로 공격하세요!',
     'draw': '룬을 그리세요',
     'triangle': '삼각형을 그리세요',
     'square': '사각형을 그리세요',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': '승리!',
     'defeated': '쿨쿨… 다시 해 볼까?',
-    'tapToDuel': '탭하여 대결'
+    'tapToDuel': '탭하여 대결',
+    'tip': {
+      'block': '룬이 뿔로 날아가면 사각형을 그려 막아요!',
+      'stack': '룬 두 개면 더 강한 마법이 돼요!',
+      'keepDrawing': '계속 그려요! 그리는 동안에는 마법이 지켜 줘요.',
+      'drawBig': '크고 차분하게 그리면 제일 잘 돼요!',
+      'mix': '여러 룬을 섞어서 새 마법을 찾아봐요!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': '거의 {rune}!',
     'tryRune': '{rune} 룬을 써 봐!',
     'comingSoon': '곧 만나요',
-    'lockedRune': '{rune} 룬은 곧 만날 수 있어요'
+    'lockedRune': '{rune} 룬은 곧 만날 수 있어요',
+    'newRuneGuide': '새 룬: {rune}!',
+    'great': '잘했어요!'
   },
 
   'license': {

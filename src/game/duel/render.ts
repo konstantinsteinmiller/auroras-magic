@@ -17,7 +17,7 @@ import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
 import { drawGlyph, glyphPoints } from '@/game/duel/glyph'
-import { guideClock, guideFlare, guideRune } from '@/game/duel/lesson'
+import { guideClock, guideFlare, guideRune, runeGuideRune } from '@/game/duel/lesson'
 import { LAYOUT, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
@@ -25,7 +25,8 @@ import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { traceAssistNow, reducedMotion } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
 import { FOES } from '@/game/duel/foes'
-import { decoyX, foeCharge, foeTell } from '@/game/duel/sim'
+import { decoyX } from '@/game/duel/sim'
+import { drawForge } from '@/game/duel/forgeArt'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 import { helpOn } from '@/game/duel/help'
 
@@ -493,8 +494,9 @@ const drawSnap = (g: G2D): void => {
 }
 
 /**
- * The first duel's lesson (`duel/lesson.ts`), beats A and B: a ghost finger
- * traces the glowing rune — the triangle, then the square — on a loop, then a
+ * The first duel's lessons (`duel/lesson.ts`), their drawing beats: a ghost
+ * finger traces the glowing rune — lesson 1's square (the block), then lesson
+ * 2's triangle and square — on a loop, then a
  * short beat of held shape before the loop restarts. A gold START DOT marks
  * the corner the finger sets off from, and a nudge restarts the loop from it
  * with a brief flare, so a child who drew the wrong thing sees the right one
@@ -529,6 +531,31 @@ const drawIntroTrace = (g: G2D, t: number): void => {
   g.lineWidth = R * 0.05
   g.strokeStyle = '#3A2340'
   g.stroke()
+}
+
+/**
+ * The new-rune guide (`duel/lesson.ts`): a rune a chest gave her that her
+ * hand has never drawn, ghosted faintly on the pad and tracing itself on a
+ * loop until she draws it. Drawn UNDER her strokes, the snap and the sparks
+ * (the call sits before `drawFxOver`), so it can never be in the way of a
+ * line she is drawing; the icon and the name are DOM (`NewRuneGuide.vue`).
+ * Reduced motion: the same ghost, held still.
+ */
+const drawNewRuneGuide = (g: G2D, t: number): void => {
+  const k = runeGuideRune()
+  if (k < 0) return
+  const [cx, cy] = zoneCentre()
+  const R = zoneSpan() * 0.26
+  if (reducedMotion.value) {
+    drawGlyph(g, k, cx, cy, R, 0.3)
+    return
+  }
+  drawGlyph(g, k, cx, cy, R, 0.12)
+  const p = drawGlyph(g, k, cx, cy, R, 0.34, clamp(((t * 0.35) % 1.4) * 1.12, 0, 1))
+  g.beginPath()
+  g.arc(p[0], p[1], R * 0.12, 0, TAU)
+  g.fillStyle = 'rgba(255,255,255,0.55)'
+  g.fill()
 }
 
 /**
@@ -626,54 +653,10 @@ const drawDreamDust = (g: G2D, t: number): void => {
   g.restore()
 }
 
-/* ── The telegraph and the knockout (story-spec §8.36) ─────────────── */
-
-/**
- * THE TELEGRAPH at her horn: her hand is full and winding up to HIT. A warm
- * gold-and-coral glow swells on the horn tip while a thin ring closes onto it
- * — the same closing ring as a cast's gather, so the release reads as the end
- * of what was building — and it pulses fast, the way her slots do. Two runes
- * of a hit get a small, still ember: "she is one rune from it". Under
- * reduced motion the glow is steady and the ring does not close.
- */
-const drawChargeTell = (g: G2D, t: number): void => {
-  if (S.versus || S.phase !== PH_DUEL) return
-  const k = foeCharge()
-  const tell = foeTell()
-  if (k < 0 && tell < 1) return
-  const x = UX - 59 + castKick(S.eCastAnim)
-  const y = GY - 172
-  const still = reducedMotion.value
-  const p = k < 0 ? 0 : still ? 0.8 : 0.5 + 0.5 * Math.sin(t * TAU * 2.8)
-  const r = k < 0 ? 11 : 16 + 16 * k + 4 * p
-  g.save()
-  // The glow: three soft discs, gold over coral — no blur, no gradient.
-  g.fillStyle = '#ffb3a3'
-  g.globalAlpha = k < 0 ? 0.18 : 0.22 + 0.16 * p
-  g.beginPath()
-  g.arc(x, y, r * 1.9, 0, TAU)
-  g.fill()
-  g.fillStyle = '#ffd76a'
-  g.globalAlpha = k < 0 ? 0.3 : 0.4 + 0.25 * p
-  g.beginPath()
-  g.arc(x, y, r * 1.2, 0, TAU)
-  g.fill()
-  g.fillStyle = '#fff6e6'
-  g.globalAlpha = k < 0 ? 0.35 : 0.55 + 0.35 * p
-  g.beginPath()
-  g.arc(x, y, r * 0.55, 0, TAU)
-  g.fill()
-  if (k >= 0 && !still) {
-    // The ring closing in as the wind-up comes to its end.
-    g.globalAlpha = 0.5 + 0.5 * k
-    g.lineWidth = 3
-    g.strokeStyle = '#ffd76a'
-    g.beginPath()
-    g.arc(x, y, 18 + 70 * (1 - k), 0, TAU)
-    g.stroke()
-  }
-  g.restore()
-}
+/* ── The knockout (story-spec §8.36) ───────────────────────────────── */
+/* (§8.36's telegraph glow at the foe's horn is gone: every spell of both
+   sides now forges for 1.5 s, and its horn swells in the spell's own colour
+   — `forgeArt.drawForge`, story-spec §8.37.) */
 
 /** One drawn Z — a picture of sleep, the same in every locale. */
 const drawZ = (g: G2D, x: number, y: number, s: number, alpha: number): void => {
@@ -1105,7 +1088,8 @@ export const render = (g: G2D): void => {
   drawDecoys(g, false, AST, t, true)
   drawDecoys(g, true, UST, t, true)
   drawDreamDust(g, t)
-  drawChargeTell(g, t)
+  // THE SPELL FORGE (§8.37): the orb pouring into a horn, the horn swelling.
+  drawForge(g, t)
   drawKoSleep(g, t)
 
   drawShots(g)
@@ -1119,6 +1103,7 @@ export const render = (g: G2D): void => {
     drawPaneStrip(g, d)
     drawPadFrame(g, d)
   }
+  drawNewRuneGuide(g, t)
   drawFxOver(g)
   drawSnap(g)
   if (S.draw && !S.portrait) drawStroke(g)
@@ -1136,5 +1121,6 @@ export const render = (g: G2D): void => {
   if (S.draw && S.portrait) drawStroke(g)
   if (S.versus) return
   if (S.intro && !S.book && S.phase === PH_DUEL && guideRune() >= 0) drawIntroTrace(g, t)
-  else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0) drawAssistTrace(g, t, helpOn())
+  // (Never two ghosts on one pad: the new-rune guide already shows its rune.)
+  else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0 && runeGuideRune() < 0) drawAssistTrace(g, t, helpOn())
 }

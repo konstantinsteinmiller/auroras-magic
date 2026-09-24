@@ -7624,7 +7624,8 @@ Now:
   lingering tick. `tests/duel/director.test.ts` walks a present player through
   all five and through whole duels across the story.
 
-**2. The foe's combo telegraph.** A full hand used to leave on her next
+**2. The foe's combo telegraph** (superseded by §8.37: every cast of both
+sides now forges for 1.5 s, and the forge is her warning). A full hand used to leave on her next
 quarter-second thought, so "full slots" never meant anything. A full hand
 that will HIT (anything but a ward or a decoy) now winds up for `CHARGE_S`
 = 0.75 s (a hurried foe faster, never under 0.35 s): her three slots pulse
@@ -7663,6 +7664,123 @@ music stops (verified in a real build: context `suspended`, its clock frozen,
 the sequencer off, Poki's bracket closed — and the same for Options). After
 ANY pause ends (a menu, an ad, the tab) the foe may not release a spell for
 `RESUME_GRACE_S` = 1 s (`noteResume`, wired in `AppScene`); she keeps forming.
+
+### §8.37 Owner request, 2026-09-24 — the spell forge and the cast lock
+
+*"Let's add an animation where the consumed runes are forging together into
+one spell flowing from the rune slots into the unicorn's horn, which now glows
+in the main spell's color. This whole spell release animation now adds a full
+1.5 seconds of spell release delay, meaning the player cannot release another
+spell until the current one is cast and gone."* The second blind playtest's
+four testers all said the foe's hits "come from nowhere"; §8.36's 0.75 s
+wind-up was too short to register.
+
+**The forge (both sides, versus included).** Pressing CAST no longer throws
+the spell: it starts a FORGE of `forge.FORGE_S` = 1.5 s, and only then does
+`sim.launch` run, unchanged. Four beats (`forge.BEAT`, fractions of 1.5 s):
+- LIFT 0–0.24 s: the runes pop up out of their slots; the slots empty with a
+  soft pop — a bounce and a ring of the departed rune's light
+  (`RuneSlot` `lift`). The slots are free from the press on.
+- FLY 0.24–0.84 s: each rune flies its own nested curve, in its own colour,
+  big enough to name (1.2–1.3× its slot size), and squeezes into the meeting
+  point at the end — above and outside the caster's horn (`forge.mergeX`,
+  `MERGE_Y`), inside the picture in both orientations.
+- FLOW 0.84–1.17 s: one ORB is born there with a ring of light — its body the
+  spell's LEAD rune (its main colour, `RUNES` / `spellArt`), a mixed spell's
+  second element round its rim as `Shot.m` rims a shot, a mote of each source
+  rune still circling it — and pours into the horn with a short wake.
+- SWELL 1.17–1.50 s: the horn glows in the spell's colour, swelling, a ring
+  closing onto the tip and sparks of that colour rushing in (`fx.forgeSpark`);
+  at 1.5 s the spell leaves — the old launch, shot and impact.
+
+The spell's NAME rises at the press (`pop('spell')` at 640/250; when the other
+side's name is still up, a line lower). Wards rise and decoys stand up at the
+END of their forge. Sound: `sfx('forge')`, a pluck per rune and a swell into
+`cast`.
+
+**How it is drawn.** The runes fly on the DOM (`SpellForge.vue`): they leave
+DOM slots with opaque plates, so a canvas rune would start underneath its own
+slot; the flying rune is the very `RuneGlyph` the slot showed (painted where
+the art layer has a painting). Six pooled elements, moved once a frame from
+`syncHud` by direct transform/opacity writes; the slots are measured off the
+DOM (`[data-my-slot]` / `[data-foe-slot]`) when a forge starts and on every
+resize or rotation, and the paths are stage units (`forge.runeAt`) mapped
+through the live layout. The orb, the meeting ring and the horn are canvas
+(`forgeArt.drawForge`, in the world pass after the duelists): stacked discs,
+no gradients, no blur, no allocation. One clock (`S.forge.t` / `S.eForge.t`,
+sim time — a hit-stop holds it) drives all three. §8.36's horn glow
+(`drawChargeTell`) and `fx.chargeSpark` are gone. **Reduced motion:** the runes
+fade where they stand while the horn's glow fades in (`forge.hornGlow`); no
+orb, no closing ring — the same 1.5 s.
+
+**The cast lock.** From the press until the spell has LEFT and its shot is
+GONE (landed, bounced back by a Crystal Ward, or fizzled), that side cannot
+release another (`sim.castBusy`; `Shot.lk` marks the shot that holds it; a
+reflected copy holds nobody's). A ward's or decoy's lock ends at its release.
+A bolt locks ~1.9 s, a field 2.0 s, a heavy 3.2 s (it hangs 1.7 s). Drawing is
+never locked: runes drawn during the forge go into the freed slots. Every cast
+path (button, keys, right mouse, the lessons, `__cast`, every harness) goes
+through `castSide`, so every one forges and is locked. A Frost Lock landing
+mid-forge takes the forge with the hand; a duel that ends mid-forge releases
+nothing. The foe obeys the same lock and keeps forming through it.
+
+**The refusal signal (the HUD's contract).** `S.castRefusedAt` (the `S.t` of
+the player's last refused cast request, -1 for none this duel) and
+`S.castRefusedWhy` (`'empty' | 'busy' | 'lesson' | ''`), set in `castSide` for
+the player side only: an empty hand, the lock (or a frozen hand), the lessons'
+gate. Mirrored as `hud.refusedAt` / `hud.refusedWhy`; `hud.busy` / `hud.ebusy`
+(each side's lock) and `hud.forging` / `forgeN` / `forgeQ` (and the `e…` twins)
+come with it. A refused press with runes in hand still counts as presence for
+the AFK rule.
+
+**The foe.** Her forge IS the warning, 1.5 s, her runes flying out of HER
+slots into HER horn; her slots still glow for two runes of a hit and pulse for
+a full hand she is holding while locked (`foeTell`). Her choices are
+forge-aware: she reads the player's FORGE of a hit as a blow coming
+(`incomingEta`), stands a wall up only if a wall started now stands before it
+lands (eta ≥ `FORGE_S` − 0.05), and throws a pierce or a slow only at a guard
+that will outlast her forge. The glimpse (§8.36) waits for no forge on either
+side.
+
+**The director.** The forge and the flight count as activity (the AFK clock
+runs from the moment the spell is gone); the trade, the mercy floor, the weak
+points and the lingering spells are untouched; the haste still reads cast
+pace — which the lock now bounds (a fast grown-up casting three-rune heavies
+manages ~0.9 runes a second, not 1.67), so what the haste does with a faster
+pace is pinned on the controller itself (`director.test.ts`, `drive`).
+
+**Balance, measured** (a throwaway harness: 60 duels × nodes 1-1, 1-3, 1-5,
+3-3, 5-3, 7-5, 9-5, 10-5; `winRate.test.ts`'s two children, now pressing CAST
+the moment the lock lets them; a fast grown-up, 1.67 attempts a second, a
+97 % hand, three-rune spells):
+
+| model | win % | duel length | her end HP | casts / duel | foe casts |
+|---|---|---|---|---|---|
+| small child, before → after | 76 → 86 | 51.3 → 54.4 s | 19 → 20 % | 8.3 → 8.7 | 7.8 → 8.0 |
+| core child | 100 → 100 | 23.0 → 26.7 s | 55 → 54 % | 9.1 → 9.6 | 4.2 → 4.4 |
+| fast grown-up | 100 → 100 | 10.3 → 15.8 s | 82 → 79 % | 6.3 → 5.2 | 2.6 → 2.7 |
+
+The real `winRate.test.ts` (WINRATE=1, 608 s; its player model now waits for
+the lock and refuses a fourth rune) passes: the core child 100 % in every
+chapter group, first try and within three; the small child's first ten duels
+96–99 % first try (before 91–99 %), and the story's late chapters EASIER for
+her than before — ch 7 nodes 1–2 59 → 80 %, ch 10 boss 43 → 63 % (every
+chapter still 100 % within six tries). Why: the foe can no longer throw up a
+wall while her own spell is forging or in flight, and a wall now takes a forge
+to rise, while the small child, who never defends, loses nothing to the lock.
+The grown-up meets a little more resistance (end HP 82 → 79 %, duels half as
+long again). No roster number was changed; if the late chapters should be as
+hard as before, the lever is the roster (foe HP or damage), not the forge.
+
+**QA seam.** `window.__forge()` (with `__AM_QA__`): `{ side: 'player' | 'foe'
+| null, progress 0..1, spell (the combo key), kind, lead, mix, runes,
+player / foe: { forging, progress, busy } }` — `__hold()`, then `__step(n)`,
+walks a forge to any beat for a screenshot. Tests: `tests/duel/forge.test.ts`
+(exactly 1.5 s on both sides, the hit-stop, wards and decoys at the release,
+the lock and what ends it, drawing through it, the refusal signal, the press
+as the cast, Frost Lock and the end mid-forge, the foe's forge and lock,
+walling against a forge, the reduced-motion paths, versus, the readout).
+
 
 ## §9 Rendering, assets & performance
 

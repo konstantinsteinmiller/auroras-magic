@@ -34,12 +34,12 @@ const { reseed } = vi.hoisted(() => {
   return { reseed: (): void => { s = SEED } }
 })
 
-import { CTR, FIRE, EARTH, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type DuelEase, type Rune } from '@/game/duel/config'
+import { CTR, FIRE, EARTH, MAX_RUNES, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type DuelEase, type Rune } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
 import { duelSetup, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
 import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, castBusy } from '@/game/duel/sim'
 
 const DT = 1 / 60
 const MAX_T = 150
@@ -131,6 +131,14 @@ const duel = (
   const counter = el >= 0 && kit.includes(CTR[el]!) ? CTR[el]! : -1
   const solo = counter >= 0 && [2, 5].includes(resolveSpell([counter, counter]).kind)
   let clock = 0
+  /**
+   * THE CAST LOCK (story-spec §8.37). Every cast forges for 1.5 s, and her
+   * next one waits until that spell has left AND landed. So she presses CAST
+   * when she means to, and — refused, the button dim — presses it again the
+   * moment it is live; meanwhile she keeps drawing, and a rune drawn into a
+   * full hand is refused exactly as `strokeEnd` refuses it.
+   */
+  let want = false
   // A duel nobody plays runs its whole length — that is 9 000 steps a sample,
   // and the floor test takes thirty of them per node. It cannot be won after
   // the foe has had a minute either, so it is not measured for longer.
@@ -148,11 +156,17 @@ const duel = (
         // She draws from what she OWNS — two runes in the first battles, more
         // as the chests give them.
         const r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
-        if (r === counter && solo && S.queue.length) cast()
-        S.queue.push(r as Rune)
+        if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
         const impatient = p.single !== undefined && Math.random() < p.single
-        if (S.queue.length >= 2 || impatient || (r === counter && solo)) cast()
+        if (S.queue.length < MAX_RUNES) {
+          S.queue.push(r as Rune)
+          if (S.queue.length >= 2 || impatient || (r === counter && solo)) want = true
+        }
       }
+    }
+    if (want && S.queue.length && !castBusy(false)) {
+      cast()
+      want = false
     }
     updateSim(DT)
     if (S.phase !== PH_DUEL) return S.phase === PH_WIN

@@ -20,7 +20,7 @@ import {
 import { duelSetup } from '@/game/campaign/tables'
 import { VERSUS_FOE } from '@/game/duel/foes'
 import { S, type Shot } from '@/game/duel/state'
-import { CHARGE_S, foeCharge, foeTell, resetDuel, updateSim } from '@/game/duel/sim'
+import { foeTell, resetDuel, updateSim } from '@/game/duel/sim'
 import { RESUME_GRACE_S, foeMayRelease, noteResume } from '@/game/duel/director'
 
 const DT = 1 / 120
@@ -35,9 +35,6 @@ const open = (node = 4): void => {
   resetDuel({ foe, usesMagic: false, lossStreak: 0, ease: { ...NO_EASE } })
   S.eThink = 0
 }
-
-/** The foe's spells in the air. */
-const hers = (): number => S.shots.filter((s) => s.dir < 0).length
 
 /** Hand her `q` with `next` one rune from forming, and let her think at once. */
 const hand = (q: number[], next: number): void => {
@@ -59,72 +56,32 @@ const untilRelease = (cap = 4): number => {
   return t
 }
 
-describe('the foe\'s combo telegraph (§8.36)', () => {
-  it('winds a full hand that will HIT up for CHARGE_S before it leaves — slots and horn say so', () => {
+describe('the foe\'s tell before she casts (§8.36; the wind-up became the forge, §8.37)', () => {
+  it('her slots glow for two runes of a hit, more for three — and the forge takes the hand', () => {
     open()
     hand([FIRE, FIRE], FIRE)
     expect(foeTell(), 'two runes of a hit: the softer glow').toBe(1)
     updateSim(DT)
-    expect(S.equeue.length).toBe(MAX_RUNES)
-    expect(S.eCharge, 'the wind-up began as the third rune landed').toBeGreaterThan(0)
-    expect(foeTell(), 'full slots: the pulse').toBe(2)
-    expect(foeCharge()).toBeGreaterThanOrEqual(0)
-    let shots = hers()
-    const t = untilRelease()
-    // It left exactly as the wind-up ended — not a frame early, barely a frame late.
-    expect(t, 'released after').toBeGreaterThanOrEqual(CHARGE_S - DT - 1e-9)
-    expect(t).toBeLessThan(CHARGE_S + 3 * DT)
-    // (Fire Rain is a heavy: it hangs over Aurora before it falls.)
-    shots = hers() - shots
-    expect(shots, 'her spell is in the air').toBe(1)
-    expect(foeTell(), 'and the warning is gone with it').toBe(0)
-    expect(foeCharge()).toBe(-1)
+    // Full, and on the same thought it goes into her forge — the 1.5 s
+    // forge is the warning now, her runes flying out of her slots (§8.37).
+    expect(S.eForge.t, 'forging').toBeGreaterThanOrEqual(0)
+    expect(S.eForge.q.length).toBe(MAX_RUNES)
+    expect(S.equeue.length, 'her slots emptied into it').toBe(0)
+    expect(foeTell()).toBe(0)
+    // A full hand she is HOLDING (her last spell still in the air) pulses.
+    S.equeue.push(FIRE as Rune, FIRE as Rune, FIRE as Rune)
+    expect(foeTell()).toBe(2)
+    S.equeue.length = 0
   })
 
-  it('rises steadily through the wind-up', () => {
-    open()
-    hand([ICE, ICE], ICE)
-    updateSim(DT)
-    let last = -1
-    while (S.eCharge > 0) {
-      const k = foeCharge()
-      expect(k).toBeGreaterThanOrEqual(last)
-      last = k
-      updateSim(DT)
-    }
-    expect(last).toBeGreaterThan(0.95)
-  })
-
-  it('warns of nothing for a hand that is a wall — and a wall still goes straight up', () => {
+  it('warns of nothing for a hand that is a wall', () => {
     open()
     // Two Ice: the pillar, a ward.
     S.equeue.length = 0
     S.equeue.push(ICE as Rune, ICE as Rune)
     expect(resolveSpell([ICE, ICE]).kind).toBe(2)
     expect(foeTell()).toBe(0)
-    // A three-rune ward, from the whole alphabet she could hold.
-    let ward: number[] | null = null
-    for (let a = 0; a < 4 && !ward; a++) {
-      for (let b = a; b < 4 && !ward; b++) {
-        for (let c = b; c < 4 && !ward; c++) if (resolveSpell([a, b, c]).kind === 2) ward = [a, b, c]
-      }
-    }
-    if (ward) {
-      hand(ward.slice(0, 2), ward[2]!)
-      updateSim(DT)
-      expect(S.eCharge, 'no wind-up for a ward').toBe(0)
-      expect(foeTell()).toBe(0)
-    }
-  })
-
-  it('stops winding up when the hand stops being full', () => {
-    open()
-    hand([FIRE, FIRE], FIRE)
-    updateSim(DT)
-    expect(S.eCharge).toBeGreaterThan(0)
     S.equeue.length = 0
-    updateSim(DT)
-    expect(S.eCharge).toBe(0)
   })
 
   it('is never shown in local versus, where the right-hand slots are a person\'s', () => {
@@ -141,7 +98,6 @@ describe('the second of grace after a menu closes (§8.36)', () => {
     // A full hand already wound up, and a menu closes just as she would throw.
     S.equeue.length = 0
     S.equeue.push(FIRE as Rune, FIRE as Rune, FIRE as Rune)
-    S.eCharge = 0
     noteResume()
     expect(foeMayRelease()).toBe(false)
     S.eThink = 0

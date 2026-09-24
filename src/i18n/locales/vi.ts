@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'CÔ ẤY ĐANG TUNG PHÉP!',
+    'blockSquare': 'VẼ HÌNH VUÔNG ĐỂ CHẶN!',
+    'blocked': 'BẠN ĐÃ CHẶN ĐƯỢC!',
+    'attack': 'GIỜ HÃY TẤN CÔNG BẰNG HAI PHÙ VĂN!',
     'draw': 'VẼ PHÙ VĂN',
     'triangle': 'VẼ HÌNH TAM GIÁC',
     'square': 'VẼ HÌNH VUÔNG',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'CHIẾN THẮNG!',
     'defeated': 'Zzz... thử lại nhé?',
-    'tapToDuel': 'Chạm để đấu'
+    'tapToDuel': 'Chạm để đấu',
+    'tip': {
+      'block': 'Khi phù văn của đối thủ bay về sừng, hãy vẽ HÌNH VUÔNG để chặn!',
+      'stack': 'Hai phù văn tạo nên phép mạnh hơn!',
+      'keepDrawing': 'Cứ vẽ tiếp nhé! Khi bạn còn vẽ, phép thuật sẽ bảo vệ bạn.',
+      'drawBig': 'Hình to và vẽ thong thả sẽ hiệu quả nhất!',
+      'mix': 'Kết hợp các phù văn khác nhau để tìm phép mới!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'SUÝT NỮA LÀ {rune}!',
     'tryRune': 'Thử {rune} xem!',
     'comingSoon': 'SẮP CÓ',
-    'lockedRune': 'Phù văn {rune} sắp có'
+    'lockedRune': 'Phù văn {rune} sắp có',
+    'newRuneGuide': 'Phù văn mới: {rune}!',
+    'great': 'Tuyệt lắm!'
   },
 
   'license': {

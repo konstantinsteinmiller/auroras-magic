@@ -45,6 +45,15 @@ const props = defineProps<{
    * reduced motion the pulse settles into a steady glow.
    */
   warn?: number
+  /**
+   * THE SPELL FORGE (story-spec §8.37): this slot's rune has just LEFT, into
+   * a forge — a token that bumps with every forge (0 = none), keying a soft
+   * pop: the plate gives a little bounce and a ring of the departed rune's
+   * colour (`liftRune`) puffs off it, as the rune itself rises out of it on
+   * the forge layer (`SpellForge.vue`).
+   */
+  lift?: number
+  liftRune?: number
 }>()
 
 const { t } = useI18n()
@@ -65,6 +74,8 @@ const tint = computed(() => {
   const c = RUNES[props.rune]?.[0] ?? '#fff'
   return { backgroundImage: `linear-gradient(${c}2e, ${c}2e)` }
 })
+/** The forge's pop takes the departed rune's own colour (`RUNES`, data). */
+const liftTint = computed(() => ({ '--lift': RUNES[props.liftRune ?? -1]?.[1] ?? 'transparent' }))
 
 // The forming slot moves along the row as the foe's hand fills, so a slot
 // can start or stop forming without remounting: (re)bind on the prop, after
@@ -97,6 +108,7 @@ onUnmounted(unbind)
 <template lang="pug">
   div.rune-slot
     span.slot-warn(v-if="warn && rune !== undefined" :class="warn >= 2 ? 'full' : 'soft'" aria-hidden="true")
+    span.slot-lift(v-if="lift" :key="lift" :style="liftTint" aria-hidden="true")
     div.slot-plate.duel-plate(:style="tint")
     RuneGlyph.slot-glyph(v-if="rune !== undefined" :rune="rune")
     template(v-else-if="forming")
@@ -242,6 +254,55 @@ onUnmounted(unbind)
 html.am-reduced .slot-warn.full
   animation: none
   opacity: 1
+
+// The forge's pop (§8.37): the rune has just risen out of this slot. A ring
+// of its light puffs off the plate and the plate gives one soft bounce —
+// "the slot is empty now", said once. One shot, mounted only while the forge
+// runs, so it never replays on a remount.
+.slot-lift
+  position: absolute
+  inset: -6%
+  border-radius: 30%
+  pointer-events: none
+  box-shadow: 0 0 0 3px var(--lift), 0 0 14px 4px var(--lift)
+  animation: slot-lift 0.42s ease-out both
+
+.slot-lift ~ .slot-plate
+  animation: slot-bump 0.3s var(--am-ease-pop, ease-out) both
+
+@keyframes slot-lift
+  0%
+    opacity: 0.95
+    transform: scale(0.9)
+  100%
+    opacity: 0
+    transform: scale(1.32)
+
+@keyframes slot-bump
+  0%
+    transform: scale(1)
+  35%
+    transform: scale(1.1)
+  100%
+    transform: scale(1)
+
+// Reduced motion: no bounce and no swell — the ring simply fades.
+@media (prefers-reduced-motion: reduce)
+  .slot-lift
+    animation-name: slot-lift-still
+  .slot-lift ~ .slot-plate
+    animation: none
+
+html.am-reduced .slot-lift
+  animation-name: slot-lift-still
+html.am-reduced .slot-lift ~ .slot-plate
+  animation: none
+
+@keyframes slot-lift-still
+  from
+    opacity: 0.9
+  to
+    opacity: 0
 
 .slot-ring
   // the forming ring takes its stroke from here — 7.06:1 on the slot's well

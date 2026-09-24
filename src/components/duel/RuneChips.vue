@@ -20,8 +20,13 @@ import RuneGlyph from '@/components/duel/RuneGlyph.vue'
  * LANDSCAPE sits inside the scaled stage layer, in stage units, just inside
  * the drawing box's bottom edge. PORTRAIT sits on the pad in CSS px, above the
  * button bar.
+ *
+ * THE CAPTION (`caption`, the second playtest: "legend or buttons?"): the
+ * first duel they appear in, a tiny "Your runes" rides just above the row —
+ * the same words a screen reader already hears for her slots. It never moves
+ * the chips: it hangs off the row, outside its box.
  */
-const props = defineProps<{ mask: number; portrait: boolean }>()
+const props = defineProps<{ mask: number; portrait: boolean; caption?: boolean }>()
 const { t } = useI18n()
 
 const runes = computed(() => {
@@ -48,6 +53,7 @@ const rowStyle = computed(() => {
 
 <template lang="pug">
   div.rune-chips(:style="rowStyle")
+    span.chips-caption.ink-text(v-if="caption") {{ t('hud.yourRunes') }}
     div.rune-chip(v-for="r in runes" :key="r" role="img" :aria-label="t('rune.' + RUNE_IDS[r])")
       RuneGlyph.chip-glyph(:rune="r")
 </template>
@@ -77,4 +83,15 @@ const rowStyle = computed(() => {
   top: 6%
   width: 88%
   height: 88%
+
+// "Your runes", hung just above the row and centred on it, small — a label,
+// not a call to action — in the arena's shout ink (white in a plum outline,
+// `.ink-text`), which reads on every backdrop the pad has.
+.chips-caption
+  position: absolute
+  left: 50%
+  bottom: calc(100% + var(--gap) * 0.6)
+  transform: translateX(-50%)
+  font-size: calc(var(--chip) * 0.42)
+  line-height: 1.2
 </style>

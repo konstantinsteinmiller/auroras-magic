@@ -21,10 +21,10 @@ import {
   HASTE, foeDamageScale, hasteLevel, hasteRush, mercyFloor, noteAct, notePlayerCast, playerDamageScale, press,
   resetDirector, stepDirector, KO_HP, MERCY_FRAC, floorLifted, foeMayRelease, lifting
 } from '@/game/duel/director'
-import { S, save, pop, type Shot } from '@/game/duel/state'
+import { S, save, pop, POP_LIFE, type CastRefusal, type Shot } from '@/game/duel/state'
 import { recognise, recogniseLocked, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
 import {
-  endLesson, lessonCastOpen, lessonCastRefused, lessonMiss, lessonStored, lessonTakes, resetLesson, stepLesson,
+  lessonCast, lessonCastOpen, lessonCastRefused, lessonMiss, lessonStored, lessonTakes, resetLesson, stepLesson,
   showLockedRune
 } from '@/game/duel/lesson'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
@@ -32,8 +32,9 @@ import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
   impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
   decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, seepThrough, lingerMote, hasteSpark,
-  chargeSpark, liftBloom, liftMote, punchAdd, BAR_CRYSTAL, BAR_FROST
+  forgeSpark, liftBloom, liftMote, punchAdd, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
+import { FORGE_S, hornGlow } from '@/game/duel/forge'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { mixRune } from '@/game/duel/spellArt'
 import { sfx, setMood } from '@/game/duel/audio'
@@ -241,7 +242,8 @@ export const strokeEnd = (calloutX = 640, calloutY = BOX.y - 46, e = false): voi
   S.snap = { r: rune, t: 0 }
   sfx('snap', rune)
   emit('rune', undefined, info)
-  if (S.intro) lessonStored()
+  // The lessons, and the new-rune guide that ends on this rune (lesson.ts).
+  lessonStored(rune)
 }
 
 /* ------------------------------ casting ----------------------------- */
@@ -359,6 +361,8 @@ const freeze = (onFoe: boolean, secs: number): void => {
     S.frozen = secs
     S.queue.length = 0
   }
+  // A spell she was forging is part of her hand (§8.37): the ice takes it too.
+  dropForge(onFoe)
   const x = onFoe ? UX : AX
   frostBurst(x, GY - 100)
   sfx('freeze')
@@ -386,6 +390,8 @@ const reflect = (s: Shot, e: boolean): void => {
     // twenty seconds of embers bounced into her face is the harshest version
     // of the lesson §6.5's half-damage ruling already softened.
     lg: 0,
+    // …and it holds nobody's cast lock (§8.37): it is the ward's now.
+    lk: 0,
     delay: DELAY[s.k] ? 0.55 : 0, life: 0
   })
 }
@@ -399,18 +405,25 @@ export const lastPlayerCast = (): CastInfo => lastCast
 export const spellPopParams = (sp: ResolvedSpell): Record<string, string | number> =>
   sp.nameId ? { spell: sp.nameId, n: sp.count } : { form: `k${sp.kind}.c${sp.count}`, rune: sp.dominant, n: sp.count }
 
-/** Fire a spell. `e` = cast by the foe. */
-const launch = (q: Rune[], e: boolean): void => {
+/**
+ * What a hand casts, decided at the moment CAST is pressed (§8.37): the orb
+ * that forges is the spell that leaves. The Love finisher's gate is asked —
+ * and spent — here too (§6.9): open, it is spent; closed, it softly becomes
+ * the double — never a refusal (§6.8 rule 6).
+ */
+const resolveCast = (q: readonly number[], e: boolean): ResolvedSpell => {
   // Player 2 in versus casts from the shared save's kit, like player 1.
-  let sp = e && !S.versus ? foeSpellOf(q) : spellOf(q)
-  // The Love finisher (§6.9): open, it is spent; closed, it softly becomes
-  // the double — never a refusal (§6.8 rule 6).
-  if (sp.finisher) {
-    if (finisherOpen(e)) {
-      if (e) S.eUsedFinisher = true
-      else S.usedFinisher = true
-    } else sp = resolveSpell([LOVE, LOVE])
-  }
+  const sp = e && !S.versus ? foeSpellOf(q) : spellOf(q)
+  if (!sp.finisher) return sp
+  if (!finisherOpen(e)) return resolveSpell([LOVE, LOVE])
+  if (e) S.eUsedFinisher = true
+  else S.usedFinisher = true
+  return sp
+}
+
+/** Fire a spell `sp` (what `q` resolved to at the press). `e` = cast by the
+ *  right-hand duelist. The forge's release (§8.37). */
+const launch = (q: Rune[], e: boolean, sp: ResolvedSpell): void => {
   const kind = sp.kind
   const foe = FOES[S.foe]!
   /** This boss's phase-2 mechanic, once she is in it (§6.11). */
@@ -516,18 +529,14 @@ const launch = (q: Rune[], e: boolean): void => {
       rf: 0,
       m: mix,
       sg: artKey,
+      // THE CAST LOCK (§8.37): the caster's next spell waits for this one.
+      lk: 1,
       // A lingering spell (§8.35) carries its ticks, the element counted.
       ...(sp.linger ? { lg: sp.linger[0] * mul, lgT: sp.linger[1], lgR: sp.lingerLook ?? dr } : {})
     })
   }
 
-  if (!e) {
-    S.combo = q.length
-    lastCast = { key: sp.key, index: comboEnumerationIndex(q), count: q.length }
-    pop('spell', RUNES[q[0]!]![0], 640, 250, spellPopParams(sp))
-    if (S.intro) endLesson()
-    emit('cast')
-  }
+  if (!e) S.combo = q.length
   q.length = 0
 }
 
@@ -535,27 +544,188 @@ const launch = (q: Rune[], e: boolean): void => {
 export const cast = (): void => castSide(false)
 
 /**
+ * A cast request was refused (story-spec §8.37): the player's side says so on
+ * `S.castRefusedAt` / `S.castRefusedWhy` — the HUD's contract for the cast
+ * button's shake. The right-hand side (the foe, or player 2) writes nothing.
+ */
+const refuse = (e: boolean, why: CastRefusal): void => {
+  if (e) return
+  S.castRefusedAt = S.t
+  S.castRefusedWhy = why
+}
+
+/* ------------------------------ the forge --------------------------- */
+/**
+ * THE SPELL FORGE AND THE CAST LOCK (owner, 2026-09-24; story-spec §8.37).
+ *
+ * *"The consumed runes are forging together into one spell flowing from the
+ * rune slots into the unicorn's horn, which now glows in the main spell's
+ * color … a full 1.5 seconds of spell release delay, meaning the player
+ * cannot release another spell until the current one is cast and gone."*
+ *
+ * Pressing CAST no longer throws the spell. It takes the runes out of the
+ * slots and starts a FORGE: for `FORGE_S` they fly together into one orb,
+ * pour into the horn and swell there (the four beats and their paths are
+ * `forge.ts`; the picture is `forgeArt.ts` and `SpellForge.vue`), and only
+ * then does the spell leave — `launch`, exactly as it always did. A ward
+ * rises and a decoy stands up at that same moment: every cast is the same
+ * picture, on both sides.
+ *
+ * THE LOCK: from the press until the spell has left AND its shot is gone
+ * (landed, bounced back, or fizzled), that side cannot release another. It
+ * may keep drawing into the freed slots — the lock is on releasing, never on
+ * drawing. A cast asked for during it is refused (`castRefusedWhy` 'busy').
+ * The foe obeys the same lock, and her forge replaced §8.36's 0.75 s wind-up:
+ * her runes flying out of HER slots into HER horn is the warning.
+ *
+ * Every cast path goes through `castSide` — the button, the keys, the right
+ * mouse button, the lesson, `__cast`, every harness — so every one of them
+ * forges and every one of them is locked.
+ */
+
+/** What each side's forge will release (`resolveCast`, decided at the press). */
+const forgeSp: (ResolvedSpell | null)[] = [null, null]
+const forgeOf = (e: boolean) => (e ? S.eForge : S.forge)
+
+/** A spell of this side's that is in flight and holds its lock (`Shot.lk`)? */
+const lockedShot = (e: boolean): boolean => {
+  for (const s of S.shots) if (s.lk && (s.dir > 0) !== e) return true
+  return false
+}
+
+/** Is a side's cast locked right now — forging, or its spell still in the air? */
+export const castBusy = (e: boolean): boolean => forgeOf(e).t >= 0 || lockedShot(e)
+
+/** Is this side forging a spell that will HIT (anything but a ward or decoy)? */
+const forgingHit = (e: boolean): boolean => {
+  const f = forgeOf(e)
+  return f.t >= 0 && f.kind !== 2 && f.kind !== 5
+}
+
+/** Where a spell's name rises while it forges (§8.37): where the player's
+ *  always rose — between the two horns, clear of both forges' paths
+ *  (`forge.ts`) — or, when the other side's name is still up (both forging at
+ *  once: a wall answering a spell), a line below it, so the two never sit on
+ *  each other (a pop rises 84 units in its `POP_LIFE`). */
+const NAME_X = 640
+const NAME_Y = 250
+const NAME_BELOW = 66
+
+/** CAST was pressed and allowed: the runes leave their slots and the forge
+ *  begins. The slots are free from this moment on. */
+const startForge = (q: Rune[], e: boolean): void => {
+  const f = forgeOf(e)
+  const sp = resolveCast(q, e)
+  forgeSp[e ? 1 : 0] = sp
+  f.q.length = 0
+  for (let i = 0; i < q.length; i++) f.q.push(q[i]!)
+  q.length = 0
+  f.t = 0
+  f.n++
+  f.lead = sp.lead
+  f.mix = mixRune(f.q, sp.lead)
+  f.kind = sp.kind
+  f.key = sp.wild ? comboKey(sp.wild) : sp.key
+  sfx('forge', f.q.length)
+  // The spell's NAME shows while it forges, in its main colour.
+  const other = forgeOf(!e)
+  const below = other.t >= 0 && other.t < POP_LIFE ? NAME_BELOW : 0
+  pop('spell', RUNES[sp.lead]?.[0] ?? '#fff', NAME_X, NAME_Y + below, spellPopParams(sp))
+  if (!e) {
+    // The press is the cast the child made: the spellbook's discovery, the
+    // lesson's end and the first-cast beat all happen here, not 1.5 s on.
+    lastCast = { key: sp.key, index: comboEnumerationIndex(f.q), count: f.q.length }
+    if (S.intro) lessonCast()
+    emit('cast')
+  }
+}
+
+/** A side's forge ends without a spell — frozen mid-forge, or the duel over. */
+const dropForge = (e: boolean): void => {
+  const f = forgeOf(e)
+  f.t = -1
+  f.q.length = 0
+  forgeSp[e ? 1 : 0] = null
+}
+
+/** One sim step of a side's forge: at `FORGE_S` it leaves. (What it looks
+ *  like on the way is drawn from `f.t` alone — `forgeArt.ts`.) */
+const stepForge = (e: boolean, dt: number): void => {
+  const f = forgeOf(e)
+  if (f.t < 0) return
+  f.t += dt
+  // (The epsilon: 180 steps of 1/120 must be 1.5 s, not a hair under it.)
+  if (f.t < FORGE_S - 1e-9) return
+  const sp = forgeSp[e ? 1 : 0]
+  f.t = -1
+  forgeSp[e ? 1 : 0] = null
+  if (sp) launch(f.q, e, sp)
+  f.q.length = 0
+}
+
+/** What the QA harness reads (`window.__forge()`): the side forging — the
+ *  one further along, if both are — how far, 0..1, and the spell. */
+export interface ForgeReadout {
+  side: 'player' | 'foe' | null
+  progress: number
+  spell: string
+  kind: number
+  lead: number
+  mix: number
+  runes: number[]
+  /** Both sides, whether or not they are forging. */
+  player: { forging: boolean; progress: number; busy: boolean }
+  foe: { forging: boolean; progress: number; busy: boolean }
+}
+export const forgeReadout = (): ForgeReadout => {
+  const p = S.forge
+  const q = S.eForge
+  const pick = p.t >= 0 && (q.t < 0 || p.t >= q.t) ? p : q.t >= 0 ? q : null
+  const u = (f: typeof p): number => (f.t >= 0 ? clamp(f.t / FORGE_S, 0, 1) : 0)
+  return {
+    side: pick === p ? 'player' : pick === q ? 'foe' : null,
+    progress: pick ? u(pick) : 0,
+    spell: pick ? pick.key : '',
+    kind: pick ? pick.kind : -1,
+    lead: pick ? pick.lead : -1,
+    mix: pick ? pick.mix : -1,
+    runes: pick ? [...pick.q] : [],
+    player: { forging: p.t >= 0, progress: u(p), busy: castBusy(false) },
+    foe: { forging: q.t >= 0, progress: u(q), busy: castBusy(true) }
+  }
+}
+
+/**
  * Cast one side's stored runes: `e` = the right-hand duelist — the foe, or
- * player 2 in local versus (§6.19). A frozen side cannot cast (§6.5).
+ * player 2 in local versus (§6.19). A frozen side cannot cast (§6.5), and a
+ * side whose last spell is still forging or in flight is locked (§8.37).
  */
 export const castSide = (e: boolean): void => {
   const q = e ? S.equeue : S.queue
-  if (S.phase !== PH_DUEL || !q.length || (e ? S.eFrozen : S.frozen) > 0) return
-  // The first duel's lesson holds every cast path shut until its step D
-  // (lesson.ts) — the button, the keys, the right mouse button, all here.
+  if (S.phase !== PH_DUEL) return
+  // Casting counts as being here, not just drawing does: the AFK rule is
+  // about a player who has put the phone down, and this is also the only
+  // signal a programmatic player (the win-rate harness) ever sends. A press
+  // the rules refuse (§8.37) is a player at the phone just the same.
+  if (!e && q.length) present()
+  if (!q.length) {
+    refuse(e, 'empty')
+    return
+  }
+  // The first duel's lessons hold every cast path shut outside their two
+  // cast beats (lesson.ts) — the button, the keys, the right mouse button.
   if (!e && S.intro && !lessonCastOpen()) {
+    refuse(e, 'lesson')
     lessonCastRefused()
     return
   }
-  // Casting counts as being here, not just drawing does: the AFK rule is
-  // about a player who has put the phone down, and this is also the only
-  // signal a programmatic player (the win-rate harness) ever sends.
-  if (!e) {
-    present()
-    // The haste's pace tally (§8.35): how many runes a second she is casting.
-    if (!S.versus) notePlayerCast(q.length)
+  if ((e ? S.eFrozen : S.frozen) > 0 || castBusy(e)) {
+    refuse(e, 'busy')
+    return
   }
-  launch(q, e)
+  // The haste's pace tally (§8.35): how many runes a second she is casting.
+  if (!e && !S.versus) notePlayerCast(q.length)
+  startForge(q, e)
 }
 
 /* ----------------------------- resolution --------------------------- */
@@ -889,12 +1059,9 @@ const think = (dt: number): void => {
   S.eForm += dt * rate
   if (S.eForm >= 1) {
     S.eForm = 0
-    if (S.equeue.length < MAX_RUNES) {
-      S.equeue.push(S.eRune as Rune)
-      // THE TELEGRAPH (§8.36): a hand that has just filled and will HIT
-      // winds up before it may leave — her slots glow, her horn charges.
-      if (S.equeue.length === MAX_RUNES && hits(foeSpellOf(S.equeue))) windUp()
-    }
+    // She keeps forming through her own forge and her spell's flight (§8.37),
+    // exactly as the child keeps drawing through hers.
+    if (S.equeue.length < MAX_RUNES) S.equeue.push(S.eRune as Rune)
     S.eRune = chooseRune()
   }
 
@@ -903,7 +1070,7 @@ const think = (dt: number): void => {
   S.eThink = 0.25
 
   const q = S.equeue
-  const incoming = S.shots.some((s) => s.dir > 0)
+  const eta = incomingEta()
   const full = q.length >= MAX_RUNES
 
   // Cast when it means something: a full hand, a defensive answer to a shot
@@ -921,11 +1088,18 @@ const think = (dt: number): void => {
     S.eRune = EARTH
     S.eForm = max(S.eForm, 0.5)
   }
+  // THE CAST LOCK (§8.37): her last spell is still forging or in the air, so
+  // nothing leaves — she only builds.
+  if (castBusy(true)) return
   const sp = foeSpellOf(q)
-  const defend = !holding && (incoming || threat) && sp.kind === 2 && S.eGuard <= 0
+  // A wall takes a forge to rise, like any spell of hers (§8.37): she answers
+  // a blow only if a wall started NOW stands before it lands — the player's
+  // own forge is as loud to her as hers is to the child.
+  const defend = !holding && ((eta >= FORGE_S - 0.05 && eta < Infinity) || threat) && sp.kind === 2 && S.eGuard <= 0
   // Lightning's and Time's contract (§6.13): a pierce or a slow in hand goes
-  // out the moment the player's guard is up — that is exactly what it is for.
-  const zap = S.guard > 0 && (!!sp.pierce || !!sp.slowPct)
+  // out the moment the player's guard is up — that is exactly what it is for
+  // — if the guard will still be standing when it arrives.
+  const zap = S.guard > FORGE_S && (!!sp.pierce || !!sp.slowPct)
   // A decoy goes up the moment it is in her hand (§6.13).
   const summonNow = sp.kind === 5 && S.eDecoy <= 0
   // Nature "opens" as its pair (§6.13): she throws the Poison Bloom as soon
@@ -937,41 +1111,41 @@ const think = (dt: number): void => {
   // is what "the foe never hits anything" looked like from the sofa: she was
   // holding a good hand and waiting for a better one.
   const eager = (0.02 + lv * 0.02) * (1 + 0.5 * press())
-  // Nothing leaves in the second after a menu closes (director.ts), and a
-  // full hand that will hit leaves only once it has wound up (§8.36) — a
-  // wall or a decoy still goes up the moment she wants it.
-  if (!foeMayRelease() || (S.eCharge > 0 && hits(sp))) return
-  if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < eager)) launch(q, true)
+  // Nothing leaves in the second after a menu closes (director.ts).
+  if (!foeMayRelease()) return
+  if (full || defend || zap || summonNow || bloom || lethal || (!holding && q.length === 2 && rnd() < eager)) castSide(true)
+}
+
+/** How long a spell of `kind` flies from the horn to the other duelist. */
+const flightOf = (kind: number): number => DELAY[kind] || (UX - AX - 2 * HDX) / (SPD[kind] || 1000)
+
+/**
+ * Seconds until the player's next blow lands on the foe — a shot in the air,
+ * or a hit she is forging (§8.37) — or Infinity when nothing is coming.
+ */
+const incomingEta = (): number => {
+  let eta = Infinity
+  for (const s of S.shots) {
+    if (s.dir <= 0) continue
+    const t = s.delay > 0 ? s.delay : abs(s.tx - s.x) / (SPD[s.k] || 1000)
+    if (t < eta) eta = t
+  }
+  if (forgingHit(false)) eta = min(eta, FORGE_S - S.forge.t + flightOf(S.forge.kind))
+  return eta
 }
 
 /* ---------------------------- the telegraph ------------------------- */
 /**
- * THE FOE'S COMBO TELEGRAPH (story-spec §8.36). The blind playtest watched
- * her fill three slots and land a big spell with no warning at all: a full
- * hand left on her next quarter-second thought, so "full slots" was never on
- * screen long enough to mean anything. Now a full hand that will HIT winds up
- * for `CHARGE_S` first — her three slots pulse warm gold (`RuneSlot.vue`) and
- * her horn gathers sparks (`fx.chargeSpark`, `render.drawChargeTell`) — so a
- * child can learn the one sentence that matters: full slots, big spell, put
- * a wall up. Two runes of a hit get a softer, still glow (`foeTell`).
- *
- * A wall or a decoy in hand is no threat and winds up nothing. A hurried foe
- * (the haste) winds up faster, never under `CHARGE_MIN`, so the grown-up the
- * haste exists for still meets her at his pace; a child meets the full beat.
+ * THE FOE'S TELL (story-spec §8.36, §8.37). §8.36 wound a full hand that
+ * would HIT up for 0.75 s — too short, the second playtest said, to register.
+ * The spell forge replaced it (`startForge`): every spell of hers now takes
+ * 1.5 s to leave, her runes flying out of her slots into her horn, which is
+ * the warning. What is left here is the quieter tell BEFORE she starts: her
+ * slots glow when two runes of a hit are in them, and more when three are —
+ * a full hand she is holding while her last spell is still in the air.
  */
-export const CHARGE_S = 0.75
-const CHARGE_MIN = 0.35
-/** This wind-up's whole length, for its progress. */
-let chargeLen = CHARGE_S
 /** Does a spell of hers HIT — anything but a ward or a decoy? */
 const hits = (sp: ResolvedSpell): boolean => sp.kind !== 2 && sp.kind !== 5
-const windUp = (): void => {
-  chargeLen = max(CHARGE_MIN, CHARGE_S / hasteRush())
-  S.eCharge = chargeLen
-  chargeSpark(hornX(true), HORN_Y, 0)
-}
-/** How far her wind-up has come, 0..1, or -1 when she is not winding up. */
-export const foeCharge = (): number => (S.eCharge > 0 ? clamp(1 - S.eCharge / chargeLen, 0, 1) : -1)
 
 let tellKey = -1
 let tellVal = 0
@@ -1047,7 +1221,7 @@ const stepGlimpse = (dt: number): boolean => {
   if (st !== 1 && st !== 2 && st !== 3) return false
   S.glimpseT += dt
   if (st === 1) {
-    if (S.dur < GLIMPSE.after || S.shots.length || S.eGuard > 0 || S.eCharge > 0 || S.eWindup > 0 ||
+    if (S.dur < GLIMPSE.after || S.shots.length || S.eGuard > 0 || S.forge.t >= 0 || S.eForge.t >= 0 || S.eWindup > 0 ||
       S.ehp < S.ehpMax * 0.25) return false
     S.glimpse = 2
     S.glimpseT = 0
@@ -1103,7 +1277,7 @@ const chooseRune = (): Rune => {
   // Crystal Ward is chapter 4's defensive default (§6.13): under pressure she
   // builds Ice, Ice, Earth — and a half-built one she finishes.
   if (crystalOk() && S.eGuard <= 0 && q.length < MAX_RUNES && within(q, CRYSTAL) &&
-    (q.length > 0 || S.queue.length >= 1 || S.shots.some((s) => s.dir > 0))) return nextOf(q, CRYSTAL)
+    (q.length > 0 || S.queue.length >= 1 || incomingEta() < Infinity)) return nextOf(q, CRYSTAL)
   // A lone EARTH already IS a barrier, so under a read threat it is the
   // fastest wall she can put up.
   if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH) && !earthHalves()) {
@@ -1124,7 +1298,7 @@ const chooseRune = (): Rune => {
   //   Moon, once her own HP is under half (lifesteal mends her);
   //   Illusion only as the low-HP decoy above.
   if (magic === NATURE && S.ehp < S.ehpMax * 0.6 && rnd() < 0.12) return NATURE
-  if (magic === WATER && S.eGuard <= 0 && q.every((r) => r === WATER) && S.shots.some((s) => s.dir > 0)) return WATER
+  if (magic === WATER && S.eGuard <= 0 && q.every((r) => r === WATER) && incomingEta() < Infinity) return WATER
   if ((magic === LIGHTNING || magic === TIME) && S.guard > 0 && rnd() < 0.7) return magic
   if (magic === MOON && S.ehp < S.ehpMax * 0.5 && rnd() < 0.6) return MOON
   // A foe themed to a BASE element leans on it — that is what makes it
@@ -1184,20 +1358,14 @@ const tick = (dt: number): void => {
     if (S.eLinger > 0) lingerMote(UX, GY - 100, S.eLingerLook)
     const h = hasteLevel()
     if (h > 0.05) hasteSpark(hornX(true), HORN_Y, h)
-    // The telegraph's wind-up at her horn, and the re-anchor lifting Aurora
-    // (§8.36).
-    if (S.eCharge > 0) chargeSpark(hornX(true), HORN_Y, foeCharge())
-    if (lifting() > 0) liftMote(AX, GY - 120)
-  }
-  // The telegraph (§8.36): a hand that stopped being full (thrown away, frozen
-  // away) stops winding up; a finished wind-up leaves on her very next
-  // thought, as the glow peaks.
-  if (S.eCharge > 0) {
-    if (S.equeue.length < MAX_RUNES) S.eCharge = 0
-    else if ((S.eCharge -= dt) <= 0) {
-      S.eCharge = 0
-      S.eThink = 0
+    // A forge swelling in a horn (§8.37): sparks of the spell's own colour
+    // rush in to it — and the re-anchor lifting Aurora (§8.36).
+    for (let side = 0; side < 2; side++) {
+      const f = side ? S.eForge : S.forge
+      const k = f.t >= 0 ? hornGlow(f.t / FORGE_S, false) : 0
+      if (k > 0.05) forgeSpark(hornX(side === 1), HORN_Y, f.lead, k)
     }
+    if (lifting() > 0) liftMote(AX, GY - 120)
   }
   // Heal over time (Nature's bloom), capped at the side's own max.
   if (S.regen > 0) {
@@ -1277,7 +1445,9 @@ const finish = (won: boolean): void => {
   else S.hp = 0
   S.stop = max(S.stop, KO_STOP)
   punchAdd(0.45)
-  S.eCharge = 0
+  // A spell still forging when the duel ends never leaves (§8.37).
+  dropForge(false)
+  dropForge(true)
   if (S.glimpse) S.glimpse = 4
   S.over = S.panelT = 0
   S.resultUp = false
@@ -1410,16 +1580,19 @@ export const resetDuel = (start?: DuelStart): void => {
   S.hitsLanded = 0
   S.usedFinisher = S.eUsedFinisher = false
   S.castAnim = S.eCastAnim = S.hurt = S.eHurt = S.draw = 0
+  S.castRefusedAt = -1
+  S.castRefusedWhy = ''
   // A duel never OPENS frozen (§8.31): a retry straight out of a hit-stop
   // would otherwise spend its first frames holding the last duel's blow.
   S.stop = S.punch = 0
   S.dur = S.over = S.panelT = 0
   S.resultUp = false
   S.eThink = 1.2 // a grace beat before the foe opens
-  // The telegraph and the depth glimpse (§8.36) start clean; the glimpse only
-  // when the campaign armed it, and only if her kit holds a rune that answers.
-  S.eCharge = 0
-  chargeLen = CHARGE_S
+  // The forges (§8.37), the tell and the depth glimpse (§8.36) start clean;
+  // the glimpse only when the campaign armed it, and only if her kit holds a
+  // rune that answers.
+  dropForge(false)
+  dropForge(true)
   tellKey = -1
   S.glimpseRune = start?.glimpse && !S.versus ? glimpseRuneFor((S.campaign.runesUnlocked | STARTING_RUNES) >>> 0) : -1
   S.glimpse = S.glimpseRune >= 0 ? 1 : 0
@@ -1456,9 +1629,15 @@ export const updateSim = (dt: number): void => {
   S.dur += dt
   tick(dt)
   stepShots(dt)
-  // The first duel's lesson runs INSTEAD of the foe: she is held until the
-  // first cast (lesson.ts).
-  if (S.intro) stepLesson(dt)
+  // The forges (§8.37): a spell whose 1.5 s are up leaves its horn. A player
+  // whose spell is forging or flying is HERE — that is activity, not idle,
+  // for the AFK rule, however long the spell hangs before it falls.
+  stepForge(false, dt)
+  stepForge(true, dt)
+  if (!S.versus && castBusy(false)) present()
+  // The first duel's lessons run INSTEAD of the foe: lesson 1 plays her hand
+  // through this very `castSide`, then she is held until lesson 2's cast.
+  if (S.intro) stepLesson(dt, castSide)
   else if (!S.versus) think(dt)
 
   // A boss crossing half her HP shifts phase (§6.11): a 1.8 s wind-up in which

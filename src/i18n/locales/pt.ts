@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'ELA ESTÁ LANÇANDO UM FEITIÇO!',
+    'blockSquare': 'DESENHE O QUADRADO PARA BLOQUEAR!',
+    'blocked': 'VOCÊ BLOQUEOU!',
+    'attack': 'AGORA ATAQUE COM DUAS RUNAS!',
     'draw': 'DESENHE A RUNA',
     'triangle': 'DESENHE UM TRIÂNGULO',
     'square': 'DESENHE UM QUADRADO',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'VITÓRIA!',
     'defeated': 'Zzz... tentar de novo?',
-    'tapToDuel': 'Toque para duelar'
+    'tapToDuel': 'Toque para duelar',
+    'tip': {
+      'block': 'Quando as runas dela voarem para o chifre, desenhe um QUADRADO para bloquear!',
+      'stack': 'Duas runas fazem um feitiço mais forte!',
+      'keepDrawing': 'Continue desenhando! Enquanto você desenha, sua magia protege você.',
+      'drawBig': 'Formas grandes e calmas funcionam melhor!',
+      'mix': 'Misture runas diferentes para descobrir novos feitiços!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'QUASE {rune}!',
     'tryRune': 'Experimente {rune}!',
     'comingSoon': 'EM BREVE',
-    'lockedRune': 'A runa {rune} chega em breve'
+    'lockedRune': 'A runa {rune} chega em breve',
+    'newRuneGuide': 'Runa nova: {rune}!',
+    'great': 'Muito bem!'
   },
 
   'license': {

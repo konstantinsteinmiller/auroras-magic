@@ -57,6 +57,26 @@ import { clamp, max, min } from '@/game/duel/util'
 
 /** Seconds of no drawing before the foe is allowed to land the last blow. */
 export const AFK_S = 10
+/**
+ * A PLAYTEST HARNESS'S IDLE WINDOW (second blind playtest, 2026-09-24). An AI
+ * tester acts every 8–10 s, so the 10 s rule fired on it all the time and
+ * skewed every loss it reported. A harness that announced itself before boot
+ * (`window.__AM_QA__ === true` — no portal and no player ever sets it) may
+ * also set `window.__AM_QA_AFK_S` to a number of seconds (> 0; `Infinity`
+ * turns the rule off), and the rule uses that instead of `AFK_S`. Anything
+ * else — either flag missing, a string, 0, NaN — is `AFK_S`. `__AM_QA_AFK_S`
+ * is not even read without `__AM_QA__`.
+ */
+export const qaAfkSeconds = (w: unknown): number => {
+  const q = w as { __AM_QA__?: unknown; __AM_QA_AFK_S?: unknown } | null | undefined
+  if (!q || q.__AM_QA__ !== true) return AFK_S
+  const s = q.__AM_QA_AFK_S
+  return typeof s === 'number' && s > 0 ? s : AFK_S
+}
+/** The idle window this session runs on — read ONCE, when this module loads. */
+const afkS = qaAfkSeconds(typeof window === 'undefined' ? undefined : window)
+/** The idle window in force (`AFK_S`, unless a harness widened it). */
+export const afkSeconds = (): number => afkS
 /** The share of her health the foe's spells can never take her below. */
 export const MERCY_FRAC = 0.1
 /**
@@ -192,7 +212,7 @@ const floorHp = (): number => S.hpMax * MERCY_FRAC
  * damage path clamps to `mercyFloor()` while she is here.
  */
 export const noteAct = (): boolean => {
-  const back = idle >= AFK_S
+  const back = idle >= afkS
   idle = 0
   if (!back || S.versus || S.phase !== PH_DUEL || !(S.hp > 0) || S.hp >= floorHp()) return false
   liftT = LIFT_S
@@ -201,7 +221,7 @@ export const noteAct = (): boolean => {
 }
 
 /** Whether the player has been away long enough to be finished off. */
-export const afk = (): boolean => idle >= AFK_S
+export const afk = (): boolean => idle >= afkS
 
 /** Seconds of the re-anchor still to run — 0 when none is under way. */
 export const lifting = (): number => liftT

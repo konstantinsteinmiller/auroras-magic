@@ -11,7 +11,8 @@ import {
 import { VERSUS_FOE, shadowOf } from '@/game/duel/foes'
 import { S, type Shot } from '@/game/duel/state'
 import { AFK_S } from '@/game/duel/director'
-import { resetDuel, updateSim, cast, castSide, stops, seep, fromAbove, WEAK_POINTS, duelTally } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, stops, seep, fromAbove, WEAK_POINTS, duelTally } from '@/game/duel/sim'
+import { castNow } from './forged'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -29,11 +30,12 @@ const wardFoe = (gk: number, secs = 6, hits = 0): void => {
   S.eGuardK = gk
   S.eGuardHits = hits
 }
-/** Cast `q` at a held foe and let it land; what came off her bar. */
+/** Cast `q` at a held foe — its forge runs out (§8.37) — and let it land;
+ *  what came off her bar. */
 const land = (q: number[], secs = 2.2): number => {
   const before = S.ehp
   S.queue.push(...(q as Rune[]))
-  cast()
+  castNow()
   run(secs)
   return before - S.ehp
 }
@@ -153,7 +155,7 @@ describe('a weak point, in the duel (§8.35)', () => {
   it('any other spell still bounces off a crystal ward (§6.5 unchanged)', () => {
     wardFoe(4, 5)
     S.queue.push(FIRE as Rune)
-    cast()
+    castNow()
     run(0.6)
     expect(S.ehp).toBe(S.ehpMax)
     expect(S.pops.some((p) => p.k === 'reflected')).toBe(true)
@@ -256,7 +258,7 @@ describe('the lingering spells (§8.35)', () => {
     resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 0, versus: true })
     // Drawn Nature-then-Fire-Fire: the lead is FIRE, the spell is Wildfire.
     S.queue.push(NATURE as Rune, FIRE as Rune, FIRE as Rune)
-    cast()
+    castNow()
     run(0.8)
     expect(S.eLinger).toBeGreaterThan(LINGER_SECS - 0.5)
     const hit = S.ehpMax - S.ehp
@@ -269,10 +271,12 @@ describe('the lingering spells (§8.35)', () => {
   it('refresh rather than stack', () => {
     resetDuel({ foe: VERSUS_FOE, usesMagic: false, lossStreak: 0, versus: true })
     S.queue.push(NATURE as Rune, FIRE as Rune, FIRE as Rune)
-    cast()
-    run(5)
+    castNow()
+    // 3.5 s, and the second cast's own 1.5 s forge: five seconds between
+    // the two landings.
+    run(3.5)
     S.queue.push(NATURE as Rune, FIRE as Rune, FIRE as Rune)
-    cast()
+    castNow()
     run(0.8)
     expect(S.eLinger, 'the clock restarted').toBeGreaterThan(LINGER_SECS - 0.5)
     expect(S.eLingerRate, 'one rate, not two').toBeCloseTo(1.7, 9)
@@ -288,7 +292,7 @@ describe('the lingering spells (§8.35)', () => {
     expect(S.linger).toBeGreaterThan(0)
     expect(S.lingerLook).toBe(FIRE)
     S.queue.push(WATER as Rune)
-    cast()
+    castNow()
     expect(S.linger).toBe(0)
   })
 
@@ -323,7 +327,7 @@ describe('the lingering spells (§8.35)', () => {
     S.eGuard = 5
     S.eGuardK = 4
     S.queue.push(NATURE as Rune, FIRE as Rune, FIRE as Rune)
-    cast()
+    castNow()
     run(3)
     expect(S.pops.some((p) => p.k === 'reflected')).toBe(true)
     expect(S.linger, 'no linger came back with it').toBe(0)
@@ -333,7 +337,7 @@ describe('the lingering spells (§8.35)', () => {
   it('the foe, cast by her, lands on the player like any spell', () => {
     // castSide(true) is the right-hand duelist's cast — here the NPC's hand.
     S.equeue.push(ICE as Rune, ICE as Rune, NATURE as Rune)
-    castSide(true)
+    castNow(true)
     run(1)
     expect(S.linger).toBeGreaterThan(0)
     expect(S.lingerLook).toBe(ICE)

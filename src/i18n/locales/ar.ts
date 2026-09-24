@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'إنها تُلقي تعويذة!',
+    'blockSquare': 'ارسم المربع لتصدّها!',
+    'blocked': 'لقد صددتها!',
+    'attack': 'والآن هاجم برمزين!',
     'draw': 'ارسم الرمز',
     'triangle': 'ارسم مثلثًا',
     'square': 'ارسم مربعًا',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'فوز!',
     'defeated': 'Zzz... نحاول مجددًا؟',
-    'tapToDuel': 'اضغط للمبارزة'
+    'tapToDuel': 'اضغط للمبارزة',
+    'tip': {
+      'block': 'عندما تطير رموزها إلى قرنها، ارسم مربعًا لتصدّها!',
+      'stack': 'رمزان يصنعان تعويذة أقوى!',
+      'keepDrawing': 'واصل الرسم! ما دمت ترسم، يحميك سحرك.',
+      'drawBig': 'الأشكال الكبيرة الهادئة تنجح أكثر!',
+      'mix': 'امزج رموزًا مختلفة لتكتشف تعاويذ جديدة!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'تقريبًا {rune}!',
     'tryRune': 'جرّب {rune}!',
     'comingSoon': 'قريبًا',
-    'lockedRune': 'رمز {rune} قادم قريبًا'
+    'lockedRune': 'رمز {rune} قادم قريبًا',
+    'newRuneGuide': 'رمز جديد: {rune}!',
+    'great': 'رائع!'
   },
 
   'license': {

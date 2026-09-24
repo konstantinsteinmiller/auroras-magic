@@ -25,7 +25,8 @@ import { earlyEase } from '@/game/campaign/easing'
 import { FOES } from '@/game/duel/foes'
 import { GLIMPSE_NODE, glimpseDue, __resetGlimpse } from '@/game/campaign/glimpse'
 import { S } from '@/game/duel/state'
-import { GLIMPSE, glimpseRuneFor, resetDuel, seep, stops, updateSim, cast, duelTally } from '@/game/duel/sim'
+import { GLIMPSE, glimpseRuneFor, resetDuel, seep, stops, updateSim, cast, castBusy, duelTally } from '@/game/duel/sim'
+import { castNow } from './forged'
 
 const DT = 1 / 60
 
@@ -107,7 +108,7 @@ describe('the moment, in the real duel', () => {
     // Her likely spell, a Fire bolt: blocked, the foe untouched.
     let hp = S.ehp
     S.queue.push(FIRE as Rune)
-    cast()
+    castNow() // its forge runs out (§8.37), then it flies
     step(0.8)
     expect(S.ehp, 'Fire is blocked').toBe(hp)
     expect(S.glimpse).toBe(2)
@@ -115,7 +116,7 @@ describe('the moment, in the real duel', () => {
     hp = S.ehp
     const seeps = duelTally.seep
     S.queue.push(ICE as Rune)
-    cast()
+    castNow()
     step(0.5)
     expect(duelTally.seep, 'Ice found the gap').toBe(seeps + 1)
     expect(S.ehp, 'and it hurt her').toBeLessThan(hp)
@@ -165,6 +166,9 @@ describe('it never costs a child the duel', () => {
     const solo = counter >= 0 && [2, 5].includes(resolveSpell([counter, counter]).kind)
     let clock = 0
     let castDuring = 0
+    // The cast lock (§8.37): she presses CAST the moment it is live again, and
+    // a rune drawn into a full hand is refused, as `strokeEnd` refuses it.
+    let want = false
     for (let t = 0; t < 150; t += DT) {
       S.pops.length = 0
       clock += DT
@@ -173,11 +177,17 @@ describe('it never costs a child the duel', () => {
         const away = p.idle !== undefined && Math.random() < p.idle
         if (!away && Math.random() < p.hand) {
           const r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
-          if (r === counter && solo && S.queue.length) cast()
-          S.queue.push(r as Rune)
-          const impatient = p.single !== undefined && Math.random() < p.single
-          if (S.queue.length >= 2 || impatient || (r === counter && solo)) cast()
+          if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
+          if (S.queue.length < 3) {
+            S.queue.push(r as Rune)
+            const impatient = p.single !== undefined && Math.random() < p.single
+            if (S.queue.length >= 2 || impatient || (r === counter && solo)) want = true
+          }
         }
+      }
+      if (want && S.queue.length && !castBusy(false)) {
+        cast()
+        want = false
       }
       const held = S.glimpse === 2 || S.glimpse === 3
       const before = S.eCastAnim

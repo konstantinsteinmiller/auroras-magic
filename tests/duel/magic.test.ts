@@ -10,7 +10,8 @@ import {
 } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, castSide, stops, foeRate, finisherOpen } from '@/game/duel/sim'
+import { resetDuel, updateSim, stops, foeRate, finisherOpen } from '@/game/duel/sim'
+import { castNow } from './forged'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -22,16 +23,17 @@ const holdFoe = (): void => {
   S.eForm = 0
   S.equeue.length = 0
 }
+/** The player casts `q`, and its forge runs out: the spell has left (§8.37). */
 const playerCasts = (...q: number[]): void => {
   S.queue.length = 0
   S.queue.push(...(q as Rune[]))
-  cast()
+  castNow()
 }
-/** The foe casts `q` right now. */
+/** The foe casts `q` now, and its forge runs out: the spell has left. */
 const foeCasts = (...q: number[]): void => {
   S.equeue.length = 0
   S.equeue.push(...(q as Rune[]))
-  castSide(true)
+  castNow(true)
 }
 
 beforeEach(() => {

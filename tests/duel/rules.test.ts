@@ -14,6 +14,7 @@ import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, dustEase, onboarding, foeRate } from '@/game/duel/sim'
 import { AFK_S } from '@/game/duel/director'
+import { castNow, forged } from './forged'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -163,7 +164,11 @@ describe('casting and resolution', () => {
     holdFoe()
     S.queue.push(FIRE)
     cast()
+    // The runes leave the slots at the press; the spell leaves the horn when
+    // its forge has run out (§8.37).
     expect(S.queue).toEqual([])
+    expect(S.shots.length).toBe(0)
+    forged()
     expect(S.shots.length).toBe(1)
     run(1)
     expect(S.shots.length).toBe(0)
@@ -174,17 +179,17 @@ describe('casting and resolution', () => {
     holdFoe()
     const before = S.ehp
     S.queue.push(MOON)
-    cast()
+    castNow()
     run(1.5)
     expect(before - S.ehp).toBeCloseTo(resolveSpell([MOON]).dmg * 1.7, 5)
   })
 
   it('an EARTH WALL on the foe stops a bolt outright', () => {
     holdFoe()
-    S.eGuard = 2
+    S.eGuard = 4 // standing through the bolt's 1.5 s forge (§8.37)
     S.eGuardK = 1 // earth: stops everything
     S.queue.push(FIRE)
-    cast()
+    castNow()
     run(1)
     expect(S.ehp).toBe(S.ehpMax)
     expect(S.pops.some((p) => p.k === 'blocked')).toBe(true)
@@ -196,19 +201,23 @@ describe('casting and resolution', () => {
     S.eGuardK = 2
     // An Ice bolt: not the pillar's weak point (Fire melts it, §8.35).
     S.queue.push(ICE)
-    cast()
+    castNow()
     run(1)
     expect(S.ehp).toBe(S.ehpMax)
     expect(S.eGuard).toBe(0)
     S.queue.push(FIRE)
-    cast()
+    castNow()
     run(1)
     expect(S.ehp).toBeLessThan(S.ehpMax)
   })
 
-  it('casting with an empty hand does nothing', () => {
+  it('casting with an empty hand does nothing — and says why (§8.37)', () => {
+    S.t = 3.25
     cast()
     expect(S.shots.length).toBe(0)
+    expect(S.forge.t).toBe(-1)
+    expect(S.castRefusedAt).toBe(3.25)
+    expect(S.castRefusedWhy).toBe('empty')
   })
 })
 
@@ -220,7 +229,7 @@ describe('the end of a duel', () => {
     S.ehp = 1
     S.queue.push(FIRE)
     cast()
-    run(2)
+    run(3)
     off()
     expect(S.phase).toBe(PH_WIN)
     expect(S.foe).toBe(0) // the campaign, not the sim, decides what comes next
@@ -368,7 +377,7 @@ describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
   it('a bubble ward holds for exactly two hits', () => {
     holdFoe()
     S.queue.push(WATER, WATER)
-    cast()
+    castNow()
     expect(S.guardK).toBe(3)
     expect(S.guardHits).toBe(2)
     expect(S.guard).toBeGreaterThan(4)
@@ -392,7 +401,7 @@ describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
     S.eGuardK = 1
     const before = S.ehp
     S.queue.push(LIGHTNING)
-    cast()
+    castNow()
     expect(S.shots[0]!.p).toBe(1)
     run(1.5)
     expect(S.ehp).toBeLessThan(before)
@@ -402,7 +411,7 @@ describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
   it('a Tidal Wave leaves its caster a 1-hit ward for 2 s', () => {
     holdFoe()
     S.queue.push(WATER, WATER, WATER)
-    cast()
+    castNow()
     expect(S.guardK).toBe(3)
     expect(S.guardHits).toBe(1)
     expect(S.guard).toBeCloseTo(2, 5)
@@ -436,6 +445,9 @@ describe('Water and Lightning (§6.3, §6.8, §6.11, S3)', () => {
     S.eForm = 0
     S.eRune = ICE
     run(0.05)
+    // Her forge (§8.37): the bolt leaves her horn 1.5 s after she casts it.
+    expect(S.eForge.t).toBeGreaterThanOrEqual(0)
+    forged(true)
     const shot = S.shots.find((s) => s.dir < 0)
     expect(shot?.p).toBe(1)
   })

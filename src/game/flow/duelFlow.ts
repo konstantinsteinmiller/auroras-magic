@@ -34,6 +34,8 @@ import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { noteFirstWin } from '@/game/campaign/session'
 import { earlyEase } from '@/game/campaign/easing'
 import { glimpseDue } from '@/game/campaign/glimpse'
+import { newRuneDue } from '@/game/campaign/newRune'
+import { armRuneGuide } from '@/game/duel/lesson'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
@@ -82,6 +84,9 @@ export const startDuel = (n: number): void => {
     // One early look at how the runes answer each other (story-spec §8.36).
     glimpse: glimpseDue(n, replay)
   })
+  // A rune a chest gave her that her hand has never drawn: its guide on the
+  // pad for this duel, holding nothing (`campaign/newRune.ts`, `lesson.ts`).
+  armRuneGuide(newRuneDue(n, S.campaign))
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
   // …and the duel is fought over that sector's own page (§8.29).

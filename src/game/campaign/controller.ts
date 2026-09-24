@@ -8,6 +8,8 @@
  *     rewards";
  *   • a spell cast for the first time is recorded in `combosSeen` (the
  *     spellbook) and reported once (`spell_discovered`, §7.13);
+ *   • a rune her hand stores for the first time is recorded in
+ *     `runesTaught` (the new-rune guide, `newRune.ts`);
  *   • the boss chest's unbox grants the chapter's rune (or Signature Spell)
  *     and its keepsake — at the UNBOX, not the win (R-1b): a player may win a
  *     boss and close the game before ever opening the chest;
@@ -28,6 +30,7 @@ import { awardStar, castEarnsStar } from '@/game/campaign/stars'
 import { clamp } from '@/game/duel/util'
 import { track } from '@/use/useAnalytics'
 import { refreshBook } from '@/use/useBook'
+import { markRuneTaught } from '@/game/campaign/newRune'
 
 /** A node already won is a replay: practice, no gift, no reward (C24). */
 export const isReplay = (node: number): boolean => node >= 0 && node <= S.campaign.furthestNode
@@ -58,10 +61,16 @@ const sameDuel = (): void => {
 
 export const installCampaignController = (): (() => void) => {
   if (installed) return installed
-  const off = onDuelEvent((e, won) => {
+  const off = onDuelEvent((e, won, info) => {
     // C18: a local versus match has no campaign side-effects at all — no
     // progress, no Dream Dust, no spellbook discoveries.
     if (S.flow.mode === 'versus') return
+    // A rune her hand has now drawn: the new-rune guide need not show it
+    // again (`newRune.ts`). Only the first time costs a save.
+    if (e === 'rune') {
+      if (info?.success && markRuneTaught(S.campaign, info.rune)) save()
+      return
+    }
     if (e === 'cast') {
       const c = lastPlayerCast()
       sameDuel()

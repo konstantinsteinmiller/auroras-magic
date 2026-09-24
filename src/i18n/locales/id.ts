@@ -111,6 +111,10 @@ export default {
   },
 
   'intro': {
+    'blockCasting': 'DIA SEDANG MERAPAL MANTRA!',
+    'blockSquare': 'GAMBAR PERSEGI UNTUK MENANGKIS!',
+    'blocked': 'KAMU MENANGKISNYA!',
+    'attack': 'SEKARANG SERANG DENGAN DUA RUNE!',
     'draw': 'GAMBAR RUNE-NYA',
     'triangle': 'GAMBAR SEGITIGA',
     'square': 'GAMBAR PERSEGI',
@@ -141,7 +145,14 @@ export default {
   'result': {
     'victory': 'MENANG!',
     'defeated': 'Zzz... coba lagi?',
-    'tapToDuel': 'Ketuk untuk berduel'
+    'tapToDuel': 'Ketuk untuk berduel',
+    'tip': {
+      'block': 'Saat rune-nya terbang ke tanduknya, gambar PERSEGI untuk menangkis!',
+      'stack': 'Dua rune membuat mantra lebih kuat!',
+      'keepDrawing': 'Terus menggambar! Selama kamu menggambar, sihirmu melindungimu.',
+      'drawBig': 'Bentuk yang besar dan tenang paling berhasil!',
+      'mix': 'Campur rune yang berbeda untuk menemukan mantra baru!'
+    }
   },
 
   'book': {
@@ -557,7 +568,9 @@ export default {
     'almostRune': 'HAMPIR {rune}!',
     'tryRune': 'Coba {rune}!',
     'comingSoon': 'SEGERA HADIR',
-    'lockedRune': 'Rune {rune} segera hadir'
+    'lockedRune': 'Rune {rune} segera hadir',
+    'newRuneGuide': 'Rune baru: {rune}!',
+    'great': 'Hebat!'
   },
 
   'license': {
