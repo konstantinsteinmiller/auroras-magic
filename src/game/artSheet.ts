@@ -245,6 +245,14 @@ export interface ItemSheet {
   /** Extra lines for the count-and-check list, after the shared ones. */
   checks?: readonly string[]
   /**
+   * THE EDGE IS PAINTED, NOT INKED (`SOFT_EDGE`): what to call the thing whose
+   * edge it is ('the star', 'each stone'). For a small sheet whose reference
+   * is one thick even ring and whose first return traced it into a sticker.
+   * Adds the clause and its checks, and drops "fully outlined" from the
+   * colour-me clause, which otherwise asks for the ring back.
+   */
+  softEdge?: string
+  /**
    * A canvas of this sheet's own, in place of `itemSheetSize(frames)`.
    *
    * The default sizes are the two aspects an image model reliably returns — a
@@ -396,7 +404,12 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       checks: ['· One shell, hinge at the top, and no cord anywhere.']
     }),
   item('scarfWrap', 'Winter scarf (the wrap)', 1, 'centre',
-    'The wrapped part of a chunky knitted winter scarf, on its own: a short, fat, rounded roll of knitting lying level, cranberry red with two broad cream stripes across it and a soft knit rib along its middle, and a round knot bulging from it just below its right end, where the scarf is tied. Only the roll and its knot.',
+    // Both rolls (2026-09-24) put something UNDER the knot: two leaf-shaped
+    // flaps, then (kept) a second red lump — the tails the game draws, under
+    // yet another name. Say where the knot is, how big, and that it is the
+    // lowest thing in the picture: a check the painter can measure. Do not
+    // say where the tails hang — a thing described is a thing drawn.
+    'The wrapped part of a chunky knitted winter scarf, on its own: a short, fat, rounded roll of knitting lying level, cranberry red with two broad cream stripes across it and a soft knit rib along its middle, and ONE round knot — a single ball of knitting a little smaller than the roll is tall — sitting over the roll\'s lower RIGHT end and bulging just past its bottom edge, exactly where the reference draws its one circle. Only the roll and its one knot: directly under the knot there is nothing at all, only magenta.',
     'Cranberry red and warm cream knitting, a deeper cranberry where the roll turns under.',
     [],
     {
@@ -408,7 +421,9 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       // the tails again, under another name.
       checks: [
         '· No tail, end or fringe anywhere: just the roll and its round knot.',
-        '· THE KNOT IS ONE ROUND BALL — no loops, no ears, no leaf-shaped flaps, no bow. Look directly below the knot: there is only magenta there.'
+        '· THE KNOT IS ONE ROUND BALL — no loops, no ears, no leaf-shaped flaps, no bow. Look directly below the knot: there is only magenta there.',
+        '· COUNT THE ROUND SHAPES at the right-hand end: ONE. Not a knot with a smaller ball, lump or bobble under it — a second lump there hangs frozen beside the game\'s own swinging ends, like a growth on her neck.',
+        '· THE LOWEST PAINTED POINT OF THE WHOLE PICTURE is the bottom of that one knot, just below the roll. Nothing reaches lower than it.'
       ]
     }),
   item('acornCap', 'Acorn Cap', 1, 'centre',
@@ -807,6 +822,27 @@ const STILL_PAINTED = '· It is still a hand-painted storybook thing, not a flat
 const NO_FILM = ' NO FILM ACROSS IT: the middle is not a pale see-through skin, sheen, tint, reflection or shading laid over the magenta — it is NOTHING, the same flat, untouched #FF00FF as the four corners of the sheet, right up to a clean inside edge. The game lays its own see-through wash there.'
 const NOTHING_ROUND = '· NOTHING under, behind or around it — no shadow, no glow, no sparkle, no plate. Magenta touches its outline the whole way round.'
 
+/**
+ * THE EDGE IS PAINTED, NOT INKED (`ItemSheet.softEdge`; the 2026-09-24 re-roll
+ * pass). A small sheet's reference is the game's own stroke — one thick, even
+ * plum ring round every shape — and the first gold star, snowball, glass chip
+ * and rock ward traced it: a flat sticker inside a ring of one width, which on
+ * the painted page or sector under it reads as a cut-out pasted on top. The
+ * style block's "the line varies" did not stop it, exactly as it did not stop
+ * the creatures (`CREATURE_NOT_A_STICKER`): say what the ring IS, what holds
+ * the edge instead, and hand the painter a test it can run on its own result.
+ */
+const SOFT_EDGE = (what: string): string => [
+  `THE EDGE IS PAINTED, NOT INKED — the one thing the last painting of this got wrong.`,
+  '· The dark ring of one even width round the reference\'s shapes is how the game SKETCHES: it marks where the edge is, and nothing more. It is not the look. Traced, it makes a flat sticker, and on the hand-painted picture this sits on, a sticker reads as a cut-out pasted on top.',
+  `· Hold ${what}'s edge with PAINT: its own light and shade meeting the magenta. Where a line helps, it is a soft warm plum brush accent — heaviest on the shadow side at the lower right, thinning along the sides, and fading to NOTHING along the lit upper left. Broken and tapering; never closed all the way round.`
+].join('\n')
+
+const softEdgeChecks = (what: string): readonly string[] => [
+  `· FOLLOW THE EDGE of ${what} all the way round with your eye. Along the lit upper left there is NO line at all — the paint simply meets the magenta. If one dark ring of the same width closes all the way round, it is the sticker again: paint it again, lighter.`,
+  '· Find the two heaviest stretches of line and compare them. If they are the same weight, it is a contour, not a brush — thin one of them away.'
+]
+
 const CHROME_SHEETS: readonly ItemSheet[] = [
   chrome('glove', {
     title: 'Show-how glove',
@@ -838,8 +874,14 @@ const CHROME_SHEETS: readonly ItemSheet[] = [
     anchor: 'centre',
     noun: 'book board',
     canvas: { w: 1536, h: 864 },
-    blurb: 'The COVER BOARD of a big storybook lying open, seen straight from above, with its open page lifted away: a deep violet cloth-covered board, square-cornered along its LEFT edge (the spine side) and softly rounded at its two RIGHT corners; just inside its edge, a band of cream PAGE EDGES — the block of leaves seen edge-on, a stack of many thin sheets showing as fine stripes of lighter and darker cream that run parallel to the edge all the way round; and in the middle, where the open page lies, a big rectangular HOLE.',
-    colour: 'Deep violet book-cloth — a warm plum-violet, never black — a little lighter along the top and deeper toward the bottom. Warm cream page edges, finely striped with a soft brown-lilac shade between the sheets.',
+    // The first roll (2026-09-24) was a near-tidy copy of the drawing: a flat
+    // violet D-shape and a page block of evenly spaced RULED stripes — the
+    // reference's ring of concentric hairlines, traced. Ask for cloth and
+    // paper, and name those hairlines as the game's shorthand for "many
+    // sheets". The stretch still rules: the linen's grain and the sheets both
+    // run ALONG each side, where a 9-slice stretch cannot smear them.
+    blurb: 'The COVER BOARD of a big storybook lying open, seen straight from above, with its open page lifted away: a deep violet CLOTH-BOUND board, square-cornered along its LEFT edge (the spine side) and softly rounded at its two RIGHT corners; just inside its edge, a band of cream PAGE EDGES — the block of leaves seen edge-on, a stack of many thin sheets of paper running parallel to the edge all the way round; and in the middle, where the open page lies, a big rectangular HOLE. THE REFERENCE\'S THIN GREY STRIPES ARE THE GAME\'S SHORTHAND FOR "MANY SHEETS OF PAPER HERE": they show which way the sheets run and how wide the block is, not how it looks. Paint the paper, not the stripes.',
+    colour: 'Deep violet book-cloth — a warm plum-violet, never black — a little lighter along the top and deeper toward the bottom, with a soft, fine LINEN grain in it, like the cloth on an old storybook. Warm cream paper for the page block, softly varied: a few sheets a touch lighter, a few a touch warmer and deeper, and a soft warm shade where the block turns under the page.',
     holes: 'THE PAGE HOLE — the big rectangle in the middle, where the game lays the open page — is an open gap. It is flat magenta inside, right up to the cream page edges: no page, no paper, no picture, nothing painted in it at all.',
     not: [
       'Draw ONLY the board and the band of page edges round the hole, exactly as the reference shows them. No page, no pictures, no bookmark ribbon, no stitching, no spine, no clasp, no corner guards, no gems, no ornaments, no table or cloth under it.',
@@ -848,14 +890,22 @@ const CHROME_SHEETS: readonly ItemSheet[] = [
     ],
     keep: [
       'EVERY SIDE IS THE SAME ALL THE WAY ALONG — the one rule the game cannot work without.',
-      '· The game fits this board to every screen, wide and tall, by keeping the four corners as they are and STRETCHING each side along its length. So along each side the board is one plain band of cloth and the page edges one plain band of fine stripes — the same colour, the same width and the same light at every point along it. No motif, no patch, no stain, no worn spot and no change of colour anywhere along a side.',
-      '· THE PAGE-EDGE STRIPES RUN ALONG THE SIDES, parallel to the board\'s own edge, and turn each corner with it — never across a side. A stripe across a side is stretched into a smear. They are stripes of paint, not drawn lines.',
-      '· The cloth is SMOOTH: no weave, no grain and no texture that a stretch would pull into streaks. Its only change is the soft light, lighter at the top and deeper at the bottom.',
+      '· The game fits this board to every screen, wide and tall, by keeping the four corners as they are and STRETCHING each side along its length. So along each side the board is one even band of cloth and the page edges one even band of paper — the same colour, the same width and the same light at every point along it. No motif, no patch, no stain, no worn spot and no change of colour anywhere along a side.',
+      '· THE SHEETS RUN ALONG THE SIDES, parallel to the board\'s own edge, and turn each corner with it — never across a side. Anything across a side is stretched into a smear.',
+      '· THE PAGE BLOCK IS PAPER, NOT A RULED PATTERN: soft bands of cream of slightly different widths and tones, their edges soft and a little uneven, bunched here and looser there, like the edge of a real stack of paper — a painted surface, with no drawn line in it anywhere. Its outer edge, where it meets the cloth, is soft and slightly uneven too.',
+      // DO NOT ASK TO COUNT THE SHEETS (2026-09-24, one generation): the roll
+      // this brief produced has soft paper and no ruled stripes, but its sheets
+      // melt into one cream strip at the slicer's 256 px. A clause asking for
+      // "five to eight bands you can count" brought the reference's ruled
+      // stripes straight back — the painter counted the reference's lines.
+      '· THE CLOTH HAS A SOFT, FINE LINEN GRAIN — faint and even, the same all the way along, its fine threads running ALONG each side (parallel to the edge) and turning each corner with it, so a stretch along the side only lengthens threads that already run that way. From arm\'s length it reads as plain violet cloth; up close, as woven book-cloth. No patterned weave, no checks, no coarse texture, and nothing that runs across a side.',
       '· THE ONE PLACE STRAIGHT EDGES ARE RIGHT: the board\'s outer edges and the hole\'s edges run level and parallel — drawn by hand, but never bending, bulging or wobbling, because the game stretches them. The two RIGHT corners are rounded, the two LEFT corners square.'
     ].join('\n'),
     view: 'THE VIEW: flat and square-on from directly above, exactly as the reference shows it — a flat frame lying on a table seen from overhead. No perspective, no tilt, no thickness seen from the side.',
     checks: [
-      '· Cover the four corners with your hands and look at what is left: plain violet cloth and plain page-edge stripes along each side, the same from one end to the other.',
+      '· Cover the four corners with your hands and look at what is left: violet linen cloth and cream page edges along each side, the same from one end to the other.',
+      '· LOOK AT THE PAGE BLOCK: it is soft painted paper. If it looks like a set of evenly spaced lines drawn with a ruler and compass — the reference, tidied — paint it again as paper.',
+      '· The band of cloth and the band of page edges are as wide as the reference\'s, and the hole is the reference\'s size and in its place.',
       '· The hole is flat #FF00FF inside, right up to the page edges: nothing painted in it.',
       '· Left corners square, right corners rounded.',
       '· Look at the magenta directly OUTSIDE the board: the same flat magenta as the corners of the sheet — no shadow, no glow, no table.'
@@ -891,19 +941,29 @@ const CHROME_SHEETS: readonly ItemSheet[] = [
     title: 'Chapter star',
     anchor: 'centre',
     noun: 'star',
-    blurb: 'A plump five-pointed STAR in warm butter gold, point up, with softly rounded points and a plum line round it — the kind of gold star a teacher sticks on a page.',
-    colour: 'Warm butter gold, paler where the light lands at the top left and a deeper honey gold toward the bottom right.',
+    // The first roll (2026-09-24) was a flat gold sticker in a heavy even
+    // plum ring. Its brief asked for it: "the plum line round it is strong",
+    // and `seenAt`'s "a confident plum line". The edge on cream is now carried
+    // by the star's own shading and a line that swells and tapers.
+    blurb: 'A plump five-pointed STAR in warm butter gold, point up, with softly rounded points — slightly puffy, like a little cushion, its middle gently domed — the kind of gold star a teacher sticks on a page, but PAINTED by hand.',
+    colour: 'Warm butter gold. A soft, creamy-pale highlight up at the top left where the light lands, deepening to a warm honey-amber toward the bottom right and along the lower edges of its points; a gentle warm glow in its middle, kept INSIDE its own edge.',
+    softEdge: 'the star',
     not: [
-      'Draw ONLY the one star. No sparkles round it, no glow, no ribbon, no badge or disc behind it.',
+      'Draw ONLY the one star. No sparkles round it, no glow spreading off it, no ribbon, no badge or disc behind it.',
       'IT HAS NO FACE — no eyes, no smile, no cheeks. It is a mark, not a character.',
       'No text, letters or numbers.'
     ],
     keep: [
-      seenAt('about 18 to 30 pixels across, in a row of up to ten on a cream paper leaf, one star for each chapter of the story', 'Gold on cream is nothing without its line, so the plum line round it is strong.'),
+      'HOW BIG IT IS IN PLAY — about 18 to 30 pixels across, in a row of up to ten on a cream paper leaf, one star for each chapter of the story. So it is a bold, plump, simple shape first: strong warm gold, one soft highlight, one soft honey shade — no small details, which only turn to mush at that size.',
+      '· HOW GOLD HOLDS ITS EDGE ON CREAM: by its own deeper honey-amber along the lower-right edges of the points, and a warm plum brush line that is fullest under the two bottom points and thins away up the sides. That is enough to read on cream paper; a ring of one width round all five points is not needed and is what made the last one a sticker.',
       NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the star'),
       STILL_PAINTED
     ].join('\n'),
-    checks: ['· One star, five points, point up, no face.', NOTHING_ROUND]
+    checks: [
+      '· One star, five points, point up, no face.',
+      '· The gold is NOT flat: a pale soft highlight at the upper left, a warm deeper honey toward the lower right, and a gentle glow in the middle.',
+      NOTHING_ROUND
+    ]
   }),
   chrome('trophy', {
     title: 'Versus trophy',
@@ -1170,6 +1230,8 @@ const prop = (
   small: string, panels: readonly string[] = [], extra: Partial<ItemSheet> = {}
 ): ItemSheet => {
   const { kind, id } = PROP_ART[name]
+  // A prop's own `keep` is ADDED to the family's, never swapped for it.
+  const { keep: more, ...rest } = extra
   return {
     name: `prop:${name}` as const,
     kind, id, title, frames, anchor: 'centre' as const, panels, blurb, colour,
@@ -1180,11 +1242,12 @@ const prop = (
       // a cast shadow and laid a dark ellipse on the magenta, which keys to a
       // pink smear welded under the sprite. These float on nothing, always.
       '· THE SHADOW IS ON THE THING, NEVER UNDER IT. This is flying, swimming or floating with nothing beneath it: no ground shadow, no dark patch, no soft smudge below or behind it. A shadow laid on the magenta comes out as a pink stain stuck to it for ever.',
-      '· It is still a hand-painted storybook thing, not an icon and not a sticker: the paint varies across it and the ink swells and fades.'
+      '· It is still a hand-painted storybook thing, not an icon and not a sticker: the paint varies across it and the ink swells and fades.',
+      ...(more ? [more] : [])
     ].join('\n'),
     file: id,
     target: artTarget(kind, id),
-    ...extra
+    ...rest
   }
 }
 
@@ -2863,12 +2926,16 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('snowball', 'Snowball', 1,
-    'A round snowball: one plump ball of packed snow with a single soft curved streak on its lower right, showing it is rolling.',
-    'Snow white with a soft lilac shadow on its underside, and a lilac streak.',
+    // The first roll (2026-09-24) was a smooth white disc in a heavy even
+    // plum ring — a sticker rolling over the painted sledging hill.
+    'A round snowball: one plump ball of PACKED SNOW, pressed together by mittens — round overall, but its edge softly and lightly lumpy, like real packed snow, never a perfect circle — with a single soft curved streak on its lower right, showing it is rolling.',
+    'Snow white with a COOL shadow side: a bright, warm-white top-left where the light lands, and a soft pale blue-lilac shade gathering toward the lower right and underneath, soft-edged; a lilac streak.',
     'it is between a fortieth and a twentieth of the width of the scene — it grows as it rolls down a sledging hill.',
     [],
     {
       noun: 'snowball',
+      softEdge: 'the snowball',
+      keep: '· SNOW HAS NO EDGE TO INK. Its shape is held by the cool blue-lilac shade on its lower right against the magenta, and by the bright white of its lit side — it rolls over a painted snowy hill, where a dark ring round it is the one thing that makes it a sticker.',
       view: 'THE VIEW: flat and square-on, a round ball, the streak low on its right, exactly as the reference has it. The game spins it as it rolls.',
       not: [
         'Draw ONE snowball and nothing else, exactly as the reference shows it.',
@@ -2876,7 +2943,8 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
         '· No text, letters or numbers.'
       ],
       checks: [
-        '· One round ball with ONE curved streak on it.',
+        '· One round ball with ONE curved streak on it, its edge softly lumpy — not a perfect circle.',
+        '· The shade on its lower right is COOL (pale blue-lilac), not grey and not plum.',
         '· Nothing under it: the magenta runs clean all round.'
       ]
     }),
@@ -2939,21 +3007,28 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('glassChip', 'Glass chip', 1,
-    'A small chip of mirror glass: ONE three-cornered sliver, like a little wedge broken off the edge of a mirror, lying flat.',
-    'Keep the reference\'s pale neutral grey (see below): the game makes it dull grey while it lies asleep and clear blue-white as it flies home into its mirror. Glassy — a lit edge and a soft sheen across it.',
+    // The first roll (2026-09-24) was a pale triangle inside a thick, even
+    // dark-grey band, like a road sign — the reference's ring traced and
+    // then bevelled. A chip of glass has a BRIGHT edge, not a dark one.
+    'A small chip of mirror glass: ONE three-cornered sliver, like a little wedge broken off the edge of a mirror, lying flat. It is PALE GLASS that looks see-through: a bright, crisp highlight running along its lit upper-left edges where the light catches the broken glass, a pale glassy face with one soft diagonal sheen across it, and a slightly deeper tone along its lower edge, where the glass is thickest. Its corners are a little rounded and its edges a touch uneven, as broken glass is.',
+    'Keep the reference\'s pale neutral grey (see below): the game makes it dull grey while it lies asleep and clear blue-white as it flies home into its mirror. Glassy — a near-white edge highlight and a soft sheen across its face.',
     'it is about a fortieth of the width of the scene — a chip lying beside a cracked hand-mirror.',
     [],
     {
       noun: 'chip',
       tinted: 'the whole chip',
+      softEdge: 'the chip',
+      keep: '· IT LOOKS LIKE CLEAR GLASS, BUT IT IS PAINTED SOLID: nothing of the magenta shows through it anywhere. A chip painted see-through over magenta comes out pink, and the game cannot colour it. Show the glass with light — the bright edge, the sheen, the deeper tone at its thick edge — not with transparency.',
       view: 'THE VIEW: flat and square-on, exactly as the reference has it. The game turns it as it flies.',
       not: [
         'Draw ONE chip and nothing else, exactly as the reference shows it.',
         '· NO mirror, NO frame, NO handle, NO other shards, NO ground, NO sparkle, NO shadow beneath it.',
+        '· NO dark band or bevel round it: the edge of glass is its BRIGHTEST part.',
         '· No text, letters or numbers.'
       ],
       checks: [
         '· ONE three-cornered chip.',
+        '· Its brightest part is the highlight along its upper-left edges; there is no dark band inside its edge.',
         '· Nothing under it: the magenta runs clean all round.'
       ]
     }),
@@ -2988,21 +3063,40 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
    * pale wash there, and its own sheen, glitter, crack and flakes on top.
    */
   prop('wardRock', 'Rock ward', 1,
-    'A short, rough wall of six chunky broken rock blocks piled in two columns of three, each block a lumpy many-sided stone with flat broken faces, each set at its own tilt — a shield of stone raised in front of someone. NOTHING else: no ground under it, no pebbles, no dust, no figure behind it.',
-    'Warm clay-brown and tan earth: every block with a lit top face and a deeper brown shadow side, so the six read as separate stones.',
+    // The first roll (2026-09-24) came back as six flat brown HEXAGON TILES in
+    // an even dark ring: the reference's six hexagons, traced. "Many-sided
+    // stone with flat broken faces" asked for exactly that. The hexagons are
+    // the stroke code's shorthand for "a stone here"; say so, the flower
+    // head's way, and ask for the stone.
+    'A short, rough wall of SIX ROUNDED FIELD STONES piled in two columns of three — a shield of stone raised in front of someone. Each stone is a separate, chunky, pebble-rounded boulder worn smooth by weather: a little lumpy, no two quite the same shape, each set at its own slight tilt. THE REFERENCE\'S SIX HEXAGONS ARE THE GAME\'S SHORTHAND FOR "ONE STONE HERE": they mark where each stone sits and how big it is, not its shape. A stone in a field has no straight sides and no sharp corners, so paint six rounded STONES in those six places, never six tiles. Where one stone overlaps its neighbour, the front one simply covers the one behind. NOTHING else: no ground under it, no pebbles, no dust, no figure behind it.',
+    'Warm earthy browns and ochres — clay brown, tan and warm ochre, each stone a slightly different shade so the six read as six. Soft light from the UPPER LEFT: a warm, pale top-left on every stone where the light lands, turning gradually round the stone into a deeper, cooler brown on its lower right — soft-edged, never a hard facet. A touch of soft moss green on the tops of the two TOP stones only.',
     'it is about a tenth of the width of the scene and a quarter of its height — a wall a unicorn ducks behind.',
     [],
     {
       noun: 'rock wall',
       anchor: 'feet',
+      softEdge: 'each stone',
+      keep: [
+        '· SIX SEPARATE STONES IN SIX PLACES. Each of the reference\'s six shapes becomes ONE whole stone, the same size and in the same place, and the six tell apart at a glance: the wall is six stones stacked, not one rock with cracks painted across it.',
+        // The first re-roll traced the hexagons again, ring for ring; the
+        // reference's own ink is now thinned (`fx.ROCK_REF_INK`) and each
+        // stone drawn over the one behind it, so the picture and the words
+        // agree — the creatures' fix.
+        '· THE LINE IN THE REFERENCE IS DELIBERATELY FAINT. It is a guide to where each stone sits, not a contour to ink in. Do not thicken it, do not close it into a ring, and do not copy its six-sided shape: round every stone off.'
+      ].join('\n'),
       view: 'THE VIEW: flat, from the side, exactly as the reference has it. The game mirrors it for the duelist on the other side, so nothing in it turns toward the viewer.',
       not: [
-        'Draw ONLY the six stones, exactly as the reference stacks them.',
+        'Draw ONLY the six stones, exactly where the reference stacks them.',
         '· NO ground, NO grass, NO dust cloud, NO pebbles round its foot, NO unicorn, NO sky, NO shadow beneath it.',
         '· No text, letters or numbers.'
       ],
       checks: [
-        '· Six stones, in two columns of three.',
+        '· Six stones, in two columns of three, each in the place of one of the reference\'s six shapes.',
+        '· STONES, NOT TILES: count the straight sides in your picture — there should be none. Every stone is rounded and lumpy, and no two are the same shape.',
+        // The roll against the thinned reference rounded the two mossy top
+        // stones and left the four below them six-sided.
+        '· ALL SIX ARE ROUNDED — look at the FOUR LOWER stones especially: none keeps a straight side or a sharp corner from the reference. They are as round and lumpy as the two on top.',
+        '· Soft moss on the two top stones only; the other four are bare stone.',
         '· Nothing under it: the magenta runs clean beneath its bottom stones.'
       ]
     }),
@@ -3089,22 +3183,44 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('wardFrost', 'Frost dome ward', 1,
-    'A dome of frost: a half-circle shell of pale ice on two short straight sides down to a flat bottom edge, with four little white frost ferns — each a short stem with one side-leaf — growing INWARD from the CURVED TOP of the rim, two either side of the top, exactly where the reference draws its four white marks. Nothing grows from the bottom edge or from the two straight sides. The shell is only its rim, like a window frame with no glass in it: the middle is empty.',
-    'Pale icy blue, near-white where the light catches the rim; the ferns pure white.',
-    'it is about a ninth of the width of the scene — a frosty dome over a unicorn.',
+    // Two re-rolls kept painting a GLASS DOME's reflection inside the arch —
+    // a pink sheen on the magenta, however the colours were worded. "Dome"
+    // and "shell" are glass words: it is a band of FROST, which has nothing
+    // to reflect with. That roll came back clean — and with four feathery
+    // sprigs painted BESIDE the reference's four marks: the marks ARE the
+    // ferns, so say so.
+    'An ARCH OF FROST: a thick band of frosted ice bent into a round-topped arch — a half-circle over two short straight sides — standing on a flat bottom band, like an arched window frame made of hoarfrost, with four little white frost ferns — each a short stem with one side-leaf — growing INWARD from the CURVED TOP of the band, two either side of the top, exactly where the reference draws its four white marks — THOSE FOUR MARKS ARE THE FOUR FERNS: paint each one as a fern, and add no other sprig, frond or fern beside them. Nothing grows from the bottom edge or from the two straight sides. IT IS MATTE FROST, LIKE PACKED SNOW AND HOARFROST, NOT GLASS: there is no glass pane, no bubble and no dome surface anywhere, so nothing reflects and nothing shines across the opening. The middle is simply empty.',
+    // The second roll (2026-09-24) was kept with a hot-pink streak of "glass
+    // highlight" across the upper left of the arch, opaque (243,149,210) —
+    // indistinguishable from the magenta leaking through, over the duelist's
+    // face — and a warm cream-gold catch on the rim. Ice lights in white and
+    // blue only; say it, and check it.
+    // The first re-roll lost the streak but kept a soft rosy GLOW hugging the
+    // inside of the arch (a lighter magenta, half-keyed into a mauve band)
+    // and a warm cream top: "near-white" was read as warm white.
+    'Pale icy blue; where the light catches the rim it goes to a COOL blue-white, like snow in shade — never cream, peach or warm white. The ferns pure white. EVERY HIGHLIGHT IS ICY BLUE-WHITE: the light on the rim is white and pale sky blue, and nothing else — never pink, rose, lilac, violet, cream or gold. It is ice.',
+    'it is about a ninth of the width of the scene — a frosty arch over a unicorn.',
     [],
     {
-      noun: 'frost dome',
+      noun: 'frost arch',
       anchor: 'feet',
-      holes: 'THE DOME IS ONLY A RIM — a window frame with no glass in it. Inside its icy rim the magenta runs straight through, round the four ferns: a unicorn stands under it and must show through. Only the rim, its outline and the four white ferns are painted.' + NO_FILM,
+      holes: 'THE ARCH IS ONLY ITS BAND — a window frame with no glass in it. Inside its band of frost the magenta runs straight through, round the four ferns: a unicorn stands under it and must show through. Only the band, its outline and the four white ferns are painted.' + NO_FILM,
+      keep: [
+        '· THE LIGHT STAYS ON THE RIM. Its highlights run along the icy band itself — a bright white-blue catch along the top of the arch — and never cross into the open middle as a streak, a glint or a reflection. A pink or warm streak on or inside this arch is read as the magenta ground showing through, and it sits over the duelist\'s face.',
+        '· THE INSIDE EDGE OF THE RIM IS CLEAN: the band of ice stops and the flat magenta begins, right there. No glow, halo or soft light spilling off the rim into the middle — a glow over magenta is a lighter pink, and it keys into a rosy band hugging the inside of the arch.'
+      ].join('\n'),
       view: 'THE VIEW: flat, from the side, exactly as the reference has it.',
       not: [
-        'Draw ONLY the dome and its four ferns, exactly as the reference shows them.',
+        'Draw ONLY the arch and its four ferns, exactly as the reference shows them.',
         '· NO snowflakes, NO glitter or sparkles (the game adds its own), NO snow drift, NO ground, NO unicorn inside it.',
+        '· NO pink, rose or lilac anywhere on it.',
         '· No text, letters or numbers.'
       ],
       checks: [
-        '· One dome and FOUR ferns — all four on the curved top, none at the bottom — and the middle the same flat magenta as the corners of the sheet.',
+        '· One arch and FOUR ferns — all four on the curved top, none at the bottom — and the middle the same flat magenta as the corners of the sheet.',
+        '· COUNT EVERY WHITE MARK inside the arch: four, one where each of the reference\'s four marks is. Eight — a mark and a sprig beside it — is wrong.',
+        '· LOOK AT EVERY HIGHLIGHT ON THE RIM: each one is white or pale icy blue. If any is pink, rose, lilac, cream or gold, paint it out.',
+        '· LOOK JUST UNDER THE TOP OF THE ARCH, inside it: the magenta there is the same flat #FF00FF as the corners of the sheet — no lighter pink glow band hugging the rim.',
         '· Its bottom edge is flat and straight, and nothing is under it.'
       ]
     }),
@@ -3840,9 +3956,9 @@ const FULL_BLEED = [
   '· No frame, no border, no vignette, no card, no rounded corners, no letterboxing, no white margin.'
 ].join('\n')
 
-const neutralClause = (what: string): string => [
+const neutralClause = (what: string, outlined = true): string => [
   `THE COLOUR-ME PART — ${what}.`,
-  `In the reference it is a pale neutral lilac-grey (about ${NEUTRAL_HEX}). KEEP IT THAT PALE NEUTRAL LILAC-GREY in your painting: shaded with lighter and darker lilac-grey only, fully outlined and fully painted, but with no hue of its own — no pink, no blue, no gold, no colour at all.`,
+  `In the reference it is a pale neutral lilac-grey (about ${NEUTRAL_HEX}). KEEP IT THAT PALE NEUTRAL LILAC-GREY in your painting: shaded with lighter and darker lilac-grey only, ${outlined ? 'fully outlined and fully painted' : 'fully painted'}, but with no hue of its own — no pink, no blue, no gold, no colour at all.`,
   '· It is a blank the game colours in later, laying the colour over your grey. A coloured one cannot be recoloured, and a white one comes out washed out.',
   '· Everything else is painted in its full colours, as normal.'
 ].join('\n')
@@ -4002,8 +4118,9 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   lines.push(REFERENCE_CLAUSE, '')
   if (s.kind === 'creature') lines.push(CREATURE_NOT_A_STICKER, '')
   lines.push(`COLOUR IDENTITY (keep the hues; the exact shades are yours): ${s.colour}`, '')
-  if (s.tinted) lines.push(neutralClause(`${s.tinted}. The game gives it a different colour for every chapter`), '')
+  if (s.tinted) lines.push(neutralClause(`${s.tinted}. The game gives it a different colour for every chapter`, !s.softEdge), '')
   if (s.keep) lines.push(s.keep, '')
+  if (s.softEdge) lines.push(SOFT_EDGE(s.softEdge), '')
   lines.push(s.view ?? 'THE VIEW: flat and square-on, exactly as the reference shows it. No three-quarter view, no perspective, no tilt, nothing turned toward the viewer.')
   if (s.facing) lines.push(`· ${s.facing}`)
   lines.push('')
@@ -4032,6 +4149,7 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
     '· Nothing in any panel is anywhere near filling it.',
     ...(s.tinted ? [`· ${s.tinted[0]!.toUpperCase()}${s.tinted.slice(1)}: pale neutral lilac-grey, no hue.`] : []),
     ...(s.checks ?? []),
+    ...(s.softEdge ? softEdgeChecks(s.softEdge) : []),
     ...STYLE_CHECKS,
     '· Every pixel that is not the object is flat, vivid #FF00FF — hold it against a pure magenta swatch, not against your memory of one.',
     '',

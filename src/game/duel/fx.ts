@@ -931,6 +931,9 @@ export const WARD_U = 100
 /** How much of the drawing's ink a ward REFERENCE keeps — the creatures'
  *  lesson: an evenly inked reference comes back an evenly inked sticker. */
 const WARD_REF_INK = 0.6
+/** The earth wall's reference keeps less still: a guide to where each stone
+ *  is, which the painter is told not to thicken (`artSheet` `wardRock`). */
+const ROCK_REF_INK = 0.25
 /** A ward's own y above its caster's hooves (`sim.raise`: GY − 70). */
 const WARD_Y = -70
 /** The bubble's radius at rest; it swells ±2 about it as it wobbles. */
@@ -966,9 +969,14 @@ const icePillar = (g: G2D, x: number, gy: number, f: number, rock: number): void
   shp(g, K_SHARD, x + f * 92, gy - 92, 64, rock - PI / 2)
 }
 
+/** EARTH: stone `k` (0–5) of the wall — two columns of three, bottom up. */
+const rockStone = (g: G2D, x: number, gy: number, f: number, k: number): void => {
+  shp(g, K_ROCK, x + f * (48 + (k & 1) * 40), gy - 26 - (k >> 1) * 46, 28, k * 2)
+}
+
 /** EARTH: a stack of six crumbled rock blocks in front of the caster. */
 const rockStack = (g: G2D, x: number, gy: number, f: number): void => {
-  for (let k = 6; k--;) shp(g, K_ROCK, x + f * (48 + (k & 1) * 40), gy - 26 - (k >> 1) * 46, 28, k * 2)
+  for (let k = 6; k--;) rockStone(g, x, gy, f, k)
 }
 
 /** Crystal Ward's prisms, standing on `gy` about `x`, leaning out along `f`:
@@ -1085,13 +1093,24 @@ export const WARD_ART = {
     g.fill()
     g.stroke()
   }),
-  /** About the caster's hooves, facing +x. */
+  /**
+   * About the caster's hooves, facing +x. NOT the one path the game strokes:
+   * each stone filled and inked on its own, top row first, so no outline runs
+   * across the stone in front of it — and inked at `ROCK_REF_INK`. The first
+   * painting (2026-09-24) traced the one-path drawing's crossing hexagon
+   * rings into six flat tiles, and the words alone did not stop the re-roll
+   * tracing them again: the creatures' lesson, an evenly inked reference
+   * comes back an evenly inked sticker.
+   */
   rock: wardSpec('wardRock', 1, (g) => {
-    g.beginPath()
-    rockStack(g, 0, 0, 1)
+    g.lineWidth = 4 * ROCK_REF_INK
     g.fillStyle = RUNES[3]![0]
-    g.fill()
-    g.stroke()
+    for (let k = 6; k--;) {
+      g.beginPath()
+      rockStone(g, 0, 0, 1, k)
+      g.fill()
+      g.stroke()
+    }
   }),
   /** About the bubble's middle, at its resting radius; the game swells it. */
   bubble: wardSpec('wardBubble', 1, (g) => {

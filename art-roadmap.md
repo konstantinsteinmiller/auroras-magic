@@ -1629,3 +1629,56 @@ it after their commit.
 
 **Left:** nothing unpainted. The optional re-rolls are the "kept, with a
 note" list above, one at a time, each judged against the one it replaces.
+
+## 2026-09-24 — seven re-rolls from the "kept, with a note" list
+
+The owner's go-ahead ("re-roll where it benefits the game"), most visible
+first, at most three rolls a sheet, each roll looked at and measured before
+the next (magenta `min(R,B) − G > 60` over α > 30 on every cut). **12
+generations** (ledger 118 → 130). `art:status` still **320 / 320**; the seven
+files went 38.9 → 41.0 kB. Before/after contact sheets:
+`art-sheets/REVIEW-reroll-<stem>.png`; every replaced painting is in
+`painted/replaced/`.
+
+| sheet | rolls | kept | what changed |
+| --- | --- | --- | --- |
+| `prop-ward-rock` | 3 | roll 3 | six painted field stones, moss on the top two, a thin line; no crossing hexagon rings. Roll 1 (words only) traced the hexagons ring for ring; rolls 2–3 were against a re-exported reference. The two lower rows still keep a little of the six-sided outline |
+| `worldui-book-board` | 2 | roll 1 | soft painted paper, no ruled stripes, a faint linen grain (lost at the 256 px cut). Roll 2 went straight back to the ruled stripes and is parked (`stale/worldui-book-board.ruled-stripes-again.jpg`). Seen round the map page landscape and upright: no seam |
+| `worldui-gold-star` | 1 | roll 1 | plump, painted gold, soft highlight; the line swells under the points and thins at the top left. Reads on cream at 26 px |
+| `prop-ward-frost` | 3 | roll 3 | magenta **0.283 % → 0.000 %**, the whole rim icy blue-white, the opening clean. Rolls 1–2 kept a rosy glass sheen inside the arch. Roll 3 added four feathery sprigs beside the four fern marks (the brief now counts them) |
+| `item-winter-scarf-wrap` | 1 | roll 1 | ONE knot, nothing under it; checked on Aurora in the wardrobe. The even outline is unchanged (not in this pass) |
+| `prop-snowball` | 1 | roll 1 | lumpy packed snow, a cool blue-lilac shade side, a thinner line that still closes round it |
+| `prop-glass-chip` | 1 | roll 1 | pale glass with a bright upper-left edge and a sheen, no dark bevel band; still neutral (chroma 0.06, under `artTint`'s 0.16) |
+
+**Prompt changes (`artSheet.ts`):**
+- `ItemSheet.softEdge` + `SOFT_EDGE` / `softEdgeChecks` — *THE EDGE IS
+  PAINTED, NOT INKED*: says what the reference's even ring IS, what holds the
+  edge instead, and gives two checks ("follow the edge: along the lit upper
+  left there is NO line"; the two-heaviest-lines test). On the star, the
+  snowball, the chip and the rock. It also drops "fully outlined" from the
+  colour-me clause, which asked for the ring back.
+- A prop's own `keep` is now ADDED to the family's (`prop()`); no prop set one
+  before, so nothing else's prompt moved.
+- The star's `seenAt` ("a confident plum line") and "the plum line round it is
+  strong" are gone: that brief asked for the sticker.
+
+**Three lessons worth keeping:**
+- **Words did not stop the rock tracing its reference; thinning the
+  reference's ink did** — the creatures' lesson again. `fx.ts` `WARD_ART.rock`
+  now draws each stone on its own, top row first (no ring runs across the
+  stone in front), inked at `ROCK_REF_INK` 0.25; the game's own vector wall is
+  unchanged. Re-exported with `--only prop-ward-rock` from a private dev
+  server (the bench's prompt documents matched `art:prompts` byte for byte;
+  the index changed only that sheet, fit 0.439 × 0.641 → 0.436 × 0.638).
+- **Do not ask a painter to COUNT what the reference draws as lines.** "Five
+  to eight bands you can count" brought the board's ruled stripes back at
+  once. The clause is gone; a comment says why.
+- **"Dome" and "shell" are glass words.** Two rolls painted a glass sheen
+  across the frost ward's opening whatever the colours said; describing it as
+  "an arch of frost — matte, like hoarfrost, no glass anywhere" cleared it
+  first time.
+
+**Candidates left, if a generation is ever spare:** the board's sheets melt
+into one cream band at the 256 px cut (a third roll was not spent — the
+margin is 9–25 px in play); the snowball's and the scarf's lines still close
+round them.
