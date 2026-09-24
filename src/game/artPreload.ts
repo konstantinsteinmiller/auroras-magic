@@ -8,8 +8,10 @@
  * thumbnails, six ubiquitous props, all twelve runes, three portraits, every
  * gift and the sponge, plus the four picture-book pages behind them: 46 files
  * and ~720 kB, of which a fresh player's first screen drew THREE. A fresh
- * save boots into node 0's DUEL (retention item 2), so the splash now waits
- * for that duel's own paintings and the rest follow one stage ahead of her.
+ * save boots into the picture book's short prologue, which turns straight
+ * into node 0's DUEL. So the splash now waits for the prologue's own
+ * paintings, and the duel and everything after it follow one stage ahead of
+ * her.
  */
 import { artSettled, type ArtWant } from '@/game/art'
 import { STORY_PANELS, storyPanelId, wardrobeArtId, WARDROBE_RUG } from '@/game/artIds'
@@ -27,7 +29,7 @@ const isPortrait = (): boolean =>
  * The first screen's paintings for `save` — what the splash holds for, before
  * the props and creatures its painters are recorded asking for (those need
  * the sector code, and `artSchedule.holdFirstScreen` adds them). A fresh save
- * by default: node 0's duel.
+ * by default: the prologue in front of node 0's duel.
  */
 export const firstArtWants = (
   save: ScheduleSave = defaultCampaign(), env: ScheduleEnv = currentEnv()
@@ -50,9 +52,10 @@ export const primeWardrobeArt = (): void => {
 
 /**
  * Start the picture book's four pages (§8.26) at `low`, for a player who has
- * not seen it. The schedule puts them in the NEXT stage of the first duel
- * (the book plays at the first tap on a waiting gift), so this is only for a
- * caller that wants them regardless of where the schedule stands.
+ * not seen it. The schedule already holds the prologue's two for a fresh
+ * save's first screen and puts the lesson's two in the NEXT stage of the
+ * first duel, so this is only for a caller that wants them regardless of
+ * where the schedule stands.
  */
 export const primeIntroArt = (introSeen: boolean): void => {
   if (introSeen) return

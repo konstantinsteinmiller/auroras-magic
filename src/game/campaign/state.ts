@@ -84,6 +84,12 @@ export interface CampaignState {
    *  before the intro existed counts as seen once it has any progress — a
    *  returning player is never sent back through the picture book. */
   introSeen: boolean
+  /** The book's PROLOGUE — Aurora's hello and Umbra's dust, its first two
+   *  beats — has played in front of node 0's duel, or was skipped (owner,
+   *  2026-09-24). The rest of the book (`introSeen`) waits for the first
+   *  gift. A save with any progress counts as having met it, as does one
+   *  that has seen the whole book. */
+  prologueSeen: boolean
 
   /* ── The retention pass (retention-roadmap.md). Every field below names the
    *    roadmap item that owns it, because each is written by a different
@@ -135,6 +141,7 @@ export const defaultCampaign = (): CampaignState => ({
   maneSwatch: 0,
   finaleSeen: false,
   introSeen: false,
+  prologueSeen: false,
   lastPlayedDay: 0,
   sessions: 0,
   creaturesMet: emptyBitset(NODE_COUNT),
@@ -223,6 +230,12 @@ export const readCampaign = (raw: unknown): CampaignState => {
     introSeen: typeof r.introSeen === 'boolean'
       ? r.introSeen
       : furthestNode >= 0 || countBits(dialoguesSeen) > 0,
+    // A save from before the prologue came first: anyone who has already met
+    // node 0's opener (it is recorded the moment it is raised), won anything
+    // or seen the whole book is past the point where the prologue plays.
+    prologueSeen: typeof r.prologueSeen === 'boolean'
+      ? r.prologueSeen
+      : r.introSeen === true || furthestNode >= 0 || countBits(dialoguesSeen) > 0,
     // The retention fields. A blob written before they existed simply has
     // none of them, and every one falls back to "fresh": never played, no
     // sessions, nothing met, no stars, no gift taken, no photos. That is why

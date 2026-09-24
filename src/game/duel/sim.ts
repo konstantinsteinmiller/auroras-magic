@@ -1557,6 +1557,9 @@ export interface DuelStart {
   versus?: boolean
   /** Arm the depth glimpse (§8.36) for this duel — the campaign's call. */
   glimpse?: boolean
+  /** Both duelists' health, scaled (`campaign/easing.ts` `duelHpScale`: the
+   *  first duel's half bars). Omitted means 1. */
+  hpScale?: number
 }
 
 /** Dream Dust: every loss on a node eases the foe 8 %, to a 40 % floor (§6.15).
@@ -1609,14 +1612,18 @@ export const resetDuel = (start?: DuelStart): void => {
     S.ease = S.versus
       ? { ...NO_EASE }
       : { hp: node.hp * dust.hp, rate: node.rate, dmg: node.dmg * dust.dmg }
+    S.hpScale = S.versus ? 1 : start.hpScale ?? 1
   }
   const foe: FoeDef = FOES[S.foe]!
   // Versus is always the base fight: 100 HP a side, no easing (§6.19).
   S.onboard = S.versus ? 1 : onboarding(S.wins + S.losses)
   S.phase = PH_DUEL
-  S.hpMax = HP_MAX
+  // Both bars scale together (the first duel's half bars), so the fight's
+  // balance is the one that was tuned, only shorter. Every rule reads health
+  // as a fraction of these: the mercy floor, the trade, the bars.
+  S.hpMax = Math.round(HP_MAX * S.hpScale)
   // Rounded, because a health bar is a number a child reads out loud.
-  S.ehpMax = S.versus ? HP_MAX : Math.round(foe.hpMax * S.ease.hp)
+  S.ehpMax = S.versus ? HP_MAX : max(1, Math.round(foe.hpMax * S.ease.hp * S.hpScale))
   S.hp = S.hpMax
   S.ehp = S.ehpMax
   S.regen = S.eRegen = S.regenRate = S.eRegenRate = 0

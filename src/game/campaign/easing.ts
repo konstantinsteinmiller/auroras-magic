@@ -94,6 +94,19 @@ const CURVE: readonly DuelEase[] = [
 const FIRST_BOSS: DuelEase = { hp: 0.88, rate: 1, dmg: 0.9 }
 
 /**
+ * THE FIRST DUEL IS SHORT (owner, 2026-09-25): Aurora and Umbra both start it
+ * with half their health. It is a stranger's first fight, right after the
+ * prologue, and it should end while it is still new. Both bars shrink
+ * together, so it is the same fight as before, only half as long: the same
+ * trade, the same mercy floor, and Umbra's damage still eased by chapter 1's
+ * row. Node-keyed like the rest, so a replay of it is short too.
+ */
+export const FIRST_DUEL_HP = 0.5
+
+/** Both duelists' health in node `n`'s duel, as a factor. */
+export const duelHpScale = (n: number): number => (n === 0 ? FIRST_DUEL_HP : 1)
+
+/**
  * How node `n`'s duel is eased. Node-keyed and nothing else — not the
  * player's age (unknowable), not a difficulty setting (a five-year-old does
  * not find one), not the session (a child who put the phone down mid-chapter

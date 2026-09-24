@@ -9,16 +9,21 @@
  * A duel's own state is never saved, so a player who closed mid-duel simply
  * meets that node's dialogue again.
  *
- * NOTHING STANDS IN FRONT OF NODE 0. A brand-new save lands on the campaign's
- * first duel: the ghost trace loops in the drawing box, the opener is printed
- * over the arena — all three beats, turning themselves over — rather than
- * played as a scene in front of it, and the game is drawable from the frame
- * it arrives on. The 19 s picture
- * book (§8.26) still plays, once, between the first win and the first
- * CLEANING — `openGift` — because it is the book that says why the world is
- * grey and what a sponge is for (owner, 2026-09-23). `introSeen` is
- * unchanged, so a returning player is still never sent back through it, and
- * no session ever boots into it.
+ * THE PROLOGUE, THEN NODE 0 (owner, 2026-09-24). A brand-new save opens the
+ * picture book (§8.26) at its first page and plays only its PROLOGUE: Aurora
+ * says hello, and two seconds later Umbra floats in and blows dust over the
+ * meadow. About five seconds, skippable from the first frame. It turns
+ * straight into the campaign's first duel, against Umbra herself
+ * (`foes.ts` `FIRST_UMBRA`), on that same dusty page. Without it, the duel
+ * had no reason in the story. The opener is still printed over the arena, all
+ * three beats turning themselves over, and the duel is drawable from the frame
+ * it arrives on. The prologue plays once (`prologueSeen`). A player who closes
+ * the tab mid-duel comes back straight into the duel.
+ *
+ * The REST of the book, the LESSON, still plays once between the first win
+ * and the first CLEANING (`openGift`). It is the part that says what the
+ * sponge is for (owner, 2026-09-23). `introSeen` is unchanged, so a returning
+ * player is never sent back through it.
  *
  * ENTERING A NODE from the map: a node already won is practice (C24) — its
  * dialogue is skipped automatically, straight to the duel. Otherwise its
@@ -36,7 +41,7 @@ import { dipTo, fading, DIP_PUSH } from '@/game/flow/transition'
 import { startDuel } from '@/game/flow/duelFlow'
 import { openSector } from '@/game/flow/restoreFlow'
 import { focusMap } from '@/game/map/map'
-import { beginIntro } from '@/game/story/intro'
+import { beginIntro, type IntroPart } from '@/game/story/intro'
 import { openingHud } from '@/use/useFlow'
 import { track } from '@/use/useAnalytics'
 
@@ -46,19 +51,25 @@ export const bootScene = (): void => {
 }
 
 /**
- * The picture-book intro (§8.26). Watching it to the end and skipping it both
- * count as seen. With `then`, the book hands over to it when it ends — the
- * first cleaning, which it is the lesson for; without, it comes back to the
- * scene it was opened from (a replay from Options).
+ * The picture-book intro (§8.26), or one part of it (`IntroPart`). Watching
+ * a part to the end and skipping it both count as seen: the prologue sets
+ * `prologueSeen`, and the lesson or the whole book sets `introSeen` (which
+ * covers the prologue too). With `then`, the book hands over to it when it
+ * ends: the first duel after the prologue, the first cleaning after the
+ * lesson. Without it, the book returns to the scene it was opened from (a
+ * replay from Options).
  */
-export const playIntro = (replay = false, then?: () => void): void => {
+export const playIntro = (replay = false, then?: () => void, part: IntroPart = 'whole'): void => {
   const from = { scene: S.flow.scene, node: S.flow.node }
   gotoScene('intro')
-  track('intro_start', { replay })
+  track('intro_start', { replay, part })
   beginIntro((skipped, beat) => {
-    track('intro_end', { skipped, beat, replay })
-    if (!S.campaign.introSeen) {
-      S.campaign.introSeen = true
+    track('intro_end', { skipped, beat, replay, part })
+    const cs = S.campaign
+    const unrecorded = part === 'prologue' ? !cs.prologueSeen : !cs.introSeen || !cs.prologueSeen
+    if (unrecorded) {
+      cs.prologueSeen = true
+      if (part !== 'prologue') cs.introSeen = true
       save()
     }
     // `then` turns its own page (the gift's zoom), so the book does not turn
@@ -71,19 +82,21 @@ export const playIntro = (replay = false, then?: () => void): void => {
       if (from.scene !== 'intro' && from.scene !== 'boot') gotoScene(from.scene, from.node)
       else startFromSave()
     }, DIP_PUSH)
-  })
+  }, part)
 }
 
 /**
  * A waiting gift was tapped (or its card, or Enter on the map) — the player's
  * one door into a cleaning.
  *
- * THE PICTURE BOOK COMES FIRST, ONCE (owner, 2026-09-23). It is the story of
- * Umbra blowing dust over the meadow and Aurora scrubbing it clean: played
- * after the first cleaning it explained a thing the child had already done,
- * and so explained nothing. Here it sits between the first win and the first
- * sponge, and its last page's Play button opens the very gift that was
- * tapped — the lesson, then the practice, with nothing in between.
+ * THE BOOK'S LESSON COMES FIRST, ONCE (owner, 2026-09-23). Aurora's magic
+ * turns into a sponge and scrubs the dusty meadow clean. Played after the
+ * first cleaning, it explained something the child had already done, so it
+ * explained nothing. Here it sits between the first win and the first sponge,
+ * and its last page's Play button opens the very gift that was tapped: the
+ * lesson, then the practice, with nothing in between. A save that won its
+ * first duel before the prologue existed never saw Umbra's dust, so it gets
+ * the whole book here instead.
  *
  * Not at the win itself: the gift is the reward, and it is the child's tap on
  * it that says she is ready for what comes next. And it cannot be missed by
@@ -95,7 +108,18 @@ export const openGift = (n: number): void => {
     openSector(n)
     return
   }
-  dipTo(() => playIntro(false, () => openSector(n)), DIP_PUSH)
+  const part: IntroPart = S.campaign.prologueSeen ? 'lesson' : 'whole'
+  dipTo(() => playIntro(false, () => openSector(n), part), DIP_PUSH)
+}
+
+/**
+ * Node 0, for a player who has not met Umbra yet: the book's prologue first.
+ * It turns straight into the duel when it ends, whether watched or skipped.
+ * The prologue's last frame is the dusty meadow the duel is fought on, so the
+ * page turn is the only thing between them.
+ */
+const playPrologue = (n: number): void => {
+  playIntro(false, () => dipTo(() => openOnArena(n), DIP_PUSH), 'prologue')
 }
 
 /** Where the save says to start: a waiting gift, the next dialogue, or the map. */
@@ -124,10 +148,12 @@ export const nodePlayable = (n: number): boolean => {
 const enterDialogue = (n: number): void => {
   // NODE 0 IS PLAYED, NOT READ (retention item 2). It is the node a stranger
   // meets and the one every portal grades conversion on, so its opener is
-  // printed over the arena — see `openOnArena` — and the duel is drawable
-  // from the frame it arrives on.
+  // printed over the arena (see `openOnArena`) and the duel is drawable from
+  // the frame it arrives on. The only thing in front of it is the book's
+  // ~5 s prologue, once, which is the reason for the fight.
   if (n === OPENING_NODE) {
-    openOnArena(n)
+    if (!S.campaign.prologueSeen) playPrologue(n)
+    else openOnArena(n)
     return
   }
   if (!dialogueFor(n).length) {

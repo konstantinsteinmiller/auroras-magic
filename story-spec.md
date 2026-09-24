@@ -6753,6 +6753,61 @@ and 430×932: win node 0 → front page with the swipe → self-turn at 8.0 s on
 chapter 1's page → a press on the gift card's badge → the picture book →
 Play → the gift's invite, `introSeen` true, no page errors.
 
+### §8.26c Owner ruling, 2026-09-24/25 — the prologue before the first duel; Umbra is the first foe; half bars
+
+The owner: the first duel had no place in the story. The child fought a
+shadow clone before anything had told her why. Ruling: the picture book is
+split in two, around the first duel.
+
+**1. The PROLOGUE plays in front of node 0.** It is beats 0–1 of §8.26 (the
+hello, then Umbra's dust). The hello is now **2.0 s** (was 3.8), so Umbra
+arrives two seconds in. The prologue is cut at beat 1 + `UMBRA_LEAVE` (3.1 s),
+while Umbra is still hovering over the dust, because she is who Aurora fights
+next. That makes it **5.1 s**, skippable from the first frame, and it still
+holds for the first-load ad (C30). Watched or skipped, it turns straight into
+node 0's duel on the same dusty page, with the opener still printed over the
+arena (§8.26a). It plays once: `prologueSeen` is a new save flag. A save from
+before it counts as seen if it has met node 0's opener, won anything or seen
+the whole book, so nobody mid-duel is sent back.
+`intro.ts` `IntroPart` / `PART_SPAN`; `flow/nodes.ts` `playPrologue`.
+
+**2. The LESSON is the rest of the book** (beats 2–4: the magic, the
+sponge, Play). It plays at the first gift, exactly as §8.26b built it. A save
+that won its first duel before the prologue existed gets the whole book there
+instead. A replay from Options is always the whole book.
+
+**3. The first duel is fought against Umbra herself.** `foes.ts`
+`FIRST_UMBRA` (roster index 21, appended) is `NODES[0].foeIdOverride`. She is
+Umbra by name ("UMBRA" on her bar) and by look (her own palette, the one the
+prologue and her portraits are painted in). She keeps the playtest's `gentle`
+face. Her rules are a copy of chapter 1's shadow's, so the fight is the one
+that was tuned. Nodes 1–3 still fight the moonlit shadow.
+
+**4. Half bars in the first duel (2026-09-25).** Aurora and Umbra both start
+node 0 with half their health (`campaign/easing.ts` `duelHpScale`, handed to
+the duel as `DuelStart.hpScale`, kept on `S.hpScale` so a retry keeps it).
+Aurora has **50**, and Umbra has **31** (100 × chapter 1's 0.62 × 0.5). Every
+rule reads health as a fraction of the max (the mercy floor, the trade, the
+bars), so it is the same fight, only half as long. The lesson's closing Magma
+Shard leaves her at 16/31, so the child still fights after the lessons. A
+steady scripted player wins it in 5.9 s, against 17.9 s at full bars. Local
+versus is never scaled.
+
+**Art schedule:** a fresh save's first screen is now the prologue
+(`bootScreenOf` → `intro`). The splash holds for its two pages plus the
+meadow, the rig and the cloth. Node 0's duel is its NEXT stage, and the
+lesson's two pages ride that duel's NEXT, as the whole book did before.
+
+**Verified:** `tests/campaign/intro.test.ts` (both parts' beats, ends, title,
+Play, the hold), `tests/campaign/opening.test.ts` (boot → prologue → duel;
+once; lesson at the gift; whole book for an old save),
+`tests/meta/artSchedule.test.ts`, `tests/duel/firstDuel.test.ts`,
+`tests/duel/lossTip.test.ts`. Full suite: 1426 passed. A built bundle in
+headless Chrome from a fresh save, 1280×720, ran prologue (5.1 s) → duel vs
+foe 21 at 50/50 and 31/31 with "AURORA / UMBRA" on the bars → win → the
+gift on chapter 1's page → lesson (beats 2–4) → Play → the gift's cleaning,
+with `prologueSeen` and `introSeen` both true and no page errors.
+
 ### §8.27 Owner request, 2026-09-19 — every drawing paint-ready, in one pinned style
 
 *"Prepare all art assets to be painted with our art-generation-pipeline … keep

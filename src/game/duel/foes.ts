@@ -171,13 +171,30 @@ roster.push({
 })
 
 /**
+ * UMBRA HERSELF, IN THE FIRST DUEL (owner, 2026-09-24). The picture book's
+ * prologue now plays in front of node 0: Aurora says hello, and Umbra floats in
+ * and blows dust over the meadow. The duel that follows is Aurora answering
+ * HER, so the foe on the island is Umbra, by name and by look. It is the same
+ * Umbra the prologue and her portraits show. A shadow clone there would
+ * leave the fight with no place in the story.
+ *
+ * Only her name and her look are Umbra's. The RULES are chapter 1's shadow's,
+ * copied from it, so the first duel plays exactly as it was tuned. She keeps
+ * the `gentle` face from the playtest softening: no glow round the eye, no
+ * glare. Nodes 1–3 still fight the moonlit shadow.
+ */
+roster.push({ ...roster[0]!, slug: 'umbra', pal: UMBRA, gentle: true })
+
+/**
  * The roster: index `c` (0..9) is chapter c's shadow clone, index `10 + c` is
- * its Guardian, index 20 the versus Umbra. Position is the id — never
- * reordered.
+ * its Guardian, index 20 the versus Umbra, index 21 Umbra in the first duel.
+ * Position is the id — never reordered.
  */
 export const FOES: readonly FoeDef[] = roster
 /** Player 2's duelist in local versus. */
 export const VERSUS_FOE = 20
+/** Node 0's foe: Umbra, with chapter 1's shadow's rules (`campaign/tables.ts`). */
+export const FIRST_UMBRA = 21
 export const shadowOf = (chapter: number): number => chapter
 export const guardianOf = (chapter: number): number => 10 + chapter
 

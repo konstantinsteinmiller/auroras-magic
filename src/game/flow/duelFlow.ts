@@ -32,7 +32,7 @@ import { resetAudio, sfx } from '@/game/duel/audio'
 import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { noteFirstWin } from '@/game/campaign/session'
-import { earlyEase } from '@/game/campaign/easing'
+import { earlyEase, duelHpScale } from '@/game/campaign/easing'
 import { glimpseDue } from '@/game/campaign/glimpse'
 import { newRuneDue } from '@/game/campaign/newRune'
 import { armRuneGuide } from '@/game/duel/lesson'
@@ -81,6 +81,8 @@ export const startDuel = (n: number): void => {
     // The teaching chapters cost a beginner less (`campaign/easing.ts`); from
     // chapter 4 on this is all 1 and the fight is the roster's own.
     ease: earlyEase(n), versus: false,
+    // The first duel starts both bars at half (owner, 2026-09-25).
+    hpScale: duelHpScale(n),
     // One early look at how the runes answer each other (story-spec §8.36).
     glimpse: glimpseDue(n, replay)
   })

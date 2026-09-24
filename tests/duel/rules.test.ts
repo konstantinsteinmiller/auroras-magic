@@ -9,7 +9,7 @@ import {
   SPELLS, comboKey, resolveSpell, dominantRune, comboEnumerationIndex, comboFromIndex, COMBO_COUNT,
   elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, NO_EASE, PH_DUEL, PH_WIN, PH_LOSE, totalDamage
 } from '@/game/duel/config'
-import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE } from '@/game/duel/foes'
+import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE, FIRST_UMBRA } from '@/game/duel/foes'
 import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, dustEase, onboarding, foeRate } from '@/game/duel/sim'
@@ -130,9 +130,11 @@ describe('the elemental graph (§6.6)', () => {
 })
 
 describe('the foe roster (§6.10–§6.12)', () => {
-  it('holds a shadow clone and a Guardian per chapter, by position, then the versus Umbra', () => {
-    expect(FOES.length).toBe(21)
+  it('holds a shadow clone and a Guardian per chapter, by position, then the two Umbras', () => {
+    expect(FOES.length).toBe(22)
     expect(FOES[20]).toMatchObject({ slug: 'umbra', hpMax: 100, element: -1, boss: false })
+    // Node 0's Umbra (owner, 2026-09-24): chapter 1's shadow's rules.
+    expect(FOES[FIRST_UMBRA]).toMatchObject({ slug: 'umbra', hpMax: FOES[shadowOf(0)]!.hpMax, boss: false })
     for (let c = 0; c < 10; c++) {
       expect(FOES[shadowOf(c)]!.boss).toBe(false)
       expect(FOES[guardianOf(c)]!.boss).toBe(true)

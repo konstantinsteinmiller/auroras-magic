@@ -1,7 +1,7 @@
 /**
  * intro.ts — the first-launch intro (owner, 2026-09-19; story-spec §8.26).
  *
- * A picture book of five beats, ~19 s, with no words but the game's name and
+ * A picture book of five beats, ~17 s, with no words but the game's name and
  * a Play button. Anyone of any age (and any language) should come away
  * knowing what the game is about:
  *
@@ -15,6 +15,13 @@
  *               as it does under a player's finger — then a last wave of
  *               colour and a happy whinny
  *   4  PLAY     Aurora cheers; a big Play button
+ *
+ * A first-time player meets it in TWO PARTS (owner, 2026-09-24). The
+ * PROLOGUE is beats 0–1, cut while Umbra is still hovering over the dust. It
+ * plays in front of node 0's duel, so the child knows who she is fighting and
+ * why. The LESSON is beats 2–4, at the first tap on a waiting gift, right
+ * before the first cleaning it teaches. A replay from Options plays the whole
+ * book. See `IntroPart`.
  *
  * It is drawn with the game's OWN painters — the 1-1 sector, the duel rig,
  * the rune glyph, the Stardust Sponge, the particles — so it can never drift
@@ -59,13 +66,18 @@ type G2D = CanvasRenderingContext2D
 
 /* ------------------------------------------------------------ timeline */
 
-/** Each beat's length, seconds. */
-export const BEAT_LEN = [3.8, 4.2, 3.6, 4.4, 3.4] as const
+/** Each beat's length, seconds. The hello is short (owner, 2026-09-24): it
+ *  stands in front of the first duel now, and Umbra arrives two seconds in —
+ *  as soon as Aurora has trotted in and hopped hello. */
+export const BEAT_LEN = [2.0, 4.2, 3.6, 4.4, 3.4] as const
 export const INTRO_BEATS = BEAT_LEN.length
 const STARTS = BEAT_LEN.map((_, i) => BEAT_LEN.slice(0, i).reduce((a, b) => a + b, 0))
 export const INTRO_LEN = BEAT_LEN.reduce((a, b) => a + b, 0)
 /** The moment of each PANEL's beat that its painting shows (the bench draws
- *  the reference at this time). Panel 4 serves the last two beats. */
+ *  the reference at this time). Panel 4 serves the last two beats. Panel 1's
+ *  2.6 s is past its now-2.0 s beat on purpose. The hop is over by 1.95 s, so
+ *  it draws the same frame, and the painted panel's reference does not
+ *  change. */
 export const BEAT_KEY = [2.6, 2.7, 2.6, 4.2] as const
 
 // Moments inside the beats, seconds from the beat's start.
@@ -73,6 +85,26 @@ const ARRIVE = 1.25
 const SWEEP_IN = 0.9
 const SWEEP_OUT = 2.5
 const UMBRA_LEAVE = 3.1
+
+/**
+ * Which part of the book is being played (owner, 2026-09-24):
+ *
+ *   prologue  beats 0–1, in front of node 0's duel. Aurora says hello, then
+ *             Umbra floats in and dusts the meadow. It ends while she is still
+ *             hovering there, because she is the one Aurora duels next.
+ *   lesson    beats 2–4, at the first gift. Aurora's magic, the sponge
+ *             scrubbing the colour back, and Play. It opens on the dusty
+ *             meadow the prologue left.
+ *   whole     all five beats: a replay from Options, or an old save that won
+ *             its first duel before the prologue existed.
+ */
+export type IntroPart = 'prologue' | 'lesson' | 'whole'
+/** Each part's span on the book's clock, seconds: [start, end). */
+export const PART_SPAN: Readonly<Record<IntroPart, readonly [number, number]>> = {
+  prologue: [0, STARTS[1]! + UMBRA_LEAVE],
+  lesson: [STARTS[2]!, INTRO_LEN],
+  whole: [0, INTRO_LEN]
+}
 const TRACE_IN = 0.7
 const TRACE_LEN = 1.8
 /** Beat 3: the sponge pops out of her horn, glides to the page's corner,
@@ -96,6 +128,9 @@ let running = false
 let held = true
 let t = 0
 let beat = 0
+let part: IntroPart = 'whole'
+/** The book's clock time this part ends at. */
+let endT = INTRO_LEN
 let onDone: ((skipped: boolean, atBeat: number) => void) | null = null
 let box: Box = { x: 0, y: 0, w: 1, h: 1 }
 /** Sector units → the page: CSS = box + (su − ox) × k. `ox` is the camera's
@@ -482,20 +517,29 @@ const aimCamera = (dt: number): void => {
   view.ox = camX - vis / 2
 }
 
-/** Start the intro; `done` is called once, when it ends or is skipped. */
-export const beginIntro = (done: (skipped: boolean, atBeat: number) => void): void => {
+/** The beat the book's clock is on at `time`. */
+const beatAt = (time: number): number => {
+  let k = 0
+  while (k < INTRO_BEATS - 1 && time >= STARTS[k + 1]!) k++
+  return k
+}
+
+/** Start the intro, or one `IntroPart` of it; `done` is called once, when it
+ *  ends or is skipped. */
+export const beginIntro = (done: (skipped: boolean, atBeat: number) => void, which: IntroPart = 'whole'): void => {
   onDone = done
   running = true
   held = true
-  t = 0
-  beat = 0
+  part = which
+  ;[t, endT] = PART_SPAN[which]
+  beat = beatAt(t)
   fired.clear()
   tapHopT = -1
   resetFx()
   introResize()
   // Sharp on the page it fills, never past the sector's own size.
   ensureLayers(clamp(view.k * S.dpr, 0.5, 1))
-  introHud.beat = 0
+  introHud.beat = beat
   introHud.title = false
   introHud.play = false
   void firstLoadAdSettled().then(() => { held = false })
@@ -546,19 +590,18 @@ export const updateIntro = (dt: number): void => {
     return
   }
   t += dt
-  if (t >= INTRO_LEN) {
+  if (t >= endT) {
     finish(false)
     return
   }
-  let k = 0
-  while (k < INTRO_BEATS - 1 && t >= STARTS[k + 1]!) k++
+  const k = beatAt(t)
   beat = k
   introHud.beat = k
   const u = t - STARTS[k]!
   aimCamera(dt)
   fxT -= dt
   if (k === 0) {
-    introHud.title = u > 0.2 && u < 3.4
+    introHud.title = u > 0.2
     if (u >= ARRIVE) once('hello', () => {
       sfx('neigh')
       const [x, y] = toCss(AURORA.x + 40, AURORA.y - 190)
@@ -824,4 +867,5 @@ export const renderIntroPanel = (k: number, px: number): HTMLCanvasElement => {
 }
 
 /** Test and QA seam. */
-export const introState = (): { running: boolean; held: boolean; t: number; beat: number } => ({ running, held, t, beat })
+export const introState = (): { running: boolean; held: boolean; t: number; beat: number; part: IntroPart } =>
+  ({ running, held, t, beat, part })

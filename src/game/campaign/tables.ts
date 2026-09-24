@@ -7,7 +7,7 @@
  * A node's identity IS its index 0..49. `chapter = ⌊n / 5⌋`,
  * `posInChapter = n % 5`, `isBoss = posInChapter === 4`.
  */
-import { FOES, shadowOf, guardianOf, type FoeDef } from '@/game/duel/foes'
+import { FOES, shadowOf, guardianOf, FIRST_UMBRA, type FoeDef } from '@/game/duel/foes'
 import { FIRE, WIND, ICE, EARTH, NATURE } from '@/game/duel/config'
 
 export const CHAPTER_COUNT = 10
@@ -239,6 +239,9 @@ export const FIRST_GIFT_NODE = 1
  */
 
 export const NODES: readonly NodeDef[] = Array.from({ length: CHAPTER_COUNT * NODES_PER_CHAPTER }, (_, n) => ({
+  // The first duel is fought against Umbra herself, right after the prologue
+  // shows her dusting the meadow (`foes.ts` `FIRST_UMBRA`).
+  ...(n === 0 ? { foeIdOverride: FIRST_UMBRA } : {}),
   // Chapter 1's boss gives no keepsake, because its crown moved forward to
   // `FIRST_GIFT_NODE` — and that chest is far from empty: it is the one that
   // hands over the Nature rune. Every other chapter keeps its own, and the

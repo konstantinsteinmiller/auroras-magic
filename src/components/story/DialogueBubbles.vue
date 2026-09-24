@@ -55,11 +55,11 @@ const DWELL_MS = 600
 /**
  * How long a beat holds itself over the arena before the next one, ms.
  *
- * Not a new number: it is the picture book's SHORTEST page (`intro.ts`
- * `BEAT_LEN`, 3.4–4.4 s), which is this game's authored pace for a wordless
- * story beat carried by pictures and babble — the briskest one it already
- * uses, because nothing here should feel like a wall of text to a child who
- * cannot read it. Copied rather than imported: `intro.ts` pulls the sectors,
+ * Not a new number: it is the picture book's shortest STORY page (`intro.ts`
+ * `BEAT_LEN`, 3.4–4.4 s — the 2 s hello is a title, not a story beat), which
+ * is this game's authored pace for a wordless story beat carried by pictures
+ * and babble — the briskest one it already uses, because nothing here should
+ * feel like a wall of text to a child who cannot read it. Copied rather than imported: `intro.ts` pulls the sectors,
  * the rig and the fx pool, and none of that belongs in the duel's chunk.
  *
  * Three beats at this pace is about ten seconds if nobody touches the game —

@@ -4,9 +4,12 @@
 // then a chapter title page and three bubbles, and only then something to
 // draw. What must now be true, and is easy to break again by accident:
 //
-//   • NODE 0 IS PLAYED, NOT READ. A fresh save goes straight into the first
-//     duel, with the opener printed over the arena — all three beats of it,
-//     turning themselves over (owner, 2026-09-23);
+//   • NODE 0 IS PLAYED, NOT READ. A fresh save meets the picture book's
+//     ~5 s PROLOGUE (Aurora, then Umbra dusting the meadow), then goes
+//     straight into the first duel — against Umbra — with the opener printed
+//     over the arena, all three beats of it, turning themselves over (owner,
+//     2026-09-23, 2026-09-24). The prologue plays once; a player who comes
+//     back mid-duel goes straight into the duel;
 //   • only node 0. Every other node keeps its full dialogue scene — the
 //     branch is the whole risk here, because an arena opener quietly applied
 //     to node 7 would put the story on a clock nobody asked for;
@@ -17,9 +20,10 @@
 //   • the bubbles take no taps. Every press belongs to the rune being drawn
 //     under them, and the sequence ends wherever it has got to when the first
 //     stroke lands — nobody waits for Umbra to answer;
-//   • the picture book still plays, once — between that first win and the
-//     first CLEANING, which it is the lesson for (owner, 2026-09-23) — and
-//     `introSeen` still means a returning player never sees it again;
+//   • the rest of the book, its LESSON, still plays once — between that
+//     first win and the first CLEANING, which it is the lesson for (owner,
+//     2026-09-23) — and `introSeen` still means a returning player never sees
+//     it again;
 //   • a card with its gift still on it opens the gift. A won node is
 //     otherwise practice, so a press on the picture instead of the bow sent
 //     the owner back into the duel he had just won, twice.
@@ -77,7 +81,16 @@ const pastNodeZero = (): void => {
   S.campaign.furthestNode = 0
   S.campaign.sectorsDone = setBit(S.campaign.sectorsDone, 0)
   S.campaign.introSeen = true
+  S.campaign.prologueSeen = true
 }
+
+/** The book's own end: watched through, or skipped at `beat`. */
+const bookEnds = (skipped = false, beat = 4): void => {
+  const done = vi.mocked(beginIntro).mock.calls.at(-1)![0]
+  done(skipped, beat)
+}
+/** Which part of the book the last `beginIntro` played. */
+const lastPart = (): unknown => vi.mocked(beginIntro).mock.calls.at(-1)![1]
 
 describe('the opening lines', () => {
   beforeEach(freshSave)
@@ -98,27 +111,51 @@ describe('the opening lines', () => {
 describe('a cold boot', () => {
   beforeEach(freshSave)
 
-  it('goes straight into node 0\'s duel, with the line over the arena', () => {
+  it('opens the book\'s prologue — and only the prologue — in front of node 0', () => {
     bootScene()
+    expect(beginIntro).toHaveBeenCalledTimes(1)
+    expect(lastPart()).toBe('prologue')
+    expect(S.flow.scene).toBe('intro')
+    // Not yet: Umbra has to dust the meadow first.
+    expect(startDuel).not.toHaveBeenCalled()
+  })
+
+  it('turns straight into node 0\'s duel when it ends, with the line over the arena', () => {
+    bootScene()
+    bookEnds(false, 1)
     expect(startDuel).toHaveBeenCalledWith(0)
     expect(openingHud.live).toBe(true)
     // No dialogue scene stood in front of it.
     expect(S.flow.scene).not.toBe('dialogue')
+    // The prologue is met; the lesson is still to come, at the first gift.
+    expect(S.campaign.prologueSeen).toBe(true)
+    expect(S.campaign.introSeen).toBe(false)
   })
 
-  it('does not put the picture book in front of the first stroke', () => {
+  it('…and just the same when it is skipped', () => {
+    bootScene()
+    bookEnds(true, 0)
+    expect(startDuel).toHaveBeenCalledWith(0)
+    expect(S.campaign.prologueSeen).toBe(true)
+  })
+
+  it('plays once: a player back mid-duel goes straight into the duel', () => {
+    S.campaign.prologueSeen = true
     bootScene()
     expect(beginIntro).not.toHaveBeenCalled()
-    expect(S.flow.scene).not.toBe('intro')
+    expect(startDuel).toHaveBeenCalledWith(0)
+    expect(openingHud.live).toBe(true)
   })
 
   it('records the opener as met, so nothing else offers to replay it', () => {
     bootScene()
+    bookEnds()
     expect(S.campaign.dialoguesSeen).not.toEqual(defaultCampaign().dialoguesSeen)
   })
 
   it('folds away on demand, and never leaks into the next node', () => {
     bootScene()
+    bookEnds()
     expect(openingHud.live).toBe(true)
     closeOpening()
     expect(openingHud.live).toBe(false)
@@ -146,28 +183,35 @@ describe('every node after it', () => {
   })
 })
 
-describe('the picture book', () => {
-  /** Node 0 won, its gift still waiting, and the book never seen: exactly
-   *  where a brand-new player stands after her first duel. */
+describe('the picture book\'s lesson', () => {
+  /** Node 0 won, its gift still waiting, the prologue met and the rest of the
+   *  book not: exactly where a brand-new player stands after her first duel. */
   const giftWaiting = (): void => {
     freshSave()
     S.campaign.furthestNode = 0
+    S.campaign.prologueSeen = true
     S.flow.scene = 'map'
   }
   beforeEach(giftWaiting)
 
-  /** The book's own end: watched through, or skipped at `beat`. */
-  const bookEnds = (skipped = false, beat = 4): void => {
-    const done = vi.mocked(beginIntro).mock.calls.at(-1)![0]
-    done(skipped, beat)
-  }
-
   it('plays when the first gift is opened, in front of the first cleaning', () => {
     openGift(0)
     expect(beginIntro).toHaveBeenCalledTimes(1)
+    // The rest of the book, not the prologue again.
+    expect(lastPart()).toBe('lesson')
     expect(S.flow.scene).toBe('intro')
     // Not yet: the lesson comes before the practice.
     expect(openSector).not.toHaveBeenCalled()
+  })
+
+  it('is the whole book for a save that won its first duel before the prologue existed', () => {
+    S.campaign.prologueSeen = false
+    openGift(0)
+    expect(lastPart()).toBe('whole')
+    bookEnds()
+    expect(openSector).toHaveBeenCalledWith(0)
+    expect(S.campaign.introSeen).toBe(true)
+    expect(S.campaign.prologueSeen).toBe(true)
   })
 
   it('opens the very gift that was tapped when it ends, and counts as seen', () => {
@@ -206,10 +250,11 @@ describe('the picture book', () => {
     expect(openSector).toHaveBeenCalledWith(0)
   })
 
-  it('a replay from Options comes back to where it was opened', () => {
+  it('a replay from Options is the whole book, and comes back to where it was opened', () => {
     S.campaign.introSeen = true
     S.campaign.sectorsDone = setBit(S.campaign.sectorsDone, 0)
     playIntro(true)
+    expect(lastPart()).toBe('whole')
     expect(S.flow.scene).toBe('intro')
     bookEnds()
     expect(S.flow.scene).toBe('map')
@@ -235,6 +280,7 @@ describe('a card with its gift still on it', () => {
 
   it('opens the picture book first for a player who has not met it', () => {
     S.campaign.introSeen = false
+    S.campaign.prologueSeen = true
     playNode(0)
     expect(startDuel).not.toHaveBeenCalled()
     expect(beginIntro).toHaveBeenCalledTimes(1)

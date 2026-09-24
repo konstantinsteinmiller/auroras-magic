@@ -6,7 +6,7 @@ import {
   CHAPTERS, CHAPTER_COUNT, NODES, NODES_PER_CHAPTER, COSMETICS, COSMETIC_SLOTS, GIFTS, LAST_BUILT_NODE, FIRST_GIFT_NODE,
   ALTERNATIVES, isAlternative, nodeChapter, nodePosInChapter, nodeIsBoss, nodeFoe, duelSetup
 } from '@/game/campaign/tables'
-import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
+import { FOES, shadowOf, guardianOf, FIRST_UMBRA } from '@/game/duel/foes'
 import { NATURE } from '@/game/duel/config'
 import { NODE_COUNT } from '@/game/campaign/state'
 
@@ -22,11 +22,16 @@ describe('the node grid (C5)', () => {
   })
 
   it('fights a shadow clone on nodes 1–4 and the Guardian on node 5', () => {
-    for (let n = 0; n < NODE_COUNT; n++) {
+    for (let n = 1; n < NODE_COUNT; n++) {
       const c = nodeChapter(n)
       expect(nodeFoe(n)).toBe(nodeIsBoss(n) ? guardianOf(c) : shadowOf(c))
     }
     expect(FOES[nodeFoe(4)]!.slug).toBe('briar')
+  })
+
+  it('…except the very first duel, which is Umbra herself (owner, 2026-09-24)', () => {
+    expect(nodeFoe(0)).toBe(FIRST_UMBRA)
+    expect(FOES[nodeFoe(0)]!.slug).toBe('umbra')
   })
 
   it('lets the chapter magic in from node 3 (C14)', () => {

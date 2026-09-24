@@ -250,6 +250,9 @@ export interface DuelState {
    *  Resolved by the campaign and handed over with the foe — the duel never
    *  reads a node (§4.8.1). All 1 for versus and from chapter 4 on. */
   ease: DuelEase
+  /** Both duelists' health, scaled for this NODE (`campaign/easing.ts`
+   *  `duelHpScale`): 0.5 in the first duel, 1 everywhere else. */
+  hpScale: number
   /** C14's node-3 rule: the foe may cast her chapter's own magic. */
   usesMagic: boolean
   /** Runes the player has landed this duel (trace assist stops at 1, §5.13). */
@@ -430,6 +433,7 @@ export const auroras_magic_state: DuelState = {
   dust: 1,
   onboard: 1,
   ease: { ...NO_EASE },
+  hpScale: 1,
   usesMagic: false,
   landed: 0,
   theme: 0,

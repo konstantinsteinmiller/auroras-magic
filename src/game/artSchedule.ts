@@ -2,22 +2,24 @@
  * artSchedule.ts — WHICH paintings go on the wire, and WHEN (story-spec §9.13;
  * art-generation-pipeline LOADING.md). The one place the loading order lives.
  *
- * A first-time player does not see the map first: a fresh save boots straight
- * into node 0's DUEL (retention item 2), the picture book plays at the first
- * tap on a waiting gift, and chapter 2 is five duels and five cleanings away.
- * So the splash waits for what that duel draws — and for nothing else — and
- * every later screen's paintings go out one stage ahead of the child, in the
- * order she will meet them.
+ * A first-time player does not see the map first. A fresh save boots into the
+ * picture book's ~5 s PROLOGUE (Aurora, then Umbra dusting the meadow), which
+ * turns straight into node 0's DUEL (retention item 2). The rest of the book
+ * plays at the first tap on a waiting gift, and chapter 2 is five duels and
+ * five cleanings away. So the splash waits for the prologue's two pages and
+ * nothing else. The duel goes out right behind them, and every later screen's
+ * paintings go out one stage ahead of the child, in the order she meets them.
  *
  *   ┌────────┬────────┬──────────────────────────────────────────┬───────────────────────────────┐
  *   │ stage  │ lane   │ what                                     │ when                          │
  *   ├────────┼────────┼──────────────────────────────────────────┼───────────────────────────────┤
  *   │ HOLD   │ high   │ what THIS screen draws, for THIS save    │ the splash waits for it (the  │
- *   │        │        │ (fresh save: node 0's duel)              │ first screen); later screens  │
+ *   │        │        │ (fresh save: the prologue's two pages)   │ first screen); later screens  │
  *   │        │        │                                          │ get it at once, uncapped      │
- *   │ NEXT   │ normal │ the screens right after it: the win's    │ after the hold, ≤ 4 at a time │
- *   │        │        │ gift, the map page it lands on, the      │                               │
- *   │        │        │ picture book (first time), the cleaning  │                               │
+ *   │ NEXT   │ normal │ the screens right after it: node 0's     │ after the hold, ≤ 4 at a time │
+ *   │        │        │ duel after the prologue; the win's gift, │                               │
+ *   │        │        │ the map page it lands on, the book's     │                               │
+ *   │        │        │ lesson (first time), the cleaning        │                               │
  *   │ SOON   │ low    │ the next node: its duel page, its        │ idle time, ≤ 2 at a time,     │
  *   │        │        │ dialogue faces; the wardrobe off the map │ never beside a faster lane;   │
  *   │        │        │                                          │ skipped under Save-Data       │
@@ -76,7 +78,7 @@ import type { SceneId } from '@/game/flow/scene'
 /** The slice of a save the schedule reads. `CampaignState` satisfies it. */
 export type ScheduleSave = Pick<
   CampaignState,
-  'furthestNode' | 'sectorsDone' | 'introSeen' | 'runesUnlocked' | 'giftsEquipped' | 'giftsOwned'
+  'furthestNode' | 'sectorsDone' | 'introSeen' | 'prologueSeen' | 'runesUnlocked' | 'giftsEquipped' | 'giftsOwned'
 >
 
 /** A screen being entered: a scene and the node it concerns (−1: none). */
@@ -285,7 +287,8 @@ export const pageWants = (c: number, save: ScheduleSave, env: ScheduleEnv): ArtW
 export const frontWants = (env: ScheduleEnv): ArtWant[] =>
   [CLOTH, ['page', frontPageArtId(env.portrait)], item(ITEM_ART.tent), BOOKMARK, BOARD, GLOVE]
 
-/** The picture book (§8.26): its four pages, over the first sector's meadow. */
+/** The picture book (§8.26), whole: its four pages, over the first sector's
+ *  meadow. */
 export const introWants = (): ArtWant[] => [
   ...STORY_PANELS.map((_, i): ArtWant => ['story', storyPanelId(i)]),
   ['sector', sectorArtId(0)],
@@ -295,6 +298,38 @@ export const introWants = (): ArtWant[] => [
   ...RIG,
   CLOTH
 ]
+
+/** The book's PROLOGUE (`intro.ts` `IntroPart`): its first two pages, the
+ *  hello and Umbra's dust, over the meadow the first duel is fought on. */
+export const prologueWants = (): ArtWant[] => [
+  ['story', storyPanelId(0)],
+  ['story', storyPanelId(1)],
+  ['sector', sectorArtId(0)],
+  ...RIG,
+  CLOTH
+]
+
+/** The book's LESSON: its last two pages, the magic and the colour coming
+ *  back, with the sponge that scrubs it and the glove on the rune beat. */
+export const lessonWants = (): ArtWant[] => [
+  ['story', storyPanelId(2)],
+  ['story', storyPanelId(3)],
+  ['sector', sectorArtId(0)],
+  ...SPONGE,
+  GLOVE,
+  ...RIG,
+  CLOTH
+]
+
+/** What the book still has to show this save at its first gift: the lesson,
+ *  or all of it for a save that never met the prologue; nothing once seen. */
+const bookAtGiftOf = (save: ScheduleSave): ArtWant[] =>
+  save.introSeen ? [] : save.prologueSeen ? lessonWants() : introWants()
+
+/** Does this save's next screen open with the prologue (`flow/nodes.ts`)? */
+const prologueDue = (save: ScheduleSave): boolean =>
+  !save.prologueSeen && pendingSectorNode(save as CampaignState) === null &&
+  nextDuelNode(save as CampaignState) === OPENING_NODE
 
 /** Node `n`'s CLEANING: the page, the gift, the tool, what the chest gives,
  *  the three paint pots and the paint they throw. */
@@ -382,6 +417,7 @@ export const bootScreenOf = (save: ScheduleSave): Screen => {
   if (pend !== null) return { scene: 'map', node: pend }
   const next = nextDuelNode(save as CampaignState)
   if (save.furthestNode >= LAST_BUILT_NODE || next > LAST_BUILT_NODE) return { scene: 'map', node: -1 }
+  if (prologueDue(save)) return { scene: 'intro', node: -1 }
   if (next === OPENING_NODE || !dialogueFor(next).length) return { scene: 'duel', node: next }
   return { scene: 'dialogue', node: next }
 }
@@ -446,9 +482,9 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
       if (n === OPENING_NODE) p.next.push(...frontWants(env))
       p.next.push(...pageWants(nodeChapter(n), save, env))
       p.record.next.push(...[0, 1, 2, 3, 4].map((i): SectorRec => [nodeChapter(n) * 5 + i, 'rest']))
-      // The gift's tap: the picture book first, once — then the cleaning.
+      // The gift's tap: the book's lesson first, once — then the cleaning.
       if (!save.introSeen) {
-        p.next.push(...introWants())
+        p.next.push(...bookAtGiftOf(save))
         p.record.next.push([0, 'alive'])
       }
       p.next.push(...cleaningWants(n))
@@ -484,7 +520,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
       if (pend !== null) {
         // A gift is waiting: its tap opens the book (first time), then the cleaning.
         if (!save.introSeen) {
-          p.next.push(...introWants())
+          p.next.push(...bookAtGiftOf(save))
           p.record.next.push([0, 'alive'])
         }
         p.next.push(...cleaningWants(pend))
@@ -499,9 +535,23 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
       break
     }
     case 'intro': {
-      p.hold.push(...introWants())
       p.record.hold.push([0, 'alive'])
+      if (prologueDue(save)) {
+        // The prologue, in front of node 0: its two pages hold, and the duel
+        // it turns into (with everything that duel puts NEXT) comes right
+        // behind them, as that duel's own plan, planned as seen.
+        p.hold.push(...prologueWants())
+        const duel = planFor({ scene: 'duel', node: OPENING_NODE }, { ...save, prologueSeen: true }, env)
+        p.next.push(...duel.hold, ...duel.next)
+        p.record.next.push(...duel.record.hold, ...duel.record.next)
+        p.soon.push(...duel.soon)
+        p.record.soon.push(...duel.record.soon)
+        break
+      }
       const pend = pendingSectorNode(save as CampaignState)
+      // At a waiting gift, the lesson (the whole book for a save that never
+      // met the prologue); anywhere else, a replay of the whole book.
+      p.hold.push(...(pend !== null && !save.introSeen ? bookAtGiftOf(save) : introWants()))
       if (pend !== null) {
         p.next.push(...cleaningWants(pend))
         p.record.next.push([pend, 'alive'])

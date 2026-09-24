@@ -3,7 +3,9 @@
 // paintings go on the wire WHEN. These pin the promises the table makes —
 // the ones that silently rot when a scene moves or a chapter is added:
 //
-//   • a fresh save's splash holds for its first DUEL, not for the map;
+//   • a fresh save's splash holds for the book's PROLOGUE, the first duel
+//     right behind it, and neither the map nor the rest of the book;
+//   • a save back mid-first-duel holds for that DUEL, not for the map;
 //   • chapter c + 1 is asked for on chapter c's fourth node and its boss;
 //   • nothing past the chapter after her frontier is ever asked for;
 //   • a returning save holds for the screen it boots into.
@@ -34,6 +36,7 @@ const saveAt = (furthest: number, pending = false): CampaignState => {
   s.furthestNode = furthest
   for (let n = 0; n <= furthest; n++) if (!(pending && n === furthest)) s.sectorsDone = setBit(s.sectorsDone, n)
   s.introSeen = furthest >= 0
+  s.prologueSeen = furthest >= 0
   return s
 }
 
@@ -52,8 +55,42 @@ beforeAll(() => {
   setArtOverrides(true, false)
 })
 
-describe('a fresh save: the splash holds for the first DUEL', () => {
+describe('a fresh save: the splash holds for the PROLOGUE (owner, 2026-09-24)', () => {
   const fresh = defaultCampaign()
+
+  it('boots into the book\'s prologue', () => {
+    expect(bootScreenOf(fresh)).toEqual({ scene: 'intro', node: -1 })
+  })
+
+  it('holds its two pages and the meadow, and not the rest of the book', () => {
+    const hold = keys(firstArtWants(fresh, LAND))
+    expect(hold).toContain(`story/${storyPanelId(0)}`)
+    expect(hold).toContain(`story/${storyPanelId(1)}`)
+    expect(hold).not.toContain(`story/${storyPanelId(2)}`)
+    expect(hold).not.toContain(`story/${storyPanelId(3)}`)
+    expect(hold).toContain(`sector/${sectorArtId(0)}`)
+    // No sponge, no glove: those are the lesson's, at the first gift.
+    expect(hold).not.toContain('tool/stardust-sponge')
+    for (const k of hold) expect(k).not.toMatch(/^(sectorThumb|wardrobe|gift|tool|rune)\//)
+  })
+
+  it('puts node 0\'s duel right behind it, then the win, the front page and the lesson', () => {
+    const plan = planFor(bootScreenOf(fresh), fresh, LAND)
+    const next = keys(plan.next)
+    const duelHold = keys(planFor({ scene: 'duel', node: OPENING_NODE }, { ...fresh, prologueSeen: true }, LAND).hold)
+    for (const k of duelHold) expect(next).toContain(k)
+    const at = (k: string): number => next.indexOf(k)
+    expect(at(`island/${islandArtId(0)}`)).toBeLessThan(at('page/page-front-land'))
+    expect(at('page/page-front-land')).toBeLessThan(at(`story/${storyPanelId(2)}`))
+    expect(at(`story/${storyPanelId(2)}`)).toBeLessThan(at('tool/stardust-sponge'))
+    // The prologue's pages are not asked for a second time.
+    expect(next).not.toContain(`story/${storyPanelId(0)}`)
+    expect(plan.aheadChapter).toBe(-1)
+  })
+})
+
+describe('back mid-first-duel: the splash holds for the first DUEL', () => {
+  const fresh = { ...defaultCampaign(), prologueSeen: true }
 
   it('boots into node 0\'s duel', () => {
     expect(bootScreenOf(fresh)).toEqual({ scene: 'duel', node: OPENING_NODE })
@@ -99,19 +136,22 @@ describe('a fresh save: the splash holds for the first DUEL', () => {
     expect(keys(firstArtWants(fresh, PORT))).toContain('page/cover-cloth')
   })
 
-  it('puts the win, the front page, chapter 1\'s page, the picture book and the cleaning NEXT', () => {
+  it('puts the win, the front page, chapter 1\'s page, the book\'s lesson and the cleaning NEXT', () => {
     const plan = planFor({ scene: 'duel', node: 0 }, fresh, LAND)
     const next = keys(plan.next)
     expect(next).toContain('page/page-front-land')
     expect(next).toContain(`page/${pageArtId(0, false)}`)
     for (let i = 0; i < 5; i++) expect(next).toContain(`sectorThumb/${sectorArtId(i)}`)
-    for (let i = 0; i < STORY_PANELS.length; i++) expect(next).toContain(`story/${storyPanelId(i)}`)
+    // The lesson's two pages; the prologue's were met in front of this duel.
+    expect(next).toContain(`story/${storyPanelId(2)}`)
+    expect(next).toContain(`story/${storyPanelId(3)}`)
+    expect(next).not.toContain(`story/${storyPanelId(0)}`)
     expect(next).toContain('tool/stardust-sponge')
     // …in the order she meets them: the win's gift, the page it lands on,
     // the book, then the cleaning's tool.
     const at = (k: string): number => next.indexOf(k)
-    expect(at('page/page-front-land')).toBeLessThan(at(`story/${storyPanelId(0)}`))
-    expect(at(`story/${storyPanelId(0)}`)).toBeLessThan(at('tool/stardust-sponge'))
+    expect(at('page/page-front-land')).toBeLessThan(at(`story/${storyPanelId(2)}`))
+    expect(at(`story/${storyPanelId(2)}`)).toBeLessThan(at('tool/stardust-sponge'))
     // Nothing of chapter 2 yet: node 0 is not the fourth node.
     expect(plan.aheadChapter).toBe(-1)
     expect(plan.ahead).toEqual([])
@@ -121,6 +161,14 @@ describe('a fresh save: the splash holds for the first DUEL', () => {
     const seen = { ...fresh, introSeen: true }
     const next = keys(planFor({ scene: 'duel', node: 0 }, seen, LAND).next)
     expect(next.some((k) => k.startsWith('story/'))).toBe(false)
+  })
+
+  it('a save that never met the prologue gets all four pages at its gift', () => {
+    const old = { ...fresh, prologueSeen: false, furthestNode: 0 }
+    const plan = planFor({ scene: 'map', node: 0 }, old, LAND)
+    for (let i = 0; i < STORY_PANELS.length; i++) expect(keys(plan.next)).toContain(`story/${storyPanelId(i)}`)
+    const book = planFor({ scene: 'intro', node: -1 }, old, LAND)
+    for (let i = 0; i < STORY_PANELS.length; i++) expect(keys(book.hold)).toContain(`story/${storyPanelId(i)}`)
   })
 })
 

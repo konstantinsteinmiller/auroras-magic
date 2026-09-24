@@ -17,8 +17,8 @@ vi.hoisted(() => {
 import { EARTH, FIRE, NO_EASE, PH_DUEL, PH_LOSE, type Rune } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
 import { castSide, resetDuel, updateSim } from '@/game/duel/sim'
-import { duelSetup } from '@/game/campaign/tables'
-import { FOES, guardianOf, shadowOf } from '@/game/duel/foes'
+import { duelSetup, nodeFoe } from '@/game/campaign/tables'
+import { FOES, FIRST_UMBRA, guardianOf, shadowOf } from '@/game/duel/foes'
 import { ALMOST, barLowLevel, foeAlmost } from '@/game/duel/hpGauge'
 import { GENERAL, LOSS_TIP_RUNES, duelTally, lossTip, lossTipKey, pickLossTip, type LossTipId } from '@/game/duel/lossTip'
 import en from '@/i18n/locales/en'
@@ -182,5 +182,26 @@ describe('chapter 1\'s softened foe', () => {
     // A recolour only: the rules of chapter 1's shadow are untouched.
     const f = FOES[shadowOf(0)]!
     expect([f.slug, f.hpMax, f.aiTier, f.boss]).toEqual(['shadow', 100, 0, false])
+  })
+})
+
+// The first duel is Umbra herself (owner, 2026-09-24): the prologue shows her
+// dusting the meadow, and the fight is Aurora answering her.
+describe('the first duel\'s Umbra', () => {
+  it('is Umbra by name and by look, with the gentle face', () => {
+    const f = FOES[FIRST_UMBRA]!
+    expect(nodeFoe(0)).toBe(FIRST_UMBRA)
+    expect(f.slug).toBe('umbra')
+    expect(f.pal).toEqual(FOES[guardianOf(9)]!.pal)
+    expect(f.gentle).toBe(true)
+  })
+  it('fights by chapter 1\'s shadow\'s rules, so the first duel plays as it was tuned', () => {
+    const { slug: _s, pal: _p, gentle: _g, ...rules } = FOES[FIRST_UMBRA]!
+    const { slug: _s0, pal: _p0, gentle: _g0, ...shadowRules } = FOES[shadowOf(0)]!
+    expect(rules).toEqual(shadowRules)
+    // Not the finale's Umbra: no phase 2, no Love finisher.
+    expect(FOES[FIRST_UMBRA]!.phase2).toBeNull()
+    // Nodes 1–3 still fight the moonlit shadow.
+    for (const n of [1, 2, 3]) expect(nodeFoe(n)).toBe(shadowOf(0))
   })
 })
