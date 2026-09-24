@@ -404,7 +404,12 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       facing: WORN_FACING,
       not: wornNot('the roll of scarf and its knot', '· NO hanging ends, NO tails, NO fringe or tassels anywhere. The two ends flutter in the wind and the game draws them itself, under this — painted ones would hang frozen beside the moving pair.'),
       keep: wornKeep('it is about as long as her neck is wide, wrapped low round her neck.'),
-      checks: ['· No tail, end or fringe anywhere: just the roll and its round knot.']
+      // The first roll (2026-09-24) hung two leaf-shaped flaps under the knot:
+      // the tails again, under another name.
+      checks: [
+        '· No tail, end or fringe anywhere: just the roll and its round knot.',
+        '· THE KNOT IS ONE ROUND BALL — no loops, no ears, no leaf-shaped flaps, no bow. Look directly below the knot: there is only magenta there.'
+      ]
     }),
   item('acornCap', 'Acorn Cap', 1, 'centre',
     'The cup of an acorn worn as a tiny hat, tilted jauntily down to the left: a brown felt half-dome with a woven cross-hatch texture over the dome, a flat darker-brown brim along its bottom edge, and a short curling stalk on top. Only the cap.',
@@ -427,14 +432,17 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       keep: wornKeep('it spans about the width of her forehead.')
     }),
   item('goggles', 'Explorer Goggles', 1, 'centre',
-    'A pair of explorer goggles pushed up out of the way, on their own: a brown leather strap in a gentle arch with a small dark keeper loop near its left end, and two round brass-rimmed lenses of pale sky-blue glass sitting on the strap — the left lens a little bigger than the right — each with a white glint.',
+    'A pair of explorer goggles pushed up out of the way, on their own: a short brown leather strap, nearly level, with a small dark keeper loop near its left end, and two round brass-rimmed lenses of pale sky-blue glass sitting on the strap — the left lens a little bigger than the right — each with a white glint. The strap is ONE band, running through behind the two lenses at their own height, exactly as the reference draws it — no second band, no loop round the back, nothing arching up above the lenses.',
     'Warm tan leather, polished brass rims, pale sky-blue glass.',
     [],
     {
       noun: 'goggles',
       facing: WORN_FACING,
       not: wornNot('the goggles and their strap', '· NO eyes behind the lenses and NO face — the lenses show only glass and a glint.'),
-      keep: wornKeep('the strap spans about the width of her forehead.')
+      keep: wornKeep('the strap spans about the width of her forehead.'),
+      // The first roll (2026-09-24) added the strap's far half as a tall arch
+      // over the lenses — on her head it would stand up through her forelock.
+      checks: ['· ONE strap, level with the lenses: nothing rises above the tops of the two lenses.']
     }),
   item('bowTie', 'Bow Tie', 1, 'centre',
     'A neat navy-blue bow tie on its own: two plump pinched loops either side of a small round knot, and two short pointed tails hanging below the knot.',
@@ -579,8 +587,14 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
         'NOTHING PRINTED ON ITS BELLY — no flower, star, sun, bell, dot or pattern. The game prints its own small white mark there, and a painted one would sit under it.',
         'No text, letters or numbers.'
       ],
-      keep: 'IT IS SEEN SMALL — about a thumb wide, on a round cream button — so it is a bold, simple shape: one round belly, one rim, one drip. Still hand-painted: the paint is glossy, with a soft light along the belly\'s upper left.',
-      checks: ['· One pot, one cream rim, one drip, and nothing printed on the belly.']
+      keep: 'IT IS SEEN SMALL — about a thumb wide, on a round cream button — so it is a bold, simple shape: one round belly, one rim, one drip. Still hand-painted: the paint is glossy, with a soft light along the belly\'s upper left.\n' +
+        // The first roll (2026-09-24) came back ringed in one heavy even line:
+        // the reference's ink IS thinned (0.6), and the brief never said so.
+        '· THE LINE IN THE REFERENCE IS DELIBERATELY THIN. It shows where the shapes are; it is not a contour to ink in. Do not thicken it, and do not trace one even line right round the pot — let it swell under the belly and fade to nothing along the lit upper left.',
+      checks: [
+        '· One pot, one cream rim, one drip, and nothing printed on the belly.',
+        '· THE TWO-HEAVIEST-LINES TEST: find the two heaviest lines on the pot and compare them. If they are the same weight, the line is a contour, not a brush — thin one away.'
+      ]
     }),
   item('paintBlob', 'Paint blob', 1, 'centre',
     'One round, glossy glob of wet paint flying through the air: a plump ball of paint with a bright wet highlight at its upper left.',
@@ -602,7 +616,11 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
     'Soft lilac-violet paper with a deeper lilac shadow side; butter-gold ribbon and bow, a deeper honey-gold knot.',
     [
       'Panel 1: tied. The bow sits up neat on top of the box, its two loops close together.',
-      'Panel 2: the bow is coming loose — its two loops have lifted and swung apart, leaning out to either side, a little bigger. The box and the ribbon cross are exactly the same as in panel 1.'
+      'Panel 2: the bow is coming loose — its two loops have lifted and swung apart, leaning out to either side, a little bigger. The box and the ribbon cross are exactly the same as in panel 1.',
+      // The first roll (2026-09-24) tied panel 1 in a thin open ribbon with two
+      // tails and panel 2 in fat filled loops: the game cross-fades between
+      // them, so the halfway steps showed two bows at once.
+      'THE SAME BOW IN BOTH: the same ribbon — the same width, the same filled butter-gold, the same round knot — and in neither panel any tails hanging from the knot. Only how far apart the two loops stand changes.'
     ], {
       noun: 'gift',
       not: [
@@ -610,7 +628,10 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
         'No tag, no card, no second gift, no sparkles, no ground, no shadow under it.',
         'No text, letters or numbers.'
       ],
-      checks: ['· A SQUARE box, not a round parcel, with nothing printed on its front.']
+      checks: [
+        '· A SQUARE box, not a round parcel, with nothing printed on its front.',
+        '· Put the two bows side by side: the same ribbon width, the same fill, the same knot, and no tails in either — panel 2\'s loops simply stand further apart.'
+      ]
     }),
   // A Signature Spell's emblem, under its recipe as the boss chest grants it
   // (`restore/emblem.ts`). Two stills, not a strip: a strip's panels are ONE
@@ -777,6 +798,13 @@ const seenAt = (where: string, how: string): string =>
 
 const NO_SHADOW_UNDER = '· THE SHADOW IS ON THE THING, NEVER UNDER IT. No ground shadow, no dark patch, no soft smudge below or behind it — a shadow on the magenta ships as a pink stain stuck to it for ever.'
 const STILL_PAINTED = '· It is still a hand-painted storybook thing, not a flat vector icon: the paint varies softly across it and the plum line swells and fades.'
+/**
+ * A SEE-THROUGH shell's middle is EMPTY, not a film. The first bubble ward
+ * (2026-09-24) came back with a pale lilac skin painted across its middle:
+ * a tint over magenta is a DARKER magenta, the key ate it unevenly, and a
+ * ragged pink ring was left inside the rim, over the duelist it holds.
+ */
+const NO_FILM = ' NO FILM ACROSS IT: the middle is not a pale see-through skin, sheen, tint, reflection or shading laid over the magenta — it is NOTHING, the same flat, untouched #FF00FF as the four corners of the sheet, right up to a clean inside edge. The game lays its own see-through wash there.'
 const NOTHING_ROUND = '· NOTHING under, behind or around it — no shadow, no glow, no sparkle, no plate. Magenta touches its outline the whole way round.'
 
 const CHROME_SHEETS: readonly ItemSheet[] = [
@@ -2657,8 +2685,11 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('rockNest', 'Rock nest', 1,
-    'A small nest of rock: a low, rounded rim of cave-stone that rises at both ends and dips in the middle, like a cupped hand, with a dark hollow showing behind the rim where something has been lying. A stone cradle, EMPTY.',
-    'Soft cave-lilac stone with a deeper violet shadow on its lower right, and a deep violet hollow behind the rim.',
+    'A small nest of rock: a low, rounded rim of cave-stone that rises at both ends and dips in the middle, like a cupped hand, with a dark hollow showing behind the rim where something has been lying. A stone cradle, EMPTY. It is SEEN EXACTLY FROM THE SIDE, at eye level with the cave floor — you do NOT look down into it: the hollow is only a thin band of dark shadow showing over the dip in the rim\'s top edge, never an opening seen from above, a ring or a crater.',
+    // "A deeper violet shadow on its lower right" came back as a violet CAST
+    // shadow spilling off the stone onto the magenta (2026-09-24): the shade
+    // is on the stone, and says so.
+    'Soft cave-lilac stone, shaded a deeper violet on the stone\'s own lower right — inside its outline, never spilling off it — and a deep violet hollow behind the rim.',
     'it is about a seventh of the width of the scene, on the floor of a crystal cave.',
     [],
     {
@@ -2673,6 +2704,9 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       checks: [
         '· The hollow is empty: no crystal and no gem anywhere in the picture.',
         '· The rim rises at BOTH ends and dips in the middle.',
+        // The first roll (2026-09-24) looked DOWN into it: a stone ring round a
+        // crater, twice the drawing's height, which the front cover could not clip.
+        '· It is as LOW and FLAT as the reference — about three times as wide as it is tall — and you cannot see down into it.',
         '· Nothing under it: the magenta runs clean beneath the stone.'
       ]
     }),
@@ -2717,7 +2751,11 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('flowerHead', 'Flower head', 1,
-    'ONE round flower head seen face-on: five round petals of the same size set evenly round a round butter-yellow middle — a simple storybook daisy-flower.',
+    // The first roll (2026-09-24) traced the reference's five overlapping
+    // CIRCLES, outline through outline, so every petal wore a heavy ring and
+    // the rings crossed inside the flower. The reference is a stack of flat
+    // circles; say what the overlap IS.
+    'ONE round flower head seen face-on: five soft rounded petals of the same size set evenly round a round butter-yellow middle, each petal tucked a little behind the next — a simple storybook daisy-flower. WHERE ONE PETAL OVERLAPS ANOTHER THERE IS NO LINE: the reference is five flat circles stacked, so its outlines cross through each other there, and that crossing is a drawing artefact, not part of the flower. Paint the front petal\'s edge as a soft change of shade over the one behind it.',
     'Keep the reference\'s pale neutral grey (see below) for the PETALS: the game gives each flower its own colour. The middle is a warm butter yellow.',
     'it is about a thirtieth of the width of the scene, nodding on top of a tall stem.',
     [],
@@ -2732,6 +2770,8 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ],
       checks: [
         '· FIVE petals — count them.',
+        '· Look where two petals overlap: NO line crosses into a petal and no petal is ringed by a line of its own. Only the OUTSIDE of the whole flower carries a line, and even that swells and fades.',
+        '· No petal is a perfect circle: each is a soft, hand-drawn petal, a little different from its neighbours.',
         '· There is no stem and no leaf.'
       ]
     }),
@@ -2868,7 +2908,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     {
       noun: 'ring',
       view: 'THE VIEW: flat and square-on, an upright oval, exactly as the reference has it. The game swells it and floats it away.',
-      holes: 'THE RING IS OPEN IN THE MIDDLE. The oval in its centre is a HOLE: the magenta runs clean through it — the sea is painted behind it. Only the ring of soap skin, its rim and its highlight are painted.',
+      holes: 'THE RING IS OPEN IN THE MIDDLE. The oval in its centre is a HOLE: the magenta runs clean through it — the sea is painted behind it. Only the ring of soap skin, its rim and its highlight are painted.' + NO_FILM,
       not: [
         'Draw ONE ring and nothing else, exactly as the reference shows it.',
         '· NO other bubbles, NO foal, NO water, NO splash, NO sky.',
@@ -2988,13 +3028,16 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       checks: ['· One pillar per panel, standing straight up, the same pillar in all three.']
     }),
   prop('wardWind', 'Wind ward', 1,
-    'A round shell of swirling air: a thick ring of pale aqua wind, hollow — you can see straight through the middle — with four little curling gusts, each like a comma with a long tapering tail, chasing each other round inside it.',
+    // The first roll (2026-09-24) read 'a thick ring' as licence: the ring came
+    // back twice as wide with curls breaking into the middle, which shrank the
+    // hole the duelist is seen through to under half the drawing's.
+    'A round shell of swirling air: a ring of pale aqua wind exactly as wide as the reference draws it — about a fifth of its radius, never thicker — hollow, so you can see straight through the middle, with four little curling gusts, each like a comma with a long tapering tail, chasing each other round inside it. The ring\'s swirls stay INSIDE its own band: nothing of the ring curls in toward the middle.',
     'Pale aqua and mint-white air, brightest where it curls, a cooler aqua in its turns.',
     'it is about a tenth of the width of the scene — a shell of wind around a unicorn.',
     [],
     {
       noun: 'wind shell',
-      holes: 'THE MIDDLE OF THE RING IS A HOLE. Inside the ring, round the four gusts and between them, the magenta runs straight through: a unicorn stands inside this shell and must show through it. Only the ring and the four gusts are painted.',
+      holes: 'THE MIDDLE OF THE RING IS A HOLE. Inside the ring, round the four gusts and between them, the magenta runs straight through: a unicorn stands inside this shell and must show through it. Only the ring and the four gusts are painted.' + NO_FILM,
       view: 'THE VIEW: flat and square-on, exactly as the reference has it. The game turns the whole shell round and round, so there is no up or down to it.',
       not: [
         'Draw ONLY the ring and its four gusts, exactly as the reference shows them.',
@@ -3003,6 +3046,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ],
       checks: [
         '· One ring, four gusts inside it, and magenta showing through the middle.',
+        '· THE HOLE IS AS WIDE AS THE REFERENCE\'S: hold the two side by side — your ring is no thicker than the reference\'s, and no curl of it reaches in past its inner edge.',
         '· There is no glow outside the ring: the magenta runs clean up to its edge.'
       ]
     }),
@@ -3013,7 +3057,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'bubble',
-      holes: 'THE BUBBLE IS SEE-THROUGH. Its whole middle is a HOLE: the magenta runs right through it, and the painting is only its thin coloured rim and the one white highlight. A unicorn stands inside it and must show through.',
+      holes: 'THE BUBBLE IS ONLY ITS RIM — a hoop with nothing stretched across it. Its whole middle is a HOLE: the magenta runs right through it, and the painting is only its thin coloured rim and the one white highlight. A unicorn stands inside it and must show through.' + NO_FILM,
       view: 'THE VIEW: flat and square-on, a single round bubble, exactly as the reference has it. The game swells it as it wobbles.',
       not: [
         'Draw ONE bubble and nothing else, exactly as the reference shows it.',
@@ -3045,14 +3089,14 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('wardFrost', 'Frost dome ward', 1,
-    'A dome of frost: a half-circle shell of pale ice on two short straight sides down to a flat bottom edge, with four little frost ferns — each a short stem with one side-leaf — climbing up the inside of the shell from its rim. The shell is see-through.',
+    'A dome of frost: a half-circle shell of pale ice on two short straight sides down to a flat bottom edge, with four little white frost ferns — each a short stem with one side-leaf — growing INWARD from the CURVED TOP of the rim, two either side of the top, exactly where the reference draws its four white marks. Nothing grows from the bottom edge or from the two straight sides. The shell is only its rim, like a window frame with no glass in it: the middle is empty.',
     'Pale icy blue, near-white where the light catches the rim; the ferns pure white.',
     'it is about a ninth of the width of the scene — a frosty dome over a unicorn.',
     [],
     {
       noun: 'frost dome',
       anchor: 'feet',
-      holes: 'THE DOME IS SEE-THROUGH. Inside its icy rim the magenta runs straight through, round the four ferns: a unicorn stands under it and must show through. Only the rim, its outline and the four white ferns are painted.',
+      holes: 'THE DOME IS ONLY A RIM — a window frame with no glass in it. Inside its icy rim the magenta runs straight through, round the four ferns: a unicorn stands under it and must show through. Only the rim, its outline and the four white ferns are painted.' + NO_FILM,
       view: 'THE VIEW: flat, from the side, exactly as the reference has it.',
       not: [
         'Draw ONLY the dome and its four ferns, exactly as the reference shows them.',
@@ -3060,7 +3104,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
         '· No text, letters or numbers.'
       ],
       checks: [
-        '· One dome, four ferns, and magenta showing through its middle.',
+        '· One dome and FOUR ferns — all four on the curved top, none at the bottom — and the middle the same flat magenta as the corners of the sheet.',
         '· Its bottom edge is flat and straight, and nothing is under it.'
       ]
     }),
@@ -3072,7 +3116,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     {
       noun: 'ice block',
       anchor: 'feet',
-      holes: 'THE BLOCK IS SEE-THROUGH. Inside its rim the magenta runs straight through, round the two light planes: a frozen unicorn stands inside it and must show through. Only the rim, its outline and the two light planes are painted.',
+      holes: 'THE BLOCK IS SEE-THROUGH. Inside its rim the magenta runs straight through, round the two light planes: a frozen unicorn stands inside it and must show through. Only the rim, its outline and the two light planes are painted.' + NO_FILM,
       view: 'THE VIEW: flat and square-on, standing upright exactly as the reference has it.',
       not: [
         'Draw ONLY the block, exactly as the reference shows it.',

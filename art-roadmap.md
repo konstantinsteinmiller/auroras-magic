@@ -1553,3 +1553,79 @@ come back neutral lilac-grey).
 the bake leaves the drawn one in that bubble for the session. It was already
 true of the crown and the rig parts; the fix is to re-bake on `cosmetic`,
 `rig` and the routed props in `portraitArtRev`'s listener.
+
+## 2026-09-24 — paint-outstanding pass: the 58 sheets, painted
+
+`art:status`: **320 painted, 0 still drawn, 320 in the catalogue.** The 58
+new files weigh **449 kB** after `--fresh --only` compression (gift 60 kB,
+tool 35, worldUi 162, cosmetic 203, prop 490 as families); the catalogue is
+now ~4.27 MB.
+
+**How.** The five slices' references were exported with `--only` (58, from a
+private dev server: a wrapper config with `server.hmr: false`,
+`watch.ignored: ['**/*']`, its own `cacheDir`); the bench's prompt documents
+and `pnpm art:prompts` agreed byte for byte, and every existing painting stayed
+sliced. No other desk was running, so this project's desk took 5178 and its own
+Gemini window, and was stopped (window closed) at the end. Queued in the
+P-list order — the book board, the leaf, the glove, the pictograms, the pot and
+the blob, chapter 1's log, the Twin Gift… — one pilot per new kind first
+(stretched frame, set, 2-panel, hollow shell, 6-panel). **72 generations**
+(the shared ledger went 46 → 118); Gemini never refused on quota.
+
+**47 of 58 kept first time.** Re-rolls, and what each taught the brief:
+
+| sheet | rolls | why it went back | fix (all in `artSheet.ts`) |
+| --- | --- | --- | --- |
+| `worldui-picto-set-3` | 3 | 1: the six pictures on six pale-pink CARDS (the key lifted the magenta between them and shipped the cards); 2: refused by the strip guard, cut 1 through a drawing | none — the dice; 3 came back clean |
+| `prop-flower-head` | 2 | the reference's five overlapping CIRCLES traced outline through outline: a heavy ring round every petal, crossing inside the flower | the blurb names the overlap as a drawing artefact; checks for no line where petals overlap and no perfect circle |
+| `prop-ward-bubble` | 2 | a pale lilac FILM painted across the see-through middle; the key ate it unevenly and left a ragged pink ring over the duelist | `NO_FILM` on the five see-through shells (bubble, wind, frost dome, frost-lock ice, bubble ring); "only its rim — a hoop with nothing stretched across it" |
+| `prop-ward-wind` | 2 | "a thick ring" read as licence: twice the width, curls into the middle, the hole under half the drawing's | the ring is "about a fifth of its radius, never thicker"; a hole-width check |
+| `prop-ward-frost` | 2 | the film again, and the ferns grown from the FOOT as well as the arch | "a window frame with no glass in it"; the four ferns on the curved top, none at the bottom |
+| `item-winter-scarf-wrap` | 2 | two leaf-shaped flaps under the knot — the tails the game draws, under another name | "the knot is ONE round ball… look directly below it: only magenta" |
+| `prop-rock-nest` | 3 | 1: looked DOWN into it (a stone ring round a crater, twice the drawing's height); 2: "a deeper violet shadow on its lower right" came back as a CAST shadow off the stone | "seen exactly from the side… never an opening seen from above"; the shade is "on the stone's own lower right, never spilling off it" |
+| `item-explorer-goggles` | 3 | the strap's far half as a tall arch over the lenses, twice — it would stand up through her forelock. The blurb itself said "a strap in a gentle arch" | "a short strap, nearly level"; one band at the lenses' height |
+| `worldui-show-glove` | 2 | the desk's retry: Gemini first refused ("interests of third-party content providers" — a white four-finger cartoon glove), then answered the nudge with a 16:9 picture on no magenta, which the slicer refused | none needed |
+| `item-twin-gift` | 2 | kept-able, but panel 1 was a thin open ribbon with tails and panel 2 fat filled loops: the hold's cross-fade showed two bows at once | "THE SAME BOW IN BOTH" + a side-by-side check. The re-roll's bows match; its box turned a little three-quarter (a side face shows) |
+| `item-paint-pot` | 2 | one heavy even outline round the jar | the pot now says its reference line is DELIBERATELY THIN, plus the two-heaviest-lines test; the re-roll's line varies a little |
+
+Parked returns are in `art-sheets/painted/stale/<stem>.<reason>.jpg`,
+replaced ones in `painted/replaced/`.
+
+**Kept, with a note** (candidates if a generation is ever spare — none is
+wrong in play):
+- `worldui-book-board` came back close to a tidied reference: smooth cloth,
+  clean striped leaves. The stretch forbids texture, and at a 9–25 px margin
+  it reads as the book; seen in landscape and upright, no seam or smear.
+- `worldui-gold-star`, `prop-snowball`, `prop-glass-chip`: an even heavy
+  outline (sticker-ish), all small in play. `prop-ward-rock` is six clean
+  hexagons, as drawn.
+- `item-bow-tie` is navy, darker than the drawn blue — what its brief asks.
+- `prop-ward-frost` keeps a pink glass-sheen streak inside the arch (painted,
+  not key residue: opaque `(243,149,210)`).
+- `prop-carousel-horse` scores 0.57 % "magenta" — panel 1's candy-pink mane,
+  opaque paint; the other five are under 0.1 %. Six unicorns, one horn each,
+  all facing right, every coat/mane/saddle as briefed.
+- `prop-ward-ice` came back narrower than the drawn pillar (scaled on its
+  height); `item-winter-scarf-wrap`'s knot has a second lobe under it.
+
+**Looked at in place, not only keyed:** the sector harness (1-3's log and moss
+bed, 4-3's rock nest, 8-3's ice block, 10-2's carousel — all seated where the
+drawing was); the rig wearing all thirteen worn stills, art on against art off
+(each lands on its drawing); the book board round the front page landscape and
+upright, the glove on it, dialogue leaves with pictograms from all four sets
+and the gold stars; and the live app on a private dev server with `?art=on`
+(cold-boot duel, front page, a chapter title leaf). **Contrast audit with the
+art on** (`locale-fit/audit.mjs --contrast`, en, land+port): the painted leaf
+passes; 4 runs sit under AA — the duel's "DRAW THE SQUARE TO BLOCK!" and "x1.7"
+captions on `#9e7cbe` — and exactly the same 4 appear with the art off, so they
+are not the art's.
+
+**Two harness traps worth keeping:** `setArtOverrides(true)` always re-probes
+— calling it again before a draw drops every decoded painting, and the draw
+comes out vector; call it once. And a private dev server started while another
+agent is mid-edit serves the half-written module (here `forge.ts` without
+`forgeProgress`) for as long as it runs, because it does not watch — restart
+it after their commit.
+
+**Left:** nothing unpainted. The optional re-rolls are the "kept, with a
+note" list above, one at a time, each judged against the one it replaces.
