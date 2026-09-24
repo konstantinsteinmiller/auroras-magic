@@ -2,7 +2,7 @@
 import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { PH_DUEL, RUNES } from '@/game/duel/config'
 import { S, type Forge } from '@/game/duel/state'
-import { FORGE_S, runeAt } from '@/game/duel/forge'
+import { forgeProgress, runeAt } from '@/game/duel/forge'
 import { hudLayout, registerForgeLayer } from '@/use/useDuelHud'
 import { reducedMotion } from '@/use/useAccessibility'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
@@ -35,6 +35,10 @@ import RuneGlyph from '@/components/duel/RuneGlyph.vue'
  *
  * Reduced motion: the runes do not fly — they fade where they stand, while
  * the horn's glow fades in (`forge.hornGlow`): the same 1.5 s, a cross-fade.
+ *
+ * A WARD's forge is 0.4 s, not 1.5 (`forge.WARD_FORGE_S`, owner 2026-09-24):
+ * the same flight on the same paths, read off `forge.forgeProgress`, so its
+ * runes simply fly faster — and under reduced motion fade over that 0.4 s.
  */
 const root = ref<HTMLElement | null>(null)
 /** The rune each pooled element shows (-1 none): 0..2 Aurora's, 3..5 the
@@ -119,7 +123,7 @@ const frame = (): void => {
         hide(k)
         continue
       }
-      runeAt(f.t / FORGE_S, i, f.q.length, sx[k]!, sy[k]!, side === 1, still, P)
+      runeAt(forgeProgress(f), i, f.q.length, sx[k]!, sy[k]!, side === 1, still, P)
       if (P.a <= 0.001) {
         hide(k)
         continue

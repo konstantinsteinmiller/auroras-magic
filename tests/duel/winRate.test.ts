@@ -34,12 +34,13 @@ const { reseed } = vi.hoisted(() => {
   return { reseed: (): void => { s = SEED } }
 })
 
-import { CTR, FIRE, EARTH, MAX_RUNES, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type DuelEase, type Rune } from '@/game/duel/config'
+import { AX, CTR, FIRE, EARTH, MAX_RUNES, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type DuelEase, type Rune } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
 import { duelSetup, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
 import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
-import { resetDuel, updateSim, cast, castBusy } from '@/game/duel/sim'
+import { resetDuel, updateSim, cast, castBusy, foeTell } from '@/game/duel/sim'
+import { WARD_FORGE_S, forgeDuration } from '@/game/duel/forge'
 
 const DT = 1 / 60
 const MAX_T = 150
@@ -64,6 +65,14 @@ interface Player {
   single?: number
   /** Chance a beat passes with her attention somewhere else. */
   idle?: number
+  /** Runes she builds a spell to before she casts it (default two). */
+  size?: number
+  /**
+   * THE SNAP WALL (§8.37): the chance she leads a hand with the square — a
+   * lone Earth IS a wall — and holds it while the foe threatens, then raises
+   * it in answer to the foe's forge. Only a player who has learned it.
+   */
+  block?: number
 }
 
 /** §7.2's core child: a comfortable 7–10-year-old. The targets are hers. */
@@ -88,6 +97,20 @@ const YOUNG: Player = { id: 'young', beat: 2, hand: 0.62, counter: 0.12, single:
  * be won without playing teaches nothing and is worth nothing to win.
  */
 const NOBODY: Player = { id: 'nobody', beat: 999, hand: 0, counter: 0 }
+
+/**
+ * A FAST GROWN-UP WHO BLOCKS (owner, 2026-09-24, §8.37). A ward snaps up in
+ * 0.4 s now, so the foe's 1.5 s forge can be answered: he leads most hands
+ * with the square, holds it while her slots pulse or her forge runs, and
+ * raises it in the forge's last half-second — up before her spell leaves,
+ * still standing (a lone Earth holds 2 s) when it lands, heavy or bolt. Fast
+ * and accurate, three-rune spells, counters. The children above never block
+ * on purpose; this is the model that exercises the skill.
+ */
+const ADULT: Player = { id: 'adult', beat: 0.6, hand: 0.95, counter: 0.7, size: 3, block: 0.8 }
+
+/** The last duel's tally: the foe's spells the player's own wall stopped. */
+let blocked = 0
 
 /**
  * The runes a player owns ARRIVING AT node `n` (§8.30): the two she starts
@@ -139,6 +162,10 @@ const duel = (
    * full hand is refused exactly as `strokeEnd` refuses it.
    */
   let want = false
+  /** This hand was led with the square, to be held as a wall (`block`). */
+  let lead = false
+  blocked = 0
+  const size = p.size ?? 2
   // A duel nobody plays runs its whole length — that is 9 000 steps a sample,
   // and the floor test takes thirty of them per node. It cannot be won after
   // the foe has had a minute either, so it is not measured for longer.
@@ -146,29 +173,49 @@ const duel = (
   for (let t = 0; t < cap; t += DT) {
     S.pops.length = 0
     clock += DT
+    // THE SNAP WALL (§8.37), for a player who has learned it: a lone Earth in
+    // hand, and the foe's hit in the last 0.6 s of its forge — his 0.4 s wall
+    // is up before her spell leaves, and still up (a lone Earth holds 2 s)
+    // when even a heavy, hanging 1.7 s, falls, with a tenth to spare.
+    const f = S.eForge
+    const hit = f.t >= 0 && f.kind !== 2 && f.kind !== 5
+    const held = lead && S.queue.length === 1 && S.queue[0] === EARTH
+    if (held && hit && !castBusy(false)) {
+      const left = forgeDuration(f.kind) - f.t
+      if (left > WARD_FORGE_S + 0.02 && left <= WARD_FORGE_S + 2 - 1.7 - 0.1) {
+        cast()
+        lead = want = false
+      }
+    }
     if (clock >= p.beat) {
       clock -= p.beat
       // The optional traits are rolled ONLY when the policy has them, so the
       // core child's dice are the same sequence they have always been and her
       // numbers stay comparable across every tuning pass.
       const away = p.idle !== undefined && Math.random() < p.idle
-      if (!away && Math.random() < p.hand) {
+      // A held square is not added to while she threatens: her full hand
+      // pulsing in her slots, or her forge running.
+      const holding = held && (hit || foeTell() >= 2)
+      if (!away && !holding && Math.random() < p.hand) {
+        const leads = p.block !== undefined && !S.queue.length && Math.random() < p.block
+        if (leads) lead = true
         // She draws from what she OWNS — two runes in the first battles, more
         // as the chests give them.
-        const r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
+        const r = leads ? EARTH : counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
         if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
         const impatient = p.single !== undefined && Math.random() < p.single
         if (S.queue.length < MAX_RUNES) {
           S.queue.push(r as Rune)
-          if (S.queue.length >= 2 || impatient || (r === counter && solo)) want = true
+          if (S.queue.length >= size || impatient || (r === counter && solo)) want = true
         }
       }
     }
     if (want && S.queue.length && !castBusy(false)) {
       cast()
-      want = false
+      want = lead = false
     }
     updateSim(DT)
+    for (const pp of S.pops) if (pp.k === 'blocked' && pp.x === AX) blocked++
     if (S.phase !== PH_DUEL) return S.phase === PH_WIN
   }
   return false
@@ -375,4 +422,45 @@ describe.skipIf(!process.env.WINRATE)('difficulty on the real duel (§7.2, the c
       expect(bossx3, 'boss within three').toBeGreaterThanOrEqual(0.95)
     }, 120_000)
   }
+})
+
+/**
+ * ─── THE SNAP WALL, EXERCISED (§8.37) ──────────────────────────────────────
+ *
+ * A ward forges in 0.4 s (owner, 2026-09-24), so a wall raised in answer to
+ * the foe's 1.5 s forge stands before her spell lands. The children above
+ * never block on purpose, so this is the table where it is played: a fast
+ * grown-up who blocks. He must still win everywhere — her own snap walls
+ * answer the director, and he is the player they are FOR — and his walls must
+ * actually catch her spells, or the skill does not exist.
+ */
+describe.skipIf(!process.env.WINRATE)('a fast grown-up who blocks (§8.37)', () => {
+  it('wins every chapter, and his walls stop her spells', () => {
+    reseed()
+    const rows: string[] = []
+    let blocks = 0
+    let duels = 0
+    const k = 120
+    for (let c = 0; c < 10; c++) {
+      const cells: string[] = []
+      const groups: [number, boolean, number][] = [[c * 5, false, shadowOf(c)], [c * 5 + 2, true, shadowOf(c)], [c * 5 + 4, true, guardianOf(c)]]
+      for (const [node, magic, foe] of groups) {
+        let won = 0
+        let b = 0
+        for (let i = 0; i < k; i++) {
+          if (duel(foe, node, magic, 0, ADULT)) won++
+          b += blocked
+        }
+        blocks += b
+        duels += k
+        cells.push(`${pct(won / k)} (${(b / k).toFixed(2)} blocks)`)
+        expect.soft(won / k, `chapter ${c + 1}, node ${node + 1}: fast grown-up`).toBeGreaterThanOrEqual(0.95)
+      }
+      rows.push(`ch${String(c + 1).padStart(2)}  nodes 1–2 ${cells[0]}  nodes 3–4 ${cells[1]}  boss ${cells[2]}`)
+    }
+    const table = rows.join(NL)
+    console.info(`[winrate adult, blocking]${NL}${table}`)
+    if (process.env.WINRATE_OUT) appendFileSync(process.env.WINRATE_OUT, `adult (blocks):${NL}${table}${NL}`)
+    expect(blocks / duels, 'his snap walls catch her spells').toBeGreaterThan(0.2)
+  }, 600_000)
 })

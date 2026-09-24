@@ -12,7 +12,7 @@ import { VERSUS_FOE, shadowOf } from '@/game/duel/foes'
 import { S, type Shot } from '@/game/duel/state'
 import { AFK_S } from '@/game/duel/director'
 import { resetDuel, updateSim, cast, stops, seep, fromAbove, WEAK_POINTS, duelTally } from '@/game/duel/sim'
-import { castNow } from './forged'
+import { castNow, pressFoe } from './forged'
 
 const STEP = 1 / 120
 const run = (seconds: number): void => {
@@ -192,8 +192,10 @@ describe('a weak point, in the duel (§8.35)', () => {
   })
 
   it('the foe does not throw her hand away for an earth wall a Water heavy would only halve', () => {
-    // A tier-2 foe reads the player's slots (§6.13).
+    // A tier-2 foe reads the player's slots (§6.13) — and, the player well
+    // ahead, means to wall what she reads (§8.37's `wardWill`).
     resetDuel({ foe: shadowOf(7), usesMagic: false, lossStreak: 0 })
+    pressFoe()
     const think = (queue: number[]): number[] => {
       S.queue.length = 0
       S.queue.push(...(queue as Rune[]))

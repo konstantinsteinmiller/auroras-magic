@@ -22,8 +22,10 @@
  *                 Only the square is stored.
  *     BLOCK_CAST  "NOW CAST IT": the cast button opens and pulses. Her cast is
  *                 the Earth Wall, through the normal cast path (and forge).
- *     BLOCK_WAIT  her wall rises at the end of her forge; `WALL_BEAT` later
- *                 the foe's held forge is let go and her spell leaves into it.
+ *     BLOCK_WAIT  her wall rises at the end of her forge — a ward's 0.4 s
+ *                 (`forge.WARD_FORGE_S`), the snap-up the fight itself now
+ *                 has; `WALL_BEAT` later the foe's held forge is let go and
+ *                 her spell leaves into it.
  *                 The wall is kept standing until the spell has broken on it.
  *     BLOCKED     the ward ripples and "BLOCKED" pops (both `sim.strike`'s
  *                 own); the lesson adds "YOU BLOCKED IT!", a bell and a
@@ -76,7 +78,7 @@ import { AX, EARTH, FIRE, GY, MAX_RUNES, PH_DUEL, RUNES, type Rune } from '@/gam
 import { noteAct } from '@/game/duel/director'
 import { sfx } from '@/game/duel/audio'
 import { barrier, borrowDice, sparkleBurst } from '@/game/duel/fx'
-import { FORGE_S } from '@/game/duel/forge'
+import { forgeDuration } from '@/game/duel/forge'
 import { zoneCentre } from '@/game/duel/layout'
 import { max, min, seeded } from '@/game/duel/util'
 import { track } from '@/use/useAnalytics'
@@ -262,8 +264,10 @@ const missBlock = (x?: number, y?: number): void => {
   nudge('trySquare', x, y)
 }
 
-/** The forge clock at which the foe's spell is held (`S.eForge.t`). */
-const HELD_T = FORGE_S - HOLD_AT
+/** The forge clock at which the foe's spell is held (`S.eForge.t`): `HOLD_AT`
+ *  before the end of HER forge — Fire Rain hits, so the full 1.5 s. Read off
+ *  the forge itself, so it can never hold a spell past its own release. */
+const heldT = (): number => forgeDuration(S.eForge.kind) - HOLD_AT
 
 /**
  * Lesson 1's foe hand — the slots and forming ring the fight uses, played by
@@ -278,7 +282,7 @@ const stepFoeHand = (dt: number, castFor: (e: boolean) => void): void => {
   const f = S.eForge
   if (f.t >= 0) {
     // She is about to let go, and does not.
-    if (f.t > HELD_T) f.t = HELD_T
+    if (f.t > heldT()) f.t = heldT()
     return
   }
   foeT += dt
@@ -302,7 +306,7 @@ const stepFoeHand = (dt: number, castFor: (e: boolean) => void): void => {
 }
 
 /** Is the foe's spell forged and held at its last moment? */
-const foeHeld = (): boolean => !released && S.eForge.t >= HELD_T - 1e-6
+const foeHeld = (): boolean => !released && S.eForge.t >= 0 && S.eForge.t >= heldT() - 1e-6
 
 /** Her wall stands until the block has landed (an Earth Wall alone is two
  *  seconds, and her forge and the spell's fall can take longer than that). */
@@ -353,9 +357,9 @@ const stepBlockWait = (dt: number): void => {
   if (!released) {
     if (S.guard > 0) wallT += dt
     if (wallT >= WALL_BEAT && foeHeld()) release()
-    // Her own forge raises the wall 1.5 s after the press; the foe's hand
-    // takes a few seconds to reach its hold. A wall that never came is the
-    // only thing worth giving up on.
+    // Her own forge raises the wall 0.4 s after the press (a ward snaps up,
+    // `forge.WARD_FORGE_S`); the foe's hand takes a few seconds to reach its
+    // hold. A wall that never came is the only thing worth giving up on.
     else if (S.introT >= WAIT_MAX && S.guard <= 0) giveUpBlock('noWall')
     return
   }

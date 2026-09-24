@@ -8,6 +8,11 @@
  * the forge's exact length on both sides, the lock and what ends it, drawing
  * through it, the refusal signal the HUD reads, the foe's forge as her
  * warning, reduced motion, versus, and the QA readout.
+ *
+ * …and THE SNAP WALL (owner, 2026-09-24: "Walls and barriers are faster,
+ * 0.4 s."): every ward forges in `WARD_FORGE_S` on both sides, so a wall
+ * started in answer to a forge with more than 0.4 s left stands before the
+ * hit — and the foe's own answering walls follow the director's ease.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -17,7 +22,7 @@ vi.hoisted(() => {
 })
 
 import {
-  AX, UX, GY, EARTH, FIRE, ICE, WIND, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type Rune
+  AX, UX, GY, EARTH, FIRE, ICE, WIND, WATER, ILLUSION, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type Rune
 } from '@/game/duel/config'
 import { VERSUS_FOE, shadowOf } from '@/game/duel/foes'
 import { duelSetup } from '@/game/campaign/tables'
@@ -26,13 +31,17 @@ import {
   cast, castBusy, castSide, foeTell, forgeReadout, lastPlayerCast, onDuelEvent, resetDuel, strokeEnd, strokeMove,
   strokeStart, updateSim
 } from '@/game/duel/sim'
-import { AFK_S, afk } from '@/game/duel/director'
-import { BEAT, FORGE_S, MERGE_Y, hornGlow, mergeX, orbAt, runeAt } from '@/game/duel/forge'
+import { AFK_S, WARD_WILL, afk, stepDirector, wardWill } from '@/game/duel/director'
+import {
+  BEAT, FORGE_S, MERGE_Y, WARD_FORGE_S, forgeDuration, forgeProgress, hornGlow, mergeX, orbAt, runeAt
+} from '@/game/duel/forge'
 import { DRAWN, realize, stream } from './rune-draws'
-import { STEP, castNow, forged } from './forged'
+import { STEP, castNow, forged, pressFoe } from './forged'
 
 /** Steps in a forge at the scene's step: 180. */
 const FORGE_STEPS = Math.round(FORGE_S / STEP)
+/** …and in a ward's: 48. */
+const WARD_STEPS = Math.round(WARD_FORGE_S / STEP)
 const run = (secs: number): void => {
   for (let i = 0; i < Math.round(secs / STEP); i++) updateSim(STEP)
 }
@@ -60,7 +69,7 @@ const open = (versus = false): void => {
 
 beforeEach(() => open())
 
-describe('the forge takes exactly 1.5 s of sim time, on both sides (§8.37)', () => {
+describe('a spell that hits forges exactly 1.5 s of sim time, on both sides (§8.37)', () => {
   it('the player: the runes leave the slots at the press, the spell leaves the horn 180 steps later', () => {
     S.queue.push(FIRE as Rune, ICE as Rune)
     cast()
@@ -109,15 +118,111 @@ describe('the forge takes exactly 1.5 s of sim time, on both sides (§8.37)', ()
     expect(resolveSpell([EARTH]).kind).toBe(2)
     cast()
     expect(S.guard).toBe(0)
-    run(FORGE_S - 0.05)
+    run(WARD_FORGE_S - 0.05)
     expect(S.guard, 'not yet').toBe(0)
     forged()
     expect(S.guard, 'up').toBeGreaterThan(0)
-    S.queue.push(7 as Rune, 7 as Rune) // Illusion, Illusion: a decoy
+    S.queue.push(ILLUSION as Rune, ILLUSION as Rune) // a decoy — not a barrier: the full 1.5 s
     cast()
     expect(S.decoy).toBe(0)
+    run(FORGE_S - 0.05)
+    expect(S.decoy, 'not yet').toBe(0)
     forged()
     expect(S.decoy).toBeGreaterThan(0)
+  })
+})
+
+describe('a ward snaps up in exactly 0.4 s, on both sides (owner, 2026-09-24)', () => {
+  it('every ward is 0.4 s; every attack and every decoy is 1.5 s', () => {
+    expect(WARD_FORGE_S).toBe(0.4)
+    expect(FORGE_S).toBe(1.5)
+    // Every wall, barrier and shield the player can make — Crystal Ward and
+    // Frost Lock with the Signature Spells unlocked.
+    const wards: [number[], number][] = [
+      [[EARTH], 0], [[WIND, WIND], 0], [[ICE, ICE], 0], [[WATER, WATER], 0], [[ICE, ICE, EARTH], 0b01], [[ICE, WIND, ICE], 0b10]
+    ]
+    for (const [q, sigs] of wards) {
+      const sp = resolveSpell(q, sigs)
+      expect(sp.kind, q.join('.')).toBe(2)
+      expect(forgeDuration(sp.kind), q.join('.')).toBe(WARD_FORGE_S)
+    }
+    const others = [[FIRE], [FIRE, FIRE], [FIRE, FIRE, FIRE], [WIND], [EARTH, EARTH], [ICE, ICE, ICE], [ILLUSION, ILLUSION]]
+    for (const q of others) {
+      const sp = resolveSpell(q)
+      expect(sp.kind, q.join('.')).not.toBe(2)
+      expect(forgeDuration(sp.kind), q.join('.')).toBe(FORGE_S)
+    }
+  })
+
+  it('the player: 48 steps from the press to the wall', () => {
+    S.queue.push(WIND as Rune, WIND as Rune) // a wind wall
+    cast()
+    expect(S.forge.kind).toBe(2)
+    for (let i = 0; i < WARD_STEPS - 1; i++) {
+      holdFoe()
+      updateSim(STEP)
+    }
+    expect(S.guard, 'one step short: still forging').toBe(0)
+    expect(castBusy(false)).toBe(true)
+    updateSim(STEP)
+    expect(S.guard, 'at 0.4 s it stands').toBeGreaterThan(0)
+    expect(S.guardK).toBe(0)
+    expect(S.forge.t).toBe(-1)
+    // A ward holds no lock once it has risen: nothing is in the air.
+    expect(castBusy(false)).toBe(false)
+  })
+
+  it('the foe: the same 48 steps, from her own slots to her own wall', () => {
+    S.equeue.push(EARTH as Rune)
+    castSide(true)
+    expect(S.eForge.kind).toBe(2)
+    for (let i = 0; i < WARD_STEPS - 1; i++) updateSim(STEP)
+    expect(S.eGuard).toBe(0)
+    updateSim(STEP)
+    expect(S.eGuard).toBeGreaterThan(0)
+    expect(S.eGuardK).toBe(1)
+    expect(S.eForge.t).toBe(-1)
+  })
+
+  it('a wall cast with more than 0.4 s of her forge left stands before her hit, and blocks it', () => {
+    // Every moment of her 1.5 s forge that leaves the wall its 0.4 s.
+    for (const left of [1.4, 1, 0.7, 0.5, WARD_FORGE_S + 0.02]) {
+      open()
+      S.equeue.push(FIRE as Rune) // a Fire Bolt: the fastest hit there is
+      castSide(true)
+      run(FORGE_S - left)
+      expect(S.eForge.t, `${left} s left: she is still forging`).toBeGreaterThanOrEqual(0)
+      S.queue.push(EARTH as Rune)
+      cast()
+      forged()
+      expect(S.guard, `${left} s left: the wall is up`).toBeGreaterThan(0)
+      expect(hers().length, `${left} s left: before her spell has even left`).toBe(0)
+      const hp = S.hp
+      for (let i = 0; i < 240 && !S.pops.some((p) => p.k === 'blocked'); i++) updateSim(STEP)
+      expect(S.pops.some((p) => p.k === 'blocked' && p.x === AX), `${left} s left: blocked`).toBe(true)
+      expect(S.hp, `${left} s left: untouched`).toBe(hp)
+    }
+  })
+
+  it('…and so does hers, answering the player\'s forge', () => {
+    for (const left of [1.2, 0.6, WARD_FORGE_S + 0.02]) {
+      open()
+      S.queue.push(FIRE as Rune)
+      cast()
+      run(FORGE_S - left)
+      S.equeue.push(EARTH as Rune)
+      castSide(true)
+      forged(true)
+      expect(S.eGuard, `${left} s left`).toBeGreaterThan(0)
+      expect(mine().length, `${left} s left: before the bolt has left`).toBe(0)
+      const ehp = S.ehp
+      for (let i = 0; i < 240 && !S.pops.some((p) => p.k === 'blocked'); i++) {
+        holdFoe()
+        updateSim(STEP)
+      }
+      expect(S.pops.some((p) => p.k === 'blocked' && p.x === UX), `${left} s left: blocked`).toBe(true)
+      expect(S.ehp).toBe(ehp)
+    }
   })
 })
 
@@ -282,12 +387,14 @@ describe('the press is the cast the child made (§8.37)', () => {
     S.campaign.signaturesUnlocked = 0b10
     resetDuel({ foe: shadowOf(7), usesMagic: true, lossStreak: 0 })
     holdFoe()
-    S.queue.push(ICE as Rune, WIND as Rune, ICE as Rune) // Frost Lock
-    cast()
-    run(0.3)
-    // She starts hers 0.3 s after: the ice lands while hers still forges.
+    // She starts hers; half a second in, the Frost Lock answers it — a ward,
+    // so it snaps up in 0.4 s and the ice lands while hers still forges.
     S.equeue.push(FIRE as Rune, FIRE as Rune, FIRE as Rune)
     castSide(true)
+    run(0.5)
+    S.queue.push(ICE as Rune, WIND as Rune, ICE as Rune) // Frost Lock
+    cast()
+    expect(S.forge.kind).toBe(2)
     run(0.2)
     expect(S.eForge.t).toBeGreaterThan(0)
     forged()
@@ -356,13 +463,20 @@ describe('the foe\'s forge IS her warning (§8.37 replaces §8.36\'s wind-up)', 
     expect(S.eForge.t, 'and then she forges it').toBeGreaterThanOrEqual(0)
   })
 
-  it('reads the player\'s forge as a blow coming, and stands a wall up in time', () => {
-    letGo(4)
-    S.hp = 100
-    S.equeue.push(EARTH as Rune) // a lone Earth: her wall
+  /** Her hand is a lone Earth — a wall — and she thinks on the next step. */
+  const earthInHand = (): void => {
+    S.equeue.length = 0
+    S.equeue.push(EARTH as Rune)
     S.eForm = 0
     S.eRune = -1
     S.eThink = 0
+  }
+
+  it('reads the player\'s forge as a blow coming, and stands a wall up in time', () => {
+    letGo(4)
+    pressFoe() // the player well ahead: she walls every blow she can (§8.37)
+    S.hp = 100
+    earthInHand()
     S.queue.push(FIRE as Rune)
     cast()
     updateSim(STEP)
@@ -372,6 +486,84 @@ describe('the foe\'s forge IS her warning (§8.37 replaces §8.36\'s wind-up)', 
     for (let i = 0; i < 300 && S.phase === PH_DUEL && !S.pops.some((p) => p.k === 'blocked'); i++) updateSim(STEP)
     expect(S.pops.some((p) => p.k === 'blocked'), 'her wall stopped it').toBe(true)
     expect(S.ehp).toBe(ehp)
+  })
+
+  it('waits for a heavy: her 2 s wall goes up only once it will still stand when the rain falls', () => {
+    letGo(4)
+    pressFoe()
+    earthInHand()
+    S.eForm = -2 // (and forms nothing new while she waits)
+    S.queue.push(FIRE as Rune, FIRE as Rune, FIRE as Rune) // Fire Rain: 1.5 s forge, then 1.7 s overhead
+    cast()
+    let t = STEP
+    updateSim(STEP)
+    expect(S.eForge.t, 'not yet: a wall now would be gone before it lands').toBe(-1)
+    let raisedAt = -1
+    for (let i = 0; i < 480 && S.phase === PH_DUEL && !S.pops.some((p) => p.k === 'blocked'); i++) {
+      updateSim(STEP)
+      t += STEP
+      if (raisedAt < 0 && S.eForge.t >= 0 && S.eForge.kind === 2) raisedAt = t
+    }
+    // It lands 3.2 s after the press; her lone Earth stands 2 s from 0.4 s
+    // after she casts it — so not before 0.8 s.
+    expect(raisedAt, 'she waited, then answered it').toBeGreaterThan(0.75)
+    expect(S.pops.some((p) => p.k === 'blocked' && p.x === UX), 'and her wall took it').toBe(true)
+  })
+
+  describe('her answering wall follows the director (§8.37, `wardWill`)', () => {
+    it('the will: some at an even fight, every one when the player runs away with it, none when she is behind', () => {
+      letGo(4)
+      expect(wardWill(), 'even').toBeCloseTo(WARD_WILL.even, 9)
+      pressFoe()
+      expect(wardWill(), 'the player far ahead').toBe(1)
+      letGo(4)
+      S.hp = S.hpMax * 0.45
+      for (let i = 0; i < 300; i++) stepDirector(0.01)
+      expect(wardWill(), 'the player behind').toBe(0)
+      letGo(4)
+      S.hp = S.hpMax * 0.1 // at the mercy floor
+      for (let i = 0; i < 300; i++) stepDirector(0.01)
+      expect(wardWill(), 'at the floor').toBe(0)
+    })
+
+    it('a struggling child\'s spell is let through: behind on the trade, a wall in hand, and she does not raise it', () => {
+      letGo(4)
+      S.hp = S.hpMax * 0.45
+      for (let i = 0; i < 300; i++) stepDirector(0.01)
+      earthInHand()
+      S.queue.push(FIRE as Rune)
+      cast()
+      const ehp = S.ehp
+      let walled = false
+      for (let i = 0; i < 300 && S.ehp === ehp; i++) {
+        updateSim(STEP)
+        if (S.eGuard > 0) walled = true
+      }
+      expect(walled, 'no wall').toBe(false)
+      expect(S.ehp, 'her bolt landed').toBeLessThan(ehp)
+    })
+
+    it('decides once per spell: a no is not re-rolled on every thought', () => {
+      // At an even fight she walls roughly WARD_WILL.even of the spells she
+      // could — measured over many, each asked once, never four times a second.
+      let walls = 0
+      const n = 200
+      for (let k = 0; k < n; k++) {
+        letGo(4)
+        earthInHand()
+        S.queue.push(FIRE as Rune)
+        cast()
+        for (let i = 0; i < 240 && S.forge.t >= 0; i++) {
+          updateSim(STEP)
+          if (S.eForge.t >= 0 && S.eForge.kind === 2) {
+            walls++
+            break
+          }
+        }
+      }
+      expect(walls / n).toBeGreaterThan(WARD_WILL.even - 0.12)
+      expect(walls / n).toBeLessThan(WARD_WILL.even + 0.12)
+    })
   })
 })
 
@@ -393,6 +585,21 @@ describe('reduced motion keeps the timing (§8.37)', () => {
     expect(hornGlow(1, false)).toBe(1)
     expect(hornGlow(0.05, true)).toBe(0)
     // The sim never reads the setting: the release is the same step either way.
+  })
+
+  it('a ward is the same picture over its own 0.4 s: every reader draws from forgeProgress', () => {
+    expect(forgeProgress({ t: -1, kind: 2 })).toBe(0)
+    expect(forgeProgress({ t: 0.2, kind: 2 })).toBeCloseTo(0.5, 9)
+    expect(forgeProgress({ t: 0.2, kind: 0 })).toBeCloseTo(0.2 / FORGE_S, 9)
+    expect(forgeProgress({ t: WARD_FORGE_S, kind: 2 })).toBe(1)
+    expect(forgeProgress({ t: 0.6, kind: 5 }), 'a decoy is not a ward').toBeCloseTo(0.4, 9)
+    // Reduced motion: the runes have faded by the fly beat — 0.22 s into a
+    // ward — and the horn is full at its 0.4 s, the release.
+    const P = { x: 0, y: 0, s: 0, a: 0 }
+    runeAt(forgeProgress({ t: BEAT.fly * WARD_FORGE_S + 1e-6, kind: 2 }), 0, 1, 60, 110, false, true, P)
+    expect(P.a).toBeCloseTo(0, 6)
+    expect(hornGlow(forgeProgress({ t: WARD_FORGE_S, kind: 2 }), true)).toBe(1)
+    expect(hornGlow(forgeProgress({ t: WARD_FORGE_S, kind: 2 }), false)).toBe(1)
   })
 
   it('in motion: every rune arrives where the orb is born, and the orb pours into the horn', () => {
@@ -435,6 +642,27 @@ describe('local versus: both players forge, each on her own lock (§6.19, §8.37
     expect(S.equeue).toEqual([FIRE])
     expect(S.castRefusedWhy, 'player 2 writes no refusal of player 1\'s').not.toBe('busy')
   })
+
+  it('symmetric: either player\'s wall snaps up in 0.4 s and stops the other\'s forged bolt', () => {
+    for (const right of [false, true]) {
+      open(true)
+      const atk = right
+      const def = !right
+      ;(atk ? S.equeue : S.queue).push(FIRE as Rune)
+      castSide(atk)
+      run(0.5)
+      ;(def ? S.equeue : S.queue).push(EARTH as Rune)
+      castSide(def)
+      for (let i = 0; i < WARD_STEPS - 1; i++) updateSim(STEP)
+      expect(def ? S.eGuard : S.guard, `${+def}: not yet`).toBe(0)
+      updateSim(STEP)
+      expect(def ? S.eGuard : S.guard, `${+def}: up at 0.4 s`).toBeGreaterThan(0)
+      const hp = def ? S.ehp : S.hp
+      for (let i = 0; i < 240 && !S.pops.some((p) => p.k === 'blocked'); i++) updateSim(STEP)
+      expect(S.pops.some((p) => p.k === 'blocked' && p.x === (def ? UX : AX)), `${+def}: blocked`).toBe(true)
+      expect(def ? S.ehp : S.hp).toBe(hp)
+    }
+  })
 })
 
 describe('the QA readout (window.__forge)', () => {
@@ -450,5 +678,17 @@ describe('the QA readout (window.__forge)', () => {
     expect(r.runes).toEqual([FIRE, FIRE])
     expect(r.player.busy).toBe(true)
     expect(r.foe.forging).toBe(false)
+    expect(r.secs).toBe(FORGE_S)
+  })
+
+  it('reads a ward over its own 0.4 s', () => {
+    S.queue.push(EARTH as Rune)
+    cast()
+    run(0.2)
+    const r = forgeReadout()
+    expect(r.kind).toBe(2)
+    expect(r.secs).toBe(WARD_FORGE_S)
+    expect(r.progress).toBeCloseTo(0.5, 2)
+    expect(r.player.progress).toBeCloseTo(0.5, 2)
   })
 })

@@ -37,6 +37,7 @@
  */
 import { getAudioContext, isAudioSuspended, registerOneShotSource } from '@/use/useAssets'
 import { rnd } from '@/game/duel/util'
+import { FORGE_S, WARD_FORGE_S } from '@/game/duel/forge'
 
 /* Wave table: index 0 is the shared noise buffer, 1..3 are oscillators. */
 const NOISE = 0
@@ -241,8 +242,9 @@ const SNAP: readonly VoiceArgs[] = [
 
 export type Cue =
   | 'draw' | 'snap' | 'bad' | 'cast' | 'hit' | 'guard' | 'hurt' | 'win' | 'lose' | 'ui'
-  // the spell forge (story-spec §8.37): the runes flying into the horn
-  | 'forge'
+  // the spell forge (story-spec §8.37): the runes flying into the horn — and
+  // a ward's, which snaps up in 0.4 s
+  | 'forge' | 'wardForge'
   // a rune drawn well past the accept line (retention item 7)
   | 'perfect'
   // restoration (story-spec §8.5)
@@ -259,6 +261,23 @@ export type Cue =
   | 'neigh' | 'sigh' | 'giggle'
   // the storybook's own sound (§8.28): a page turning
   | 'page'
+
+/**
+ * The forge's sound over `secs` (story-spec §8.37): a soft pluck per rune as
+ * it lifts, then a shimmer swelling into the `cast` — every time in it scaled
+ * by the forge's length, so the 1.5 s one is exactly the sound it always was
+ * and a ward's 0.4 s one ends as its wall rises. v = rune count 1..3.
+ */
+const forgeCue = (v: number | undefined, secs: number): void => {
+  const n = cl((v ?? 1) | 0, 1, 3)
+  const k = secs / FORGE_S
+  for (let i = 0; i < n; i++) {
+    const f = nf(i * 2) * 4
+    V(SIN, f, f * 1.02, 0.28, 0.05, 1, i * 0.06 * k)
+  }
+  V(TRI, nf(0) * 2, nf(0) * 4, 1.4 * k, 0.045, 3, 0.12 * k, k)
+  V(NOISE, 700, 5200, 1.35 * k, 0.028, 1, 0.1 * k, 1.05 * k)
+}
 
 const CUES: Record<Cue, (v?: number) => void> = {
   /* Called many times per second while the finger moves: hard rate limit,
@@ -322,18 +341,11 @@ const CUES: Record<Cue, (v?: number) => void> = {
   },
 
   /* THE SPELL FORGE (story-spec §8.37): CAST was pressed and the runes lift
-     out of their slots, fly together and pour into the horn. A soft pluck per
-     rune as it lifts, then a shimmer swelling over the forge's 1.5 s into the
-     `cast` itself. v = rune count 1..3. */
-  forge: (v) => {
-    const n = cl((v ?? 1) | 0, 1, 3)
-    for (let i = 0; i < n; i++) {
-      const f = nf(i * 2) * 4
-      V(SIN, f, f * 1.02, 0.28, 0.05, 1, i * 0.06)
-    }
-    V(TRI, nf(0) * 2, nf(0) * 4, 1.4, 0.045, 3, 0.12, 1)
-    V(NOISE, 700, 5200, 1.35, 0.028, 1, 0.1, 1.05)
-  },
+     out of their slots, fly together and pour into the horn. v = rune count
+     1..3. `forgeCue`, below: the 1.5 s of a spell that hits — or a ward's
+     0.4 s, the same sound compressed into the wall it raises. */
+  forge: (v) => forgeCue(v, FORGE_S),
+  wardForge: (v) => forgeCue(v, WARD_FORGE_S),
 
   /* Spell connects. v = power 0..1 scales body, brightness and length. */
   hit: (v) => {

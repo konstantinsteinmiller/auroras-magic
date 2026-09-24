@@ -7648,7 +7648,7 @@ Now:
   all five and through whole duels across the story.
 
 **2. The foe's combo telegraph** (superseded by §8.37: every cast of both
-sides now forges for 1.5 s, and the forge is her warning). A full hand used to leave on her next
+sides now forges — 1.5 s, a ward 0.4 s — and the forge is her warning). A full hand used to leave on her next
 quarter-second thought, so "full slots" never meant anything. A full hand
 that will HIT (anything but a ward or a decoy) now winds up for `CHARGE_S`
 = 0.75 s (a hurried foe faster, never under 0.35 s): her three slots pulse
@@ -7699,8 +7699,11 @@ four testers all said the foe's hits "come from nowhere"; §8.36's 0.75 s
 wind-up was too short to register.
 
 **The forge (both sides, versus included).** Pressing CAST no longer throws
-the spell: it starts a FORGE of `forge.FORGE_S` = 1.5 s, and only then does
-`sim.launch` run, unchanged. Four beats (`forge.BEAT`, fractions of 1.5 s):
+the spell: it starts a FORGE of `forge.FORGE_S` = 1.5 s — a WARD's is
+`WARD_FORGE_S` = 0.4 s, see *The snap wall* below; `forge.forgeDuration(kind)`
+is the one place that says which — and only then does `sim.launch` run,
+unchanged. Four beats (`forge.BEAT`, fractions of the forge's length; for a
+spell that hits):
 - LIFT 0–0.24 s: the runes pop up out of their slots; the slots empty with a
   soft pop — a bounce and a ring of the departed rune's light
   (`RuneSlot` `lift`). The slots are free from the press on.
@@ -7718,8 +7721,9 @@ the spell: it starts a FORGE of `forge.FORGE_S` = 1.5 s, and only then does
 
 The spell's NAME rises at the press (`pop('spell')` at 640/250; when the other
 side's name is still up, a line lower). Wards rise and decoys stand up at the
-END of their forge. Sound: `sfx('forge')`, a pluck per rune and a swell into
-`cast`.
+END of their forge (a ward's 0.4 s, a decoy's 1.5 s). Sound: `sfx('forge')`, a
+pluck per rune and a swell into `cast`; a ward's is `sfx('wardForge')`, the
+same sound with every time in it scaled to 0.4 s (`audio.forgeCue`).
 
 **How it is drawn.** The runes fly on the DOM (`SpellForge.vue`): they leave
 DOM slots with opaque plates, so a canvas rune would start underneath its own
@@ -7731,16 +7735,19 @@ resize or rotation, and the paths are stage units (`forge.runeAt`) mapped
 through the live layout. The orb, the meeting ring and the horn are canvas
 (`forgeArt.drawForge`, in the world pass after the duelists): stacked discs,
 no gradients, no blur, no allocation. One clock (`S.forge.t` / `S.eForge.t`,
-sim time — a hit-stop holds it) drives all three. §8.36's horn glow
+sim time — a hit-stop holds it) drives all three, each reading it as
+`forge.forgeProgress(f)` — `f.t` over that forge's own length. §8.36's horn glow
 (`drawChargeTell`) and `fx.chargeSpark` are gone. **Reduced motion:** the runes
 fade where they stand while the horn's glow fades in (`forge.hornGlow`); no
-orb, no closing ring — the same 1.5 s.
+orb, no closing ring — over the same length (1.5 s, a ward's 0.4 s): the
+release is never later for a child who asked for less motion.
 
 **The cast lock.** From the press until the spell has LEFT and its shot is
 GONE (landed, bounced back by a Crystal Ward, or fizzled), that side cannot
 release another (`sim.castBusy`; `Shot.lk` marks the shot that holds it; a
-reflected copy holds nobody's). A ward's or decoy's lock ends at its release.
-A bolt locks ~1.9 s, a field 2.0 s, a heavy 3.2 s (it hangs 1.7 s). Drawing is
+reflected copy holds nobody's). A ward's or decoy's lock ends at its release
+— a ward's at 0.4 s, as it rises. A bolt locks ~1.9 s, a field 2.0 s, a heavy
+3.2 s (it hangs 1.7 s). Drawing is
 never locked: runes drawn during the forge go into the freed slots. Every cast
 path (button, keys, right mouse, the lessons, `__cast`, every harness) goes
 through `castSide`, so every one forges and is locked. A Frost Lock landing
@@ -7761,9 +7768,11 @@ slots into HER horn; her slots still glow for two runes of a hit and pulse for
 a full hand she is holding while locked (`foeTell`). Her choices are
 forge-aware: she reads the player's FORGE of a hit as a blow coming
 (`incomingEta`), stands a wall up only if a wall started now stands before it
-lands (eta ≥ `FORGE_S` − 0.05), and throws a pierce or a slow only at a guard
-that will outlast her forge. The glimpse (§8.36) waits for no forge on either
-side.
+lands AND is still standing when it does (`forgeDuration(2)` − 0.05 ≤ eta ≤
+0.4 s + the wall's own seconds − 0.1 — so against a heavy she waits), only if
+she means to wall that spell at all (the director's `wardWill`, below), and
+throws a pierce or a slow only at a guard that will outlast her forge. The
+glimpse (§8.36) waits for no forge on either side.
 
 **The director.** The forge and the flight count as activity (the AFK clock
 runs from the moment the spell is gone); the trade, the mercy floor, the weak
@@ -7795,14 +7804,86 @@ The grown-up meets a little more resistance (end HP 82 → 79 %, duels half as
 long again). No roster number was changed; if the late chapters should be as
 hard as before, the lever is the roster (foe HP or damage), not the forge.
 
+**The snap wall (owner, 2026-09-24, after blind playtest run 3: *"Walls and
+barriers are faster, 0.4 s."*).** Wards forged the full 1.5 s too, so a wall
+raised in answer to the foe's forge rose AFTER her spell had landed; reactive
+blocking only worked in lesson 1, which holds her spell at the horn. Testers:
+"I blocked but still lost health", "a pure damage race, you can never defend".
+- **Every ward** (`kind` 2: earth wall, wind wall, ice pillar, bubble, Crystal
+  Ward, Frost Lock's wall) forges in `forge.WARD_FORGE_S` = 0.4 s, on both
+  sides, in the campaign and in versus; attacks and decoys keep 1.5 s.
+  `forge.forgeDuration(kind)` says which and `forge.forgeProgress(f)` is the
+  progress every reader draws from (`sim.stepForge`, `forgeArt`,
+  `SpellForge.vue`, the forge sparks, `__forge()`): the same four beats,
+  compressed in proportion (lift 0.06, fly 0.22, flow 0.31, swell 0.4 s), the
+  same under reduced motion, and a ward's own sound (`sfx('wardForge')`). The
+  lock ends as the wall rises. A wall cast with more than 0.4 s of the other
+  side's forge left stands before the hit.
+- **Lesson 1** is unchanged in shape: her wall now rises 0.4 s after the press;
+  the foe's held forge (`HOLD_AT` before the end of HER forge, read off the
+  forge itself) and `WALL_BEAT` work as before.
+- **The foe's answering wall answers to the director.** She could now wall
+  almost any spell she sees forging, and a child whose skill is getting her
+  runes drawn would meet a wall for her best ones. So the walls she raises
+  BECAUSE of the player (the forge/eta answer, the threat-read dump, the
+  read-threat Earth pick) ask `director.wardWill()`, ONCE per spell of the
+  player's (`sim.willWall`, keyed on the forge token):
+  `will = even + (1 − even)·min(1, max(press, hasteLevel)/full) − drop·easing`,
+  `WARD_WILL` = { even 0.3, full 0.25, drop 3 }: 30 % at an even fight, every
+  one with the player a third of a bar ahead (or fast and pulling away), none
+  once she is about a sixth of a bar behind, and never at the mercy floor. A
+  ward that is simply the hand she built (Crystal Ward, a boss contract, her
+  low-health defence) is cast as ever. Her timing check is `forgeDuration(2)`
+  − 0.05 ≤ eta ≤ 0.4 + the wall's seconds − 0.1: against a heavy (1.5 s forge,
+  1.7 s overhead) her 2 s lone Earth waits, and the 0.1 s spare matters. A wall
+  raised at exactly 0.4 + 2 expired on the very step the rain fell, because the
+  guard ticks down before the strike.
+
+Measured (a throwaway harness, 200 duels × nodes 1-1, 1-5, 2-3, 3-3, 4-3, 5-3,
+6-3, 7-5, 8-5, 9-5, 10-5, cast lock honoured; the small child never blocks on
+purpose, the core child leads 30 % of her hands with the square and raises it
+against the foe's forge, the fast grown-up 80 %; "walled" = her spells fully
+stopped by the foe's ward, "behind" = while more than 0.08 of a bar behind):
+
+| model | win % | duel length | end HP | walled / duel (while behind) | her own blocks / duel |
+|---|---|---|---|---|---|
+| small child, before → after | 85 → 87 | 55.7 → 52.5 s | 19 → 19 % | 1.00 (0.39) → 0.54 (0.11) | 0.53 → 0.49 |
+| core child | 100 → 100 | 28.8 → 28.4 s | 60 → 61 % | 0.88 → 0.93 | 1.21 → 1.29 |
+| fast grown-up | 100 → 100 | 20.1 → 19.8 s | 81 → 80 % | 0.70 → 0.93 | 0.57 → 0.85 |
+
+Without the director's gate (the foe walling every spell she could), the
+small child was walled 1.29 times a duel (0.53 while behind) and won 83 %;
+the grown-up 1.57. Her answering walls, timed, now land: 0.94 of the core
+child's 1.28 tries a duel block (before 0.56 of 0.93, when only a heavy could
+be answered at all).
+
+The real `winRate.test.ts` (WINRATE=1, 370 s) passes: the core child 100 % in
+every chapter group, first try and within three (unchanged); the small child's
+first ten duels 95.6–99.4 % first try (before 96.1–98.9 %), and her story
+table flat within the table's noise (ch 5 standard 86.9 → 91.9 %, ch 7 boss
+73.6 → 70.6 %, ch 10 boss 63.3 → 66.4 %; every chapter 100 % within six). The
+harness has a new player: `ADULT`, a fast grown-up who leads with the square
+and raises it in the last 0.6 s of her forge. He wins 99.2–100 % in every
+chapter group and blocks 0–0.5 of her spells a duel (5–6.5 in chapter 9's long
+fights): his own cast lock usually overlaps her forge, which is what keeps
+blocking a skill rather than a wall-shaped invulnerability.
+
 **QA seam.** `window.__forge()` (with `__AM_QA__`): `{ side: 'player' | 'foe'
-| null, progress 0..1, spell (the combo key), kind, lead, mix, runes,
-player / foe: { forging, progress, busy } }` — `__hold()`, then `__step(n)`,
-walks a forge to any beat for a screenshot. Tests: `tests/duel/forge.test.ts`
-(exactly 1.5 s on both sides, the hit-stop, wards and decoys at the release,
-the lock and what ends it, drawing through it, the refusal signal, the press
-as the cast, Frost Lock and the end mid-forge, the foe's forge and lock,
-walling against a forge, the reduced-motion paths, versus, the readout).
+| null, progress 0..1 (of that forge's own length), secs (that length: 1.5 or
+0.4), spell (the combo key), kind, lead, mix, runes, player / foe: { forging,
+progress, busy } }` — `__hold()`, then `__step(n)`, walks a forge to any beat
+for a screenshot. Tests: `tests/duel/forge.test.ts` (exactly 1.5 s on both
+sides, the hit-stop, wards and decoys at the release, the lock and what ends
+it, drawing through it, the refusal signal, the press as the cast, Frost Lock
+and the end mid-forge, the foe's forge and lock, walling against a forge, the
+reduced-motion paths, versus, the readout — and the snap wall: every ward
+exactly 0.4 s and every attack and decoy 1.5 s on both sides, a wall cast
+with more than 0.4 s of the other side's forge left standing before the hit
+and blocking it, both ways and in versus, the foe waiting for a heavy, and her
+answering wall following `wardWill`: some at an even fight, every one with the
+player far ahead, none with her behind or at the floor, decided once per
+spell). `tests/duel/forged.ts` `pressFoe()` puts a test where she walls every
+blow, so a test of her rules is not a test of the dice.
 
 
 ## §9 Rendering, assets & performance

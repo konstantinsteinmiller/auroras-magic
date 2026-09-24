@@ -16,7 +16,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { S, load, save } from '@/game/duel/state'
 import { EARTH, FIRE, MAX_RUNES, NO_EASE, PH_DUEL, WATER } from '@/game/duel/config'
 import { cast, castSide, lastPlayerCast, resetDuel, strokeEnd, updateSim } from '@/game/duel/sim'
-import { FORGE_S } from '@/game/duel/forge'
+import { FORGE_S, WARD_FORGE_S } from '@/game/duel/forge'
 import {
   BLOCKED_S, CHIP_NODES, FOE_HAND, HOLD_AT, LESSON, LIGHTBOX_S, SQUARE_TRIES, STORED_S, TRIES, WAIT_MAX, WALL_BEAT,
   castInvite, chipsCaptionDue, chipsDue, guideFlare, guideRune, lessonCastOpen, lockedHint
@@ -152,14 +152,17 @@ describe('lesson 1: the block', () => {
     expect(S.introStep).toBe(LESSON.BLOCK_WAIT)
     expect([...S.forge.q]).toEqual([EARTH])
     expect(events()).toContain('tutorial_block_cast')
-    // The foe waits while her wall forges.
-    step(FORGE_S - 0.1)
+    // The foe waits while her wall forges — a ward's 0.4 s, the snap-up the
+    // fight itself has now (§8.37), not the 1.5 s of a spell that hits.
+    step(WARD_FORGE_S - 0.1)
     expect(S.guard).toBe(0)
     expect(S.eForge.t).toBeGreaterThan(0)
     expect(hers()).toBe(0)
-    // The wall is up; WALL_BEAT later the foe's forge runs out and her spell leaves.
-    until(() => S.guard > 0)
+    // The wall is up at 0.4 s; WALL_BEAT later the foe's forge runs out and her spell leaves.
+    const rose = until(() => S.guard > 0)
+    expect(rose).toBeLessThanOrEqual(0.1 + DT)
     expect(S.guardK).toBe(1)
+    expect(S.eForge.t, 'her spell is still held at the horn').toBeCloseTo(FORGE_S - HOLD_AT, 6)
     until(() => hers() > 0, WALL_BEAT + HOLD_AT + 0.2)
     expect(hers()).toBe(1)
     // …and it breaks on the wall — which is still standing when it lands.

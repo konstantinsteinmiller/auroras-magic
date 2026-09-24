@@ -7,7 +7,8 @@
  * in the main spell's color … a full 1.5 seconds of spell release delay."*
  * The blind playtest's four testers all said the foe's hits "come from
  * nowhere": the old 0.75 s wind-up was too short to register. So EVERY cast,
- * on both sides, is now the same 1.5 s picture, in four beats:
+ * on both sides, is now the same picture, in four beats — 1.5 s for a spell
+ * that hits (and a decoy):
  *
  *   LIFT   0.00–0.24 s  the runes pop up out of their slots (the slots empty)
  *   FLY    0.24–0.84 s  each flies on its own curve, in its own colour, and
@@ -15,6 +16,15 @@
  *   FLOW   0.84–1.17 s  the orb flows down into the horn
  *   SWELL  1.17–1.50 s  the horn glows in that colour, swelling — and at
  *                       1.5 s the spell leaves (`sim.launch`, unchanged)
+ *
+ * A WARD SNAPS UP (owner, 2026-09-24, after blind playtest run 3: *"Walls and
+ * barriers are faster, 0.4 s."*). A wall raised in answer to a 1.5 s forge
+ * used to rise after the spell it answered had landed — "I blocked but still
+ * lost health", "you can never defend". Every ward (`kind` 2: earth wall, wind
+ * wall, ice pillar, bubble, Crystal Ward, Frost Lock's wall) now forges in
+ * `WARD_FORGE_S`, on both sides: the same four beats, compressed in
+ * proportion (lift 0.06, fly 0.22, flow 0.31, swell 0.4 s) — it still visibly
+ * forges, just fast. `forgeDuration(kind)` is the one place that says which.
  *
  * THREE readers, one clock: the sim (`sim.stepForge` — when the spell leaves),
  * the canvas (`forgeArt.ts` — the orb and the horn) and the DOM overlay
@@ -28,10 +38,35 @@
 import { AX, UX, GY, HDX, HDY } from '@/game/duel/config'
 import { clamp } from '@/game/duel/util'
 
-/** The whole release, seconds: pressing CAST to the spell leaving the horn. */
+/**
+ * The whole release, seconds: pressing CAST to the spell leaving the horn —
+ * for every spell that HITS, and for a decoy (a decoy is not a barrier). A
+ * WARD takes `WARD_FORGE_S` instead; ask `forgeDuration(kind)`, never this,
+ * wherever the kind is known.
+ */
 export const FORGE_S = 1.5
 
-/** The beats' ENDS, as fractions of `FORGE_S` (the swell ends at 1). */
+/**
+ * A WARD's release, seconds (owner, 2026-09-24: *"Walls and barriers are
+ * faster, 0.4 s."*). Short enough that a wall started in answer to a foe's
+ * 1.5 s forge stands before her spell lands — the reactive block that only
+ * lesson 1 (which holds her spell at the horn) could teach before.
+ */
+export const WARD_FORGE_S = 0.4
+
+/** The spell kind that is a ward (`config.SpellKind` 2, `sim.guardKind`). */
+const WARD_KIND = 2
+
+/** How long a spell of `kind` forges, seconds: a ward snaps up in
+ *  `WARD_FORGE_S`; an attack and a decoy take the full `FORGE_S`. */
+export const forgeDuration = (kind: number): number => (kind === WARD_KIND ? WARD_FORGE_S : FORGE_S)
+
+/** How far through its forge a side is, 0..1 (0 when it is not forging) —
+ *  the one progress every reader draws from (`Forge.t` over its own length). */
+export const forgeProgress = (f: { readonly t: number; readonly kind: number }): number =>
+  f.t >= 0 ? clamp(f.t / forgeDuration(f.kind), 0, 1) : 0
+
+/** The beats' ENDS, as fractions of the forge's length (the swell ends at 1). */
 export const BEAT = {
   lift: 0.16,
   fly: 0.56,
@@ -70,7 +105,7 @@ const backOut = (k: number): number => {
 export const beat = (u: number, from: number, to: number): number => clamp((u - from) / (to - from), 0, 1)
 
 /**
- * One flying rune at forge progress `u` (0..1 of `FORGE_S`): where it is, how
+ * One flying rune at forge progress `u` (0..1, `forgeProgress`): where it is, how
  * big (× its size in the slot) and how visible, written into `out` (no
  * allocation). `i` is its slot, `n` how many runes the forge took, (sx, sy)
  * its slot's centre and `e` the side — all stage units.
@@ -163,7 +198,8 @@ export const orbAt = (u: number, e: boolean, still: boolean, out: { x: number; y
  * How brightly the horn glows at forge progress `u`, 0..1: nothing until the
  * orb reaches it, then swelling to full at the release. Under reduced motion
  * it fades in from the moment the runes start to leave, so the cross-fade
- * from the slots to the horn takes the same 1.5 s.
+ * from the slots to the horn takes the forge's own length (1.5 s, a ward's
+ * 0.4 s) — the release is never later for a child who asked for less motion.
  */
 export const hornGlow = (u: number, still: boolean): number =>
   still ? smooth(beat(u, 0.1, 1)) : smooth(beat(u, BEAT.flow - 0.06, 1))

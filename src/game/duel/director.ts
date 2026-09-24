@@ -347,6 +347,57 @@ export const hasteRush = (): number => (S.versus ? 1 : boost)
  *  her horn): 0 at rest, 1 at three times her pace and beyond. */
 export const hasteLevel = (): number => clamp((hasteRush() - 1) / 2, 0, 1)
 
+/* ---------------------------- the snap wall ---------------------------- */
+/**
+ * THE SNAP WALL'S NUMBERS (owner, 2026-09-24; story-spec §8.37). A ward
+ * forges in 0.4 s now, on both sides (`forge.WARD_FORGE_S`), so the foe too
+ * can wall a spell the player is still forging — and left to herself she
+ * would wall every one she held a wall for. A child whose whole skill is
+ * getting her runes drawn would meet a wall for her best spells, which is the
+ * one thing the change must not do. So her ANSWERING wall — the one she puts
+ * up because a blow of the player's is coming, or loaded in the player's
+ * slots — answers to the director, like her damage and her pace do.
+ */
+export const WARD_WILL = {
+  /** At an even fight: the share of the player's spells she answers. */
+  even: 0.3,
+  /** The push (`press`, or the haste) at which she answers EVERY one:
+   *  `press` 0.25 is a player some third of a bar ahead on the trade, and
+   *  `hasteLevel` 0.25 a fast one pulling away. Measured (story-spec §8.37):
+   *  0.5 gave a fast grown-up no more walls than raising `even` to 0.5 did,
+   *  and that cost the small child a fifth more of hers. */
+  full: 0.25,
+  /** How fast the easing takes it away: once `even / drop` of it is on
+   *  (`scale` 0.945 — a player about a sixth of a bar behind) she answers
+   *  none. */
+  drop: 3
+} as const
+
+/**
+ * How readily the foe answers a spell of the player's with a wall, 0..1.
+ *
+ *   pushing = max(press, hasteLevel)       she is ahead — or ahead and FAST
+ *   easing  = (1 − scale) / (1 − EASE_MIN)  she is behind, the foe easing off
+ *   will    = even + (1 − even) · min(1, pushing / full) − drop · easing,
+ *             clamped 0..1
+ *
+ * A struggling child — behind on the trade, and at the mercy floor always —
+ * has her spells walled rarely or never; a level fight meets the odd wall; a
+ * grown-up running away with it meets a wall for every blow she has one for.
+ * `sim.think` asks it ONCE per spell of the player's, never per thought, so a
+ * wall is a thing she decides, not a coin flipped four times a second. Only
+ * her answering walls ask: a ward that is simply the hand she built (Crystal
+ * Ward, a boss's contract, her low-health defence) is hers to cast as ever.
+ * Never asked in versus, where the right-hand side is a person.
+ */
+export const wardWill = (): number => {
+  const pushing = max(press(), hasteLevel())
+  const easing = clamp((1 - scale) / (1 - EASE_MIN), 0, 1)
+  return clamp(
+    WARD_WILL.even + (1 - WARD_WILL.even) * min(1, pushing / WARD_WILL.full) - WARD_WILL.drop * easing, 0, 1
+  )
+}
+
 /** What the haste is reading, for tests and a tuning harness. */
 export const hasteReadout = (): { pace: number; trend: number; boost: number; level: number } =>
   ({ pace, trend, boost: hasteRush(), level: hasteLevel() })

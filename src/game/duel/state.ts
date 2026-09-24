@@ -86,7 +86,8 @@ export interface Shot {
 
 /**
  * A spell being FORGED (story-spec §8.37): pressing CAST lifts the runes out
- * of their slots, and for `forge.FORGE_S` they fly together into one orb, pour
+ * of their slots, and for `forge.forgeDuration(kind)` — 1.5 s, a ward's 0.4 s
+ * — they fly together into one orb, pour
  * into the horn and swell there before the spell leaves. One per side,
  * allocated once and reused — the slots, the renderer and the HUD all read it.
  */

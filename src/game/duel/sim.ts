@@ -19,7 +19,7 @@ import {
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
 import {
   HASTE, foeDamageScale, hasteLevel, hasteRush, mercyFloor, noteAct, notePlayerCast, playerDamageScale, press,
-  resetDirector, stepDirector, KO_HP, MERCY_FRAC, floorLifted, foeMayRelease, lifting
+  resetDirector, stepDirector, KO_HP, MERCY_FRAC, floorLifted, foeMayRelease, lifting, wardWill
 } from '@/game/duel/director'
 import { S, save, pop, POP_LIFE, type CastRefusal, type Shot } from '@/game/duel/state'
 import { recognise, recogniseLocked, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
@@ -34,7 +34,7 @@ import {
   decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, seepThrough, lingerMote, hasteSpark,
   forgeSpark, liftBloom, liftMote, punchAdd, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
-import { FORGE_S, hornGlow } from '@/game/duel/forge'
+import { forgeDuration, forgeProgress, hornGlow } from '@/game/duel/forge'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { mixRune } from '@/game/duel/spellArt'
 import { sfx, setMood } from '@/game/duel/audio'
@@ -564,12 +564,19 @@ const refuse = (e: boolean, why: CastRefusal): void => {
  * cannot release another spell until the current one is cast and gone."*
  *
  * Pressing CAST no longer throws the spell. It takes the runes out of the
- * slots and starts a FORGE: for `FORGE_S` they fly together into one orb,
- * pour into the horn and swell there (the four beats and their paths are
- * `forge.ts`; the picture is `forgeArt.ts` and `SpellForge.vue`), and only
- * then does the spell leave — `launch`, exactly as it always did. A ward
- * rises and a decoy stands up at that same moment: every cast is the same
- * picture, on both sides.
+ * slots and starts a FORGE: for `forge.forgeDuration(kind)` they fly together
+ * into one orb, pour into the horn and swell there (the four beats and their
+ * paths are `forge.ts`; the picture is `forgeArt.ts` and `SpellForge.vue`),
+ * and only then does the spell leave — `launch`, exactly as it always did. A
+ * decoy stands up, and a ward rises, at that same moment: every cast is the
+ * same picture, on both sides.
+ *
+ * A WARD SNAPS UP (owner, 2026-09-24: *"Walls and barriers are faster,
+ * 0.4 s."*): its forge is `WARD_FORGE_S`, not 1.5 s, so a wall started in
+ * answer to a forge the other side has only just begun stands before that
+ * spell lands. Before, a wall answering a 1.5 s forge rose after the hit —
+ * blind playtest run 3: "I blocked but still lost health". The foe's own snap
+ * walls answer to the director (`director.wardWill`, `think`).
  *
  * THE LOCK: from the press until the spell has left AND its shot is gone
  * (landed, bounced back, or fizzled), that side cannot release another. It
@@ -626,7 +633,8 @@ const startForge = (q: Rune[], e: boolean): void => {
   f.mix = mixRune(f.q, sp.lead)
   f.kind = sp.kind
   f.key = sp.wild ? comboKey(sp.wild) : sp.key
-  sfx('forge', f.q.length)
+  // (A ward's forge is 0.4 s, and so is its sound.)
+  sfx(sp.kind === 2 ? 'wardForge' : 'forge', f.q.length)
   // The spell's NAME shows while it forges, in its main colour.
   const other = forgeOf(!e)
   const below = other.t >= 0 && other.t < POP_LIFE ? NAME_BELOW : 0
@@ -648,14 +656,16 @@ const dropForge = (e: boolean): void => {
   forgeSp[e ? 1 : 0] = null
 }
 
-/** One sim step of a side's forge: at `FORGE_S` it leaves. (What it looks
- *  like on the way is drawn from `f.t` alone — `forgeArt.ts`.) */
+/** One sim step of a side's forge: at its length (`forgeDuration` — 1.5 s,
+ *  a ward's 0.4 s) it leaves. (What it looks like on the way is drawn from
+ *  `f.t` alone — `forgeArt.ts`.) */
 const stepForge = (e: boolean, dt: number): void => {
   const f = forgeOf(e)
   if (f.t < 0) return
   f.t += dt
-  // (The epsilon: 180 steps of 1/120 must be 1.5 s, not a hair under it.)
-  if (f.t < FORGE_S - 1e-9) return
+  // (The epsilon: 180 steps of 1/120 must be 1.5 s, not a hair under it —
+  // and 48 of them a ward's 0.4 s.)
+  if (f.t < forgeDuration(f.kind) - 1e-9) return
   const sp = forgeSp[e ? 1 : 0]
   f.t = -1
   forgeSp[e ? 1 : 0] = null
@@ -664,10 +674,13 @@ const stepForge = (e: boolean, dt: number): void => {
 }
 
 /** What the QA harness reads (`window.__forge()`): the side forging — the
- *  one further along, if both are — how far, 0..1, and the spell. */
+ *  one further along, if both are — how far, 0..1 of its OWN length, how
+ *  long that is (1.5 s, a ward's 0.4 s), and the spell. */
 export interface ForgeReadout {
   side: 'player' | 'foe' | null
   progress: number
+  /** The picked forge's whole length, seconds (`forgeDuration`); 0 if none. */
+  secs: number
   spell: string
   kind: number
   lead: number
@@ -680,11 +693,14 @@ export interface ForgeReadout {
 export const forgeReadout = (): ForgeReadout => {
   const p = S.forge
   const q = S.eForge
-  const pick = p.t >= 0 && (q.t < 0 || p.t >= q.t) ? p : q.t >= 0 ? q : null
-  const u = (f: typeof p): number => (f.t >= 0 ? clamp(f.t / FORGE_S, 0, 1) : 0)
+  // "Further along" is the share of its own forge: a ward half-way through
+  // its 0.4 s is as far along as a bolt half-way through its 1.5 s.
+  const pick = p.t >= 0 && (q.t < 0 || forgeProgress(p) >= forgeProgress(q)) ? p : q.t >= 0 ? q : null
+  const u = forgeProgress
   return {
     side: pick === p ? 'player' : pick === q ? 'foe' : null,
     progress: pick ? u(pick) : 0,
+    secs: pick ? forgeDuration(pick.kind) : 0,
     spell: pick ? pick.key : '',
     kind: pick ? pick.kind : -1,
     lead: pick ? pick.lead : -1,
@@ -1040,6 +1056,30 @@ const building = (q: readonly number[]): boolean =>
   ((crystalOk() && within(q, CRYSTAL)) || (loveOk() && q.every((r) => r === LOVE)))
 
 /**
+ * WILL SHE WALL THIS ONE? (§8.37, owner 2026-09-24.) A ward snaps up in 0.4 s
+ * now, so she can answer a spell the player is still forging — and whether
+ * she does is the director's say (`director.wardWill`): a struggling child
+ * rarely meets a wall, a grown-up running away with the duel meets one for
+ * every blow she has one for.
+ *
+ * Asked ONCE per spell of the player's, the first time an answering wall is
+ * possible, and remembered: the spell is named by the token of the forge it
+ * is (or will be) — `S.forge.n` for the one forging or in the air, `+ 1` for
+ * the hand loaded in her slots. Two slots, by parity, because both can be in
+ * question in the same thought.
+ */
+const wallTok = [-1, -1]
+const wallYes = [false, false]
+const willWall = (token: number): boolean => {
+  const i = token & 1
+  if (wallTok[i] !== token) {
+    wallTok[i] = token
+    wallYes[i] = rnd() < wardWill()
+  }
+  return wallYes[i]!
+}
+
+/**
  * The foe forms runes on a timer and casts on intent, never on a coin flip:
  * she answers what is actually on the field.
  */
@@ -1080,10 +1120,13 @@ const think = (dt: number): void => {
   // FROM TIER 2 SHE READS THE PLAYER'S SLOTS, so a player who telegraphs three
   // runes of damage meets a guard instead of a free hit.
   const threat = lv >= 2 && S.queue.length >= 2 && spellOf(S.queue).kind !== 2
+  /** The player's loaded hand, as the spell it will be (`willWall`). */
+  const next = S.forge.n + 1
   // A half-built attack in hand cannot become a wall, so she DUMPS it and
   // commits to EARTH — a lone EARTH is already a barrier, and `eRune` is the
-  // ghost the player can see, so the panic is legible rather than magic.
-  if (threat && S.eGuard <= 0 && q.length && !holding && foeSpellOf(q).kind !== 2 && !earthHalves()) {
+  // ghost the player can see, so the panic is legible rather than magic. Only
+  // for a spell she means to wall (§8.37): otherwise she keeps building.
+  if (threat && S.eGuard <= 0 && q.length && !holding && foeSpellOf(q).kind !== 2 && !earthHalves() && willWall(next)) {
     q.length = 0
     S.eRune = EARTH
     S.eForm = max(S.eForm, 0.5)
@@ -1092,14 +1135,23 @@ const think = (dt: number): void => {
   // nothing leaves — she only builds.
   if (castBusy(true)) return
   const sp = foeSpellOf(q)
-  // A wall takes a forge to rise, like any spell of hers (§8.37): she answers
-  // a blow only if a wall started NOW stands before it lands — the player's
-  // own forge is as loud to her as hers is to the child.
-  const defend = !holding && ((eta >= FORGE_S - 0.05 && eta < Infinity) || threat) && sp.kind === 2 && S.eGuard <= 0
+  // A wall takes a forge to rise, like any spell of hers (§8.37) — a ward's
+  // 0.4 s: she answers a blow only if a wall started NOW stands before it
+  // lands, and is still standing when it does (a lone Earth holds 2 s, and a
+  // heavy hangs 1.7 s after its 1.5 s forge). The player's own forge is as
+  // loud to her as hers is to the child. And only if she means to wall this
+  // spell at all — the director's say, asked last so no dice are spent on a
+  // wall she could not raise anyway.
+  // (A tenth of a second spare at the far end: a wall that runs out on the
+  // very step the rain lands has not blocked it — the guard ticks down first.)
+  const rise = forgeDuration(sp.kind)
+  const inTime = eta >= rise - 0.05 && eta <= rise + (sp.guard ?? 0) - 0.1
+  const defend = !holding && sp.kind === 2 && S.eGuard <= 0 &&
+    ((inTime && willWall(S.forge.n)) || (threat && willWall(next)))
   // Lightning's and Time's contract (§6.13): a pierce or a slow in hand goes
   // out the moment the player's guard is up — that is exactly what it is for
   // — if the guard will still be standing when it arrives.
-  const zap = S.guard > FORGE_S && (!!sp.pierce || !!sp.slowPct)
+  const zap = S.guard > forgeDuration(sp.kind) && (!!sp.pierce || !!sp.slowPct)
   // A decoy goes up the moment it is in her hand (§6.13).
   const summonNow = sp.kind === 5 && S.eDecoy <= 0
   // Nature "opens" as its pair (§6.13): she throws the Poison Bloom as soon
@@ -1130,7 +1182,7 @@ const incomingEta = (): number => {
     const t = s.delay > 0 ? s.delay : abs(s.tx - s.x) / (SPD[s.k] || 1000)
     if (t < eta) eta = t
   }
-  if (forgingHit(false)) eta = min(eta, FORGE_S - S.forge.t + flightOf(S.forge.kind))
+  if (forgingHit(false)) eta = min(eta, forgeDuration(S.forge.kind) - S.forge.t + flightOf(S.forge.kind))
   return eta
 }
 
@@ -1138,8 +1190,8 @@ const incomingEta = (): number => {
 /**
  * THE FOE'S TELL (story-spec §8.36, §8.37). §8.36 wound a full hand that
  * would HIT up for 0.75 s — too short, the second playtest said, to register.
- * The spell forge replaced it (`startForge`): every spell of hers now takes
- * 1.5 s to leave, her runes flying out of her slots into her horn, which is
+ * The spell forge replaced it (`startForge`): every spell of hers that hits
+ * now takes 1.5 s to leave, her runes flying out of her slots into her horn, which is
  * the warning. What is left here is the quieter tell BEFORE she starts: her
  * slots glow when two runes of a hit are in them, and more when three are —
  * a full hand she is holding while her last spell is still in the air.
@@ -1279,8 +1331,9 @@ const chooseRune = (): Rune => {
   if (crystalOk() && S.eGuard <= 0 && q.length < MAX_RUNES && within(q, CRYSTAL) &&
     (q.length > 0 || S.queue.length >= 1 || incomingEta() < Infinity)) return nextOf(q, CRYSTAL)
   // A lone EARTH already IS a barrier, so under a read threat it is the
-  // fastest wall she can put up.
-  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH) && !earthHalves()) {
+  // fastest wall she can put up — for a spell she means to wall (§8.37).
+  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH) && !earthHalves() &&
+    willWall(S.forge.n + 1)) {
     return EARTH
   }
   // Answer pressure with defence — in chapter 5, maybe a decoy (§6.13) —
@@ -1362,7 +1415,7 @@ const tick = (dt: number): void => {
     // rush in to it — and the re-anchor lifting Aurora (§8.36).
     for (let side = 0; side < 2; side++) {
       const f = side ? S.eForge : S.forge
-      const k = f.t >= 0 ? hornGlow(f.t / FORGE_S, false) : 0
+      const k = f.t >= 0 ? hornGlow(forgeProgress(f), false) : 0
       if (k > 0.05) forgeSpark(hornX(side === 1), HORN_Y, f.lead, k)
     }
     if (lifting() > 0) liftMote(AX, GY - 120)
@@ -1594,6 +1647,8 @@ export const resetDuel = (start?: DuelStart): void => {
   dropForge(false)
   dropForge(true)
   tellKey = -1
+  // …and she has decided nothing yet about walling the player's spells.
+  wallTok[0] = wallTok[1] = -1
   S.glimpseRune = start?.glimpse && !S.versus ? glimpseRuneFor((S.campaign.runesUnlocked | STARTING_RUNES) >>> 0) : -1
   S.glimpse = S.glimpseRune >= 0 ? 1 : 0
   S.glimpseT = 0
@@ -1629,7 +1684,7 @@ export const updateSim = (dt: number): void => {
   S.dur += dt
   tick(dt)
   stepShots(dt)
-  // The forges (§8.37): a spell whose 1.5 s are up leaves its horn. A player
+  // The forges (§8.37): a spell whose 1.5 s (a ward's 0.4) are up leaves its horn. A player
   // whose spell is forging or flying is HERE — that is activity, not idle,
   // for the AFK rule, however long the spell hangs before it falls.
   stepForge(false, dt)

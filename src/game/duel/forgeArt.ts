@@ -24,7 +24,7 @@
  */
 import { PH_DUEL, RUNES } from '@/game/duel/config'
 import { S, type Forge } from '@/game/duel/state'
-import { BEAT, FORGE_S, HORN_Y, MERGE_Y, beat, hornGlow, hornX, mergeX, orbAt } from '@/game/duel/forge'
+import { BEAT, HORN_Y, MERGE_Y, beat, forgeProgress, hornGlow, hornX, mergeX, orbAt } from '@/game/duel/forge'
 import { reducedMotion } from '@/use/useAccessibility'
 import { TAU } from '@/game/duel/util'
 
@@ -186,7 +186,8 @@ const drawMeet = (g: G2D, f: Forge, e: boolean, u: number): void => {
 
 const drawSide = (g: G2D, f: Forge, e: boolean, t: number, still: boolean): void => {
   if (f.t < 0) return
-  const u = f.t / FORGE_S
+  // Over the forge's OWN length: a ward's 0.4 s is the same picture, faster.
+  const u = forgeProgress(f)
   const k = hornGlow(u, still)
   if (k > 0.01) drawHorn(g, f, e, k, t, still)
   if (still) return
