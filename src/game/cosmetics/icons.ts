@@ -6,12 +6,15 @@
  * each a colour disc WITH its own micro-glyph, so no swatch is told apart
  * by hue alone (§3.11).
  *
- * PAINTED (§8.27): the seven badges drawn for the shelf alone
+ * PAINTED (§8.27): the badges drawn for the shelf alone
  * (`KEEPSAKE_ICON_SLUGS`) each have a painting,
  * `images/cosmetics/keepsake-<slug>.webp`, blitted into the badge's own box
  * (`KEEPSAKE_ART`). The ghost of one still to find is cut from the painting
- * the same way as from the drawing. The crown's and the star's badges draw
- * their S6 item paintings already.
+ * the same way as from the drawing. Every other badge draws the keepsake's
+ * own WORN function, which paints itself (`KEEPSAKE_WORN_ART`): the crown and
+ * the star since S6, the second shelf's hats, bow, pendant, wings, pack and
+ * companions since 2026-09-24 — and their sparkles and bubbles are the
+ * sectors' painted twinkle and bubble, tinted.
  */
 import { ref } from 'vue'
 import {
@@ -21,15 +24,16 @@ import {
 import {
   drawAcornCap, drawStarTiara, drawExplorerGoggles, drawBowTie, drawMoonPendant,
   drawFlutterFar, drawFlutterNear, drawExplorerPackFar, drawExplorerPackNear,
-  drawPetCloud, drawPetFirefly, MOONLIT_LOOK, SUNSET_LOOK, TRAIL_STYLES
+  drawPetCloud, drawPetFirefly, MOONLIT_LOOK, SUNSET_LOOK, TRAIL_STYLES, particleArt
 } from '@/game/cosmetics/rig-accessories'
 import { COSMETIC_SLOTS, type CosmeticSlot } from '@/game/campaign/tables'
 import { drawUnicorn, type Face, type RigAnchors } from '@/game/duel/chars'
 import type { FoePalette } from '@/game/duel/foes'
 import { TAU, PI, sin, cos } from '@/game/duel/util'
-import { onArtChanged } from '@/game/art'
+import { onArtChanged, withoutArt } from '@/game/art'
 import { drawItem, type ItemSpec } from '@/game/artItem'
-import { KEEPSAKE_ICON_SLUGS, keepsakeArtId } from '@/game/artIds'
+import { KEEPSAKE_ICON_SLUGS, KEEPSAKE_WORN_ART, keepsakeArtId } from '@/game/artIds'
+import { TWINKLE_ART } from '@/game/map/kit'
 
 type G2D = CanvasRenderingContext2D
 
@@ -101,6 +105,14 @@ const sparkles = (g: G2D, pts: readonly (readonly number[])[], fill: string): vo
   g.stroke()
   g.fillStyle = fill
   g.fill()
+}
+
+/** The same sparkles as a KEEPSAKE shows them: the sectors' painted twinkle,
+ *  tinted, once it has landed. (The slot tabs keep `sparkles` — they are
+ *  deliberately flatter than a badge.) */
+const twinkles = (g: G2D, pts: readonly (readonly number[])[], fill: string): void => {
+  const rest = pts.filter(([x, y, r]) => !particleArt(g, TWINKLE_ART, x!, y!, r!, 0.4, fill))
+  if (rest.length) sparkles(g, rest, fill)
 }
 
 const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
@@ -211,7 +223,7 @@ const DRAW: Readonly<Record<string, (g: G2D) => void>> = {
   },
   petStar: (g) => {
     badgeSpace(g)
-    sparkles(g, [[20, 100, 9], [108, 22, 7]], '#fff4b8')
+    twinkles(g, [[20, 100, 9], [108, 22, 7]], '#fff4b8')
     g.translate(62, 68)
     g.rotate(-0.12)
     drawStarBody(g, 46, false, false)
@@ -305,6 +317,8 @@ const trailBadge = (g: G2D, slug: string): void => {
     for (let i = 0; i < TRAIL_PTS.length; i++) {
       if (i % st.cols.length !== c) continue
       const [x, y, r] = TRAIL_PTS[i]!
+      // The trail's own painted particle, when it has one (the bubbles).
+      if (st.art && particleArt(g, st.art, x, y, r, st.artSpins ? i * 0.8 : 0, st.cols[c]!)) continue
       st.shape(g, x, y, r, i * 0.8)
       any = true
     }
@@ -334,27 +348,42 @@ const drawBadge = (g: G2D, draw: (g: G2D) => void): void => {
 }
 
 /**
- * The seven shelf badges as painted drawables (§8.27): the whole badge,
- * centred on the origin at scale `s` = the badge's width. What the bench
- * renders the reference from, and the box the painting is blitted into.
+ * The shelf badges drawn for the shelf alone, as painted drawables (§8.27):
+ * the whole badge, centred on the origin at scale `s` = the badge's width.
+ * What the bench renders the reference from, and the box the painting is
+ * blitted into.
+ *
+ * ALWAYS THE DRAWING (`withoutArt`): a badge draws the keepsake's own worn
+ * function, and that function now paints itself — so without this a bench
+ * with the art layer on would put last week's wing painting (or the rig's
+ * painted head, in a look's badge) into this week's reference.
  */
 export const KEEPSAKE_ART: Readonly<Record<string, ItemSpec>> = Object.fromEntries(KEEPSAKE_ICON_SLUGS.map((slug) => [slug, {
   kind: 'cosmetic' as const,
   id: keepsakeArtId(slug),
   frames: 1,
-  draw: (g: G2D, s: number) => {
+  draw: (g: G2D, s: number) => withoutArt(() => {
     g.save()
     g.scale(s / 128, s / 128)
     g.translate(-64, -64)
     drawBadge(g, DRAW[slug]!)
     g.restore()
-  }
+  })
 }]))
+
+/**
+ * The paintings a drawn badge can be made of besides its own: the worn stills
+ * and the sectors' props the keepsakes route through, and the rig (a look's
+ * badge is her head). Any of them landing re-bakes the shelf.
+ */
+const BADGE_PARTS: ReadonlySet<string> = new Set(
+  Object.values(KEEPSAKE_WORN_ART).flat().map((a) => `${a.kind}/${a.id}`)
+)
 
 /** Bumped when a keepsake painting decodes: the shelf re-reads its badges. */
 export const iconArtRev = ref(0)
 onArtChanged((c) => {
-  if (c && c.kind !== 'cosmetic') return
+  if (c && c.kind !== 'cosmetic' && c.kind !== 'rig' && !BADGE_PARTS.has(`${c.kind}/${c.id}`)) return
   cache.clear()
   iconArtRev.value++
 })

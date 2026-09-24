@@ -8,13 +8,27 @@
  * Zero-UI (§8.2): nothing here is written text. The pots are colour AND
  * shape (each carries its own mark, art-style §4.3's "a hue is never the
  * only cue"), and every control's name is an aria-label.
+ *
+ * With the art layer on, the JAR is the painted `tool/paint-pot` — one
+ * neutral jar, baked in each pot's colour (`useItemArt`) and laid in the
+ * same 64-unit box the drawn jar fills. The marks stay SVG over it. The
+ * drawn jar's paths are `potArt.ts`'s, the very ones its reference is
+ * rendered from.
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { restoreHud } from '@/use/useRestoreHud'
+import { useItemArt, imageAt } from '@/use/useItemArt'
+import {
+  POT_ART, POT_VIEW, POT_BODY, POT_SHADE, POT_LIP, POT_DRIP, POT_INK, POT_LIP_FILL
+} from '@/game/restore/potArt'
 
 const emit = defineEmits<{ open: []; pick: [i: number] }>()
 const { t } = useI18n()
+
+const { urls: potArt, box: potBox } = useItemArt(POT_ART, () => restoreHud.potDefs.map((p) => p.base))
+/** The painted jar's place in the viewBox: the drawing's box, about its middle. */
+const potImage = computed(() => (potBox.value ? imageAt(potBox.value, POT_VIEW, POT_VIEW / 2, POT_VIEW / 2) : null))
 
 const showPots = computed(() => restoreHud.phase === 'pots' || restoreHud.phase === 'paint')
 const giftStyle = computed(() => {
@@ -47,13 +61,21 @@ const potStyle = (i: number) => {
         :disabled="restoreHud.picked >= 0"
         @click.stop="emit('pick', i)"
       )
-        svg(viewBox="0 0 64 64" aria-hidden="true")
-          //- The pot: a round jar with a lip, filled to the brim.
-          path(d="M14 26 Q14 56 32 56 Q50 56 50 26 Z" :fill="p.base" stroke="#3A2340" stroke-width="3" stroke-linejoin="round")
-          path(d="M36 30 Q46 30 44 48 Q40 54 34 54" fill="none" :stroke="p.shade" stroke-width="5" stroke-linecap="round")
-          rect(x="10" y="20" width="44" height="9" rx="4.5" fill="#fff4e6" stroke="#3A2340" stroke-width="3")
-          //- A drip over the lip.
-          path(d="M22 26 Q22 36 25 36 Q28 36 28 26 Z" :fill="p.base" stroke="#3A2340" stroke-width="2.5")
+        svg(:viewBox="`0 0 ${POT_VIEW} ${POT_VIEW}`" aria-hidden="true")
+          //- The pot, painted: one neutral jar in this pot's colour.
+          image(
+            v-if="potArt[i] && potImage"
+            :href="potArt[i]"
+            v-bind="potImage"
+            preserveAspectRatio="xMidYMid meet"
+          )
+          template(v-else)
+            //- The pot: a round jar with a lip, filled to the brim.
+            path(:d="POT_BODY" :fill="p.base" :stroke="POT_INK" stroke-width="3" stroke-linejoin="round")
+            path(:d="POT_SHADE" fill="none" :stroke="p.shade" stroke-width="5" stroke-linecap="round")
+            rect(:x="POT_LIP.x" :y="POT_LIP.y" :width="POT_LIP.w" :height="POT_LIP.h" :rx="POT_LIP.r" :fill="POT_LIP_FILL" :stroke="POT_INK" stroke-width="3")
+            //- A drip over the lip.
+            path(:d="POT_DRIP" :fill="p.base" :stroke="POT_INK" stroke-width="2.5")
           //- Each pot's own mark: a petal, a sun, a bell — never colour alone.
           //- By slot, not by id, so every biome's three pots stay distinct.
           circle(v-if="i === 0" cx="32" cy="42" r="6" fill="#fff" fill-opacity="0.85")

@@ -10,7 +10,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
-  planFor, bootScreenOf, aheadChapterFor, chapterLimit, recordSector, duelWants, facesOf,
+  planFor, bootScreenOf, aheadChapterFor, chapterLimit, recordSector, duelWants, facesOf, cleaningWants, winWants,
   type ScheduleSave, type ScheduleEnv, type Screen
 } from '@/game/artSchedule'
 import { firstArtWants } from '@/game/artPreload'
@@ -76,12 +76,19 @@ describe('a fresh save: the splash holds for the first DUEL', () => {
     // The HUD's two HP frames, on screen from the duel's first frame.
     expect(hold).toContain('worldUi/hp-frame-aurora')
     expect(hold).toContain('worldUi/hp-frame-foe')
+    // …and the paper leaf it is printed on, with its lines' pictogram sets —
+    // the opener's two, not all four.
+    expect(hold).toContain('worldUi/dialogue-leaf')
+    const sets = hold.filter((k) => k.startsWith('worldUi/picto-set-'))
+    expect(sets.length).toBeGreaterThan(0)
+    expect(sets.length).toBeLessThanOrEqual(2)
     // NOT the map: no page, no thumbnail, no badge, no gift, no tool, no
     // picture book, no wardrobe — none of it is drawn before the first win.
-    // The HP frames are the only world-UI a duel draws.
+    // The HP frames and the opener's leaf and pictograms are the only
+    // world-UI a duel draws.
     for (const k of hold) {
       expect(k).not.toMatch(/^(sectorThumb|story|wardrobe|gift|tool)\//)
-      expect(k).not.toMatch(/^worldUi\/(?!hp-frame-)/)
+      expect(k).not.toMatch(/^worldUi\/(?!hp-frame-|dialogue-leaf$|picto-set-)/)
       expect(k).not.toMatch(/^page\/page-/)
     }
     expect(new Set(hold).size).toBeLessThanOrEqual(16)
@@ -250,5 +257,40 @@ describe('the duel\'s runes follow the save', () => {
 
   it('chapter slugs stay in step with the page ids the schedule builds', () => {
     for (let c = 0; c < CHAPTER_SLUGS.length; c++) expect(chapterOfWant(['page', pageArtId(c, true)])).toBe(c)
+  })
+})
+
+describe('the cleaning plans what the restore draws (2026-09-24 restore pass)', () => {
+  it('the tool in hand — the Sunbeam\'s two sheets on a boss, the sponge\'s twinkle with it', () => {
+    const boss = keys(cleaningWants(4))
+    expect(boss).toContain('tool/sunbeam')
+    expect(boss).toContain('tool/sunbeam-rays')
+    expect(boss).not.toContain('tool/stardust-sponge')
+    const first = keys(cleaningWants(0))
+    expect(first).toContain('tool/stardust-sponge')
+    expect(first).toContain('prop/prop-twinkle')
+    expect(first).not.toContain('tool/sunbeam')
+  })
+
+  it('the paint pot and its blob, and the Twin Gift, on every cleaning', () => {
+    for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+      const w = keys(cleaningWants(n))
+      for (const k of ['tool/paint-pot', 'tool/paint-blob', 'gift/twin-gift']) expect(w, `node ${n}`).toContain(k)
+    }
+  })
+
+  it('a Signature Spell boss plans its emblem, and no other node does', () => {
+    const emblems = (n: number): string[] => keys(cleaningWants(n)).filter((k) => k.startsWith('gift/emblem-'))
+    for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+      if (n === 19) expect(emblems(n)).toEqual(['gift/emblem-crystal-ward'])
+      else if (n === 39) expect(emblems(n)).toEqual(['gift/emblem-frost-lock'])
+      else expect(emblems(n), `node ${n}`).toEqual([])
+    }
+  })
+
+  it('a boss win drops the CHEST on the island, not a parcel', () => {
+    const win = keys(winWants(4, saveAt(3)))
+    expect(win).toContain('gift/boss-chest')
+    expect(win).not.toContain('gift/standard-gift')
   })
 })

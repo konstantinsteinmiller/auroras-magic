@@ -48,7 +48,33 @@ export const ITEM_ART = {
   eraser: { kind: 'tool', id: 'magic-eraser' },
   tent: { kind: 'worldUi', id: 'wardrobe-tent' },
   crown: { kind: 'cosmetic', id: 'flower-crown' },
-  petStar: { kind: 'cosmetic', id: 'pet-star' }
+  petStar: { kind: 'cosmetic', id: 'pet-star' },
+  // The 2026-09-24 paint-outstanding pass (wardrobe): every keepsake that is
+  // ONE shape a matrix carries on her rig — `KEEPSAKE_WORN_ART` below says
+  // which keepsake draws which.
+  pegasusWing: { kind: 'cosmetic', id: 'pegasus-wing' },
+  seashell: { kind: 'cosmetic', id: 'necklace-shell' },
+  scarfWrap: { kind: 'cosmetic', id: 'winter-scarf-wrap' },
+  acornCap: { kind: 'cosmetic', id: 'acorn-cap' },
+  starTiara: { kind: 'cosmetic', id: 'star-tiara' },
+  goggles: { kind: 'cosmetic', id: 'explorer-goggles' },
+  bowTie: { kind: 'cosmetic', id: 'bow-tie' },
+  moonPendant: { kind: 'cosmetic', id: 'moon-pendant' },
+  butterflyWing: { kind: 'cosmetic', id: 'butterfly-wing' },
+  packBedroll: { kind: 'cosmetic', id: 'explorer-pack-bedroll' },
+  packSatchel: { kind: 'cosmetic', id: 'explorer-pack-satchel' },
+  petCloud: { kind: 'cosmetic', id: 'pet-cloud' },
+  petFirefly: { kind: 'cosmetic', id: 'pet-firefly' },
+  // The 2026-09-24 paint-outstanding pass (restore): the boss's tool, the
+  // colour pick's jar and the paint it throws, the map's Twin Gift, and the
+  // two Signature Spell emblems (art-roadmap.md, that section).
+  sunbeam: { kind: 'tool', id: 'sunbeam' },
+  sunbeamRays: { kind: 'tool', id: 'sunbeam-rays' },
+  paintPot: { kind: 'tool', id: 'paint-pot' },
+  paintBlob: { kind: 'tool', id: 'paint-blob' },
+  twinGift: { kind: 'gift', id: 'twin-gift' },
+  emblemWard: { kind: 'gift', id: 'emblem-crystal-ward' },
+  emblemFrost: { kind: 'gift', id: 'emblem-frost-lock' }
 } as const
 
 export type ItemName = keyof typeof ITEM_ART
@@ -128,7 +154,37 @@ export const PROP_ART = {
   waterfall: { kind: 'prop', id: 'prop-waterfall' },
   streak: { kind: 'prop', id: 'prop-flow-streak' },
   vane: { kind: 'prop', id: 'prop-vane' },
-  gondola: { kind: 'prop', id: 'prop-gondola' }
+  gondola: { kind: 'prop', id: 'prop-gondola' },
+  // The 2026-09-24 paint-outstanding pass (sectors): the hiding places and
+  // live stills the four earlier passes left drawn — a tap creature's log, the
+  // rescues' beds and nests, the Bloom's bunny and flowers, the carousel, and
+  // the small silhouettes a transform carries (art-roadmap.md, that section).
+  hollowLog: { kind: 'prop', id: 'prop-hollow-log' },
+  mossBed: { kind: 'prop', id: 'prop-moss-bed' },
+  rockNest: { kind: 'prop', id: 'prop-rock-nest' },
+  iceBlock: { kind: 'prop', id: 'prop-ice-block' },
+  bunny: { kind: 'prop', id: 'prop-bunny' },
+  flowerHead: { kind: 'prop', id: 'prop-flower-head' },
+  carouselDrum: { kind: 'prop', id: 'prop-carousel-drum' },
+  carouselHorse: { kind: 'prop', id: 'prop-carousel-horse' },
+  gnomon: { kind: 'prop', id: 'prop-gnomon' },
+  planet: { kind: 'prop', id: 'prop-planet' },
+  snowball: { kind: 'prop', id: 'prop-snowball' },
+  kiteBow: { kind: 'prop', id: 'prop-kite-bow' },
+  bubbleRing: { kind: 'prop', id: 'prop-bubble-ring' },
+  canoePole: { kind: 'prop', id: 'prop-canoe-pole' },
+  glassChip: { kind: 'prop', id: 'prop-glass-chip' },
+  sleepZ: { kind: 'prop', id: 'prop-sleep-z' },
+  // The 2026-09-24 paint-outstanding pass (duel): the six WARDS — one
+  // persistent shape per flavour, not the fx pool (`fx.WARD_ART`) — and Frost
+  // Lock's block of ice round a frozen duelist (`duel/stageArt.ts`).
+  wardWind: { kind: 'prop', id: 'prop-ward-wind' },
+  wardIce: { kind: 'prop', id: 'prop-ward-ice' },
+  wardRock: { kind: 'prop', id: 'prop-ward-rock' },
+  wardBubble: { kind: 'prop', id: 'prop-ward-bubble' },
+  wardCrystal: { kind: 'prop', id: 'prop-ward-crystal' },
+  wardFrost: { kind: 'prop', id: 'prop-ward-frost' },
+  frostLockIce: { kind: 'prop', id: 'prop-frost-lock-ice' }
 } as const
 
 export type PropName = keyof typeof PROP_ART
@@ -154,10 +210,12 @@ export type PropName = keyof typeof PROP_ART
  * drawing's — a translate, a rotate and a clip carry a painting exactly as
  * they carried the vectors.
  *
- * What is NOT here: the prop each creature hides behind (that is the sector's
- * own painting, and `tapCover.ts` cuts the cover out of it), the glow a
- * glowworm throws on a crystal facet, the frost puff, the hearts and the
- * bubble ring — washes and particles, with no silhouette to paint.
+ * What is NOT here: the prop each creature hides behind (the sector's own
+ * painting, which `tapCover.ts` cuts the cover out of — or, where the sector
+ * never drew one, a PROP: the woods' log, the rescues' bed, nest and ice),
+ * the glow a glowworm throws on a crystal facet, and the frost puffs, hearts,
+ * twinkles, sleepy Z's and bubble ring they throw off, which are the shared
+ * `PROP_ART` shapes (2026-09-24).
  */
 export const CREATURE_ART = {
   mossSprite: { kind: 'creature', id: 'creature-moss-sprite' },
@@ -329,17 +387,55 @@ export const WARDROBE_RUG = { kind: 'wardrobe', id: 'wardrobe-rug' } as const
 
 /**
  * The wardrobe's keepsake badges (§8.27) that are drawn for the shelf alone.
- * The Flower Crown's and the Pet Star's badges already draw their S6 item
- * paintings, so they are not here.
+ * A keepsake whose badge draws its WORN painting (`KEEPSAKE_WORN_ART` — the
+ * Flower Crown and the Pet Star first, the second shelf's hats, bows, wings,
+ * pack and companions since 2026-09-24) is not here: one painting serves the
+ * shelf and her rig, so the tile can never drift from what she puts on. The
+ * four at the end are the second shelf's that draw nothing painted: two
+ * trails whose particles stay drawn, and two looks that are palettes.
  */
 export const KEEPSAKE_ICON_SLUGS = [
-  'seashellNecklace', 'pegasusWings', 'hoofTrailVfx', 'umbraSkin', 'colorPicker', 'pastelTheme', 'winterScarf'
+  'seashellNecklace', 'pegasusWings', 'hoofTrailVfx', 'umbraSkin', 'colorPicker', 'pastelTheme', 'winterScarf',
+  'petalTrail', 'frostTrail', 'moonlitLook', 'sunsetLook'
 ] as const
 export type KeepsakeIconSlug = (typeof KEEPSAKE_ICON_SLUGS)[number]
 
 /** `keepsake-seashell-necklace`, … */
 export const keepsakeArtId = (slug: string): string =>
   `keepsake-${slug.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`
+
+/**
+ * Every painting a keepsake draws AS WORN, by slug (§9.7): its own stills on
+ * her rig, and the sectors' shared props its particles and charms are routed
+ * through (a sparkle is `prop-twinkle`, a bubble `prop-bubble`, the pendant's
+ * stars `prop-star`, the pack's lantern `prop-lantern`). The schedule holds
+ * these wherever she is drawn in it, and a keepsake with no badge sheet of its
+ * own (not in `KEEPSAKE_ICON_SLUGS`) is painted on the shelf by exactly these.
+ *
+ * Not here, and why (art-roadmap.md, "paint-outstanding pass (wardrobe)"):
+ * the Mane Color Palette and the four looks are palettes; the petal and frost
+ * trails have no sheet their particle is; every cord, the scarf's tails and
+ * the pearls stay drawn.
+ */
+export const KEEPSAKE_WORN_ART: Readonly<Record<string, readonly { kind: 'cosmetic' | 'prop'; id: string }[]>> = {
+  flowerCrown: [ITEM_ART.crown],
+  seashellNecklace: [ITEM_ART.seashell],
+  pegasusWings: [ITEM_ART.pegasusWing],
+  hoofTrailVfx: [PROP_ART.twinkle],
+  pastelTheme: [PROP_ART.twinkle],
+  winterScarf: [ITEM_ART.scarfWrap],
+  petStar: [ITEM_ART.petStar, PROP_ART.twinkle],
+  acornCap: [ITEM_ART.acornCap],
+  starTiara: [ITEM_ART.starTiara],
+  explorerGoggles: [ITEM_ART.goggles],
+  bowTie: [ITEM_ART.bowTie],
+  moonPendant: [ITEM_ART.moonPendant, PROP_ART.star],
+  butterflyWings: [ITEM_ART.butterflyWing],
+  explorerPack: [ITEM_ART.packBedroll, ITEM_ART.packSatchel, PROP_ART.lantern],
+  petCloud: [ITEM_ART.petCloud],
+  petFirefly: [ITEM_ART.petFirefly],
+  bubbleTrail: [PROP_ART.bubble]
+}
 
 /**
  * The REWARDED-AD mark: the little film camera in front of every "watch an ad
@@ -361,6 +457,69 @@ export const HP_FRAMES = {
   aurora: { kind: 'worldUi', id: 'hp-frame-aurora' },
   foe: { kind: 'worldUi', id: 'hp-frame-foe' }
 } as const
+
+/**
+ * The book's chrome and the DOM's storybook marks that were still drawn with
+ * the art layer on (paint-outstanding.md P3, P9, P14; art-roadmap.md
+ * "2026-09-24 — paint-outstanding pass (map & UI)"):
+ *
+ *   glove   the white "put your finger here" glove — the front page's rainbow
+ *           swipe and the intro's rune beat (`map/glove.ts`)
+ *   board   the book's cover board and the block of leaves under the open
+ *           page, laid on as a 9-slice (`map/bookBoard.ts`)
+ *   leaf    the dialogue's paper leaf, a CSS 9-slice (`DialogueBubbles.vue`)
+ *   star    the chapter title page's gold stars (`DialogueBubbles.vue`)
+ *   trophy  the local-versus end screen's cup (`GameScene.vue`)
+ *   phone   the "turn me sideways" phone (`TurnSideways.vue`)
+ *   shield  the ad-blocker explainer's shield (`AdsBlockedModal.vue`)
+ */
+export const CHROME_ART = {
+  glove: { kind: 'worldUi', id: 'show-glove' },
+  board: { kind: 'worldUi', id: 'book-board' },
+  leaf: { kind: 'worldUi', id: 'dialogue-leaf' },
+  star: { kind: 'worldUi', id: 'gold-star' },
+  trophy: { kind: 'worldUi', id: 'trophy' },
+  phone: { kind: 'worldUi', id: 'turn-phone' },
+  shield: { kind: 'worldUi', id: 'shield' }
+} as const
+
+export type ChromeName = keyof typeof CHROME_ART
+
+/**
+ * The dialogue PICTOGRAMS (story-spec §10.6, `pictos.ts`), painted as SETS:
+ * four strips, one generation each. A set is a strip like any other to the
+ * slicer (one row of panels, one file); the DOM shows one panel of it
+ * (`Picto.vue`). Pure data — the names are the `Picto` union's (`story.ts`),
+ * kept in step with the script by `tests/meta/artChrome.test.ts`.
+ *
+ * GROUPED BY WHERE THE SCRIPT USES THEM, so a dialogue page asks for two
+ * files and not four: set 1 is the six every chapter's beats share (the
+ * sparkle, the heart, the dust, the cheer, the duel and the thank-you sun),
+ * set 2 the woods and the night (chapters 1, 4 and 5 — the moon recurs to
+ * the end), set 3 the bay and the sky (2 and 3), set 4 chapters 6 to 10.
+ * The cold boot's opener needs sets 1 and 2 only.
+ *
+ * `leaf` is in the union and in no line of the script, so it is not painted
+ * (it keeps its drawing, like anything `pictoSlot` does not find).
+ */
+export const PICTO_SETS = [
+  ['sparkle', 'heart', 'dustCloud', 'cheer', 'duel', 'sun'],
+  ['forest', 'zzz', 'crescentMoon', 'thorn', 'crystal', 'mirror'],
+  ['wave', 'musicalNote', 'musicalNoteCrossed', 'cloud', 'lightning', 'wing'],
+  ['rainbow', 'hourglass', 'snowflake', 'star', 'balloon']
+] as const
+
+/** `picto-set-1` … `picto-set-4`. */
+export const pictoSetArtId = (set: number): string => `picto-set-${set + 1}`
+
+/** Where a pictogram is painted: its set and its panel in that strip, or null. */
+export const pictoSlot = (name: string): { set: number; panel: number } | null => {
+  for (let set = 0; set < PICTO_SETS.length; set++) {
+    const panel = (PICTO_SETS[set] as readonly string[]).indexOf(name)
+    if (panel >= 0) return { set, panel }
+  }
+  return null
+}
 
 /* ──────────────────────────────────── the brand pair (art-style.md §11) ── */
 

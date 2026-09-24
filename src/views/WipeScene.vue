@@ -6,15 +6,52 @@
  * the "continue" plate. No canvas, no text: every name is an aria-label.
  *
  * The chip takes no pointer events, so the brush can wipe right under it.
+ *
+ * With the art layer on, the chip's tool is the SAME painting the canvas
+ * draws in the child's hand (paint-outstanding B6, P6): an `<image>` inside
+ * this same SVG, as `RuneGlyph.vue` does it, laid in the box the painting was
+ * cut from at the size the drawn chip tool had. Only the tool in hand is
+ * asked for, so a sponge sector never fetches the Sunbeam.
  */
-import { computed } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import SceneCorner from '@/components/story/SceneCorner.vue'
 import { restoreHud } from '@/use/useRestoreHud'
+import { useItemArt, imageAt } from '@/use/useItemArt'
+import type { ItemSpec } from '@/game/artItem'
+import { SPONGE_ART, ERASER_ART, SUNBEAM_ART, SUNBEAM_RAYS_ART, SPONGE_TWINKLE } from '@/game/restore/gift'
+import { TWINKLE_ART } from '@/game/map/kit'
 
 const emit = defineEmits<{ back: []; continue: [] }>()
 const { t } = useI18n()
+
+type ChipImage = { href: string; x: number; y: number; width: number; height: number }
+/**
+ * `spec`'s painting placed in the chip's 72-unit box as its drawing would be
+ * drawn at scale `s` about (x, y) — or null (the SVG draws it) while `when`
+ * is false, the art layer is off or the file has not decoded.
+ */
+const chipArt = (
+  spec: ItemSpec, when: () => boolean, s: number, x: number, y: number, colour?: string
+): ComputedRef<ChipImage | null> => {
+  const { urls, box } = useItemArt(spec, () => (when() ? [colour] : []))
+  return computed(() => {
+    const href = urls.value[0]
+    return href && box.value ? { href, ...imageAt(box.value, s, x, y) } : null
+  })
+}
+const sunbeamHeld = (): boolean => restoreHud.boss
+const eraserHeld = (): boolean => !restoreHud.boss && restoreHud.tool === 'eraser'
+const spongeHeld = (): boolean => !restoreHud.boss && restoreHud.tool !== 'eraser'
+// Sizes: the drawn chip's own. The sponge's body is 42 wide (0.9 of its
+// scale), the eraser 40 long (0.62); the Sunbeam's sun sits up-right of the
+// middle so its wand, trailing down-left, stays inside the ring.
+const sunArt = chipArt(SUNBEAM_ART, sunbeamHeld, 38, 44, 28)
+const raysArt = chipArt(SUNBEAM_RAYS_ART, sunbeamHeld, 38, 44, 28)
+const eraserArt = chipArt(ERASER_ART, eraserHeld, 62, 36, 37)
+const spongeArt = chipArt(SPONGE_ART, spongeHeld, 46, 36, 37)
+const starArt = chipArt(TWINKLE_ART, () => restoreHud.tool === 'brush', 7, 52, 21, SPONGE_TWINKLE)
 
 // Not once the dust is gone: the pots and the paint come after the reveal
 // (the sector is already restored), and leaving there would skip the colour.
@@ -61,26 +98,37 @@ const chipStyle = computed(() => {
         )
         //- The Sunbeam, small: a sun with eight rays on a golden wand.
         g(v-if="restoreHud.boss")
-          rect(x="16" y="33" width="22" height="6" rx="3" fill="#ffd36b" stroke="#3A2340" stroke-width="2" transform="rotate(45 36 36)")
-          path(
-            d="M36 17 L38.5 26 L47 22 L43 30.5 L52 33 L43 35.5 L47 44 L38.5 40 L36 49 L33.5 40 L25 44 L29 35.5 L20 33 L29 30.5 L25 22 L33.5 26 Z"
-            fill="#ffb63b" stroke="#3A2340" stroke-width="1.5" stroke-linejoin="round"
-          )
-          circle(cx="36" cy="33" r="8" fill="#ffe45c" stroke="#3A2340" stroke-width="2")
+          template(v-if="sunArt && raysArt")
+            image(v-bind="raysArt" preserveAspectRatio="xMidYMid meet")
+            image(v-bind="sunArt" preserveAspectRatio="xMidYMid meet")
+          template(v-else)
+            rect(x="16" y="33" width="22" height="6" rx="3" fill="#ffd36b" stroke="#3A2340" stroke-width="2" transform="rotate(45 36 36)")
+            path(
+              d="M36 17 L38.5 26 L47 22 L43 30.5 L52 33 L43 35.5 L47 44 L38.5 40 L36 49 L33.5 40 L25 44 L29 35.5 L20 33 L29 30.5 L25 22 L33.5 26 Z"
+              fill="#ffb63b" stroke="#3A2340" stroke-width="1.5" stroke-linejoin="round"
+            )
+            circle(cx="36" cy="33" r="8" fill="#ffe45c" stroke="#3A2340" stroke-width="2")
         //- The Magic Eraser, small: a pink block with a white sleeve and a star.
         g(v-else-if="restoreHud.tool === 'eraser'" transform="rotate(-30 36 36)")
-          rect(x="16" y="26" width="40" height="22" rx="6" fill="#ff9ecf" stroke="#3A2340" stroke-width="2.5")
-          rect(x="31" y="25" width="17" height="24" rx="3" fill="#fff6fb" stroke="#3A2340" stroke-width="2.5")
-          path(d="M39.5 31 L41 35 L45 35.5 L42 38 L43 42 L39.5 40 L36 42 L37 38 L34 35.5 L38 35 Z" fill="#ffd36b" stroke="#3A2340" stroke-width="1.2")
+          image(v-if="eraserArt" v-bind="eraserArt" preserveAspectRatio="xMidYMid meet")
+          template(v-else)
+            rect(x="16" y="26" width="40" height="22" rx="6" fill="#ff9ecf" stroke="#3A2340" stroke-width="2.5")
+            rect(x="31" y="25" width="17" height="24" rx="3" fill="#fff6fb" stroke="#3A2340" stroke-width="2.5")
+            path(d="M39.5 31 L41 35 L45 35.5 L42 38 L43 42 L39.5 40 L36 42 L37 38 L34 35.5 L38 35 Z" fill="#ffd36b" stroke="#3A2340" stroke-width="1.2")
         //- The Stardust Sponge, small: the yellow block, its mint top, a star.
         g(v-else transform="rotate(-12 36 36)")
-          rect(x="15" y="24" width="42" height="26" rx="7" fill="#ffe07a" stroke="#3A2340" stroke-width="2.5")
-          path(d="M16.5 30.5 L55.5 30.5" stroke="#3A2340" stroke-width="1.6")
-          path(d="M16.3 30 L16.3 28 Q16.3 25.3 22 25.3 L50 25.3 Q55.7 25.3 55.7 28 L55.7 30 Z" fill="#9ff0cf")
-          circle(cx="24" cy="42" r="2" fill="#e3aa3c")
-          circle(cx="48" cy="44" r="1.6" fill="#e3aa3c")
-          path(d="M36 34 L37.3 37.3 L40.8 37.6 L38.1 39.8 L39 43.2 L36 41.3 L33 43.2 L33.9 39.8 L31.2 37.6 L34.7 37.3 Z" fill="#fff3b0" stroke="#3A2340" stroke-width="1.2")
-        path(v-if="restoreHud.tool === 'brush'" d="M52 14 L54 19 L59 21 L54 23 L52 28 L50 23 L45 21 L50 19 Z" fill="#fff6b0" stroke="#3A2340" stroke-width="1.5")
+          image(v-if="spongeArt" v-bind="spongeArt" preserveAspectRatio="xMidYMid meet")
+          template(v-else)
+            rect(x="15" y="24" width="42" height="26" rx="7" fill="#ffe07a" stroke="#3A2340" stroke-width="2.5")
+            path(d="M16.5 30.5 L55.5 30.5" stroke="#3A2340" stroke-width="1.6")
+            path(d="M16.3 30 L16.3 28 Q16.3 25.3 22 25.3 L50 25.3 Q55.7 25.3 55.7 28 L55.7 30 Z" fill="#9ff0cf")
+            circle(cx="24" cy="42" r="2" fill="#e3aa3c")
+            circle(cx="48" cy="44" r="1.6" fill="#e3aa3c")
+            path(d="M36 34 L37.3 37.3 L40.8 37.6 L38.1 39.8 L39 43.2 L36 41.3 L33 43.2 L33.9 39.8 L31.2 37.6 L34.7 37.3 Z" fill="#fff3b0" stroke="#3A2340" stroke-width="1.2")
+        //- The sponge's twinkle — the sectors' painted one, in the sponge's gold.
+        template(v-if="restoreHud.tool === 'brush'")
+          image(v-if="starArt" v-bind="starArt" preserveAspectRatio="xMidYMid meet")
+          path(v-else d="M52 14 L54 19 L59 21 L54 23 L52 28 L50 23 L45 21 L50 19 Z" fill="#fff6b0" stroke="#3A2340" stroke-width="1.5")
     SceneCorner
     button.duel-plate.continue-btn(
       v-if="restoreHud.showContinue"

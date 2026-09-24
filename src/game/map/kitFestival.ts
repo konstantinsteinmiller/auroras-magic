@@ -23,7 +23,7 @@ import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
 import { type G2D, type Pot, INK, C, fill, ink, flower, blob, lumpy, twinkleAt, lanternAt, flagAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
-import { K, inkFill, heart, star5, heartAt } from '@/game/map/kitSky'
+import { K, inkFill, heart, star5, heartAt, pennantCloth } from '@/game/map/kitSky'
 import type { TapCreature } from '@/game/map/sectorDef'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { CREATURE_ART, PROP_ART } from '@/game/artIds'
@@ -404,8 +404,15 @@ export const bulbDots = (g: G2D, pts: readonly Pt[], r = 5): void => {
   ink(g, 2)
 }
 
-/** Bulbs lighting up in a slow chase (a live prop). */
-export const bulbGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number, r = 5, every = 2): void => {
+/**
+ * Bulbs lighting up in a slow chase (a live prop).
+ *
+ * `painted`: the sector under it is a painting (`sectorShowsArt`), whose
+ * `bulbDots` are already painted bulbs. The lit core is then a GLOW laid on
+ * the painted bulb, not an opaque disc over it (B14) — with the art layer
+ * off it is the same opaque core as ever.
+ */
+export const bulbGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number, r = 5, every = 2, painted = false): void => {
   if (alive <= 0) return
   const step = Math.floor(t * 3)
   g.globalAlpha = alive * 0.35
@@ -417,7 +424,7 @@ export const bulbGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number, r
     g.arc(x, y, r * 1.9, 0, TAU)
   }
   fill(g, F.glow)
-  g.globalAlpha = alive
+  g.globalAlpha = painted ? alive * 0.45 : alive
   g.beginPath()
   for (let i = 0; i < pts.length; i++) {
     if ((i + step) % every) continue
@@ -954,13 +961,56 @@ export const HORSES: readonly HorseLook[] = [
   { coat: '#efe4ff', mane: F.mint, saddle: F.coral }
 ]
 
+/** Horn tip to hoof at scale 1, in SU — the horse's own height. */
+const HORSE_UNIT = 80
+
+/**
+ * The carousel's six unicorns as ONE painted strip, a panel per horse.
+ *
+ * Each horse is three colours at once — its coat, its mane, its saddle — and
+ * `artTint` carries one region, so a tinted sheet cannot wear them. The six
+ * looks the ride actually uses become the strip's PANELS instead (the far
+ * boat's rule, and `prop-flyer`'s): one generation, one hand, and every horse
+ * on the platform is the same horse in its own colours. Painted facing RIGHT
+ * with the full detail; the bob, the orbit and the mirror stay the drawing's.
+ *
+ * What it costs, stated: the far side's horses were drawn plainer (no saddle,
+ * horn or eye) and now wear the same painting as the near ones — they are
+ * behind the drum and in its shade, and a plainer SECOND set of six panels
+ * for them is not worth a generation.
+ */
+export const CAROUSEL_HORSE_ART: ItemSpec = {
+  ...PROP_ART.carouselHorse, frames: HORSES.length,
+  draw: (g, s, f) => {
+    g.save()
+    g.scale(s / HORSE_UNIT, s / HORSE_UNIT)
+    horseShape(g, HORSES[f] ?? HORSES[0]!, true, 1)
+    g.restore()
+  }
+}
+
 /** A carousel unicorn, body centre (x, y), facing `dir`; `full` adds the
  *  saddle, horn and eye (the far side's horses are drawn plainer). */
 export const horse = (g: G2D, x: number, y: number, s: number, dir: number, L: HorseLook, full: boolean): void => {
-  const w = 1 / s
+  const panel = HORSES.indexOf(L)
+  if (panel >= 0) {
+    g.save()
+    g.translate(x, y)
+    g.scale(dir, 1)
+    const painted = drawItem(g, CAROUSEL_HORSE_ART, HORSE_UNIT * s, panel)
+    g.restore()
+    if (painted) return
+  }
   g.save()
   g.translate(x, y)
   g.scale(s * dir, s)
+  horseShape(g, L, full, 1 / s)
+  g.restore()
+}
+
+/** The horse itself about its body centre, in its own units; `w` scales the
+ *  line to the caller's transform. */
+const horseShape = (g: G2D, L: HorseLook, full: boolean, w: number): void => {
   g.lineCap = 'round'
   g.lineJoin = 'round'
   g.beginPath()
@@ -994,10 +1044,7 @@ export const horse = (g: G2D, x: number, y: number, s: number, dir: number, L: H
   inkFill(g, L.coat, 2.2 * w)
   circles(g, [[18, -36, 7], [12, -28, 7], [10, -18, 6]])
   inkFill(g, L.mane, 2.2 * w)
-  if (!full) {
-    g.restore()
-    return
-  }
+  if (!full) return
   g.beginPath()
   g.ellipse(-2, -13, 12, 6, 0, 0, TAU)
   fill(g, L.saddle)
@@ -1012,10 +1059,36 @@ export const horse = (g: G2D, x: number, y: number, s: number, dir: number, L: H
   g.beginPath()
   g.arc(32, -25, 2.6, 0, TAU)
   fill(g, INK)
-  g.restore()
+}
+
+/** The mirrored drum's height: the valance's foot to the platform. */
+const DRUM_H = CAR.eave - CAR.bulge - CAR.scal
+
+/**
+ * The carousel's mirrored DRUM as a painted still (10-2). It never moves —
+ * it is drawn by `carouselLive` only because the far horses go round behind
+ * it and the near ones in front, so it has to sit BETWEEN them in the draw
+ * order, which `paint()` cannot do. One constant shape, 116 × 172: a still.
+ */
+export const CAROUSEL_DRUM_ART: ItemSpec = {
+  ...PROP_ART.carouselDrum, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / DRUM_H, s / DRUM_H)
+    drumShape(g, 0, -DRUM_H / 2, DRUM_H / 2)
+    g.restore()
+  }
 }
 
 const drum = (g: G2D, cx: number, top: number, bottom: number): void => {
+  g.save()
+  g.translate(cx, (top + bottom) / 2)
+  const painted = drawItem(g, CAROUSEL_DRUM_ART, DRUM_H)
+  g.restore()
+  if (!painted) drumShape(g, cx, top, bottom)
+}
+
+const drumShape = (g: G2D, cx: number, top: number, bottom: number): void => {
   g.beginPath()
   g.roundRect(cx - 58, top, 116, bottom - top, 6)
   fill(g, F.cream)
@@ -2297,9 +2370,17 @@ export const notes = (g: G2D, x: number, y: number, t: number, alive: number): v
   g.globalAlpha = 1
 }
 
-/** The cake's candles flickering (a live prop): a faint halo, then each
- *  flame redrawn dancing over the painted one. `pts` are flame centres. */
-export const flameGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number): void => {
+/**
+ * The cake's candles flickering (a live prop): a faint halo, then each flame
+ * redrawn dancing over the painted one. `pts` are flame centres.
+ *
+ * `painted`: the sector under it is a PAINTING, whose `layerCake` flames are
+ * already painted — so only the halo stays (light, no edge) and the inked
+ * tongues are not laid over them a second time (B14). A candle tip is a
+ * hundredth of the scene, under the prop family's size floor, so it gets no
+ * sheet of its own (art-roadmap.md §4b, third sweep).
+ */
+export const flameGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number, painted = false): void => {
   if (alive <= 0) return
   g.globalAlpha = alive * 0.25
   g.beginPath()
@@ -2310,6 +2391,10 @@ export const flameGlow = (g: G2D, pts: readonly Pt[], t: number, alive: number):
     g.arc(x, y - 2, r, 0, TAU)
   }
   fill(g, F.glow)
+  if (painted) {
+    g.globalAlpha = 1
+    return
+  }
   g.globalAlpha = alive
   g.beginPath()
   for (let i = 0; i < pts.length; i++) {
@@ -2443,10 +2528,12 @@ export const sprig = (g: G2D, x: number, y: number, s: number, awake: number, wa
   g.scale(s * dir, s)
   g.lineJoin = 'round'
   g.lineCap = 'round'
-  // THE FLAG IS NEVER PAINTED and it goes down first, BEHIND the body: it
-  // swings on `wave`, ripples on the clock and is a different colour in each
-  // of the five sectors — all three of `art-roadmap` §4b's reasons at once.
-  // Sprig's own hand, which closes round its stick, is in the painting.
+  // THE FLAG goes down first, BEHIND the body. It swings on `wave`, ripples
+  // on the clock and is a different colour in each of the five sectors —
+  // which is a rotation, the pennant strip's three panels and a tint, so its
+  // cloth is the shared `prop-pennant` (2026-09-24); the stick stays a
+  // hairline. Sprig's own hand, which closes round the stick, is in Sprig's
+  // painting.
   sprigFlag(g, 1 / s, wave, look, t)
   g.restore()
   g.save()
@@ -2497,6 +2584,14 @@ const sprigFlag = (g: G2D, w: number, wave: number, look: SprigLook, t: number):
   g.lineTo(tx, ty)
   ink(g, 3 * w)
   const fl = sin(t * 14) * 3
+  // The cloth is the shared pennant (`prop-pennant`), hoisted 13 units down
+  // the stick from its tip and flying 22 out square to it: a rotation onto
+  // the stick, the ripple the strip's panels, the colour its tint.
+  g.save()
+  g.transform(-uy, ux, -ux, -uy, tx, ty)
+  const flown = pennantCloth(g, 22, 13, (fl * 2) / 13, look.flag)
+  g.restore()
+  if (flown) return
   g.beginPath()
   g.moveTo(tx, ty)
   g.quadraticCurveTo(tx - uy * 12 - ux * (3 - fl), ty + ux * 12 - uy * (3 - fl), tx - uy * 22 - ux * (6 + fl), ty + ux * 22 - uy * (6 + fl))

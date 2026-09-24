@@ -71,7 +71,7 @@ the expensive way to buy the same thing.
 | What | Where it is drawn | Shape of the sheet |
 | --- | --- | --- |
 | The book's FRONT page ("the intro bg") | `drawFrontPage`, `map.ts` — draws its own sky, rainbow, hills, knoll and trail inline; never calls `pageDecorBake` | 2 sheets (land + port), like a chapter page |
-| The book COVER / binding | `drawSpine` (`pageTurn.ts`) + the purple surround | 2 sheets |
+| The book COVER / binding | `drawSpine` (`pageTurn.ts`) + the purple surround | Became 2 sheets, not the ones promised: the surround is the CLOTH (`page/cover-cloth`, one square, 2026-09-21), and the cover board with its block of leaves is `worldui-book-board`, one painting laid on as a 9-slice (2026-09-24, "paint-outstanding pass (map & UI)" below). The stitched spine stays drawn — ~20 px of crisp stitching a stretch would only blur |
 | The BOOKMARK ribbon | `drawBookmark` (`pageTurn.ts`) | 1 sheet; paint it flat, keep the sway as a transform |
 | The node BADGES | `map.ts` (~line 850) | 1 strip of 4: done / current / locked / boss. The breathing ring stays drawn |
 
@@ -1077,3 +1077,479 @@ both kept**: 11.2 kB and 9.7 kB after `--fresh` (708 × 256, the default cap),
   from the first frame to the last. `tests/meta/artSchedule.test.ts` now
   allows exactly these two `worldUi/` entries in a duel's hold.
 - `art:status`: **262 painted, 0 still drawn, 262 in the catalogue.**
+
+## 2026-09-24 — paint-outstanding pass (restore)
+
+The restore's rows of `paint-outstanding.md`. Seven new item sheets (all in
+`ITEM_SHEETS`, `PROMPTS-ITEMS.md`), every one a seam in front of the drawing
+it replaces — art off draws exactly what it drew, bar the three fixes marked
+*(also art off)*.
+
+| stem | kind/id | what | seam |
+| --- | --- | --- | --- |
+| `item-sunbeam` | `tool/sunbeam` | the wand with the sun on its tip, charged, no rays | `gift.drawSunbeam`, grown about the sun with the charge and the pull |
+| `item-sunbeam-rays` | `tool/sunbeam-rays` | the eight rays round an EMPTY middle (`holes`) | turned by the clock, scaled by the ray length, under the sun |
+| `item-paint-pot` | `tool/paint-pot` | one neutral jar, the paint tinted per pot | `UnboxScene.vue` — an `<image>` in the button's SVG, baked per colour by `useItemArt` |
+| `item-paint-blob` | `tool/paint-blob` | the paint in flight, tinted | `wipe.drawPaintFlight` |
+| `item-twin-gift` | `gift/twin-gift` | 2 panels: tied / bow at its loosest | `gift.drawTwinGift` (the map's Twin Gift) |
+| `item-emblem-crystal-ward` | `gift/emblem-crystal-ward` | Crystal Ward's three prisms | `restore/emblem.ts` |
+| `item-emblem-frost-lock` | `gift/emblem-frost-lock` | Frost Lock's six-armed crystal | `restore/emblem.ts` |
+
+All seven are in the cleaning's plan (`artSchedule.cleaningWants`): the
+Sunbeam's two on a boss, the emblem on the two Signature-Spell bosses, the
+jar, the blob and the Twin Gift on every cleaning. The sponge's corner star
+now asks for `prop-twinkle` too, so the cleaning and the intro plan it.
+
+**What stays drawn, and why** (so the next pass starts from it):
+
+- **The Sunbeam's HALO** — a radial wash with no edge. **Its charge colour**
+  (a deeper gold while it recharges) is dropped with the art on: the sun
+  already shrinks to 80 % while it gathers, which says "not yet".
+- **Why the Sunbeam is two sheets, not one:** its rays turn and its wand does
+  not. The rays' LENGTH change is a scale about the sun — their inner ends
+  stay under the disc at every length the game draws (≤ 0.96 of its radius).
+  The painted wand lies over the rays (the drawn one lay under them): a wand
+  in front of its own sun's rays reads as holding it.
+- **The Twin Gift's hold steps** became a two-panel strip: the bow is seen
+  at 0, ¼, ½ and ¾ loose (the fourth step is the burst), panel 1 is 0 and
+  panel 2 is ¾, and ¼ and ½ are cross-fades between them (`twinFrame`). If a
+  mid-step cross-fade reads as a double bow, the fix is a 4-panel strip (one
+  per pose), not a vector bow.
+- **The pot's MARK** (petal / sun / bell) stays SVG over the painted jar — a
+  glyph that must stay crisp at 55 px and tells the pots apart without
+  colour (art-style §4.3). The jar's paths moved to `restore/potArt.ts` so
+  the SVG and the reference are drawn from one set of `d` strings; the
+  reference's ink is thinned to 0.6 (the creature lesson).
+- **The Frost emblem is NOT `prop-snowflake`** (the free win the audit
+  suggested): that painting is a soft round speck with a faint six-armed
+  ghost — a white ball at emblem size. It got its own sheet. The two emblems
+  are two stills rather than a 2-panel strip because the strip prompt says
+  "the same object at a different moment", and they are two objects.
+- The chip's twinkle uses the tinted `prop-twinkle` (baked for the DOM by
+  `useItemArt`); every glow, the beam wedge, the slingshot band, the sponge
+  footprint ring, the pot cue haloes and the landmark target ring stay
+  drawn, as before.
+
+**Code fixes, no generation:** B3 the paint's spreading colour now goes
+down under the live props, not over them *(also art off)*; B4 a creature
+painting landing before the first stroke re-bakes the dust; B5 a traced rune
+(and each glyph of a Signature recipe) settles into its `rune/*` painting
+for the hold; B6 the tool chip shows the tool paintings; B7 a boss win drops
+the CHEST onto the island (and `winWants` plans the chest, not a parcel);
+B15 the Twin Gift's drawn film strip is gone *(also art off; story-spec §8.2
+updated)*; B17 the boot fill is `drawCloth` *(also art off: the cloth's
+gradient, not flat `#9E7CBE`)*; B24 the restore clips the sector to the
+mount's rounded corners, as the map's card does *(also art off)*.
+
+**Before painting:** export only these seven (`--only`), not the catalogue
+— an unscoped export marks every painting stale. The emblems and the rays
+are the ones to LOOK at first: the rays must come back with an empty middle
+and eight equal rays; the Frost emblem with no disc behind it.
+
+## 2026-09-24 — paint-outstanding pass (duel)
+
+The duel's rows of `paint-outstanding.md` (B19, B20, B22, B23, the §2 free
+wins, P12, the duel's half of P14, P15). Seven new PROP sheets
+(`PROP_SHEETS`, `PROMPTS-PROPS.md`), every one a seam in front of the drawing
+it replaces — art off draws exactly what it drew, bar the fixes marked
+*(also art off)*. The cloud band, the sky wash and the scoreboard rainbow
+(P13) were excluded by the owner for this pass and are untouched.
+
+| stem | what | seam |
+| --- | --- | --- |
+| `prop-ward-rock` | Earth's wall: six stones in two columns | `fx.drawBar`, about the caster's hooves, mirrored for the foe |
+| `prop-ward-ice` | 3 panels: the ice pillar with its facet leaning left / straight / right | `fx.drawBar`, frame `1 + sin(3T)`, blended OPAQUELY (`fx.blitWard`) |
+| `prop-ward-wind` | the air ring and its four gusts, the middle a HOLE | `fx.drawBar`, the whole sheet turned by `1.6T`, at 70 % |
+| `prop-ward-bubble` | the bubble ward's rim and catch-light, the middle a HOLE | `fx.drawBubble`, swelling with the wobble |
+| `prop-ward-crystal` | Crystal Ward's three prisms | `fx.drawCrystalWard`, mirrored, at 85 % |
+| `prop-ward-frost` | Frost Lock's dome: its rim and four ferns, the middle a HOLE | `fx.drawFrostDome` |
+| `prop-frost-lock-ice` | the block round a frozen duelist: rim + two light planes, the middle a HOLE | `render.drawIce`, via `duel/stageArt.ts` |
+
+**Why the VFX rule (Traps, above) does not cover the wards.** It is about the
+POOL: unit polygons scaled, spun and re-tinted per frame, batched one path
+per colour. A ward is not in the pool — `drawBar` draws ONE persistent shape
+per side, raised at the same place every time (`sim.raise`: `GY − 70`), that
+stands for seconds: a still a matrix carries, the prop family's own rule.
+The two that move are matrices too: the wind's gusts orbit rigidly (the
+drawing's 30/27 ellipse becomes a circle), and the ice pillar's facet sways
+by ±1/15 rad, which became three panels.
+
+**What stays drawn, and why:** the see-through WASH inside the bubble, the
+frost dome and the ice block (a fill with no edge — the paintings are hollow
+and lie over it); the bubble's turning SHEEN and its CRACK (the crack is a
+state the ward changes into); the rising little bubbles (now `prop-bubble`);
+the crystal ward's sweeping LIGHT BAND and tip GLINTS; the dome's GLITTER;
+the blink before a ward drops; the ward FLASH (`drawWardFlash`); the shatter
+(the pool). The references are drawn by the same path code the game strokes
+(`windWard`, `icePillar`, `rockStack`, `crystalPrisms`, `frostDomePath`,
+`iceSlab`), opaque and hollow, ink thinned to 0.6.
+
+**Reused, no generation:** the KO stars → `prop-star` (spun as the drawn one
+spins); Dream Dust's motes → `prop-twinkle`, tinted lilac; the KO Z's and
+Dream Dust's Z → `prop-sleep-z` (the sectors pass's sheet, `kitSky.zAt`); the
+snap flash → the painted `rune/*` icon, scaled and faded in `RuneGlyph`'s
+100-unit box; Frost Lock's flakes → `prop-snowflake`, 10 SU across (the
+asterisk was 12 — the painting is a soft speck and carries more weight). If
+that speck reads as snowballs on the ice, drop the seam in `drawIce`; the
+drawn asterisk is fine. NB the `prop-snowflake` cut has a faint pink key
+fringe on its rim.
+
+**Code fixes, no generation:**
+- **B19** *(also art off)*: a dusty duel page bakes the sector's props AT REST
+  into its clean layer (the dust is drained from that layer, so it keeps
+  them), so a patch a spell blows clean shows the painting WITH its props; a
+  practice duel on a RESTORED page draws them alive over it
+  (`duelPage.drawLiveProps`) — held still on the thrift tier, whose
+  `backdrop.ts` cache composes the page once.
+- **B20**: Prism's painted horn is tinted from a hue stepped round the wheel
+  in 24 (`chars.HOT`); the flat coat under it keeps the smooth hue, and the
+  sheet only lends it lightness, so the step is invisible — 24 tint bakes,
+  once, instead of one a frame.
+- **B22** *(also art off)*: the stroke, the spell bodies, the bubble and bolt
+  shots, the forge and every fx outline ink plum `#3A2340`, not `#1a1030` /
+  `#150f1c` / `#140d18`.
+- **B23**: with the barrel painted, the chest tuft goes down UNDER the
+  painting, so only its scallops past the chest's edge survive — no inked
+  line inside the painted barrel. Art off keeps the drawing's order.
+
+**Not done, with the reason:**
+- **The portrait page card and the pane strip** (`render.drawPageCard`,
+  `drawPaneStrip`): not a painted surface. They are flat cream paper, a plum
+  line and a cel shadow — the SAME mount as `wipe.drawPage` and the map's
+  `drawCard` — and painting the duel's copy alone would split the one object
+  the three screens share. If the map pass paints the card (P9), the duel
+  takes it from there.
+- **`arena.ts:182/216`, the drawn island's `#112` ink** (B22 lists only
+  `:267`, the cloud band — excluded): it is the island REFERENCE's own ink,
+  so changing it re-exports all ten island sheets, and every island is
+  painted, which replaces it. Left.
+
+**Traps worth keeping:**
+- `drawItem`'s cross-fade dims BOTH panels (`a·(1−t)` then `a·t`), so a
+  strip that sways for seconds pulses see-through at mid-blend. The ice
+  pillar blends opaquely instead: the lower panel solid, the upper over it
+  at the fraction (`fx.blitWard`).
+- The wind shell turns as ONE sheet, so its painted light turns with it. If
+  that reads wrong on the stage, split it — a still shell plus the four gusts
+  turned — which is a second sheet, not a code change.
+- Review the hollow shells (wind, bubble, frost dome, ice block) keyed on
+  the DARK duel stage, not on magenta: a hole that came back tinted is a
+  pink disc over the duelist.
+
+**Schedule:** `artSchedule.duelFxWants` — the wards the runes in play can
+raise, Frost Lock's ice and snow, the knockout's Z and star, Dream Dust's
+twinkle — goes FIRST in a duel's NEXT (and after the duel in a dialogue's
+NEXT, and in local versus). None of it is on screen at the duel's first
+frame, so none of it holds the splash. A practice duel on a restored page
+records its sector `alive`, for the live props.
+
+**Before painting:** export only these seven (`--only`), not the catalogue.
+No existing reference changed in this pass.
+
+## 2026-09-24 — paint-outstanding pass (map & UI)
+
+The map-chrome, intro and DOM rows of `paint-outstanding.md` (P3, P5, P9,
+P14, the §2 chest marker, B18, B25). Eleven new `worldUi` sheets
+(`WORLD_UI_SHEETS`, `PROMPTS-ITEMS.md`; ids in `artIds.CHROME_ART` and
+`artIds.PICTO_SETS`), every one a seam in front of the drawing it replaces —
+art off draws exactly what it drew. No existing reference changed.
+
+| stem | what | seam |
+| --- | --- | --- |
+| `worldui-show-glove` | the white "put your finger here" glove, finger up, fingertip at the top (`anchor: 'top'`) | `map/glove.ts` `drawGlove` — the front page's rainbow swipe, carried by the same translate / tip / press-scale; and the intro's rune beat, where it replaces the drawn fingertip pad (`intro.drawRuneTrace`) |
+| `worldui-book-board` | the cover board and the block of leaves round a page HOLE (`holes`) | `map/bookBoard.ts` `drawBoardArt`, a canvas 9-slice at the top of `map.drawBoard` |
+| `worldui-dialogue-leaf` | the dialogue's cream paper leaf with its plum edge | `DialogueBubbles.vue` — a CSS 9-slice (`border-image … fill`) on the leaf's `::before`, slices from `domArt.leafSlices`; its lift a `drop-shadow` that follows the painted edge |
+| `worldui-gold-star` | the chapter title page's gold star | `DialogueBubbles.vue` `.star` — an `<img>` in the glyph's em box; the ★ text otherwise |
+| `worldui-trophy` | the local-versus winner's cup | `GameScene.vue` `.crown` — `ArtIcon` over the shared `trophy` glyph |
+| `worldui-turn-phone` | the "turn me sideways" toy phone (shell, screen, button) | `TurnSideways.vue` — an `<image>` inside the same rotating group; the lilac turn arrow stays drawn |
+| `worldui-shield` | the ad-blocker card's shield | `AdsBlockedModal.vue` — an `<img>` in the emoji's em box, asked for only once the card opens (`useArtImage` now asks for nothing on an empty id) |
+| `worldui-picto-set-1` … `-4` | the dialogue pictograms, as four SETS of 6, 6, 6 and 5 | `Picto.vue` — one panel of the strip (a nested SVG whose viewBox is that panel), seated over the 48-unit box by the strip's `itemBox` |
+
+**A SET is a new sheet shape (`ItemSheet.set`).** The slicer only cuts ONE
+row of panels into ONE file (there is no grid and no file-per-panel), so the
+23 pictograms the script uses are four strips, and the DOM shows one panel.
+The strip prompt's "the same object at a different moment" is exactly wrong
+for six different pictures, so a set is briefed "ONE HAND, n DIFFERENT
+PICTURES" instead (`itemPrompt`), and `tests/meta/artChrome.test.ts` pins it.
+The sets are grouped by where the script uses them — set 1 the six every
+chapter shares (sparkle, heart, dust, pom-pom, crossed wands, sun), set 2 the
+woods and the night (the moon recurs to the end), set 3 the bay and the sky,
+set 4 chapters 6–10 — so a dialogue page asks for two files, and the cold
+boot's opener for sets 1 and 2 only. `leaf` is in the union and in no line of
+the script: not painted.
+
+**Two paintings the game STRETCHES, the HP frames' way.** The board (P9)
+round a page that is ~1.8:1 sideways and ~0.55:1 upright, the leaf (P14)
+round every line of the story. Each brief says PLAIN three ways — `keep`, a
+"cover the corners with your hands" check, and a reference that draws a
+plain side between four corners. The board's leaves are striated PARALLEL to
+the edge (a stretch along a side cannot smear them), its cloth is lit by a
+vertical light (a 9-slice stretches that without a seam), and its hole is
+inset `HOLE_IN` under the page so the page card's rounded corners never show
+the cloth. The leaf's middle is stretched too (`fill`), so the brief asks for
+plain, light cream there — the words are printed on it.
+
+**The free win:** the spellbook's "comes from a chest" marker is
+`gift/boss-chest`'s SHUT panel (`ArtIcon` learned `frames` / `frame`: a
+strip shows one panel through an SVG viewBox). Its clasp gem is the
+painting's neutral grey — the DOM has no tint route.
+
+**Not painted, with the reason:**
+- **The page card's edge and the thumbnail mounts** (`drawCard`,
+  `drawSector`): the card's plum edge is a hairline that must follow the page
+  rect exactly at any aspect (the page's own painting is clipped to it); a
+  mount is a 3–6 px white or butter band whose colour IS the node's state —
+  ui-design-system §9.7's "small, repeated, recolours by state". The duel
+  pass's portrait card therefore stays drawn too, as it said it would.
+- **The book's contact shadow** (a blurred wash, no edge) and **the stitched
+  spine** (~20 px of crisp stitching a stretch would only blur, as step 1
+  already recorded).
+- **The rank badge's trophy** (`RankBadge.vue`): 14–19 px, and it inherits
+  `currentColor` so the glyph and the numeral can never drift apart. A gold
+  painted cup on the gold pill is the gold-on-gold trap (ui-design-system
+  §10.6); a plum one is the glyph again. The versus cup is the painting.
+- **The locked-rune padlock** (`RuneTrace.vue`): ~8 px across on a 44 px
+  tile. A painting at that size is the same two shapes, softer.
+- **The splash background** (`ui/splash-cover`): the splash is deliberately
+  OUTSIDE the art layer (the same picture whatever `?art=` says, painted
+  before the layer has probed anything — `FLogoProgress.vue`), and
+  `index.html`'s pre-JS copy must match it byte for byte and cannot read a
+  flag. So a painted cover would be a plain file on EVERY build: ~40 kB on
+  the critical path before any JS on every cold load, and a 404 in every
+  portal's QA console until it is painted. The splash already carries a
+  painting (the mascot). A budget-and-brand call for the owner, not a
+  drop-in.
+- **The DOM sparkles and confetti** (`HpBar`, `DuelLightbox`, `RuneSlot`,
+  `SpellBook`, `duel.sass`'s book "new", `FReward`, `FinaleCard`):
+  `prop-twinkle` / `-confetti` / `-mote` / `-star` are neutral sheets tinted
+  per call by `artTint`'s canvas mask-and-multiply, and there is no DOM tint
+  route; the marks are 6–20 px clip-path shapes whose look at that size IS the
+  silhouette the clip-path already is. Not worth inventing a DOM tint layer
+  for. (The chapter title page's ★ got its own UNTINTED gold star instead.)
+
+**Code fixes, no generation:** **B25** — the boss "next up" silhouette is
+drawn inside `withoutArt`: the rig's painted parts were tinted to its plum
+and composited by luminosity, so the barrel, neck, head, ear and horn carried
+the painting's form while the drawn legs and mane stayed flat (and it cost
+five tint bakes in a colour nothing else wears). **B18** — behaviour
+unchanged (the owner's call); `paintFrontPage`'s comment now says the dashes
+are drawn only on the DRAWN page.
+
+**Schedule:** the board goes with every page (`pageWants`, `frontWants`); the
+glove with the front page and the intro (`frontWants`, `pageWants(0)`,
+`introWants`); the leaf and the lines' picto sets with every dialogue
+(`storyChromeOf`: `dialogueWants`, a boss's thank-you in `winWants`, the next
+chapter's first page in `chapterWants`) — and in the cold boot's first-duel
+HOLD, because the opener is printed over the arena from its first beat (the
+test's allow-list now names them; the hold stays ≤ 16); the gold star with a
+chapter's first node; the phone (held when upright) and the trophy in local
+versus. The shield is not scheduled — the card is rare.
+
+**Before painting:** export only these eleven (`--only`). Look first at the
+two stretched ones on the real screen: the board on a phone held upright
+(its sides stretch 3–6×) and the leaf at its shortest (the title page) — and
+run the contrast audit (`tools/locale-fit/audit.mjs --contrast`) with the art
+on once the leaf is in, because the words now sit on the painted middle.
+Then the sets: count the DIFFERENT pictures, in order, none with a face, and
+the Z's of set 2 present.
+
+## 2026-09-24 — paint-outstanding pass (sectors)
+
+The sectors' live layers and the map overlays, from `paint-outstanding.md`
+(B1, B2, B8–B14, B16, the replay star, P4, P10, P11, P14). **Sixteen new
+`prop` sheets**, and the rest are seams onto sheets that already existed.
+With no painting decoded every seam draws its old vector, so art OFF is
+unchanged — except 1-1 and 1-4's tap log, which B1 moves on purpose.
+
+| sheet | serves | tinted |
+| --- | --- | --- |
+| `prop-hollow-log` | the woods' tap log on 1-2, 1-3, 1-5 (B1) | — |
+| `prop-moss-bed` | the Wood Sprite's bed, 1-3's rescue (P11) | — |
+| `prop-rock-nest` | the Shard of Clear Light's nest, 4-3 (P11) | — |
+| `prop-ice-block` | the Frozen Star Shard's block + snow cap, 8-3 (P11) | — |
+| `prop-bunny` | the Bloom's bunny (P4) | — |
+| `prop-flower-head` | the Bloom's tall-flower heads (P4) | petals |
+| `prop-carousel-drum` | 10-2's mirrored drum (P10) | — |
+| `prop-carousel-horse` | 10-2's six unicorns — **6 panels**, one per look (P10) | — |
+| `prop-gnomon` | 7-3's sundial blade (P14) | — |
+| `prop-planet` | 9-5's three planets (P14) | the ball |
+| `prop-snowball` | 8-4's rolling snowball (P14) | — |
+| `prop-kite-bow` | the kite tails' bows, 3-4 and 6-4 (P14) | the bow |
+| `prop-bubble-ring` | the sea-foal's bubble ring (P14), `holes` | — |
+| `prop-canoe-pole` | 4-2's lantern pole (P14) | — |
+| `prop-glass-chip` | 5-3's fallen chip (P14) | the chip |
+| `prop-sleep-z` | every sleeping rescue's "z" / `zzz` (P14) — and the duel's KO Z's | the body |
+
+**B1 — the woods' tap log.** Only 1-1 and 1-4 paint a log. Their taps now
+sit ON that log (`OWN_LOGS` in `sectors.ts`): the cover IS the sector's own
+`log()`, so a painted sector cuts the painted log and the art-off drawing
+redraws its log over itself. 1-2, 1-3 and 1-5 draw `prop-hollow-log` live,
+whole behind the sprite and blitted again, clipped to the front's path, in
+front of it; with no log painting they draw the vector back and front
+DIRECTLY — never as a cover, which on a painting with meadow there was an
+invisible log. `sectorDef.ts`'s contract says so now.
+
+**The two-part props are one painting.** The log and the rock nest have a
+back behind their creature and a front in front of it. One painting per prop,
+drawn whole first and blitted again through the vector front's own outline
+(the `tapCover` move with the prop's painting as the source), rather than a
+two-panel strip a painter has to split. The ice block is the same move the
+other way round: the body blitted at the drawing's 55 % (a pane the shard is
+seen through — the reference is OPAQUE, the see-through is `globalAlpha`) and
+the snow cap blitted again, solid, through the cap's lobes.
+
+**Painted-under signals, for the duplicates (B14).** `tapCover.coverLayerLive()`
+— true while a tap creature or rescue draws over its sector's painting — drops
+the glowworm's lit facet fill. `sectorArt.sectorShowsArt(n)` — the art layer
+on and either of the sector's paintings decoded, read off the probe state so
+it never fetches or records — drops 3-1's second cord, 10-5's inked candle
+tongues (only the halo stays) and turns the festival bulbs' opaque cores into
+a glow. The 3-5 lamps' lit star is blitted at the painted lamp star's own size
+(10), so it lights the painted star instead of ringing it.
+
+**Zero-generation reuse.** Twinkles → `prop-twinkle` (`twinklePainted` for the
+four call sites whose drawing is a different four-point star); hearts →
+`prop-heart`; the frost puffs, 8-4's snowball burst, the buoy's foam collar
+(one puff per `foam()` lobe) and ch 7's dig spray (sand tint) → `prop-puff`;
+7-5's resting embers → `prop-mote` (ember tint); the sea-foal's bubbles →
+`prop-bubble`; the singing shell's notes → `prop-note`; 1-4's inline lanterns
+→ `prop-lantern`; Sprig's flag → `prop-pennant` (`kitSky.pennantCloth`, a
+rotation onto the stick); the map's replay star → `prop-star`, gold.
+
+**Album stickers (B16).** A MET cell is baked over a window of its sector's
+painting (`CoverLayer.ox/oy`), so its hiding place is cut from the painting;
+the full painting if still decoded (never fetched for it), the thumb else.
+A sector painting landing re-bakes only that sector's met cells.
+
+**Skipped, and why — do not re-litigate:**
+
+- **8-4's start-flag ball finial** (`sectorsC8`, r 6) and **10-1's banner
+  knot bead** (r ≈ 3.4) and the **pinwheel hub** (r ≈ 4): a static disc of
+  7–12 SU, a hundredth of the scene — under the family's size floor, like the
+  drip's drop and the candle tips (third sweep).
+- **Ch 6's rainbow trail** (`kitRidge.foalTap`): a band whose LENGTH follows
+  the foal every frame while its round ends and six stripe widths do not — a
+  stretch would stretch the ends. It is `ripples`' reason (a stroke that stays
+  put while the shape grows); light-coloured and edge-free besides.
+- **The tall flowers' stems and leaf**: a hairline and a 9-unit leaf.
+- **The carousel's far horses** now wear the full painting (saddle, horn and
+  eye) where the drawing gave them fewer details; a plainer second strip for
+  horses behind the drum is not worth a generation.
+
+**Before exporting/painting:** `prop-carousel-horse` is the first 6-panel
+strip in the catalogue (the portraits stop at 5); if a return comes back with
+seven, split it into two 3-panel sheets rather than re-rolling blind. The
+tint cache (`artItem.TINTS_KEPT` = 64) now carries a few more pairs per page
+(flower heads, planets, kite bows, Sprig's flag colours) — watch the festival
+and summit pages for re-bake churn once these land.
+
+## 2026-09-24 — paint-outstanding pass (wardrobe)
+
+The keepsakes' rows of `paint-outstanding.md` (P1, P2, and the §2 free wins on
+the rig). The test was the third sweep's: **a constant shape under an affine is
+a painting; a shape rebuilt per frame is not.** Thirteen worn stills and four
+shelf badges, 17 new sheets in `PROMPTS-ITEMS.md`, every one a seam in front of
+the drawing it replaces. Art off draws exactly what it drew — proved, not
+eyeballed: a recording context replayed every keepsake (112 frames: a hop
+cycle, a collapse, both facings, portraits, the photo-card stills) and every
+shelf badge and ghost through HEAD's modules and the new ones, and the ~50 000
+paint operations match one for one.
+
+| stem | kind/id | panels | what, and the seam |
+| --- | --- | --- | --- |
+| `item-pegasus-wing` | `cosmetic/pegasus-wing` | 2 · near, far | ONE wing; the flap is a rotation, the fold a rotation and a scale. Near and far are its two colourings (the far boat's colourway rule) |
+| `item-butterfly-wing` | `cosmetic/butterfly-wing` | 2 · near, far | the same, for the monarch wing |
+| `item-necklace-shell` | `cosmetic/necklace-shell` | 1, **tinted** | one scallop, hinge up, strung three times in its three colours; each carried by a translate |
+| `item-winter-scarf-wrap` | `cosmetic/winter-scarf-wrap` | 1 | the wrap and its knot, turned to the neck |
+| `item-acorn-cap` | `cosmetic/acorn-cap` | 1 | head space, where it is worn (the crown's rule) |
+| `item-star-tiara` | `cosmetic/star-tiara` | 1 | head space |
+| `item-explorer-goggles` | `cosmetic/explorer-goggles` | 1 | head space |
+| `item-bow-tie` | `cosmetic/bow-tie` | 1 | the knot on the origin, squared to the neck |
+| `item-moon-pendant` | `cosmetic/moon-pendant` | 1 | the crescent alone; the cord carries it, never turns it |
+| `item-explorer-pack-bedroll` | `cosmetic/explorer-pack-bedroll` | 1 | the far layer |
+| `item-explorer-pack-satchel` | `cosmetic/explorer-pack-satchel` | 1 | the near layer: bag, flap, buckle, strap — no lantern |
+| `item-pet-cloud` | `cosmetic/pet-cloud` | 2 · eyes open, blink | the body and face the float carries |
+| `item-pet-firefly` | `cosmetic/pet-firefly` | 1 | the beetle's body only |
+| `item-keepsake-petal-trail` | `cosmetic/keepsake-petal-trail` | 1 | shelf badge |
+| `item-keepsake-frost-trail` | `cosmetic/keepsake-frost-trail` | 1 | shelf badge |
+| `item-keepsake-moonlit-look` | `cosmetic/keepsake-moonlit-look` | 1 | shelf badge |
+| `item-keepsake-sunset-look` | `cosmetic/keepsake-sunset-look` | 1 | shelf badge |
+
+**Routed through sheets that exist, tinted (no generation):** every keepsake
+SPARKLE — the hoof trail (live, the portrait's still, the photo card's still),
+the Pastel Dream's twinkles, the Pet Star's trail and its badge's two — is
+`prop-twinkle`; the bubble trail (live, still, badge) is `prop-bubble`; the
+pendant's two stars are `prop-star`; the pack's swinging lantern is
+`prop-lantern` on the game's own hanger. `rig-accessories.particleArt` is the
+one seam: it probes first and draws nothing when there is no painting, so the
+emitters' batched vector paths are untouched.
+
+**THE BADGES: ONE PAINTING SERVES THE SHELF AND HER RIG.** The first shelf's
+rule, applied to the second: the Flower Crown's and the Pet Star's badges
+never had sheets of their own, because a badge draws the keepsake's own worn
+function, and that function paints itself. So the ten second-shelf keepsakes
+with worn art are painted on the shelf by it — the tile cannot drift from what
+she puts on — and only the four that draw nothing painted got badge sheets:
+the petal and frost trails, the moonlit and sunset looks. `KEEPSAKE_WORN_ART`
+(`artIds.ts`) is the table: which paintings each keepsake draws as worn. The
+schedule holds it wherever she is drawn in it (the duel, the wardrobe, a
+try-on), and `tests/campaign/keepsakeArt.test.ts` records what the draw
+functions actually ask the art layer for and holds the two to each other.
+`VECTOR_ONLY_KEEPSAKES` is empty.
+
+**What stays drawn, and why** (so the next pass starts from it):
+
+| drawn | why |
+| --- | --- |
+| every CORD — the necklace's, the pendant's, the lantern's hanger | a curve through points the pose hands over (§4b's kept strings) |
+| the scarf's two TAILS and fringe | a spine carrying a travelling wave, rebuilt every frame — the mane's reason (§4e) |
+| the pearls; the pet cloud's raindrops; the firefly's trail dots | under the family's size floor (a 2-unit bead, a 3-unit drop) |
+| the firefly's WINGS | a half-transparent blur beating at 26 rad/s — a see-through thing no painting may be |
+| the firefly's and the star's glow | light, no edge |
+| the PETAL trail's particles | no petal sheet exists; the badge is painted |
+| the FROST trail's particles | `prop-snowflake` is a soft round speck whose brief forbids a crisp crystal — routed through it, the trail would become white dots. The badge is painted |
+| the Umbra, Pastel, Moonlit and Sunset looks; the Mane Color Palette | palettes: nothing to paint (the rig's own parts are painted) |
+
+**How the seam is built.** A worn still is drawn 1:1 in its OWN frame (head
+space, the neck's frame, the wing's root) and blitted with
+`drawItem(g, spec, WORN_UNIT)` where the vector was; the spec scales the
+context, not the coordinates, so the reference's ink scales with the shape.
+The reference's ink is thinned to 0.6 (`WORN_REF_INK`, the creature lesson)
+and the prompt says so. The shell's reference hangs hinge-up and the game
+turns it back by a quarter. The scarf's knot rides the wrap's frame in the
+painting (the drawing keeps it in rig space; it is nearly round, the
+difference is invisible). The badge specs (`KEEPSAKE_ART`) now draw inside
+`withoutArt`: a badge draws the worn function, which paints itself, and a
+bench with the art layer on would otherwise put last week's wing painting
+into this week's reference.
+
+**Schedule.** `wornStills` reads `KEEPSAKE_WORN_ART` (the duel's hold). The
+wardrobe's hold now also carries what she has on and the WHOLE second shelf:
+its alternatives stand on it in full colour from the first visit and are
+tried on from there, so their art is due whether or not she owns them
+(~17 small files; the map already fetches the wardrobe in `soon`).
+
+**Upscale risk — the wardrobe draws Aurora up to 62 % of the screen.** All
+17 keep the default 256 px cap. Head items, bow, charms, shell, companions
+and the badges land at or under their pixels. The WINGS are the risk: the
+near butterfly wing is ~118 rig units tall, which is ~340–440 device px on a
+3× phone or a 1080p desktop and ~680 on a 2× desktop — a 1.3–2.7× upscale,
+the same order as the rig's own barrel. If the wings read soft in the
+wardrobe, give those two sheets `exact: 512` rather than lowering anything
+else.
+
+**Before painting:** export only these 17 (`--only`). No existing reference
+changed: the crown's and the star's specs are untouched, and the seven
+first-shelf badges draw exactly what they drew (the `withoutArt` wrap only
+matters on a bench with the art layer on). No `also` images — none of these
+is a character; the look badges follow the Umbra badge, which had none.
+Look first at the two WING strips (two panels, one outline, root at the
+right — a mirrored return is backwards on her) and the tinted SHELL (it must
+come back neutral lilac-grey).
+
+**Not fixed, seen on the way:** Aurora's DRESSED dialogue portrait
+(`story/portrait.ts`) is baked once per outfit and re-baked only when a
+`portrait` painting lands, so a cosmetic (or rig) painting that decodes after
+the bake leaves the drawn one in that bubble for the session. It was already
+true of the crown and the rig parts; the fix is to re-bake on `cosmetic`,
+`rig` and the routed props in `portraitArtRev`'s listener.

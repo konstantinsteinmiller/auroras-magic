@@ -20,6 +20,7 @@
 import type { SectorDef, SectorAccent } from '@/game/map/sectorDef'
 import { FESTIVAL_POTS, C, type G2D, meadow, pathway, tree, bush, flowers, fence, hill } from '@/game/map/kit'
 import { sin } from '@/game/duel/util'
+import { sectorShowsArt } from '@/game/map/sectorArt'
 import { scallop, starfish } from '@/game/map/kitBay'
 import { pole, pennant, bunting, twinkles, miniBalloon, dove } from '@/game/map/kitSky'
 import {
@@ -88,7 +89,7 @@ const festivalGate: SectorDef = {
       pennant(g, x, y, 46, 22, i ? F.mint : F.lemon, t, alive, i * 1.7)
     }
     festivalBanner(g, 381, 262, 318, alive > 0 ? t : 0)
-    bulbGlow(g, GATE_BULBS, t, alive, 6)
+    bulbGlow(g, GATE_BULBS, t, alive, 6, 2, sectorShowsArt(45))
     if (alive <= 0) return
     confetti(g, 360, 180, 360, 300, t, alive, 12)
     bursts(g, [[190, 118, 58, F.pink, 0], [860, 70, 48, F.lilac, 1.5], [640, 44, 40, F.mint, 2.6]], t, alive)
@@ -130,7 +131,7 @@ const carouselSquare: SectorDef = {
     bunting(g, 650, 92, 1118, 298, 30, PARTY, 7, t, alive)
     pennant(g, CARO.x, CARO.y - 224 - 168 - 64, 52, 24, F.pink, t, alive)
     carouselLive(g, CARO.x, CARO.y, t, alive)
-    bulbGlow(g, CARO_BULBS, t, alive, 5)
+    bulbGlow(g, CARO_BULBS, t, alive, 5, 2, sectorShowsArt(46))
     balloonBunch(g, 96, 490, 0.9, [F.pink, F.sky, F.lemon], t, alive, -0.4)
     if (alive <= 0) return
     notes(g, 880, 380, t, alive)
@@ -302,9 +303,9 @@ const festivalStage: SectorDef = {
     bunting(g, 868, 96, 1122, 298, 22, PARTY, 6, t, alive)
     balloonBunch(g, 214, 420, 1, [F.pink, F.lemon, F.sky, F.lilac], t, alive, -1.3)
     balloonBunch(g, 938, 420, 1, [F.mint, F.coral, F.lemon, F.pink], t, alive, 1.3, 2.4)
-    bulbGlow(g, STG_BULBS, t, alive, 5)
+    bulbGlow(g, STG_BULBS, t, alive, 5, 2, sectorShowsArt(49))
     if (alive <= 0) return
-    flameGlow(g, FLAMES, t, alive)
+    flameGlow(g, FLAMES, t, alive, sectorShowsArt(49))
     bursts(g, [
       [150, 130, 64, F.pink, 0], [990, 250, 56, F.lemon, 1.1], [420, 44, 46, F.mint, 2.2], [760, 40, 50, F.sky, 0.6], [1070, 40, 40, F.lilac, 2.8]
     ], t, alive)

@@ -11,10 +11,11 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, ink, fill, lumpy, twinkleAt, bubbleAt, flagAt } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, ink, fill, lumpy, twinkleAt, bubbleAt, flagAt, puffAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { CREATURE_ART, PROP_ART } from '@/game/artIds'
+import { NOTE_ART } from '@/game/map/kitFestival'
 
 export type Pt = readonly [number, number]
 type Lobe = readonly [number, number, number]
@@ -270,6 +271,11 @@ const FOAM_R = [1, 1.3, 0.85, 1.15, 0.95, 1.25]
 const FOAM_Y = [0, -0.35, 0.12, -0.22, 0.18, -0.1]
 /** A soft lumpy foam collar at a waterline, `w` wide, centred on (x, y). */
 export const foam = (g: G2D, x: number, y: number, w: number): void => {
+  lumpy(g, foamLobes(x, y, w), '#ffffff', Math.min(3.5, 1.5 + w / 80))
+}
+
+/** The lobes a `w`-wide band of foam centred on (x, y) is made of. */
+const foamLobes = (x: number, y: number, w: number): Lobe[] => {
   const r0 = clamp(w / 15, 4.5, 10)
   const n = Math.max(3, Math.round(w / (r0 * 1.5)))
   const lobes: Lobe[] = []
@@ -277,7 +283,19 @@ export const foam = (g: G2D, x: number, y: number, w: number): void => {
     const r = r0 * FOAM_R[i % 6]! * (i === 0 || i === n ? 0.75 : 1)
     lobes.push([x - w / 2 + (i / n) * w, y + FOAM_Y[i % 6]! * r0, r])
   }
-  lumpy(g, lobes, '#ffffff', Math.min(3.5, 1.5 + w / 80))
+  return lobes
+}
+
+/**
+ * A LIVE band of foam — the buoy's collar, drawn every frame in `props()` —
+ * as the shared painted puff, white, one per lobe of `foam`'s own layout and
+ * a little fuller so the lobes run together. False, with nothing drawn, when
+ * the puff has not landed: the caller draws `foam`. (The foam in a sector's
+ * `paint()` is in its painting; this is only for foam the props lay live.)
+ */
+const foamPuffs = (g: G2D, x: number, y: number, w: number): boolean => {
+  for (const [lx, ly, r] of foamLobes(x, y, w)) if (!puffAt(g, lx, ly, r * 1.3, '#ffffff')) return false
+  return true
 }
 
 /* ---------------------------------------------------------------- rocks */
@@ -1869,7 +1887,7 @@ export const buoy = (g: G2D, x: number, y: number, t: number, alive: number): vo
     g.globalAlpha = 1
   }
   g.restore()
-  foam(g, x, y + 5, 66)
+  if (!foamPuffs(g, x, y + 5, 66)) foam(g, x, y + 5, 66)
 }
 
 /** The buoy itself about its waterline: the banded body, its lamp housing
@@ -2143,10 +2161,54 @@ const seaFoalShape = (g: G2D, s: number, blow: number): void => {
   ink(g, 3)
 }
 
+/** The ring's half-height it is authored at, in SU. */
+const RING_UNIT = 24
+
+/** A bubble ring about the origin, half-height `r`: a see-through torus —
+ *  its skin between two ellipses, the hole open — and one highlight. */
+const bubbleRingShape = (g: G2D, r: number, skin: string): void => {
+  g.beginPath()
+  g.ellipse(0, 0, r * 0.8, r, 0, 0, TAU)
+  g.moveTo(r * 0.42, 0)
+  g.ellipse(0, 0, r * 0.42, r * 0.58, 0, 0, TAU)
+  g.fillStyle = skin
+  g.fill('evenodd')
+  g.lineWidth = 2.6
+  g.strokeStyle = INK
+  g.stroke()
+  g.beginPath()
+  g.ellipse(-r * 0.5, -r * 0.5, r * 0.12, r * 0.2, 0.5, 0, TAU)
+  fill(g, '#ffffff')
+}
+
+/**
+ * The sea-foal's BUBBLE RING as a painted still (2-x taps): one torus of
+ * soap-skin with its middle open, which the foal blows and which swells as it
+ * drifts off — a scale and a translate. Drawn OPAQUE (the game's is 85 %
+ * skin): a see-through reference over magenta is a pink one.
+ */
+export const BUBBLE_RING_ART: ItemSpec = {
+  ...PROP_ART.bubbleRing, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / RING_UNIT, s / RING_UNIT)
+    bubbleRingShape(g, RING_UNIT, '#cdf7ff')
+    g.restore()
+  }
+}
+
 /** A bubble ring (a soap-bubble torus), centred (x, y). */
 export const bubbleRing = (g: G2D, x: number, y: number, r: number, a: number): void => {
   if (a <= 0) return
   g.globalAlpha = a
+  g.save()
+  g.translate(x, y)
+  const blown = drawItem(g, BUBBLE_RING_ART, r)
+  g.restore()
+  if (blown) {
+    g.globalAlpha = 1
+    return
+  }
   g.beginPath()
   g.ellipse(x, y, r * 0.8, r, 0, 0, TAU)
   g.moveTo(x + r * 0.42, y)
@@ -2197,6 +2259,7 @@ export const peekFoal = (g: G2D, p: PeekSpot, k: number, t: number, front: (g: G
     const q = (d + i * 0.4) % 1
     const bx = mx + p.dir * (10 + 40 * q) * p.s
     const by = my - (20 + 70 * q) * p.s
+    if (bubbleAt(g, bx, by, 5, '#e1fcff')) continue
     g.moveTo(bx + 5, by)
     g.arc(bx, by, 5, 0, TAU)
   }
@@ -2211,6 +2274,13 @@ export const peekFoal = (g: G2D, p: PeekSpot, k: number, t: number, front: (g: G
 /* ------------------------------------------------------ the Singing Shell */
 
 const note = (g: G2D, x: number, y: number, s: number, col: string): void => {
+  // The shared painted note (`prop-note`, the carousel's): its head is 9 of
+  // its 18 units across, this one's 7.5 · s.
+  g.save()
+  g.translate(x, y)
+  const sung = drawItem(g, NOTE_ART, 15 * s, 0, col)
+  g.restore()
+  if (sung) return
   g.beginPath()
   g.moveTo(x + 6 * s, y - 2 * s)
   g.lineTo(x + 6 * s, y - 26 * s)

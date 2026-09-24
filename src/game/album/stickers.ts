@@ -11,10 +11,13 @@
  * A cell draws the creature with its OWN painter, never a second picture of
  * it: `tap.draw(g, 1, t)` is the very function the map runs when a child taps
  * the sector, so a sticker can never drift away from the creature it is of.
- * The painter draws its hiding place too (through `tapCover`, which with no
- * baked layer under it draws the vector prop) — so a sticker is the creature
+ * The painter draws its hiding place too — so a sticker is the creature
  * peeking out of its log, its bucket, its snowbank, which is exactly the
- * moment being collected.
+ * moment being collected. That hiding place goes through `tapCover`, so a met
+ * cell is baked over a WINDOW of its sector's painting (`coverWindow`, B16 of
+ * the 2026-09-24 audit): the painted creature peeks out of the painted
+ * snowbank, not out of a vector one. With no painting decoded — or the art
+ * layer off — the cover draws the vector prop, as it always has.
  *
  * BAKED, NEVER ANIMATED. Sixty cells running sixty sector painters on a frame
  * clock is not a thing this game can afford, and it is not a thing an album
@@ -33,7 +36,11 @@ import { sectorOf } from '@/game/map/sectors'
 import type { TapCreature, RescueCollectible } from '@/game/map/sectorDef'
 import { boxOf, inkPath, middleBox, type Box } from '@/game/album/measure'
 import { makeCanvas } from '@/game/restore/dust'
-import { onArtChanged } from '@/game/art'
+import { onArtChanged, artState, spriteFor } from '@/game/art'
+import { sectorArtId, sectorNodeOf } from '@/game/artIds'
+import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
+import { paintSectorArt } from '@/game/map/sectorArt'
+import { getPaintPick } from '@/game/campaign/bitset'
 import { ref } from 'vue'
 
 /** A tap creature, or the chapter's rescued friend (the gold-framed one). */
@@ -132,10 +139,46 @@ let cachePx = 0
  *  Scoped to the two kinds a cell can contain (`scoped-art-invalidation`). */
 export const stickerRev = ref(0)
 onArtChanged((c) => {
+  // A sector's painting landing re-bakes only that sector's MET cells — the
+  // ones baked over a window of it (`coverWindow`).
+  if (c && (c.kind === 'sectorThumb' || c.kind === 'sector')) {
+    const n = sectorNodeOf(c.id)
+    let dropped = false
+    for (const k of [`tap:${n}:1`, `rescue:${n}:1`]) dropped = cache.delete(k) || dropped
+    if (dropped) stickerRev.value++
+    return
+  }
   if (c && c.kind !== 'creature' && c.kind !== 'prop') return
   cache.clear()
   stickerRev.value++
 })
+
+/**
+ * The window of node `n`'s PAINTING a met cell frames (`box`, SU), baked at
+ * the cell's own `k` px per SU — the layer its hiding place is cut from.
+ *
+ * The full painting if it is still decoded (never fetched for this), else the
+ * map's thumbnail; null while neither has decoded, when the cover draws the
+ * vector prop. The pot is the one the child picked, as on the map.
+ */
+const coverWindow = (n: number, box: Box, size: number, k: number): CoverLayer | null => {
+  const id = sectorArtId(n)
+  const full = artState('sector', id) === true
+  if (!full && artState('sectorThumb', id) !== true) {
+    // Put the thumbnail on the wire: its arrival re-bakes this cell.
+    spriteFor('sectorThumb', id, 'normal')
+    return null
+  }
+  const cv = makeCanvas(size, size)
+  const g = cv.getContext('2d')
+  if (!g) return null
+  const sec = sectorOf(n)
+  const pick = getPaintPick(S.campaign.paintPicks, n)
+  g.setTransform(k, 0, 0, k, -box.x * k, -box.y * k)
+  const ok = paintSectorArt(g, n, sec, sec.pots[Math.max(0, pick - 1)]!, !full)
+  g.setTransform(1, 0, 0, 1, 0, 0)
+  return ok ? { cv, res: k, key: `album:${n}:${size}:${full ? 'full' : 'thumb'}:${pick}`, ox: box.x, oy: box.y } : null
+}
 
 /**
  * The box a cell frames, in sector units — measured once per creature and
@@ -201,10 +244,13 @@ export const bakeSticker = (s: Sticker, px: number, met: boolean): HTMLCanvasEle
   if (!g) return null
   const box = frameOf(s, def)
   const k = size / box.w
+  // A ghost is a silhouette: its hiding place's shape is the same cut from a
+  // painting or drawn, so only a met cell pays for the window.
+  const layer = met ? coverWindow(s.node, box, size, k) : null
   g.save()
   g.scale(k, k)
   g.translate(-box.x, -box.y)
-  def.draw(g, 1, STILL_T)
+  withCoverLayer(layer, () => def.draw(g, 1, STILL_T))
   g.restore()
   if (!met) {
     // `source-in` multiplies the fill by what is already there, so one

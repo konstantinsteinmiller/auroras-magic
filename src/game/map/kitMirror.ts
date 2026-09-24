@@ -18,7 +18,7 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, ease, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, fill, ink, lumpy, flower, butterflyAt } from '@/game/map/kit'
+import { type G2D, type Pot, INK, fill, ink, lumpy, flower, butterflyAt, twinkleAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
 import { type Pt, curve, GULL_ART } from '@/game/map/kitBay'
 import { drawItem, type ItemSpec } from '@/game/artItem'
@@ -76,15 +76,6 @@ const disc = (g: G2D, x: number, y: number, r: number, c: string): void => {
   g.beginPath()
   g.arc(x, y, r, 0, TAU)
   fill(g, c)
-}
-
-/** A four-point twinkle added to the current path. */
-const twinkle = (g: G2D, x: number, y: number, r: number): void => {
-  g.moveTo(x, y - r)
-  g.quadraticCurveTo(x + r * 0.16, y - r * 0.16, x + r, y)
-  g.quadraticCurveTo(x + r * 0.16, y + r * 0.16, x, y + r)
-  g.quadraticCurveTo(x - r * 0.16, y + r * 0.16, x - r, y)
-  g.quadraticCurveTo(x - r * 0.16, y - r * 0.16, x, y - r)
 }
 
 /* ------------------------------------------------------------------- sky */
@@ -1437,9 +1428,9 @@ export const spriteTap = (p: SpriteSpot, cover: (g: G2D) => void, r = 72): TapCr
       g.stroke()
       g.globalAlpha = a
       g.beginPath()
-      twinkle(g, p.x, top - 6, 9 * (0.7 + 0.3 * sin(t * 8)))
-      twinkle(g, p.x + 30 * p.s, top + 10, 6 * (0.7 + 0.3 * sin(t * 8 + 2)))
-      twinkle(g, p.x - 30 * p.s, top + 10, 6 * (0.7 + 0.3 * sin(t * 8 + 4)))
+      twinkleAt(g, p.x, top - 6, 9 * (0.7 + 0.3 * sin(t * 8)), '#fffbe0')
+      twinkleAt(g, p.x + 30 * p.s, top + 10, 6 * (0.7 + 0.3 * sin(t * 8 + 2)), '#fffbe0')
+      twinkleAt(g, p.x - 30 * p.s, top + 10, 6 * (0.7 + 0.3 * sin(t * 8 + 4)), '#fffbe0')
       fill(g, '#fffbe0')
       g.globalAlpha = 1
     }
@@ -1453,6 +1444,39 @@ const DULL_GILT = '#cbbfa6'
 
 /** Handle foot (0) to the frame's crown (-166) at scale 1 — its height in SU. */
 const MENDED_UNIT = 166
+
+/** The fallen chip's width in SU at scale 1. */
+const GLASS_CHIP_UNIT = 26
+
+/** The chip of mirror-glass that fell out of the Mended Shard: a small
+ *  three-cornered sliver, about its middle, in `glass`. */
+const chipShape = (g: G2D, s: number, glass: string): void => {
+  const S = (v: number): number => v * s
+  g.beginPath()
+  g.moveTo(-S(12), S(6))
+  g.lineTo(S(2), -S(12))
+  g.lineTo(S(14), S(4))
+  g.closePath()
+  fill(g, glass)
+  ink(g, 3)
+}
+
+/**
+ * 5-3's FALLEN CHIP as a painted still, tinted: it lies by the cracked mirror
+ * asleep and flies home into it as she wakes. Its flight, its turn and its
+ * fade are the drawing's; its glass goes from dull grey to clear with the
+ * mirror's own, which is the tint.
+ */
+export const GLASS_CHIP_ART: ItemSpec = {
+  ...PROP_ART.glassChip, frames: 1, tinted: true,
+  draw: (g, sz, _f, accent) => {
+    const k = sz / GLASS_CHIP_UNIT
+    g.save()
+    g.scale(k, k)
+    chipShape(g, 1, accent.base)
+    g.restore()
+  }
+}
 
 /**
  * The Mended Shard, asleep and awake (`CREATURE_ART.mendedShard`): a hand
@@ -1600,13 +1624,9 @@ export const mendedShard = (g: G2D, x: number, y: number, s: number, k: number, 
     g.save()
     g.translate(cx, cy)
     g.rotate(lerp(0.6, 0, q))
-    g.beginPath()
-    g.moveTo(-S(12), S(6))
-    g.lineTo(S(2), -S(12))
-    g.lineTo(S(14), S(4))
-    g.closePath()
-    fill(g, glassC)
-    ink(g, 3)
+    // The painting's tint takes the glass's two ends, not every blend between:
+    // a colour that changes each frame is a fresh tint bake each frame.
+    if (!drawItem(g, GLASS_CHIP_ART, GLASS_CHIP_UNIT * s, 0, e < 0.5 ? DULL_GLASS : '#d8f1ff')) chipShape(g, s, glassC)
     g.restore()
     g.globalAlpha = 1
   }
@@ -1618,7 +1638,7 @@ export const mendedShard = (g: G2D, x: number, y: number, s: number, k: number, 
       const a = t * 0.8 + (i * TAU) / 4
       const r = S(9) * Math.max(0, sin(t * 3 + i * 1.7))
       if (r < 1) continue
-      twinkle(g, x + cos(a) * S(76), y - S(110) - lift + sin(a) * S(58), r)
+      twinkleAt(g, x + cos(a) * S(76), y - S(110) - lift + sin(a) * S(58), r, '#ffffff')
     }
     fill(g, '#ffffff')
     g.globalAlpha = 1

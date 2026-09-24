@@ -16,7 +16,7 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, twinkleAt } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, twinkleAt, puffAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
 import { inkFill, mix, star5, heart, cloud } from '@/game/map/kitSky'
 import { drawItem, type ItemSpec } from '@/game/artItem'
@@ -2106,6 +2106,10 @@ export const HARE_ART: ItemSpec = {
 /** Puffs of frost flung off a shaking hare at (x, y), strength `a`. */
 export const frostPuff = (g: G2D, x: number, y: number, s: number, a: number, t: number): void => {
   if (a <= 0) return
+  // The puffs are the shared painted puff (white, as chimney smoke wears it)
+  // and the twinkles the shared twinkle, once they have landed; otherwise
+  // each adds itself to the path the batched fill below draws.
+  g.globalAlpha = a * 0.95
   g.beginPath()
   for (let i = 0; i < 7; i++) {
     const ang = -PI * 0.1 - (i / 6) * PI * 0.8 + sin(t * 3 + i) * 0.1
@@ -2113,10 +2117,10 @@ export const frostPuff = (g: G2D, x: number, y: number, s: number, a: number, t:
     const px = x + cos(ang) * rr
     const py = y - 60 * s + sin(ang) * rr * 0.8
     const pr = (5 + (i % 3) * 3) * s * (0.6 + 0.4 * a)
+    if (puffAt(g, px, py, pr, '#ffffff')) continue
     g.moveTo(px + pr, py)
     g.arc(px, py, pr, 0, TAU)
   }
-  g.globalAlpha = a * 0.95
   g.fillStyle = '#ffffff'
   g.fill()
   g.lineWidth = 2
@@ -2125,7 +2129,7 @@ export const frostPuff = (g: G2D, x: number, y: number, s: number, a: number, t:
   g.beginPath()
   for (let i = 0; i < 3; i++) {
     const ang = -PI * 0.25 - i * PI * 0.25
-    twinkle(g, x + cos(ang) * 84 * s * a, y - 70 * s + sin(ang) * 70 * s * a, 8 * s * a)
+    twinkleAt(g, x + cos(ang) * 84 * s * a, y - 70 * s + sin(ang) * 70 * s * a, 8 * s * a, T.iceLite)
   }
   fill(g, T.iceLite)
   g.globalAlpha = 1
@@ -2283,15 +2287,80 @@ const frostShardShape = (g: G2D, s: number, o: number, k: number): void => {
   }
 }
 
+/** The ice block's own height in SU at scale 1 — `drawItem`'s scale. */
+const ICE_UNIT = 96
+
+/** How much of the ice block's body shows: it is a pane the shard is seen
+ *  through, where its snow cap is solid. */
+const ICE_SEE_THROUGH = 0.55
+
+/** The snow cap's three lobes on a block `bw` half-wide whose top is `by`. */
+const iceCapLobes = (x: number, by: number, bw: number, S: (v: number) => number): Lobe[] =>
+  [[x - bw * 0.5, by + S(2), S(14)], [x, by - S(4), S(20)], [x + bw * 0.5, by + S(2), S(14)]]
+
+/**
+ * The block, its frost streaks and its snow cap, standing on the origin, at
+ * rest (not yet melting). Drawn OPAQUE — the game lays it over the shard at
+ * `ICE_SEE_THROUGH`, and a see-through reference over magenta is a pink one.
+ */
+const iceBlockShape = (g: G2D): void => {
+  const S = (v: number): number => v
+  const bw = 68
+  const bh = 96
+  const by = -bh
+  g.beginPath()
+  g.roundRect(-bw, by, bw * 2, bh, 16)
+  fill(g, '#c8ecff')
+  ink(g, 4)
+  g.beginPath()
+  g.moveTo(-bw * 0.6, by + 14)
+  g.lineTo(-bw * 0.6, by + bh * 0.62)
+  g.moveTo(-bw * 0.38, by + 12)
+  g.lineTo(-bw * 0.38, by + bh * 0.3)
+  g.moveTo(bw * 0.62, by + bh * 0.5)
+  g.lineTo(bw * 0.62, by + bh - 12)
+  g.lineWidth = 6
+  g.strokeStyle = '#ffffff'
+  g.lineCap = 'round'
+  g.stroke()
+  circles(g, iceCapLobes(0, by, bw, S))
+  fill(g, T.snow)
+  ink(g, 3)
+}
+
+/**
+ * 8-3's BLOCK OF ICE (with its snow cap) as a painted still: the frozen star
+ * shard sleeps inside it under the dust for the whole of that wipe.
+ *
+ * It melts by SHRINKING — narrower by a quarter and lower by nearly half —
+ * which is a non-uniform scale about its foot, and it fades, which is alpha:
+ * both stay the drawing's. The body is blitted see-through and the cap blitted
+ * again, solid, through the cap's own drawn outline — the `tapCover` move.
+ */
+export const ICE_BLOCK_ART: ItemSpec = {
+  ...PROP_ART.iceBlock, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / ICE_UNIT, s / ICE_UNIT)
+    iceBlockShape(g)
+    g.restore()
+  }
+}
+
 /** The block of ice it melts out of, round (x, y). */
 const frostShardIce = (g: G2D, x: number, y: number, s: number, k: number, t: number): void => {
   const S = (v: number): number => v * s
   const m = clamp(k * 1.4, 0, 1)
-  if (m < 1) {
-    const bw = S(68) * (1 - m * 0.25)
-    const bh = S(96) * (1 - m * 0.45)
-    const by = y - bh
-    g.globalAlpha = 1 - m
+  const block = (): boolean => {
+    g.save()
+    g.translate(x, y)
+    g.scale(1 - m * 0.25, 1 - m * 0.45)
+    const hit = drawItem(g, ICE_BLOCK_ART, ICE_UNIT * s)
+    g.restore()
+    return hit
+  }
+  // The drawing, as it always was: a translucent pane, its streaks, its cap.
+  const paintIce = (bw: number, bh: number, by: number): void => {
     g.beginPath()
     g.roundRect(x - bw, by, bw * 2, bh, S(16))
     g.fillStyle = 'rgba(200,236,255,0.55)'
@@ -2309,9 +2378,28 @@ const frostShardIce = (g: G2D, x: number, y: number, s: number, k: number, t: nu
     g.lineCap = 'round'
     g.stroke()
     // A frosty cap and drips.
-    circles(g, [[x - bw * 0.5, by + S(2), S(14)], [x, by - S(4), S(20)], [x + bw * 0.5, by + S(2), S(14)]])
+    circles(g, iceCapLobes(x, by, bw, S))
     fill(g, T.snow)
     ink(g, 3)
+  }
+  if (m < 1) {
+    const bw = S(68) * (1 - m * 0.25)
+    const bh = S(96) * (1 - m * 0.45)
+    const by = y - bh
+    // Painted: the body see-through, then the cap again, solid, through the
+    // cap's own outline.
+    g.globalAlpha = (1 - m) * ICE_SEE_THROUGH
+    const painted = block()
+    if (painted) {
+      g.globalAlpha = 1 - m
+      g.save()
+      circles(g, iceCapLobes(x, by, bw, S))
+      g.clip()
+      block()
+      g.restore()
+    }
+    g.globalAlpha = 1 - m
+    if (!painted) paintIce(bw, bh, by)
     g.globalAlpha = 1
   }
   if (k <= 0.2) return
@@ -2324,11 +2412,64 @@ const frostShardIce = (g: G2D, x: number, y: number, s: number, k: number, t: nu
     const ang = t * 1.4 + (i * TAU) / 4
     g.globalAlpha = a
     g.beginPath()
-    twinkle(g, cx + cos(ang) * S(74), cy + sin(ang) * S(40), S(9 + 3 * sin(t * 4 + i)))
+    twinkleAt(g, cx + cos(ang) * S(74), cy + sin(ang) * S(40), S(9 + 3 * sin(t * 4 + i)), cols[i]!)
     fill(g, cols[i]!)
     ink(g, 1.8)
   }
   g.globalAlpha = 1
+}
+
+/* ── 8-4's rolling snowball ───────────────────────────────────────────── */
+
+/** The snowball's radius it is authored at, in SU. */
+const SNOWBALL_R = 20
+
+/** A snowball about its centre, radius `SNOWBALL_R`, with the one curved
+ *  streak that shows it rolling (at angle 0 here; the game turns it). */
+const snowballShape = (g: G2D): void => {
+  g.beginPath()
+  g.arc(0, 0, SNOWBALL_R, 0, TAU)
+  fill(g, T.snow)
+  ink(g, 3)
+  g.beginPath()
+  g.arc(0, 0, SNOWBALL_R * 0.62, 0, 1.6)
+  g.lineWidth = 3
+  g.strokeStyle = T.snowShade
+  g.stroke()
+}
+
+/**
+ * 8-4's SNOWBALL rolling down the sled run, as a painted still. It grows as
+ * it goes (a scale) and its streak turns with it (a rotation); the puffs it
+ * bursts into at the bottom are the shared `prop-puff`.
+ */
+export const SNOWBALL_ART: ItemSpec = {
+  ...PROP_ART.snowball, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / SNOWBALL_R, s / SNOWBALL_R)
+    snowballShape(g)
+    g.restore()
+  }
+}
+
+/** A snowball of radius `r` centred at (x, y), turned by `spin`. */
+export const snowball = (g: G2D, x: number, y: number, r: number, spin: number): void => {
+  g.save()
+  g.translate(x, y)
+  g.rotate(spin)
+  const painted = drawItem(g, SNOWBALL_ART, r)
+  g.restore()
+  if (painted) return
+  g.beginPath()
+  g.arc(x, y, r, 0, TAU)
+  fill(g, T.snow)
+  ink(g, 3)
+  g.beginPath()
+  g.arc(x, y, r * 0.62, spin, spin + 1.6)
+  g.lineWidth = 3
+  g.strokeStyle = T.snowShade
+  g.stroke()
 }
 
 /** A ribbon of gold stars — used by the palace pennants' tips. */

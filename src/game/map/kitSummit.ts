@@ -15,12 +15,12 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, twinkleAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
 import { inkFill, mix } from '@/game/map/kitSky'
 import { type Pt, type Glow, disc, twinkle, smooth, paperLantern } from '@/game/map/kitTundra'
 import { drawItem, type ItemSpec } from '@/game/artItem'
-import { CREATURE_ART } from '@/game/artIds'
+import { CREATURE_ART, PROP_ART } from '@/game/artIds'
 
 type Lobe = readonly [number, number, number]
 const LW = 5
@@ -226,7 +226,8 @@ export const constellation = (g: G2D, pts: readonly Pt[], links: readonly (reado
   for (let i = 0; i < pts.length; i++) {
     const [x, y] = pts[i]!
     const k = 0.55 + 0.45 * alive * Math.max(0, sin(t * 2 + i * 1.3))
-    twinkle(g, x, y, (6 + 5 * alive) * k + 2)
+    // The shared painted twinkle (the same star `twinkle` paths), or its path.
+    twinkleAt(g, x, y, (6 + 5 * alive) * k + 2, N.star)
   }
   g.fillStyle = N.star
   g.fill()
@@ -1501,7 +1502,7 @@ export const peekCalf = (g: G2D, p: CalfSpot, k: number, t: number, look: CalfLo
   for (let i = 0; i < 5; i++) {
     const ang = -PI * 0.9 + (i / 4) * PI * 0.8
     const rr = (46 + 16 * a + 6 * sin(t * 6 + i)) * p.s
-    twinkle(g, hx + cos(ang) * rr, hy + sin(ang) * rr, (7 + (i % 2) * 4) * p.s * a)
+    twinkleAt(g, hx + cos(ang) * rr, hy + sin(ang) * rr, (7 + (i % 2) * 4) * p.s * a, N.gold)
   }
   fill(g, N.gold)
   g.lineWidth = 1.8
@@ -1637,11 +1638,52 @@ export const fallenStar = (g: G2D, x: number, y: number, s: number, k: number, t
     const ang = t * 0.9 + (i * TAU) / 6
     g.globalAlpha = a
     g.beginPath()
-    twinkle(g, cx + cos(ang) * S(76), cy + sin(ang) * S(30) - S(6), S(8 + 3 * sin(t * 4 + i)))
+    twinkleAt(g, cx + cos(ang) * S(76), cy + sin(ang) * S(30) - S(6), S(8 + 3 * sin(t * 4 + i)), cols[i]!)
     fill(g, cols[i]!)
     ink(g, 1.8)
   }
   g.globalAlpha = 1
+}
+
+/* ── Nova's planets (9-5) ────────────────────────────────────────────── */
+
+/** A planet's ball across, in SU — `drawItem`'s scale for one of them. */
+const PLANET_UNIT = 30
+
+/** One little ringed planet about the origin: a round ball in `col` and a
+ *  tilted ring laid across it. */
+const planetShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.arc(0, 0, 15, 0, TAU)
+  g.fillStyle = col
+  g.fill()
+  ink(g, 3.5)
+  g.beginPath()
+  g.ellipse(0, 0, 24, 6, -0.4, 0, TAU)
+  ink(g, 2.4)
+}
+
+/**
+ * The three little planets riding Nova's halo ring (9-5) as ONE painted
+ * still, tinted — pink, blue and mint are one ball in three colours, and the
+ * ring round each is the same tilted ring. Their orbit is a translate.
+ */
+export const PLANET_ART: ItemSpec = {
+  ...PROP_ART.planet, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / PLANET_UNIT, s / PLANET_UNIT)
+    planetShape(g, accent.base)
+    g.restore()
+  }
+}
+
+/** One ringed planet at (x, y) in `col` — painted if its sheet has landed. */
+export const planet = (g: G2D, x: number, y: number, col: string): void => {
+  g.save()
+  g.translate(x, y)
+  if (!drawItem(g, PLANET_ART, PLANET_UNIT, 0, col)) planetShape(g, col)
+  g.restore()
 }
 
 /** The Fallen Star's little bed of flattened grass and petals (paint). */

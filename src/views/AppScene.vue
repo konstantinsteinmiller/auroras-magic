@@ -47,7 +47,7 @@ import {
 } from '@/game/restore/wipe'
 import {
   drawMap, updateMap, mapResize, mapPointerDown, mapPointerMove, mapPointerUp, focusMap,
-  setMapTapHandler, qaMap, peekCreature, mapAmbience, greetUmbra, type MapTarget
+  setMapTapHandler, qaMap, peekCreature, mapAmbience, greetUmbra, drawCloth, type MapTarget
 } from '@/game/map/map'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
 import { hud, syncHud, agePops, publishLayout, isOnFoeHpBar } from '@/use/useDuelHud'
@@ -468,9 +468,10 @@ const frame = (now: number): void => {
     else if (sc === 'wardrobe') drawWardrobe(g)
     else if (sc === 'intro') drawIntro(g)
     else {
+      // The boot frames behind the splash: the same cloth the book lies on,
+      // from the same painter (the last of its flat copies, B17).
       g.setTransform(1, 0, 0, 1, 0, 0)
-      g.fillStyle = '#9E7CBE'
-      g.fillRect(0, 0, g.canvas.width, g.canvas.height)
+      drawCloth(g, g.canvas.width, g.canvas.height)
     }
     drawTransition(g)
   }

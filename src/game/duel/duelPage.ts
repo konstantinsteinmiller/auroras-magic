@@ -28,12 +28,14 @@
  * once it is PAINTED (`RES_DRAWN` / `RES_PAINTED`), because half a painting
  * stretched back over the stage is visibly soft. Portrait adds the page's
  * soft double for the drawing pad (`drawDuelPageBelow`), re-made only when
- * the composite is, and only once a portrait frame asks for it. Everything
- * is dropped when the duel ends.
+ * the composite is, and only once a portrait frame asks for it. A RESTORED
+ * page adds its sector's live props, drawn each frame as a done map card
+ * draws them (`drawLiveProps`). Everything is dropped when the duel ends.
  */
 import { S } from '@/game/duel/state'
 import { SW, SH } from '@/game/duel/config'
 import { sectorOf } from '@/game/map/sectors'
+import type { SectorDef } from '@/game/map/sectorDef'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { artSettled, forgetArt, onArtChanged } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
@@ -112,6 +114,9 @@ let dirty = false
 /** What the wipe is owed: the most this page was ever cleared. */
 const cov: Coverage = createCoverage()
 let restored = false
+/** A RESTORED page's sector, whose props are drawn live over it; null on a
+ *  dusty page (its props are baked in at rest) and with no page. */
+let live: SectorDef | null = null
 /** What a won duel left for the wipe: the page it cleared, and whose. */
 let stash: { node: number; packed: string } | null = null
 
@@ -145,7 +150,18 @@ const bakeLayers = (): boolean => {
   if (!g) return false
   g.setTransform(res, 0, 0, res, 0, 0)
   if (!paintSectorArt(g, node, sec, pot, false)) sec.paint(g, pot)
+  // THE PROPS, AT REST, ON THE CLEAN LAYER TOO (B19). They used to exist only
+  // frozen inside the dust, so every patch a spell blew clean showed the
+  // painting WITHOUT them — a mill with no sails, a pond with no ducks. The
+  // wipe draws them at rest between its clean layer and the dust until the
+  // sector comes alive (`wipe.ts` `drawRestore`), and at rest they are a
+  // still, so here they are simply baked in: same picture, no cost a frame.
+  // The dust is drained from this very layer, so it keeps them as before.
+  // A RESTORED page is the exception — its props are alive, and are drawn
+  // live over it (`drawLiveProps`).
+  if (!restored) sec.props(g, 0, 0)
   g.setTransform(1, 0, 0, 1, 0, 0)
+  live = restored ? sec : null
   colour = cv
   softDirty = true
   if (restored) {
@@ -156,7 +172,7 @@ const bakeLayers = (): boolean => {
     return true
   }
   const d = makeCanvas(w, h)
-  bakeDust(d, colour, res, node + 1, (dg) => sec.props(dg, 0, 0))
+  bakeDust(d, colour, res, node + 1)
   dust = d
   // A painting landing mid-duel raises `res`, so the composite it is drawn
   // into has to grow with it. The MASK does not: it is a fixed 192 × 112 and
@@ -223,6 +239,7 @@ export const resetDuelPage = (): void => {
   node = -1
   colour = dust = mask = null
   shown = null
+  live = null
   soft = softTmp = softBlur = null
   softDirty = true
   restored = false
@@ -312,7 +329,32 @@ export const drawDuelPage = (g: G2D): boolean => {
   if (dirty) compose()
   const P = PAGE_ON_STAGE
   g.drawImage(shown, P.x, P.y, P.w, P.h)
+  if (live) drawLiveProps(g, live)
   return true
+}
+
+/**
+ * A RESTORED page's props, alive (B19). A practice duel on a sector she has
+ * already restored is fought on the finished page — and that page had no
+ * props at all: `colour` is the painting alone, and no dust was baked to
+ * carry them. They are drawn here as the map's done cards draw them (`alive`
+ * 1, the clock running), in sector units over the page, clipped to it.
+ *
+ * On the thrift tier (`S.q === 0`) the page is composed ONCE into
+ * `backdrop.ts`'s cache and blitted; a prop that moved would have to
+ * recompose that cache every frame, so there they hold still (the clock at
+ * 0) — the same page, every prop in place, not moving.
+ */
+const drawLiveProps = (g: G2D, sec: SectorDef): void => {
+  const P = PAGE_ON_STAGE
+  g.save()
+  g.beginPath()
+  g.rect(P.x, P.y, P.w, P.h)
+  g.clip()
+  g.translate(P.x, P.y)
+  g.scale(P.k, P.k)
+  sec.props(g, S.q === 0 ? 0 : S.t, 1)
+  g.restore()
 }
 
 /* ─────────────────── the page below the window (portrait) ─────────────────── */

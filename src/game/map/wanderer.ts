@@ -18,6 +18,7 @@ import { LAST_BUILT_NODE, nodeChapter } from '@/game/campaign/tables'
 import { mapHud } from '@/use/useMapHud'
 import { chatter, sfx } from '@/game/duel/audio'
 import { seeded } from '@/game/duel/util'
+import { heartAt } from '@/game/map/kitSky'
 
 type G2D = CanvasRenderingContext2D
 
@@ -95,6 +96,12 @@ export const drawWanderer = (g: G2D, x: number, y: number, h: number, t: number)
     const s = h * 0.07 * (0.6 + 0.4 * q)
     g.save()
     g.globalAlpha = Math.sin(q * Math.PI) * 0.9
+    // The shared painted heart once it has landed (B9): this one's tip at
+    // hy + s and dip at hy − s/2 is `heart()` of radius 10/9 · s about hy.
+    if (heartAt(g, hx, hy, s * 1.11, '#ff7fae')) {
+      g.restore()
+      return
+    }
     g.beginPath()
     g.moveTo(hx, hy + s)
     g.bezierCurveTo(hx - s * 1.6, hy - s * 0.4, hx - s * 0.6, hy - s * 1.4, hx, hy - s * 0.5)

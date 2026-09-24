@@ -521,6 +521,120 @@ export const log = (g: G2D, x: number, y: number, w: number): void => {
   ink(g, 2.4)
 }
 
+/* ── the woods' tap log and the Wood Sprite's bed (2026-09-24) ──────────── */
+
+/*
+ * The moss-sprite's HOLLOW LOG, which the sprite pops up out of on every woods
+ * sector. It is a prop of its own and not a cover: only 1-1 and 1-4 paint a
+ * log into the sector, and those two taps now sit ON that painted log
+ * (`sectors.ts`), so the other three lie on meadow the painting has no log in
+ * — and a cover cut from there is a log-shaped patch of grass.
+ *
+ * Its BACK (the rim of the hollow end, behind the sprite) and its FRONT (the
+ * bark and the cut face, in front of it) are one painting: the whole log goes
+ * down before the sprite, and the front is blitted again after it, clipped to
+ * the front's own path — the same "the vector's silhouette, filled with the
+ * painting" move `tapCover` makes, with the log's painting as the source.
+ */
+
+/** The tap log's length and depth in SU (centred on its own origin). */
+export const HOLLOW_LOG = { w: 96, h: 34 } as const
+
+/** The log's back rim and dark hollow, centred at (x, y) — behind the sprite. */
+export const hollowLogBack = (g: G2D, x: number, y: number): void => {
+  const { w, h } = HOLLOW_LOG
+  g.beginPath()
+  g.ellipse(x - w / 2 + 10, y, 14, h / 2, 0, 0, TAU)
+  fill(g, '#9a6446')
+  ink(g, 3)
+}
+
+/** The path the log's FRONT covers — its bark and its cut face. */
+export const hollowLogFrontPath = (g: G2D, x: number, y: number): void => {
+  const { w, h } = HOLLOW_LOG
+  g.beginPath()
+  g.roundRect(x - w / 2 + 10, y - h / 2, w - 10, h, h / 2)
+  g.moveTo(x + w / 2 + 12, y)
+  g.ellipse(x + w / 2, y, 12, h / 2, 0, 0, TAU)
+}
+
+/** The log's front: bark, rings on the cut face, moss along its top. */
+export const hollowLogFront = (g: G2D, x: number, y: number): void => {
+  const { w, h } = HOLLOW_LOG
+  g.beginPath()
+  g.roundRect(x - w / 2 + 10, y - h / 2, w - 10, h, h / 2)
+  fill(g, C.trunk)
+  ink(g, 3.4)
+  g.beginPath()
+  g.ellipse(x + w / 2, y, 12, h / 2, 0, 0, TAU)
+  fill(g, '#f0c48a')
+  ink(g, 3)
+  g.beginPath()
+  g.ellipse(x + w / 2, y, 6, h / 4, 0, 0, TAU)
+  ink(g, 1.8)
+  g.beginPath()
+  g.ellipse(x - 6, y - 6, 20, 5, 0.1, 0, TAU)
+  fill(g, C.moss)
+}
+
+/** The log's own length in SU, back rim to cut face — `drawItem`'s scale. */
+const LOG_UNIT = 112
+
+/** The whole tap log, back and front, as one painted still. */
+export const HOLLOW_LOG_ART: ItemSpec = {
+  ...PROP_ART.hollowLog, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / LOG_UNIT, s / LOG_UNIT)
+    hollowLogBack(g, 0, 0)
+    hollowLogFront(g, 0, 0)
+    g.restore()
+  }
+}
+
+/** The painted tap log centred at (x, y), or false with nothing drawn. */
+export const hollowLogAt = (g: G2D, x: number, y: number): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, HOLLOW_LOG_ART, LOG_UNIT)
+  g.restore()
+  return hit
+}
+
+/**
+ * The Wood Sprite's BED — the flat cushion of moss she sleeps on in the
+ * Flower Garden (1-3's rescue). The rescue is drawn in the props layer, so the
+ * sector's painting has no bed under her: this is the whole of it, and a flat
+ * vector oval on painted grass was the one thing left around her in vector.
+ */
+const mossBedShape = (g: G2D): void => {
+  g.beginPath()
+  g.ellipse(0, 0, 42, 11, 0, 0, TAU)
+  fill(g, C.mossShade)
+  ink(g, 3)
+}
+
+/** The bed's width in SU. */
+const MOSS_BED_UNIT = 84
+
+export const MOSS_BED_ART: ItemSpec = {
+  ...PROP_ART.mossBed, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / MOSS_BED_UNIT, s / MOSS_BED_UNIT)
+    mossBedShape(g)
+    g.restore()
+  }
+}
+
+/** The moss bed centred at (x, y) — painted if its sheet has landed. */
+export const mossBed = (g: G2D, x: number, y: number): void => {
+  g.save()
+  g.translate(x, y)
+  if (!drawItem(g, MOSS_BED_ART, MOSS_BED_UNIT)) mossBedShape(g)
+  g.restore()
+}
+
 export const stones = (g: G2D, list: readonly (readonly [number, number, number])[]): void => {
   for (const [x, y, r] of list) {
     g.beginPath()
@@ -1493,11 +1607,23 @@ export const TWINKLE_ART: ItemSpec = {
  * keeps its single batched fill.
  */
 export const twinkleAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  const hit = twinklePainted(g, x, y, r, col)
+  if (!hit) twinkleStar(g, x, y, r)
+  return hit
+}
+
+/**
+ * One twinkle of radius `r` in `col` IF its painting has landed — and nothing
+ * at all otherwise. For the call sites whose own drawing is a different
+ * four-point star (a sharper waist, a straight-edged one, a single stroked
+ * glint): they keep that drawing byte for byte behind `if (!…)`, where
+ * `twinkleAt` would swap it for `twinkleStar`'s.
+ */
+export const twinklePainted = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
   g.save()
   g.translate(x, y)
   const hit = drawItem(g, TWINKLE_ART, r, 0, col)
   g.restore()
-  if (!hit) twinkleStar(g, x, y, r)
   return hit
 }
 

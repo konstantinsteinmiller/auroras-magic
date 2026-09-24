@@ -12,7 +12,7 @@
  * five never decodes five full paintings), the restore view the full
  * 1152 × 672 one, fetched when a sector opens and released when it closes.
  */
-import { spriteFor } from '@/game/art'
+import { spriteFor, artState, artOverridesEnabled } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
 import { accentMask, multiplyMasked, ACCENT_A, ACCENT_B } from '@/game/artTint'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
@@ -27,6 +27,27 @@ const POT_B: Pot = { id: 'b', ...ACCENT_B }
 /** Whether node `n` has a painting of the given size decoded right now. */
 export const sectorPainted = (n: number, thumb: boolean): boolean =>
   !!spriteFor(thumb ? 'sectorThumb' : 'sector', sectorArtId(n))
+
+/**
+ * Is node `n`'s static layer a PAINTING wherever it is drawn now — the art
+ * layer on, and either of its paintings decoded?
+ *
+ * For a live prop that lays its own copy of something the sector's painting
+ * already shows (a lit bulb, a candle flame): with this true it draws only
+ * the light, and with the art layer off it draws exactly as it always has.
+ *
+ * It reads the probe state and never ASKS: `spriteFor` would fetch the full
+ * painting from a map card's props, and would write the sector painting into
+ * every recording of those props (`artSchedule.recordSector`). Either is
+ * enough for "a painting is under me": the map lays the thumbnail, the
+ * cleaning the full one, and a view whose own copy has not decoded yet draws
+ * `paint()` — which carries the same thing.
+ */
+export const sectorShowsArt = (n: number): boolean => {
+  if (!artOverridesEnabled()) return false
+  const id = sectorArtId(n)
+  return artState('sectorThumb', id) === true || artState('sector', id) === true
+}
 
 /**
  * Draw node `n`'s painting into `g`, whose transform maps sector units to

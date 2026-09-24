@@ -11,8 +11,10 @@
  * every visit.
  */
 import { SEC_W } from '@/game/restore/mask'
-import { INK, C, flower, butterfly, fill, ink, type G2D } from '@/game/map/kit'
+import { INK, C, flower, butterfly, fill, ink, twinklePainted, type G2D } from '@/game/map/kit'
 import { seeded, sin, cos, TAU, PI } from '@/game/duel/util'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { PROP_ART } from '@/game/artIds'
 
 const PETALS = ['#ff8fc4', '#ffe36b', '#c9a6ff', '#8fd8ff', '#ffffff', '#ffb36b']
 
@@ -61,7 +63,33 @@ const tallFlower = (g: G2D, x: number, y: number, r: number, petal: string, t: n
   g.ellipse(x + 8, y - h * 0.42, 9, 4, -0.6, 0, TAU)
   fill(g, C.moss)
   ink(g, 2)
-  flower(g, tx, ty, r, petal, t * 0.4 + i)
+  // The HEAD is painted (`prop-flower-head`, tinted); the stem and its leaf
+  // stay drawn — a hairline, and a leaf under the size floor.
+  g.save()
+  g.translate(tx, ty)
+  g.rotate(t * 0.4 + i)
+  const bloomed = drawItem(g, FLOWER_HEAD_ART, r, 0, petal)
+  g.restore()
+  if (!bloomed) flower(g, tx, ty, r, petal, t * 0.4 + i)
+}
+
+/** The radius a flower head is authored at, in SU — the middle of the
+ *  Bloom's 12–18. */
+const FLOWER_UNIT = 15
+
+/**
+ * The Bloom's tall-flower HEAD as a painted still, tinted: five round petals
+ * and a butter centre. Every one of the seven wears its own petal colour
+ * (the tint), turns slowly (a rotation) and sways on its stem (a translate).
+ */
+export const FLOWER_HEAD_ART: ItemSpec = {
+  ...PROP_ART.flowerHead, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / FLOWER_UNIT, s / FLOWER_UNIT)
+    flower(g, 0, 0, FLOWER_UNIT, accent.base, 0)
+    g.restore()
+  }
 }
 
 /** The bloom-critter: a small white bunny hopping to and fro. */
@@ -86,6 +114,33 @@ const bunny = (g: G2D, y: number, t: number, seed: number): void => {
   g.fillStyle = 'rgba(58,35,64,0.18)'
   g.fill()
   g.scale(1 / squash, squash)
+  if (!drawItem(g, BUNNY_ART, BUNNY_UNIT)) bunnyShape(g, lift)
+  g.restore()
+}
+
+/** Ear tip to foot at rest, in SU — the bunny's own height. */
+const BUNNY_UNIT = 53
+
+/**
+ * The Bloom's bunny as a painted still: it hops to and fro across the grass,
+ * and every part of that — the hop, the squash, the turn at each end — is a
+ * transform of one constant bunny (§4b's mover rule). Its ears flop by a few
+ * degrees with the hop in the drawing; the painting holds them at rest. Its
+ * contact shadow stays drawn, under it: a shadow on the magenta is welded to
+ * the sprite.
+ */
+export const BUNNY_ART: ItemSpec = {
+  ...PROP_ART.bunny, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / BUNNY_UNIT, s / BUNNY_UNIT)
+    bunnyShape(g, 0)
+    g.restore()
+  }
+}
+
+/** The bunny itself, feet on the origin, facing right; `lift` flops the ears. */
+const bunnyShape = (g: G2D, lift: number): void => {
   // Tail, body, head.
   g.beginPath()
   g.arc(-15, -12, 6, 0, TAU)
@@ -119,7 +174,6 @@ const bunny = (g: G2D, y: number, t: number, seed: number): void => {
   g.beginPath()
   g.arc(22, -22, 1.6, 0, TAU)
   fill(g, '#ff8fb8')
-  g.restore()
 }
 
 /** A four-point twinkle. */
@@ -148,6 +202,9 @@ export const drawBloom = (g: G2D, n: number, t: number): void => {
   for (const [x, y, ph] of l.sparks) {
     const k = 0.5 + 0.5 * sin(t * 2.2 + ph)
     g.globalAlpha = 0.25 + 0.65 * k
+    // The shared painted twinkle once it has landed (B8); this star's own
+    // straight-edged drawing otherwise.
+    if (twinklePainted(g, x + sin(t * 0.5 + ph) * 6, y, 6 + 6 * k, '#fffbe0')) continue
     twinkle(g, x + sin(t * 0.5 + ph) * 6, y, 6 + 6 * k)
   }
   g.restore()

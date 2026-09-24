@@ -54,16 +54,19 @@ import {
 } from '@/game/art'
 import {
   sectorArtId, islandArtId, pageArtId, frontPageArtId, runeArtId, RUNE_SLUGS, RIG_ART, ITEM_ART, STORY_PANELS,
-  storyPanelId, portraitSetOf, portraitArtId, wardrobeArtId, WARDROBE_RUG, KEEPSAKE_ICON_SLUGS, keepsakeArtId, MOVIE_ICON, HP_FRAMES
+  storyPanelId, portraitSetOf, portraitArtId, wardrobeArtId, WARDROBE_RUG, KEEPSAKE_ICON_SLUGS, keepsakeArtId, MOVIE_ICON, HP_FRAMES,
+  PROP_ART, KEEPSAKE_WORN_ART
 } from '@/game/artIds'
 import {
   nodeChapter, nodePosInChapter, nodeIsBoss, toolOf, runeForNode, duelSetup, STARTING_RUNES, LAST_BUILT_NODE,
-  COSMETICS, COSMETIC_SLOTS, NODES, GIFTS
+  COSMETICS, COSMETIC_SLOTS, NODES, GIFTS, CHAPTERS, ALTERNATIVES
 } from '@/game/campaign/tables'
 import { nextDuelNode, pendingSectorNode, type CampaignState } from '@/game/campaign/state'
+import { hasBit } from '@/game/campaign/bitset'
 import { dialogueFor, thanksLines, OPENING_NODE, type Bubble } from '@/game/story/story'
 import { FOES } from '@/game/duel/foes'
 import { BADGE_ART } from '@/game/map/badge'
+import { CHROME_ART, pictoSetArtId, pictoSlot } from '@/game/artIds'
 import { BOOKMARK_ART } from '@/game/flow/pageTurn'
 import { flowHud } from '@/use/useFlow'
 import type { SceneId } from '@/game/flow/scene'
@@ -110,6 +113,34 @@ const BADGE: ArtWant = [BADGE_ART.kind, BADGE_ART.id]
 const BOOKMARK: ArtWant = [BOOKMARK_ART.kind, BOOKMARK_ART.id]
 const item = (a: { kind: ArtWant[0]; id: string }): ArtWant => [a.kind, a.id]
 const lastBuiltChapter = (): number => nodeChapter(LAST_BUILT_NODE)
+/** The book's cover board and leaves, under every page (`map/bookBoard.ts`). */
+const BOARD: ArtWant = item(CHROME_ART.board)
+/** The front page's show-how glove, which the intro's rune beat wears too. */
+const GLOVE: ArtWant = item(CHROME_ART.glove)
+
+/**
+ * What a run of dialogue is printed WITH (paint-outstanding.md P5, P14): the
+ * paper leaf, and the pictogram sets its lines show — derived from the
+ * script, like the faces, so a line that gains a pictogram brings its set.
+ */
+export const storyChromeOf = (lines: readonly Bubble[]): ArtWant[] => {
+  if (!lines.length) return []
+  const sets = new Set<number>()
+  for (const b of lines) {
+    for (const p of b.pictos) {
+      const at = pictoSlot(p)
+      if (at) sets.add(at.set)
+    }
+  }
+  return [item(CHROME_ART.leaf), ...[...sets].sort((a, b) => a - b).map((k): ArtWant => ['worldUi', pictoSetArtId(k)])]
+}
+
+/** The Stardust Sponge, and the painted twinkle on its corner. */
+const SPONGE: ArtWant[] = [item(ITEM_ART.sponge), item(PROP_ART.twinkle)]
+/** The Sunbeam: the wand with its sun, and the rays that turn round it. */
+const SUNBEAM: ArtWant[] = [item(ITEM_ART.sunbeam), item(ITEM_ART.sunbeamRays)]
+/** The Signature Spell emblems, by spell index. */
+const EMBLEMS: ArtWant[] = [item(ITEM_ART.emblemWard), item(ITEM_ART.emblemFrost)]
 
 /** Aurora's portrait is painted only while she wears nothing it would hide
  *  (`portrait.ts` `auroraBare`): head, neck, mane and skin all empty. */
@@ -127,32 +158,34 @@ export const facesOf = (lines: readonly Bubble[], save: ScheduleSave): ArtWant[]
   return out
 }
 
-/** The rune icons a node's duel HUD can show: hers, plus the foe's magic. */
-export const runesOf = (n: number, save: ScheduleSave): ArtWant[] => {
+/** The runes in play in node `n`'s duel, as a mask: hers, plus the foe's magic. */
+const duelRuneMask = (n: number, save: ScheduleSave): number => {
   const setup = duelSetup(n)
   const magic = setup.usesMagic && FOES[setup.foe]!.magic >= 0 ? 1 << FOES[setup.foe]!.magic : 0
-  const mask = save.runesUnlocked | STARTING_RUNES | magic
+  return save.runesUnlocked | STARTING_RUNES | magic
+}
+
+/** The rune icons a node's duel HUD can show: hers, plus the foe's magic. */
+export const runesOf = (n: number, save: ScheduleSave): ArtWant[] => {
+  const mask = duelRuneMask(n, save)
   return RUNE_SLUGS.map((_, k) => k).filter((k) => (mask >> k) & 1).map((k): ArtWant => ['rune', runeArtId(k)])
 }
 
-/** The keepsake stills painted onto Aurora's rig, as worn. */
-const wornStills = (save: ScheduleSave): ArtWant[] => {
-  const out: ArtWant[] = []
-  for (const id of save.giftsEquipped) {
-    const slug = id >= 0 ? COSMETICS[id]?.slug : undefined
-    if (slug === 'flowerCrown') out.push(item(ITEM_ART.crown))
-    if (slug === 'petStar') out.push(item(ITEM_ART.petStar))
-  }
-  return out
-}
+/** What a keepsake draws AS WORN: its stills on the rig, and the shared props
+ *  its sparkles, bubbles and charms are routed through (`KEEPSAKE_WORN_ART`). */
+const wornArt = (slug: string | undefined): ArtWant[] => (slug ? KEEPSAKE_WORN_ART[slug] ?? [] : []).map(item)
 
-/** A keepsake's shelf badge, when it has a painting. */
+/** The keepsake stills painted onto Aurora's rig, as worn. */
+const wornStills = (save: ScheduleSave): ArtWant[] =>
+  save.giftsEquipped.flatMap((id) => wornArt(id >= 0 ? COSMETICS[id]?.slug : undefined))
+
+/** A keepsake's shelf badge, when it has a painting: a badge sheet of its own,
+ *  or — for one that draws its worn function (the Flower Crown's rule) — the
+ *  worn paintings themselves. */
 const keepsakeIcon = (cosmeticId: number): ArtWant[] => {
   const slug = COSMETICS[cosmeticId]?.slug
   if (!slug) return []
-  if (slug === 'flowerCrown') return [item(ITEM_ART.crown)]
-  if (slug === 'petStar') return [item(ITEM_ART.petStar)]
-  return (KEEPSAKE_ICON_SLUGS as readonly string[]).includes(slug) ? [['cosmetic', keepsakeArtId(slug)]] : []
+  return (KEEPSAKE_ICON_SLUGS as readonly string[]).includes(slug) ? [['cosmetic', keepsakeArtId(slug)]] : wornArt(slug)
 }
 
 /** The keepsake node `n`'s chest gives, or −1. */
@@ -179,15 +212,48 @@ export const duelWants = (n: number, save: ScheduleSave, env: ScheduleEnv): ArtW
   ...wornStills(save),
   ...runesOf(n, save),
   ...(n === OPENING_NODE ? facesOf(dialogueFor(n), save) : []),
+  // …and the leaf and pictograms that opener is printed with, over the arena
+  // from its first beat (`GameScene` `opening`).
+  ...(n === OPENING_NODE ? storyChromeOf(dialogueFor(n)) : []),
   ...(env.clothInDuel ? [CLOTH] : [])
 ]
 
-/** The WIN: the gift that drops on the island, a boss's thank-you, and the
- *  gift (a boss's chest) that then waits on her map card. */
+/**
+ * What node `n`'s duel shows AFTER its first frame (paint-outstanding,
+ * 2026-09-24): the wards the runes in play can raise (`fx.WARD_ART` — a
+ * ward's flavour follows its spell's leading element, `sim.guardKind`),
+ * Frost Lock's ice and the snow on it, and the knockout's sleepy Z's and
+ * stars — with Dream Dust's twinkle, which a retry opens on. None of it is
+ * there when the duel opens, so none of it holds the splash: it goes FIRST in
+ * NEXT, on the wire a moment behind the hold, and a ward raised before its
+ * painting lands is simply drawn until it does. Local versus (`n` < 0) can
+ * raise anything.
+ */
+export const duelFxWants = (n: number, save: ScheduleSave): ArtWant[] => {
+  const mask = n < 0 ? -1 : duelRuneMask(n, save)
+  const has = (k: number): boolean => ((mask >> k) & 1) === 1
+  // Rune ids (config.ts): WIND 1, ICE 2, EARTH 3, WATER 5.
+  const frost = has(1) && has(2) // Frost Lock: Wind + Ice + Ice
+  return [
+    ...(has(3) ? [item(PROP_ART.wardRock)] : []),
+    ...(has(1) ? [item(PROP_ART.wardWind)] : []),
+    ...(has(2) ? [item(PROP_ART.wardIce)] : []),
+    ...(has(5) ? [item(PROP_ART.wardBubble), item(PROP_ART.bubble)] : []),
+    ...(has(2) && has(3) ? [item(PROP_ART.wardCrystal)] : []), // Crystal Ward: Ice + Ice + Earth
+    ...(frost ? [item(PROP_ART.wardFrost), item(PROP_ART.frostLockIce), item(PROP_ART.snowflake)] : []),
+    item(PROP_ART.sleepZ),
+    item(PROP_ART.star),
+    item(PROP_ART.twinkle)
+  ]
+}
+
+/** The WIN: the gift that drops on the island — the one that then waits on
+ *  her map card, a boss's chest included (`gift.setArenaGift`) — and a boss's
+ *  thank-you. */
 export const winWants = (n: number, save: ScheduleSave): ArtWant[] => [
-  item(toolOf(n) === 'eraser' ? ITEM_ART.boxGift : ITEM_ART.gift),
+  giftOf(n),
   ...facesOf(thanksLines(n), save),
-  giftOf(n)
+  ...storyChromeOf(thanksLines(n))
 ]
 
 /** A chapter's BOOK PAGE: its painting, its five cards, the book's chrome. */
@@ -198,63 +264,93 @@ export const pageWants = (c: number, save: ScheduleSave, env: ScheduleEnv): ArtW
     ['page', pageArtId(c, env.portrait)],
     ...[0, 1, 2, 3, 4].map((i): ArtWant => ['sectorThumb', sectorArtId(c * 5 + i)]),
     BADGE,
+    // The replay star pressed onto every played card (`badge.paintStarSticker`).
+    item(PROP_ART.star),
     BOOKMARK,
-    // The guardian's silhouette on a locked card is the duelists' rig.
+    // The book's own board and leaves, round every page.
+    BOARD,
+    // The duelists' rig: Umbra wandering the map and Aurora on the front page
+    // wear its painted parts. (The guardian's "next up" silhouette on a locked
+    // card is drawn vector on purpose — `map.ts`, paint-outstanding B25.)
     ...RIG,
     ...(pend !== null && nodeChapter(pend) === c ? [giftOf(pend)] : []),
-    // Chapter 1's page faces the FRONT page, and the book glides across it.
-    ...(c === 0 ? [['page', frontPageArtId(env.portrait)] as ArtWant, item(ITEM_ART.tent)] : [])
+    // Chapter 1's page faces the FRONT page, and the book glides across it —
+    // with the show-how glove on it until she has turned a page herself.
+    ...(c === 0 ? [['page', frontPageArtId(env.portrait)] as ArtWant, item(ITEM_ART.tent), GLOVE] : [])
   ]
 }
 
-/** The book's FRONT page, where the first win lands: the knoll and the tent. */
+/** The book's FRONT page, where the first win lands: the knoll, the tent, the
+ *  book round it and the glove that shows how to turn it. */
 export const frontWants = (env: ScheduleEnv): ArtWant[] =>
-  [CLOTH, ['page', frontPageArtId(env.portrait)], item(ITEM_ART.tent), BOOKMARK]
+  [CLOTH, ['page', frontPageArtId(env.portrait)], item(ITEM_ART.tent), BOOKMARK, BOARD, GLOVE]
 
 /** The picture book (§8.26): its four pages, over the first sector's meadow. */
 export const introWants = (): ArtWant[] => [
   ...STORY_PANELS.map((_, i): ArtWant => ['story', storyPanelId(i)]),
   ['sector', sectorArtId(0)],
-  item(ITEM_ART.sponge),
+  ...SPONGE,
+  // The rune beat's fingertip is the map's show-how glove.
+  GLOVE,
   ...RIG,
   CLOTH
 ]
 
-/** Node `n`'s CLEANING: the page, the gift, the tool, what the chest gives. */
+/** Node `n`'s CLEANING: the page, the gift, the tool, what the chest gives,
+ *  the three paint pots and the paint they throw. */
 export const cleaningWants = (n: number): ArtWant[] => {
   const tool = toolOf(n)
   const rune = runeForNode(n)
   const keep = keepsakeOf(n)
+  const sig = nodeIsBoss(n) ? CHAPTERS[nodeChapter(n)]?.signatureSpell ?? null : null
   return [
     ['sector', sectorArtId(n)],
     CLOTH,
     giftOf(n),
-    ...(tool === 'brush' ? [item(ITEM_ART.sponge)] : tool === 'eraser' ? [item(ITEM_ART.eraser)] : []),
+    ...(tool === 'brush' ? SPONGE : tool === 'eraser' ? [item(ITEM_ART.eraser)] : SUNBEAM),
     ...(rune !== null ? [['rune', runeArtId(rune)] as ArtWant] : []),
+    ...(sig !== null && EMBLEMS[sig] ? [EMBLEMS[sig]] : []),
     ...(keep >= 0 ? keepsakeIcon(keep) : []),
-    // The Twin Gift's rewarded button waits on the map after the reveal.
+    // The colour pick, after the reveal: one jar, tinted per pot, and its blob.
+    item(ITEM_ART.paintPot),
+    item(ITEM_ART.paintBlob),
+    // The Twin Gift waits on the map after the reveal, and its rewarded
+    // button wears the movie camera.
+    item(ITEM_ART.twinGift),
     item(MOVIE_ICON)
   ]
 }
 
 /** The Wardrobe Kiosk: the room in this orientation, the rug, the shelf. */
 export const wardrobeWants = (save: ScheduleSave, env: ScheduleEnv): ArtWant[] => {
-  const owned: ArtWant[] = []
-  for (let id = 0; id < COSMETICS.length; id++) if ((save.giftsOwned >> id) & 1) owned.push(...keepsakeIcon(id))
-  // The shelf's rewarded unlocks wear the movie camera.
-  return [['wardrobe', wardrobeArtId(env.portrait)], item(WARDROBE_RUG), ...RIG, ...owned, item(MOVIE_ICON)]
+  const shelf: ArtWant[] = []
+  // What she owns, and the second shelf's alternatives, which stand on it in
+  // full colour from the first visit — and are tried on, onto her, from there.
+  for (let id = 0; id < COSMETICS.length; id++) {
+    if (((save.giftsOwned >> id) & 1) === 1 || ALTERNATIVES.includes(id)) shelf.push(...keepsakeIcon(id))
+  }
+  // She stands in the middle of it in what she has on. The shelf's rewarded
+  // unlocks wear the movie camera.
+  return [['wardrobe', wardrobeArtId(env.portrait)], item(WARDROBE_RUG), ...RIG, ...wornStills(save), ...shelf, item(MOVIE_ICON)]
 }
 
 /** A node's DIALOGUE: printed on its chapter's page, with its speakers' faces. */
-export const dialogueWants = (n: number, save: ScheduleSave, env: ScheduleEnv): ArtWant[] =>
-  [...pageWants(nodeChapter(n), save, env), ...facesOf(dialogueFor(n), save)]
+export const dialogueWants = (n: number, save: ScheduleSave, env: ScheduleEnv): ArtWant[] => [
+  ...pageWants(nodeChapter(n), save, env),
+  ...facesOf(dialogueFor(n), save),
+  // The leaf the words are printed on and the lines' pictograms — and, on a
+  // chapter's first node, the title page's gold stars.
+  ...storyChromeOf(dialogueFor(n)),
+  ...(nodePosInChapter(n) === 0 ? [item(CHROME_ART.star)] : [])
+]
 
 /** Everything chapter `c` shows first: its page, the first duel, the first faces. */
 export const chapterWants = (c: number, save: ScheduleSave, env: ScheduleEnv): ArtWant[] => [
   ...pageWants(c, save, env),
   ['island', islandArtId(c)],
   ['sector', sectorArtId(c * 5)],
-  ...facesOf(dialogueFor(c * 5), save)
+  ...facesOf(dialogueFor(c * 5), save),
+  ...storyChromeOf(dialogueFor(c * 5))
 ]
 
 /* ──────────────────────────────── the table ─────────────────────────────── */
@@ -327,16 +423,25 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
   if (screen.mode === 'versus' || (screen.scene === 'duel' && n < 0) || screen.scene === 'versusSetup') {
     // Local 2P: the Festival's island and the two duelists; no page.
     p.hold.push(['island', islandArtId(9)], ...RIG, item(HP_FRAMES.aurora), item(HP_FRAMES.foe))
+    // The "turn me sideways" phone is up at once on a phone held upright; the
+    // winner's trophy only at the end.
+    if (env.portrait) p.hold.push(item(CHROME_ART.phone))
+    p.next.push(...duelFxWants(-1, save))
+    p.next.push(...(env.portrait ? [] : [item(CHROME_ART.phone)]), item(CHROME_ART.trophy))
     return p
   }
 
   switch (screen.scene) {
     case 'duel': {
       p.hold.push(...duelWants(n, save, env))
-      p.record.hold.push([n, 'rest'])
-      // The win, then where it lands: node 0's win lands on the FRONT page
-      // (the book falls open there and turns itself to chapter 1), any other
-      // on its own chapter's page, where the gift now waits.
+      // A practice duel on a RESTORED page draws its props alive over it
+      // (`duelPage.drawLiveProps`, B19); a dusty page has them at rest.
+      p.record.hold.push([n, hasBit(save.sectorsDone, n) ? 'alive' : 'rest'])
+      // The duel's own later moments first — a ward, the knockout — then the
+      // win, then where it lands: node 0's win lands on the FRONT page (the
+      // book falls open there and turns itself to chapter 1), any other on
+      // its own chapter's page, where the gift now waits.
+      p.next.push(...duelFxWants(n, save))
       p.next.push(...winWants(n, save))
       if (n === OPENING_NODE) p.next.push(...frontWants(env))
       p.next.push(...pageWants(nodeChapter(n), save, env))
@@ -357,7 +462,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
     case 'dialogue': {
       p.hold.push(...dialogueWants(n, save, env))
       p.record.hold.push(...[0, 1, 2, 3, 4].map((i): SectorRec => [nodeChapter(n) * 5 + i, 'rest']))
-      p.next.push(...duelWants(n, save, env), ...winWants(n, save))
+      p.next.push(...duelWants(n, save, env), ...duelFxWants(n, save), ...winWants(n, save))
       p.record.next.push([n, 'rest'])
       p.soon.push(...cleaningWants(n))
       p.record.soon.push([n, 'alive'])

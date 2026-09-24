@@ -16,15 +16,21 @@
  *   rune         the 12 rune glyphs as painted icons (the HUD's slots, the
  *                spellbook). The canvas still TRACES the drawn glyph — a trace
  *                is an animation, not a picture.
- *   gift         the wrapped gifts and the boss chest, closed. Their opening
- *                beat stays drawn (the lid, the bow, the burst).
- *   tool         the Stardust Brush and the Magic Eraser.
+ *   gift         the wrapped gifts, the boss chest and the map's Twin Gift,
+ *                closed and opening (a strip per gift); the two Signature
+ *                Spell emblems a boss chest reveals. The burst stays drawn.
+ *   tool         the Stardust Sponge, the Magic Eraser, the Sunbeam (its wand
+ *                and its rays, two sheets), and the colour pick's paint pot
+ *                and the paint it throws — both tinted per pot.
  *   worldUi      the book's own furniture on the map — the wardrobe tent, the
- *                node badges, the bookmark ribbon — and the DOM's painted
- *                chrome: the rewarded-ad button's movie camera (`ArtIcon`,
- *                `artIds.MOVIE_ICON`) and the duel's two HP-bar frames, laid
- *                on as a stretched `border-image` (`HpBar.vue`,
- *                `artIds.HP_FRAMES`).
+ *                node badges, the bookmark ribbon, the cover board and its
+ *                leaves (a canvas 9-slice), the show-how glove — and the DOM's
+ *                painted chrome: the rewarded-ad button's movie camera
+ *                (`ArtIcon`, `artIds.MOVIE_ICON`), the duel's two HP-bar
+ *                frames and the dialogue's paper leaf, laid on as stretched
+ *                `border-image`s (`HpBar.vue`, `DialogueBubbles.vue`), the
+ *                dialogue pictograms in four sets (`Picto.vue`) and the small
+ *                marks in `artIds.CHROME_ART`.
  *   cosmetic     keepsakes painted as stills on Aurora's rig (the crown, the
  *                pet star). The others follow the rig's own deformation and
  *                stay drawn (§9.7).

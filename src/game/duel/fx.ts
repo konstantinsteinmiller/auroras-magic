@@ -41,6 +41,9 @@ import { RUNES, SW, SH, GY } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, sin, cos, rnd as sysRnd, min, max, clamp, atan2, seeded } from '@/game/duel/util'
 import { lookOf } from '@/game/duel/spellArt'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { PROP_ART, type PropName } from '@/game/artIds'
+import { bubbleAt } from '@/game/map/kit'
 
 /**
  * THE POOL'S DICE. `sysRnd` is `Math.random` — the very stream the duel's
@@ -107,8 +110,12 @@ const PAL: string[] = [...RUNES.map((r) => r[0]), ...RUNES.map((r) => r[1]), '#e
  *  swooshes cost no globalAlpha juggling in the batched pass. */
 PAL[1] += 'e0'
 PAL[C_HI + 1] += 'd0'
-/** The one outline colour. Thick + near-black = the whole cel look. */
-const OUT = '#140d18'
+/** The one outline colour. Thick + dark = the whole cel look. Warm deep plum
+ *  since the paint-outstanding pass (2026-09-24, B22): the jam build's
+ *  near-black `#140d18` inked every spell, shard and ward over painted art in
+ *  a colour nothing else in the game uses any more — the rig, the glyphs and
+ *  the kits all ink in `#3A2340` (art-style.md §2). */
+const OUT = '#3A2340'
 const C_EMBER = 2 * N_RUNE
 const C_WHITE = C_EMBER + 1
 const C_RB = C_WHITE + 1
@@ -889,11 +896,258 @@ const pass = (g: G2D, dot: boolean): void => {
   }
 }
 
+/* ------------------------------ the wards ----------------------------- */
+
+/**
+ * THE WARDS, PAINTED (P15, paint-outstanding 2026-09-24).
+ *
+ * art-roadmap's "never paint the duel's VFX" is about the POOL above: unit
+ * polygons scaled, spun and re-tinted per frame and drawn one batched path
+ * per colour. A ward is not in the pool. It is ONE persistent shape per side
+ * — the same shape every time it goes up, because its y is always GY − 70
+ * (`sim.raise`) — standing for seconds in front of its caster: a still that a
+ * matrix carries, which is the `prop` family's own rule. So each flavour has
+ * a sheet, and the draw is a drop-in: the painting once it has landed, the
+ * drawing otherwise, exactly as it was.
+ *
+ * What stays DRAWN over (or under) a painting, because it is light or motion
+ * rather than a shape: the see-through WASH inside the bubble and the frost
+ * dome, the bubble's turning SHEEN and its CRACK, the little bubbles rising
+ * inside it, the crystal ward's sweeping LIGHT BAND and tip GLINTS, the dome's
+ * GLITTER, the blink before a ward drops, the ward FLASH (`drawWardFlash`) and
+ * the shatter (the pool).
+ *
+ * Every reference is drawn by the SAME path code the game strokes, at rest
+ * (clock 0), facing +x and OPAQUE — a half-transparent reference over magenta
+ * is a pink ring, and a painter paints the pink — around an origin the game
+ * can put back: the caster's hooves for the standing wards (mirrored for the
+ * foe), the ward's own middle for the two that turn and swell.
+ */
+
+/** Stage units per unit of a ward sheet's scale `s`: `artBox` measures at
+ *  120 px a unit on a canvas ±2.67 units wide, and the biggest ward reaches
+ *  about 150 stage units from its origin. */
+export const WARD_U = 100
+/** How much of the drawing's ink a ward REFERENCE keeps — the creatures'
+ *  lesson: an evenly inked reference comes back an evenly inked sticker. */
+const WARD_REF_INK = 0.6
+/** A ward's own y above its caster's hooves (`sim.raise`: GY − 70). */
+const WARD_Y = -70
+/** The bubble's radius at rest; it swells ±2 about it as it wobbles. */
+const BUBBLE_R = 66
+/** The three stances of the ice pillar's inner spindle, panel by panel. */
+const ICE_ROCK = [-1 / 15, 0, 1 / 15] as const
+/** Crystal Ward's three prisms: [x offset, height, lean]. */
+const PRISMS: readonly (readonly [number, number, number])[] = [[-22, 70, -0.12], [0, 104, 0], [22, 78, 0.12]]
+/** How opaque a painted ward stands. The drawn air shell is filled at 60 %
+ *  and the drawn crystal at 72 %, so the caster shows through; a painting is
+ *  painted solid, so the game keeps a little of that see-through itself. */
+const WIND_ALPHA = 0.7
+const CRYSTAL_ALPHA = 0.85
+
+/** WIND: a hollow air shell — outer circle clockwise, inner anticlockwise, so
+ *  the fill is a ring the caster shows through — with four crescents turning
+ *  inside it. About the ward's middle; `spin` turns the crescents. */
+const windWard = (g: G2D, x: number, y: number, spin: number): void => {
+  g.arc(x, y, 60, 0, TAU)
+  g.arc(x, y, 44, 0, TAU, true)
+  for (let k = 4; k--;) {
+    const a = k * 1.571 + spin
+    shp(g, K_SWOOSH, x + cos(a) * 30, y + sin(a) * 27, 23, a + 1.9)
+  }
+}
+
+/** ICE: one faceted crystal pillar planted in front of the caster (hooves at
+ *  `x`, `gy`; facing `f`). Body + a second, narrower spindle: the INK LINE
+ *  where they overlap is the flat facet, and `rock` tips the spindle, SLIDING
+ *  the facet across the face — a held shield has to be alive. */
+const icePillar = (g: G2D, x: number, gy: number, f: number, rock: number): void => {
+  shp(g, K_SHARD, x + f * 76, gy - 86, 98, -PI / 2)
+  shp(g, K_SHARD, x + f * 92, gy - 92, 64, rock - PI / 2)
+}
+
+/** EARTH: a stack of six crumbled rock blocks in front of the caster. */
+const rockStack = (g: G2D, x: number, gy: number, f: number): void => {
+  for (let k = 6; k--;) shp(g, K_ROCK, x + f * (48 + (k & 1) * 40), gy - 26 - (k >> 1) * 46, 28, k * 2)
+}
+
+/** Crystal Ward's prisms, standing on `gy` about `x`, leaning out along `f`:
+ *  each filled at `alpha`, inked (`inkK` of the drawing's weight), and cut by
+ *  a facet line down its middle. */
+const crystalPrisms = (g: G2D, x: number, gy: number, f: number, alpha: number, inkK: number): void => {
+  for (const [dx, h, lean] of PRISMS) {
+    const cx = x + dx * f
+    const w = 20
+    g.beginPath()
+    g.moveTo(cx - w, gy - 10)
+    g.lineTo(cx - w + lean * 40 * f, gy - h + 18)
+    g.lineTo(cx + lean * 40 * f, gy - h)
+    g.lineTo(cx + w + lean * 40 * f, gy - h + 18)
+    g.lineTo(cx + w, gy - 10)
+    g.closePath()
+    g.globalAlpha = alpha
+    g.fillStyle = '#c9a2ff'
+    g.fill()
+    g.globalAlpha = 1
+    g.lineWidth = 4 * inkK
+    g.strokeStyle = OUT
+    g.stroke()
+    // The facet line down the middle.
+    g.beginPath()
+    g.moveTo(cx + lean * 40 * f, gy - h + 4)
+    g.lineTo(cx, gy - 12)
+    g.lineWidth = 2.5 * inkK
+    g.stroke()
+  }
+}
+
+/** The frost dome's shell over a caster standing at `x` — `y` the ward's own
+ *  y, `gy` the ground: a half-disc on two short walls. A path, not drawn. */
+const frostDomePath = (g: G2D, x: number, y: number, gy: number): void => {
+  const R = 74
+  g.beginPath()
+  g.arc(x, y + 8, R, PI, 0)
+  g.lineTo(x + R, gy - 4)
+  g.lineTo(x - R, gy - 4)
+  g.closePath()
+}
+
+/** Frost ferns climbing the dome's shell, each stroked in the current style. */
+const frostFerns = (g: G2D, x: number, y: number): void => {
+  const R = 74
+  for (let k = 0; k < 4; k++) {
+    const a = PI + (k + 0.5) * (PI / 4)
+    const px = x + cos(a) * R * 0.92
+    const py = y + 8 + sin(a) * R * 0.92
+    g.beginPath()
+    g.moveTo(px, py)
+    g.lineTo(px + (x - px) * 0.3, py + (y - py) * 0.3 + 10)
+    g.moveTo(px + (x - px) * 0.15, py + (y - py) * 0.15 + 5)
+    g.lineTo(px + (x - px) * 0.15 + 9, py + (y - py) * 0.15 - 4)
+    g.stroke()
+  }
+}
+
+/** The bubble's catch-light, up and to the left of its middle. */
+const bubbleGlint = (g: G2D, x: number, y: number, R: number): void => {
+  g.fillStyle = '#ffffff'
+  g.beginPath()
+  g.ellipse(x - R * 0.42, y - R * 0.45, R * 0.16, R * 0.09, -0.7, 0, TAU)
+  g.fill()
+}
+
+/** A see-through shell's REFERENCE rim: the shell's own colour laid as a band
+ *  just inside its outline — where a pane of ice or a soap skin shows its
+ *  colour — and nothing in the middle, which is a hole the painting keeps. */
+const rimBand = (g: G2D, path: () => void, col: string, band: number): void => {
+  g.save()
+  path()
+  g.clip()
+  g.lineWidth = band * 2
+  g.strokeStyle = col
+  path()
+  g.stroke()
+  g.restore()
+}
+
+/** A ward sheet: the reference is `paint` at `s / WARD_U`, in the ward's own
+ *  plum ink, thinned (`WARD_REF_INK`), opaque. */
+const wardSpec = (name: PropName, frames: number, paint: (g: G2D, frame: number) => void): ItemSpec => ({
+  ...PROP_ART[name],
+  frames,
+  draw: (g, s, frame) => {
+    g.save()
+    g.scale(s / WARD_U, s / WARD_U)
+    g.lineJoin = g.lineCap = 'round'
+    g.lineWidth = 4 * WARD_REF_INK
+    g.strokeStyle = OUT
+    g.globalAlpha = 1
+    paint(g, frame)
+    g.restore()
+  }
+})
+
+/** The six ward sheets (`artIds.PROP_ART.ward*`, `artSheet.PROP_SHEETS`). */
+export const WARD_ART = {
+  /** About the shell's middle; the game turns the whole sheet. */
+  wind: wardSpec('wardWind', 1, (g) => {
+    g.beginPath()
+    windWard(g, 0, 0, 0)
+    g.fillStyle = RUNES[1]![0]
+    g.fill()
+    g.stroke()
+  }),
+  /** About the caster's hooves, facing +x; three stances of the facet. */
+  ice: wardSpec('wardIce', 3, (g, frame) => {
+    g.beginPath()
+    icePillar(g, 0, 0, 1, ICE_ROCK[frame] ?? 0)
+    g.fillStyle = RUNES[2]![0]
+    g.fill()
+    g.stroke()
+  }),
+  /** About the caster's hooves, facing +x. */
+  rock: wardSpec('wardRock', 1, (g) => {
+    g.beginPath()
+    rockStack(g, 0, 0, 1)
+    g.fillStyle = RUNES[3]![0]
+    g.fill()
+    g.stroke()
+  }),
+  /** About the bubble's middle, at its resting radius; the game swells it. */
+  bubble: wardSpec('wardBubble', 1, (g) => {
+    const ring = (): void => {
+      g.beginPath()
+      g.arc(0, 0, BUBBLE_R, 0, TAU)
+    }
+    rimBand(g, ring, RUNES[5]![0], 9)
+    ring()
+    g.stroke()
+    bubbleGlint(g, 0, 0, BUBBLE_R)
+  }),
+  /** About the ward's own foot (80 in front of the caster), facing +x. */
+  crystal: wardSpec('wardCrystal', 1, (g) => crystalPrisms(g, 0, 0, 1, 1, WARD_REF_INK)),
+  /** About the caster's hooves. */
+  frost: wardSpec('wardFrost', 1, (g) => {
+    const shell = (): void => frostDomePath(g, 0, WARD_Y, 0)
+    rimBand(g, shell, '#bfe9ff', 10)
+    shell()
+    g.stroke()
+    g.lineWidth = 2.5
+    g.strokeStyle = '#ffffff'
+    frostFerns(g, 0, WARD_Y)
+  })
+} as const
+
+/**
+ * Blit a ward's painting about (`x`, `y`), mirrored when `f` < 0, at `alpha`.
+ * A fractional `frame` blends its two panels OPAQUELY — the lower one solid,
+ * the upper one over it at the fraction — where `drawItem`'s own cross-fade
+ * dips both, which a ward swaying for seconds would show as a pulse of
+ * see-through. False when there is no painting (draw the vectors).
+ */
+const blitWard = (g: G2D, spec: ItemSpec, x: number, y: number, f: number, frame: number, alpha: number): boolean => {
+  g.save()
+  g.translate(x, y)
+  if (f < 0) g.scale(-1, 1)
+  g.globalAlpha = alpha
+  const f0 = Math.floor(frame)
+  const hit = drawItem(g, spec, WARD_U, f0)
+  const u = frame - f0
+  if (hit && u > 0.02 && f0 + 1 < spec.frames) {
+    g.globalAlpha = alpha * u
+    drawItem(g, spec, WARD_U, f0 + 1)
+  }
+  g.restore()
+  return hit
+}
+
 /**
  * Shields (GDD 4) — three flavours, three silhouettes, one code path:
  *   WIND  a translucent shimmering air sphere with crescents turning inside
  *   ICE   one solid faceted crystal pillar planted in front of the caster
  *   EARTH a stack of crumbled rock blocks
+ * — and three of their own below: the bubble ward, Crystal Ward, the frost
+ * dome. Each is its painting when that has landed (`WARD_ART`).
  */
 const drawBar = (g: G2D, i: number): void => {
   const tt = BR[i]!
@@ -915,25 +1169,23 @@ const drawBar = (g: G2D, i: number): void => {
     drawFrostDome(g, x, y)
     return
   }
-  g.beginPath()
-  if (r === 2) {
-    // Body + a second, narrower spindle: the INK LINE where they overlap is the
-    // flat facet, so the pillar reads as cut crystal. Rocking the inner spindle
-    // SLIDES the facet across the face — a held shield has to be alive.
-    shp(g, K_SHARD, x + f * 76, GY - 86, 98, -PI / 2)
-    shp(g, K_SHARD, x + f * 92, GY - 92, 64, sin(T * 3) / 15 - PI / 2)
-  } else if (r === 3) {
-    for (let k = 6; k--;) shp(g, K_ROCK, x + f * (48 + (k & 1) * 40), GY - 26 - (k >> 1) * 46, 28, k * 2)
-  } else {
-    // Outer circle clockwise, inner circle ANTIclockwise: the fill is a hollow
-    // shell, so the sphere shimmers around the caster without hiding them.
-    g.arc(x, y, 60, 0, TAU)
-    g.arc(x, y, 44, 0, TAU, true)
-    for (let k = 4; k--;) {
-      const a = k * 1.571 + T * 1.6
-      shp(g, K_SWOOSH, x + cos(a) * 30, y + sin(a) * 27, 23, a + 1.9)
-    }
+  // The painted ward. The wind shell turns as one piece — its crescents'
+  // orbit is a rotation — and the pillar's facet sways between its panels.
+  if (r === 2 && blitWard(g, WARD_ART.ice, x, GY, f, 1 + sin(T * 3), 1)) return
+  if (r === 3 && blitWard(g, WARD_ART.rock, x, GY, f, 0, 1)) return
+  if (r === 1) {
+    g.save()
+    g.translate(x, y)
+    g.rotate(T * 1.6)
+    g.globalAlpha = WIND_ALPHA
+    const hit = drawItem(g, WARD_ART.wind, WARD_U)
+    g.restore()
+    if (hit) return
   }
+  g.beginPath()
+  if (r === 2) icePillar(g, x, GY, f, sin(T * 3) / 15)
+  else if (r === 3) rockStack(g, x, GY, f)
+  else windWard(g, x, y, T * 1.6)
   // Translucent fill, SOLID outline: air you can see through, drawn in ink.
   g.globalAlpha = r === 1 ? 0.6 : 1
   g.fillStyle = PAL[r]!
@@ -946,16 +1198,24 @@ const drawBar = (g: G2D, i: number): void => {
  * WATER's bubble ward (§6.3): a big soap bubble around the caster — a thin
  * sea-blue skin with a rainbow sheen, a catch-light, and a few little bubbles
  * rising inside. After its first hit it carries a crack, so the player can
- * see it has one hit left.
+ * see it has one hit left. Painted, the skin's rim and the catch-light are
+ * the painting (swelling with the wobble); the see-through wash, the turning
+ * sheen, the rising bubbles and the crack stay drawn.
  */
 const drawBubble = (g: G2D, x: number, y: number, cracked: boolean): void => {
-  const R = 66 + sin(T * 3.2) * 2
+  const R = BUBBLE_R + sin(T * 3.2) * 2
   g.save()
   g.globalAlpha = 0.22
   g.beginPath()
   g.arc(x, y, R, 0, TAU)
   g.fillStyle = PAL[5]!
   g.fill()
+  g.globalAlpha = 1
+  g.save()
+  g.translate(x, y)
+  g.scale(R / BUBBLE_R, R / BUBBLE_R)
+  const painted = drawItem(g, WARD_ART.bubble, WARD_U)
+  g.restore()
   g.globalAlpha = 0.5
   g.lineWidth = 7
   g.strokeStyle = PAL[C_HI + 5]!
@@ -963,23 +1223,24 @@ const drawBubble = (g: G2D, x: number, y: number, cracked: boolean): void => {
   g.arc(x, y, R - 5, PI * 0.1 + T * 0.4, PI * 0.9 + T * 0.4)
   g.stroke()
   g.globalAlpha = 1
-  g.lineWidth = 4
-  g.strokeStyle = OUT
-  g.beginPath()
-  g.arc(x, y, R, 0, TAU)
-  g.stroke()
-  // The catch-light.
-  g.fillStyle = '#ffffff'
-  g.globalAlpha = 0.85
-  g.beginPath()
-  g.ellipse(x - R * 0.42, y - R * 0.45, R * 0.16, R * 0.09, -0.7, 0, TAU)
-  g.fill()
-  // Little bubbles rising inside.
+  if (!painted) {
+    g.lineWidth = 4
+    g.strokeStyle = OUT
+    g.beginPath()
+    g.arc(x, y, R, 0, TAU)
+    g.stroke()
+    // The catch-light.
+    g.globalAlpha = 0.85
+    bubbleGlint(g, x, y, R)
+  }
+  // Little bubbles rising inside — the painted soap bubble (`prop-bubble`)
+  // once it has landed, in the sheen's own colour.
   g.globalAlpha = 0.7
   for (let k = 0; k < 3; k++) {
     const u = (T * 0.45 + k / 3) % 1
     const bx = x + sin(T * 2 + k * 2.1) * R * 0.35
     const by = y + R * 0.6 - u * R * 1.2
+    if (bubbleAt(g, bx, by, 5 + k * 1.5, PAL[C_HI + 5]!)) continue
     g.beginPath()
     g.arc(bx, by, 4 + k * 1.5, 0, TAU)
     g.lineWidth = 2
@@ -1005,37 +1266,14 @@ const drawBubble = (g: G2D, x: number, y: number, cracked: boolean): void => {
 /**
  * Crystal Ward (§6.5): a standing wall of amethyst prisms in front of the
  * caster. A light band slides across the facets and a rainbow edge glints —
- * the one barrier that throws things BACK has to look like a mirror.
+ * the one barrier that throws things BACK has to look like a mirror. The
+ * prisms are the painting once it has landed; the band and the glints are
+ * light, and stay drawn over it.
  */
 const drawCrystalWard = (g: G2D, x: number, f: number): void => {
   g.save()
   g.lineJoin = 'round'
-  // Three prisms: tall centre, two shoulders, leaning outward a little.
-  const P3: readonly (readonly [number, number, number])[] = [[-22, 70, -0.12], [0, 104, 0], [22, 78, 0.12]]
-  for (const [dx, h, lean] of P3) {
-    const cx = x + dx * f
-    const w = 20
-    g.beginPath()
-    g.moveTo(cx - w, GY - 10)
-    g.lineTo(cx - w + lean * 40 * f, GY - h + 18)
-    g.lineTo(cx + lean * 40 * f, GY - h)
-    g.lineTo(cx + w + lean * 40 * f, GY - h + 18)
-    g.lineTo(cx + w, GY - 10)
-    g.closePath()
-    g.globalAlpha = 0.72
-    g.fillStyle = '#c9a2ff'
-    g.fill()
-    g.globalAlpha = 1
-    g.lineWidth = 4
-    g.strokeStyle = OUT
-    g.stroke()
-    // The facet line down the middle.
-    g.beginPath()
-    g.moveTo(cx + lean * 40 * f, GY - h + 4)
-    g.lineTo(cx, GY - 12)
-    g.lineWidth = 2.5
-    g.stroke()
-  }
+  if (!blitWard(g, WARD_ART.crystal, x, GY, f, 0, CRYSTAL_ALPHA)) crystalPrisms(g, x, GY, f, 0.72, 1)
   // A light band sweeping across the facets.
   const u = (T * 0.8) % 1
   g.globalAlpha = 0.55 * sin(u * PI)
@@ -1054,7 +1292,7 @@ const drawCrystalWard = (g: G2D, x: number, f: number): void => {
     const a = T * 3 + k * 2.1
     g.fillStyle = PAL[C_RB + ((k * 3 + ((T * 4) | 0)) & 7)]!
     g.beginPath()
-    g.arc(x + (k - 1) * 22 * f, GY - [70, 104, 78][k]! - 4 + sin(a) * 2, 4, 0, TAU)
+    g.arc(x + (k - 1) * 22 * f, GY - PRISMS[k]![1] - 4 + sin(a) * 2, 4, 0, TAU)
     g.fill()
   }
   g.restore()
@@ -1063,36 +1301,26 @@ const drawCrystalWard = (g: G2D, x: number, f: number): void => {
 /**
  * Frost Lock's wall (§6.5): an earth-strength dome of frost over the caster —
  * a pale ice shell with frost ferns and a slow glitter. Stops everything.
+ * Painted, the shell's rim and its ferns are the painting; the see-through
+ * wash under it and the glitter over it stay drawn.
  */
 const drawFrostDome = (g: G2D, x: number, y: number): void => {
   const R = 74
   g.save()
-  g.beginPath()
-  g.arc(x, y + 8, R, PI, 0)
-  g.lineTo(x + R, GY - 4)
-  g.lineTo(x - R, GY - 4)
-  g.closePath()
+  frostDomePath(g, x, y, GY)
   g.globalAlpha = 0.34
   g.fillStyle = '#bfe9ff'
   g.fill()
   g.globalAlpha = 1
-  g.lineWidth = 4
-  g.strokeStyle = OUT
-  g.stroke()
-  // Frost ferns climbing the shell.
-  g.lineWidth = 2.5
-  g.strokeStyle = '#ffffff'
-  g.globalAlpha = 0.8
-  for (let k = 0; k < 4; k++) {
-    const a = PI + (k + 0.5) * (PI / 4)
-    const px = x + cos(a) * R * 0.92
-    const py = y + 8 + sin(a) * R * 0.92
-    g.beginPath()
-    g.moveTo(px, py)
-    g.lineTo(px + (x - px) * 0.3, py + (y - py) * 0.3 + 10)
-    g.moveTo(px + (x - px) * 0.15, py + (y - py) * 0.15 + 5)
-    g.lineTo(px + (x - px) * 0.15 + 9, py + (y - py) * 0.15 - 4)
+  if (!blitWard(g, WARD_ART.frost, x, y - WARD_Y, 1, 0, 1)) {
+    g.lineWidth = 4
+    g.strokeStyle = OUT
     g.stroke()
+    // Frost ferns climbing the shell.
+    g.lineWidth = 2.5
+    g.strokeStyle = '#ffffff'
+    g.globalAlpha = 0.8
+    frostFerns(g, x, y)
   }
   // Glitter.
   for (let k = 0; k < 5; k++) {

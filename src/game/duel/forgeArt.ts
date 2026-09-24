@@ -31,7 +31,7 @@ import { TAU } from '@/game/duel/util'
 type G2D = CanvasRenderingContext2D
 
 /** The plum every spell body is inked in (`render.drawBody`). */
-const INK = '#1a1030'
+const INK = '#3A2340'
 /** Reused: the orb's place this frame, and a place it passed (its wake). */
 const ORB = { x: 0, y: 0, r: 0 }
 const WAKE = { x: 0, y: 0, r: 0 }

@@ -13,6 +13,8 @@
 import { TAU, PI, sin, cos, clamp, ease } from '@/game/duel/util'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { ITEM_ART } from '@/game/artIds'
+import { spriteFor } from '@/game/art'
+import { TWINKLE_ART } from '@/game/map/kit'
 
 type G2D = CanvasRenderingContext2D
 
@@ -57,7 +59,7 @@ const loop = (g: G2D, dir: number, s: number, lift: number, droop: number): void
  */
 const openFrame = (u: number): number => clamp((u - 0.3) / 0.4, 0, 1)
 
-/** The Standard Gift, base at the origin, `s` tall. */
+/** The Standard Gift, base at (x, y), `s` tall. */
 export const drawGift = (g: G2D, x: number, y: number, s: number, p: GiftPose): void => {
   const RB = p.ribbon ?? RIBBON
   g.save()
@@ -414,12 +416,20 @@ export const drawSponge = (
   g.scale(1 + sq * 0.8, 1 - sq)
   if (!drawItem(g, SPONGE_ART, s)) spongeShape(g, s)
   g.restore()
-  // A little four-point star twinkling at the corner — live, painted or not.
+  // A little four-point star twinkling at the corner. Its twinkle — the
+  // pulse and the turn — is live either way; the STAR is the sectors'
+  // painted twinkle (`prop-twinkle`, tinted), the same one every `twinkles`
+  // on the map draws, so a painted sponge does not carry an inked vector
+  // star on its corner.
   const k = 0.75 + 0.25 * sin(t * 9)
   const r = s * 0.1 * k
   g.save()
   g.translate(x + cos(angle) * s * 0.42, y - s * 0.3)
   g.rotate(t * 1.5)
+  if (drawItem(g, TWINKLE_ART, r, 0, SPONGE_TWINKLE)) {
+    g.restore()
+    return
+  }
   g.beginPath()
   for (let i = 0; i < 8; i++) {
     const a = (i * PI) / 4
@@ -428,11 +438,14 @@ export const drawSponge = (
     else g.moveTo(rr, 0)
   }
   g.closePath()
-  g.fillStyle = '#fff6b0'
+  g.fillStyle = SPONGE_TWINKLE
   g.fill()
   line(g, lw * 0.8)
   g.restore()
 }
+
+/** The sponge's corner star — and the tool chip's (`WipeScene.vue`). */
+export const SPONGE_TWINKLE = '#fff6b0'
 
 /** The sponge's drawing, centred at the origin, `s` across its long side. */
 const spongeShape = (g: G2D, s: number): void => {
@@ -507,18 +520,40 @@ const spongeShape = (g: G2D, s: number): void => {
 export const SPONGE_ART: ItemSpec = { ...ITEM_ART.sponge, frames: 1, draw: (g, s) => spongeShape(g, s) }
 
 /**
- * The Twin Gift (§8.2): a SQUARE box in lilac, a gold ribbon cross and bow,
- * and a little film-strip glyph on its front — the same in every locale, no
- * text. Visibly not the round tool parcel, so it never reads as "a tool".
- * `loose` (0..1) opens the bow as the player holds it. Base at the origin,
- * `s` tall.
+ * The Twin Gift (§8.2): a SQUARE box in lilac with a gold ribbon cross and
+ * bow — visibly not the round tool parcel, so it never reads as "a tool".
+ * `loose` (0..1) opens the bow as the player holds it. Base at (x, y), `s`
+ * tall.
+ *
+ * NO FILM STRIP ON ITS FRONT any more (paint-outstanding B15). It used to
+ * carry one as its "this plays a video" mark, and the map has since put the
+ * rewarded buttons' movie camera beside it (`MapScene.vue`, the `ad-mark`) —
+ * two different video marks on one gift. The camera is the one every other
+ * rewarded button wears, and it shows only where a video actually plays; the
+ * strip claimed one everywhere.
+ *
+ * Painted (P8) as a 2-panel strip like the Standard Gift: tied, and the bow
+ * at its loosest. The hold loosens it in steps (`twinGift.ts`), each a held
+ * pose — 0, ¼, ½ and ¾ loose, and at the fourth step it bursts — so panel 1
+ * is 0, panel 2 is ¾, and `twinFrame` cross-fades ¼ and ½ between them.
  */
 export const drawTwinGift = (g: G2D, x: number, y: number, s: number, loose: number): void => {
+  g.save()
+  g.translate(x, y)
+  if (!drawItem(g, TWIN_GIFT_ART, s, twinFrame(loose))) twinGiftShape(g, s, loose)
+  g.restore()
+}
+
+/** The bow's loosest pose the gift is ever SEEN in — the hold's third step
+ *  (¾); at the fourth it bursts. The strip's second panel is drawn there. */
+const TWIN_LOOSEST = 0.75
+const twinFrame = (loose: number): number => clamp(loose / TWIN_LOOSEST, 0, 1)
+
+/** The Twin Gift's drawing, base at the origin: box, ribbon cross, bow. */
+const twinGiftShape = (g: G2D, s: number, loose: number): void => {
   const lw = Math.max(1.5, s * 0.04)
   const w = s * 0.86
   const h = s * 0.7
-  g.save()
-  g.translate(x, y)
   // The box.
   g.beginPath()
   g.roundRect(-w / 2, -h, w, h, s * 0.07)
@@ -540,27 +575,6 @@ export const drawTwinGift = (g: G2D, x: number, y: number, s: number, loose: num
   g.fillStyle = '#ffd36b'
   g.fill()
   g.restore()
-  // The film strip, on the lower-left panel: sprockets and a play arrow.
-  const fx = -w * 0.36
-  const fy = -h * 0.36
-  const fw = w * 0.24
-  const fh = h * 0.28
-  g.beginPath()
-  g.roundRect(fx, fy, fw, fh, s * 0.02)
-  g.fillStyle = '#3A2340'
-  g.fill()
-  g.fillStyle = '#fff4fb'
-  for (let i = 0; i < 3; i++) {
-    const hx = fx + fw * (0.16 + i * 0.28)
-    g.fillRect(hx, fy + fh * 0.08, fw * 0.14, fh * 0.14)
-    g.fillRect(hx, fy + fh * 0.78, fw * 0.14, fh * 0.14)
-  }
-  g.beginPath()
-  g.moveTo(fx + fw * 0.38, fy + fh * 0.32)
-  g.lineTo(fx + fw * 0.68, fy + fh * 0.5)
-  g.lineTo(fx + fw * 0.38, fy + fh * 0.68)
-  g.closePath()
-  g.fill()
   // The bow: the loops lift and spread as it loosens, the tails droop.
   g.save()
   g.translate(0, -h)
@@ -580,7 +594,12 @@ export const drawTwinGift = (g: G2D, x: number, y: number, s: number, loose: num
   g.fill()
   line(g, lw)
   g.restore()
-  g.restore()
+}
+
+/** The Twin Gift as a painted strip: tied, then the bow at its loosest. */
+export const TWIN_GIFT_ART: ItemSpec = {
+  ...ITEM_ART.twinGift, frames: 2,
+  draw: (g, s, f) => twinGiftShape(g, s, f * TWIN_LOOSEST)
 }
 
 /**
@@ -588,13 +607,56 @@ export const drawTwinGift = (g: G2D, x: number, y: number, s: number, loose: num
  * origin — the beam leaves from it — with the wand trailing down-left.
  * `charge` is 0 while it gathers light after a shot and 1 when it is ready;
  * `swell` (0..1) is the slingshot's pull, and the sun grows with it.
+ *
+ * PAINTED AS TWO STILLS, with everything that MOVES kept the drawing's
+ * (paint-outstanding P6; art-roadmap §4b's "paint the shape, keep what moves
+ * it" — story-spec §8.20's old "continuous state" reason predates that rule):
+ *   • `SUNBEAM_ART` — the wand with the sun on its tip, at rest. The pull and
+ *     the charge grow the sun; the painting is grown with it, about the sun,
+ *     and the wand grows along — a whole tool swelling as it is drawn back.
+ *   • `SUNBEAM_RAYS_ART` — the ring of eight rays, round an EMPTY middle the
+ *     sun covers. Their turn is a rotation and their lengthening (with the
+ *     charge, and the pulse) a scale about the sun: at every length the game
+ *     draws, the rays' inner ends stay under the disc (≤ 0.96 of its radius).
+ *   • The HALO stays drawn: a wash with no edge, brightening with the charge.
+ * The one thing the painting drops is the sun's slightly deeper gold while it
+ * recharges — the smaller sun already says "not yet".
+ *
+ * Order, painted: halo, rays, then wand-and-sun — so the painted wand lies
+ * over the rays where the drawn one lay under them. A wand in front of its
+ * own sun's rays reads as holding it.
  */
 export const drawSunbeam = (g: G2D, x: number, y: number, s: number, t: number, charge = 1, swell = 0): void => {
   const lw = Math.max(1.5, s * 0.035)
-  const r = s * 0.2 * (1 + swell * 0.25) * (0.8 + 0.2 * charge)
+  const r = s * SUN_R * (1 + swell * 0.25) * (0.8 + 0.2 * charge)
+  const ray = r * (1.25 + 0.35 * charge + 0.1 * sin(t * 6))
+  const painted = !!spriteFor(SUNBEAM_ART.kind, SUNBEAM_ART.id)
   g.save()
   g.translate(x, y)
-  // The wand.
+  if (!painted) wandShape(g, s, r, lw)
+  // A soft halo that brightens as the light gathers.
+  const halo = g.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2.4)
+  halo.addColorStop(0, `rgba(255, 244, 190, ${0.55 * charge})`)
+  halo.addColorStop(1, 'rgba(255, 244, 190, 0)')
+  g.fillStyle = halo
+  g.fillRect(-r * 2.4, -r * 2.4, r * 4.8, r * 4.8)
+  // Eight rays, turning slowly; they lengthen as it charges.
+  g.save()
+  g.rotate(t * 0.8)
+  if (!drawItem(g, SUNBEAM_RAYS_ART, ray / (SUN_R * RAY_REST))) raysShape(g, r, ray, lw)
+  g.restore()
+  // The sun itself (and, painted, the wand it sits on).
+  if (!painted || !drawItem(g, SUNBEAM_ART, r / SUN_R)) sunShape(g, r, charge, lw)
+  g.restore()
+}
+
+/** The sun's radius at rest (charged, no pull), in units of `s`. */
+const SUN_R = 0.2
+/** The rays' tips at rest (charged, mid-pulse), in units of the sun's radius. */
+const RAY_REST = 1.6
+
+/** The wand, from under a sun of radius `r` down-left, `s` the tool's size. */
+const wandShape = (g: G2D, s: number, r: number, lw: number): void => {
   g.save()
   g.rotate(PI * 0.75)
   g.beginPath()
@@ -608,17 +670,11 @@ export const drawSunbeam = (g: G2D, x: number, y: number, s: number, t: number, 
   g.fill()
   line(g, lw * 0.8)
   g.restore()
-  // A soft halo that brightens as the light gathers.
-  const halo = g.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2.4)
-  halo.addColorStop(0, `rgba(255, 244, 190, ${0.55 * charge})`)
-  halo.addColorStop(1, 'rgba(255, 244, 190, 0)')
-  g.fillStyle = halo
-  g.fillRect(-r * 2.4, -r * 2.4, r * 4.8, r * 4.8)
-  // Eight rays, turning slowly; they lengthen as it charges.
-  g.save()
-  g.rotate(t * 0.8)
+}
+
+/** Eight rays round a sun of radius `r`, their tips at `ray`. */
+const raysShape = (g: G2D, r: number, ray: number, lw: number): void => {
   g.beginPath()
-  const ray = r * (1.25 + 0.35 * charge + 0.1 * sin(t * 6))
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * TAU
     const w = PI / 11
@@ -629,8 +685,10 @@ export const drawSunbeam = (g: G2D, x: number, y: number, s: number, t: number, 
   g.fillStyle = '#ffb63b'
   g.fill()
   line(g, lw * 0.8)
-  g.restore()
-  // The sun itself.
+}
+
+/** The sun's disc and its highlight, radius `r`. */
+const sunShape = (g: G2D, r: number, charge: number, lw: number): void => {
   g.beginPath()
   g.arc(0, 0, r, 0, TAU)
   g.fillStyle = charge >= 1 ? '#ffe45c' : '#f7c94a'
@@ -640,20 +698,42 @@ export const drawSunbeam = (g: G2D, x: number, y: number, s: number, t: number, 
   g.arc(-r * 0.3, -r * 0.32, r * 0.3, 0, TAU)
   g.fillStyle = 'rgba(255, 255, 255, 0.75)'
   g.fill()
-  g.restore()
+}
+
+/** The Sunbeam as a painted still: the wand and its sun, charged, at rest.
+ *  Its rays are a sheet of their own (they turn); its halo stays drawn. */
+export const SUNBEAM_ART: ItemSpec = {
+  ...ITEM_ART.sunbeam, frames: 1,
+  draw: (g, s) => {
+    const lw = Math.max(1.5, s * 0.035)
+    wandShape(g, s, s * SUN_R, lw)
+    sunShape(g, s * SUN_R, 1, lw)
+  }
+}
+
+/** The Sunbeam's eight rays as a painted still, round an empty middle. */
+export const SUNBEAM_RAYS_ART: ItemSpec = {
+  ...ITEM_ART.sunbeamRays, frames: 1,
+  draw: (g, s) => raysShape(g, s * SUN_R, s * SUN_R * RAY_REST, Math.max(1.5, s * 0.035))
 }
 
 let arenaGiftOn = false
-let arenaRibbon: { ribbon: string; ribbonShade: string } | null = null
+let arenaRibbon: { ribbon: string; ribbonShade: string; gem?: string } | null = null
 let arenaBox = false
+let arenaChest = false
 /** Show (or clear) the gift in the arena. The duel's renderer asks
  *  `arenaGiftShown()` each frame; the scene sets it on a win that earned one,
- *  wrapped in that chapter's ribbon (§8.2) — and square when it holds the
- *  Magic Eraser. */
-export const setArenaGift = (on: boolean, ribbon?: { ribbon: string; ribbonShade: string }, box = false): void => {
+ *  wrapped in that chapter's ribbon (§8.2) — square when it holds the Magic
+ *  Eraser, and the BOSS CHEST on a boss (paint-outstanding B7): the map card
+ *  and the cleaning both show the chest for a boss, so a parcel dropping onto
+ *  the island was a third, different gift for the same win. */
+export const setArenaGift = (
+  on: boolean, ribbon?: { ribbon: string; ribbonShade: string; gem?: string }, box = false, chest = false
+): void => {
   arenaGiftOn = on
   arenaRibbon = ribbon ?? null
   arenaBox = box
+  arenaChest = chest
 }
 export const arenaGiftShown = (): boolean => arenaGiftOn
 
@@ -689,6 +769,17 @@ export const drawArenaGift = (g: G2D, x: number, y: number, t: number): void => 
     g.fillStyle = gr
     g.fillRect(x - 110, y - 150, 220, 220)
     g.restore()
+  }
+  if (arenaChest) {
+    // The chest takes no squash of its own: the landing's is a transform.
+    g.save()
+    g.translate(x, yy)
+    g.scale(1 / Math.sqrt(squash), squash)
+    drawChest(g, 0, 0, 96, {
+      rot: u > FALL + 0.4 ? chestRattle(u) * 0.6 : 0, open: 0, gleam: 0.5 + 0.5 * sin(t * 4)
+    }, arenaRibbon?.gem)
+    g.restore()
+    return
   }
   ;(arenaBox ? drawBoxGift : drawGift)(g, x, yy, 96, { rot: u > FALL + 0.4 ? giftShake(u) * 0.6 : 0, untie: 0, squash, ribbon: arenaRibbon?.ribbon, ribbonShade: arenaRibbon?.ribbonShade })
 }

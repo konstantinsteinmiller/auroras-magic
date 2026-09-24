@@ -18,8 +18,8 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, ease } from '@/game/duel/util'
-import { type G2D, type Pot, INK, fill, ink, lumpy, moteAt } from '@/game/map/kit'
-import { tapCover } from '@/game/map/tapCover'
+import { type G2D, type Pot, INK, fill, ink, lumpy, moteAt, twinkleAt, twinklePainted } from '@/game/map/kit'
+import { tapCover, coverLayerLive } from '@/game/map/tapCover'
 import { type Pt, curve, samplesOf } from '@/game/map/kitBay'
 import { mix, zzz } from '@/game/map/kitSky'
 import type { TapCreature } from '@/game/map/sectorDef'
@@ -1127,8 +1127,9 @@ const CANOE_UNIT = 164 * CANOE_S
  * so a painting in neutral greys keeps its own waterline stripe and gunwale
  * when the lake's colour is multiplied through it — the crystal charm's trick.
  *
- * Its pole is a hairline with no body and stays drawn, and the lantern on the
- * pole's tip is the caves' own painted lantern, blitted here.
+ * Its pole is a painted still of its own (`CANOE_POLE_ART`, 2026-09-24), and
+ * the lantern on the pole's tip is the caves' own painted lantern, blitted
+ * here.
  */
 export const CANOE_ART: ItemSpec = {
   ...PROP_ART.canoe, frames: 1, tinted: true,
@@ -1140,7 +1141,9 @@ export const CANOE_ART: ItemSpec = {
   }
 }
 
-export const canoe = (g: G2D, x: number, y: number, s: number, hull: Tones): void => {
+/** The lantern pole's crook, from its foot in the hull up and over to the
+ *  hook the lantern hangs from — about the canoe's own origin (x, y). */
+const canoePoleShape = (g: G2D, x: number, y: number, s: number): void => {
   const S = (v: number): number => v * s
   g.beginPath()
   g.moveTo(x + S(30), y - S(12))
@@ -1152,6 +1155,35 @@ export const canoe = (g: G2D, x: number, y: number, s: number, hull: Tones): voi
   g.lineWidth = 4.5
   g.strokeStyle = CAVE.wood
   g.stroke()
+}
+
+/** The pole's height at the lake's own scale — `drawItem`'s scale. */
+const POLE_UNIT = 96 * CANOE_S
+
+/**
+ * 4-2's canoe POLE as a painted still — the bent wooden crook the lantern
+ * hangs from. The hull's comment used to call it "a hairline with no body";
+ * it is a 10-unit stroke round a 4.5-unit wooden core, laid raw (it never
+ * went through `INK_SCALE`, so it inked heavier than the kit round it). One
+ * constant shape carried by the canoe's bob: a still.
+ */
+export const CANOE_POLE_ART: ItemSpec = {
+  ...PROP_ART.canoePole, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / POLE_UNIT, s / POLE_UNIT)
+    canoePoleShape(g, 0, 0, CANOE_S)
+    g.restore()
+  }
+}
+
+export const canoe = (g: G2D, x: number, y: number, s: number, hull: Tones): void => {
+  const S = (v: number): number => v * s
+  g.save()
+  g.translate(x, y)
+  const poled = drawItem(g, CANOE_POLE_ART, 96 * s)
+  g.restore()
+  if (!poled) canoePoleShape(g, x, y, s)
   g.save()
   g.translate(x + S(62), y - S(98))
   if (!drawItem(g, CAVE_LANTERN_ART, 34 * s * 0.85)) lantern(g, 0, 0, s * 0.85)
@@ -1829,18 +1861,19 @@ export const facetLight = (g: G2D, c: CrystalGeom, a: number, t: number): void =
   const [x, y, , h, ang] = c
   const [cx, cy] = at(x, y, ang, 0, -h * 0.55)
   glow(g, cx, cy, h * 0.95, a, '#fff6c8')
-  g.globalAlpha = a * 0.92
-  facetPath(g, c)
-  fill(g, '#fffbe6')
+  // The lit FACET is a vector copy of a crystal face — the painted sector
+  // already has the crystal, so over a painting only its light is laid on it
+  // (B14): the glow above and the twinkle below.
+  if (!coverLayerLive()) {
+    g.globalAlpha = a * 0.92
+    facetPath(g, c)
+    fill(g, '#fffbe6')
+  }
   g.globalAlpha = a
   const [tx, ty] = at(x, y, ang, 0, -h)
   const r = 15 * (0.75 + 0.25 * sin(t * 9))
   g.beginPath()
-  g.moveTo(tx, ty - r)
-  g.quadraticCurveTo(tx + r * 0.16, ty - r * 0.16, tx + r, ty)
-  g.quadraticCurveTo(tx + r * 0.16, ty + r * 0.16, tx, ty + r)
-  g.quadraticCurveTo(tx - r * 0.16, ty + r * 0.16, tx - r, ty)
-  g.quadraticCurveTo(tx - r * 0.16, ty - r * 0.16, tx, ty - r)
+  twinkleAt(g, tx, ty, r, '#ffffff')
   fill(g, '#ffffff')
   g.globalAlpha = 1
 }
@@ -1885,9 +1918,11 @@ const CLEAR_SHARD_UNIT = 128
 
 /**
  * The Shard of Clear Light, asleep and awake (`CREATURE_ART.clearShard`). The
- * rainbow it throws across the floor, its halo, the sleep-zzz and the sparks
- * are washes and particles and stay drawn; the ROCK it nests in belongs to
- * the sector. What is painted is the crystal and the little face on it.
+ * rainbow it throws across the floor and its halo are light and stay drawn;
+ * the sleep-Z and the sparks are the shared `prop-sleep-z` and
+ * `prop-twinkle`, and the ROCK it nests in is `prop-rock-nest` (the sector
+ * never drew it — 2026-09-24). What is painted here is the crystal and the
+ * little face on it.
  */
 export const CLEAR_SHARD_ART: ItemSpec = {
   ...CREATURE_ART.clearShard, frames: 2,
@@ -1958,6 +1993,66 @@ const clearShardShape = (g: G2D, s: number, W: number, H: number, e: number, k: 
   g.globalAlpha = 1
 }
 
+/* ── the Shard's rock nest (4-3) ────────────────────────────────────── */
+
+/** The nest's back: the dark top of the hollow the shard sits in. */
+const rockNestBack = (g: G2D, x: number, y: number, S: (v: number) => number): void => {
+  g.beginPath()
+  g.ellipse(x, y - S(12), S(74), S(28), 0, PI, TAU)
+  fill(g, CAVE.rockShade)
+  ink(g, 4)
+}
+
+/** The path of the nest's front lip, wrapped round the shard's foot. */
+const rockNestLip = (g: G2D, x: number, y: number, S: (v: number) => number): void => {
+  g.beginPath()
+  g.moveTo(x - S(80), y)
+  g.bezierCurveTo(x - S(84), y - S(36), x - S(40), y - S(44), x - S(20), y - S(30))
+  g.quadraticCurveTo(x, y - S(22), x + S(20), y - S(30))
+  g.bezierCurveTo(x + S(40), y - S(44), x + S(84), y - S(36), x + S(80), y)
+  g.closePath()
+}
+
+/** The nest's front lip, filled, shaded and inked. */
+const rockNestFront = (g: G2D, x: number, y: number, S: (v: number) => number): void => {
+  rockNestLip(g, x, y, S)
+  fill(g, CAVE.rock)
+  g.save()
+  rockNestLip(g, x, y, S)
+  g.clip()
+  g.beginPath()
+  g.ellipse(x + S(40), y + S(4), S(56), S(22), 0, 0, TAU)
+  fill(g, CAVE.rockShade)
+  g.restore()
+  rockNestLip(g, x, y, S)
+  ink(g, 5)
+}
+
+/** The nest's width at scale 1, lip tip to lip tip. */
+const NEST_UNIT = 160
+
+/**
+ * 4-3's ROCK NEST as a painted still — the hollow the Shard of Clear Light
+ * sleeps curled in, and stands up out of. `CLEAR_SHARD_ART`'s note that the
+ * rock "belongs to the sector" was wrong: the sector never drew it, the rescue
+ * did, so it sat vector on the painted cave floor for the whole wipe and for
+ * good after it. Its back and its lip are one painting: the whole nest goes
+ * down behind the shard and the lip is blitted again in front of it, clipped
+ * to the lip's drawn outline.
+ */
+export const ROCK_NEST_ART: ItemSpec = {
+  ...PROP_ART.rockNest, frames: 1,
+  draw: (g, sz) => {
+    const k = sz / NEST_UNIT
+    const S = (v: number): number => v
+    g.save()
+    g.scale(k, k)
+    rockNestBack(g, 0, 0, S)
+    rockNestFront(g, 0, 0, S)
+    g.restore()
+  }
+}
+
 /**
  * The Shard of Clear Light, the chapter's rescue (§8.8 beat 3): a prism
  * shard nesting in a rock at (x, y). k = 0: curled down into the rock, dim
@@ -1988,11 +2083,17 @@ export const clearShard = (g: G2D, x: number, y: number, s: number, k: number, t
     g.globalAlpha = 1
     glow(g, cx, cy, S(120), e, '#f4fdff')
   }
-  // The rock nest's back.
-  g.beginPath()
-  g.ellipse(x, y - S(12), S(74), S(28), 0, PI, TAU)
-  fill(g, CAVE.rockShade)
-  ink(g, 4)
+  // The rock nest (`prop-rock-nest`): painted whole behind the shard, its lip
+  // blitted again in front of it below — or the drawing's back, here.
+  const nest = (): boolean => {
+    g.save()
+    g.translate(x, y)
+    const hit = drawItem(g, ROCK_NEST_ART, NEST_UNIT * s)
+    g.restore()
+    return hit
+  }
+  const nested = nest()
+  if (!nested) rockNestBack(g, x, y, S)
   // The shard. Its LEAN is a rotation, so the painting carries it: the shape
   // is painted upright and the drawing tips it back into the rock.
   g.save()
@@ -2001,25 +2102,13 @@ export const clearShard = (g: G2D, x: number, y: number, s: number, k: number, t
   if (!drawItem(g, CLEAR_SHARD_ART, H, k < 0.5 ? 0 : 1)) clearShardShape(g, s, W, H, e, k)
   g.restore()
   // The rock nest's front lip, wrapped round its foot.
-  const lip = (): void => {
-    g.beginPath()
-    g.moveTo(x - S(80), y)
-    g.bezierCurveTo(x - S(84), y - S(36), x - S(40), y - S(44), x - S(20), y - S(30))
-    g.quadraticCurveTo(x, y - S(22), x + S(20), y - S(30))
-    g.bezierCurveTo(x + S(40), y - S(44), x + S(84), y - S(36), x + S(80), y)
-    g.closePath()
-  }
-  lip()
-  fill(g, CAVE.rock)
-  g.save()
-  lip()
-  g.clip()
-  g.beginPath()
-  g.ellipse(x + S(40), y + S(4), S(56), S(22), 0, 0, TAU)
-  fill(g, CAVE.rockShade)
-  g.restore()
-  lip()
-  ink(g, 5)
+  if (nested) {
+    g.save()
+    rockNestLip(g, x, y, S)
+    g.clip()
+    nest()
+    g.restore()
+  } else rockNestFront(g, x, y, S)
   if (k < 0.34) zzz(g, x + S(46), y - S(92), t, 1 - k * 3)
   if (e > 0.2) {
     g.globalAlpha = e
@@ -2030,6 +2119,7 @@ export const clearShard = (g: G2D, x: number, y: number, s: number, k: number, t
       if (r < 1) continue
       const px = cx + cos(a) * S(74)
       const py = cy + sin(a) * S(58)
+      if (twinklePainted(g, px, py, r, '#ffffff')) continue
       g.moveTo(px, py - r)
       g.quadraticCurveTo(px, py, px + r, py)
       g.quadraticCurveTo(px, py, px, py + r)

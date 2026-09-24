@@ -20,6 +20,7 @@
  */
 import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
 import { spriteFor } from '@/game/art'
+import { STAR_ART } from '@/game/map/kitSky'
 import { TAU, PI } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
@@ -123,12 +124,17 @@ export const paintStarSticker = (g: G2D, r: number, earned: boolean): void => {
     halo.addColorStop(1, 'rgba(255, 246, 200, 0)')
     g.fillStyle = halo
     g.fillRect(-r * 2, -r * 2, r * 4, r * 4)
-    starPath(g, r)
-    g.fillStyle = '#ffd76a'
-    g.fill()
-    g.lineWidth = Math.max(1.5, r * 0.22)
-    g.strokeStyle = '#3A2340'
-    g.stroke()
+    // The earned star is the shared painted five-point star, tinted gold,
+    // once it has landed; the halo behind it is light and stays drawn. The
+    // hollow one below is a faint outline — a space, not a shape — and stays.
+    if (!drawItem(g, STAR_ART, r, 0, '#ffd76a')) {
+      starPath(g, r)
+      g.fillStyle = '#ffd76a'
+      g.fill()
+      g.lineWidth = Math.max(1.5, r * 0.22)
+      g.strokeStyle = '#3A2340'
+      g.stroke()
+    }
   } else {
     starPath(g, r)
     g.lineWidth = Math.max(1.2, r * 0.18)

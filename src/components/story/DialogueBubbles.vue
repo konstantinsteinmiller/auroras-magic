@@ -41,6 +41,9 @@ import { isGamePaused } from '@/use/useGamePause'
 import { track } from '@/use/useAnalytics'
 import Picto from '@/components/story/Picto.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import { CHROME_ART } from '@/game/artIds'
+import { LEAF_U, leafSlices } from '@/game/domArt'
+import { useArtImage } from '@/use/useArtImage'
 
 const props = defineProps<{ lines: readonly Bubble[]; node: number; skippable?: boolean; overArena?: boolean }>()
 const emit = defineEmits<{ done: [] }>()
@@ -73,6 +76,31 @@ const titled = computed(() => !props.overArena && nodePosInChapter(props.node) =
 const chapter = computed(() => nodeChapter(props.node))
 const chapterName = computed(() => t(`chapter.${CHAPTERS[chapter.value]?.slug ?? 'c1'}`))
 const stars = computed(() => chapter.value + 1)
+
+/**
+ * THE PAPER LEAF, PAINTED (paint-outstanding.md P14; `domArt.leafSlices`): with
+ * the art layer on and the painting decoded, the leaf's paper, edge and lift
+ * are one painting laid on as a 9-slice — the rounded corners at their own
+ * size, the sides and the middle stretched, the HP frames' way — on a layer of
+ * its own behind the words (`.leaf.painted::before`), so the layout and every
+ * child are exactly as they were. The drawn leaf otherwise.
+ */
+const leafSrc = useArtImage(CHROME_ART.leaf.kind, CHROME_ART.leaf.id)
+const LS = leafSlices()
+const leafArt = computed<Record<string, string> | undefined>(() => {
+  if (!leafSrc.value) return undefined
+  const pc = (v: number): string => `${(v * 100).toFixed(3)}%`
+  const u = (k: number): string => `calc(var(--leaf-u) * ${+k.toFixed(4)})`
+  return {
+    '--leaf-u': `${LEAF_U}px`,
+    '--leaf-art': `url("${leafSrc.value}")`,
+    '--leaf-slice': `${pc(LS.top)} ${pc(LS.side)} ${pc(LS.top)} ${pc(LS.side)} fill`,
+    '--leaf-band': u(LS.width),
+    '--leaf-out': u(LS.out)
+  }
+})
+/** The title page's gold stars, painted (P14) — asked for only on a title page. */
+const starSrc = useArtImage(CHROME_ART.star.kind, () => (titled.value ? CHROME_ART.star.id : ''))
 
 const i = ref(0)
 const dwell = ref(0)
@@ -193,14 +221,16 @@ onUnmounted(() => {
       //- too — so Vue took the title leaf and the first beat for ONE element
       //- and patched the one into the other, which threw ("reading 'el'")
       //- and left every chapter stuck on its title page.
-      div.leaf.title-leaf(v-if="title" key="title" role="status" aria-live="polite")
+      div.leaf.title-leaf(v-if="title" key="title" role="status" aria-live="polite" :class="{ painted: !!leafSrc }" :style="leafArt")
         h2.chapter-name.ink-text {{ chapterName }}
         div.stars(aria-hidden="true")
-          span.star(v-for="s in stars" :key="s") ★
+          span.star(v-for="s in stars" :key="s")
+            img.star-art(v-if="starSrc" :src="starSrc" alt="" draggable="false")
+            template(v-else) ★
         button.turn-cue(v-if="ready" type="button" :aria-label="t('continue')" @click.stop="advance")
           GameIcon.cue-glyph(name="play")
       //- A story beat: the words on the page, the speaker inset beside them.
-      div.leaf(v-else-if="line" :key="`beat-${i}`" :class="left ? 'from-left' : 'from-right'")
+      div.leaf(v-else-if="line" :key="`beat-${i}`" :class="[left ? 'from-left' : 'from-right', { painted: !!leafSrc }]" :style="leafArt")
         img.portrait(:src="portrait" alt="" draggable="false")
         div.words(role="status" aria-live="polite")
           div.pictos
@@ -291,6 +321,36 @@ onUnmounted(() => {
   &.from-right
     flex-direction: row-reverse
 
+// ── The leaf, painted (paint-outstanding.md P14) ────────────────────────────
+//
+// The drawn leaf's paper, border and lift step aside (the border keeps its
+// width, so nothing inside moves), and the painting is laid on BEHIND the
+// words as a 9-slice on a layer of its own: `border-image` with `fill`, the
+// slices and band widths from `domArt.leafSlices` (set inline, with the
+// painting). `isolation` keeps that layer inside the leaf, under its children.
+// The lift is a drop-shadow, so it follows the painted edge rather than a box.
+.leaf.painted
+  isolation: isolate
+  background: transparent
+  border-color: transparent
+  box-shadow: none
+  &::before
+    content: ''
+    position: absolute
+    // The border-box, grown by the air the painting carries round its edge.
+    inset: calc(-4px - var(--leaf-out))
+    z-index: -1
+    box-sizing: border-box
+    border-style: solid
+    border-color: transparent
+    border-width: var(--leaf-band)
+    border-image-source: var(--leaf-art)
+    border-image-slice: var(--leaf-slice)
+    border-image-width: var(--leaf-band)
+    border-image-repeat: stretch
+    filter: drop-shadow(0 8px 0 rgba(58, 35, 64, 0.32))
+    pointer-events: none
+
 .portrait
   flex: 0 0 auto
   width: clamp(78px, 15vmin, 132px)
@@ -347,6 +407,11 @@ onUnmounted(() => {
     // arena, and it is what makes the star read as an inked mark on paper.
     -webkit-text-stroke: 0.09em var(--am-ink)
     paint-order: stroke fill
+  // The painted star (P14) sits in the glyph's own em box.
+  .star-art
+    display: block
+    width: 1.05em
+    height: 1.05em
 
 // ── The continue cue ────────────────────────────────────────────────────────
 //

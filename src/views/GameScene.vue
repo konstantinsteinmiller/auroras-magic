@@ -27,7 +27,8 @@ import { useMute } from '@/use/useMute'
 import DuelHud from '@/components/duel/DuelHud.vue'
 import DuelResult from '@/components/duel/DuelResult.vue'
 import DialogueBubbles from '@/components/story/DialogueBubbles.vue'
-import GameIcon from '@/components/icons/GameIcon.vue'
+import ArtIcon from '@/components/icons/ArtIcon.vue'
+import { CHROME_ART } from '@/game/artIds'
 import { thanksLines, openingLines } from '@/game/story/story'
 import { useI18n } from 'vue-i18n'
 import { versusHud } from '@/use/useVersus'
@@ -104,7 +105,9 @@ const opening = computed(() => (openingHud.live && duelBeat.phase === 'fight' ? 
     //- a crown over whoever won, one line for both, never a lone spotlight.
     div.versus-end(v-if="versus && duelBeat.phase === 'versusEnd'" role="status")
       div.crown(:class="versusHud.winner ? 'right' : 'left'" aria-hidden="true")
-        GameIcon.glyph(name="trophy")
+        //- The cup is painted when the art layer is on (paint-outstanding.md
+        //- P14), the shared glyph otherwise.
+        ArtIcon.glyph(kind="worldUi" :id="CHROME_ART.trophy.id" fallback="trophy")
       p.story-text {{ t('versus.greatDuel') }}
     div.versus-turn(v-if="versus && !versusHud.wide")
       TurnSideways

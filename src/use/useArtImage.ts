@@ -22,7 +22,13 @@ export const useArtImage = (
   kind: ArtKind, id: MaybeRefOrGetter<string>
 ): Ref<string | null> => {
   const src = ref<string | null>(null)
-  const read = (): void => { src.value = spriteFor(kind, toValue(id))?.src ?? null }
+  // An EMPTY id asks for nothing: a component mounted long before its mark is
+  // ever shown (the ad-blocker card lives in App.vue) passes '' until then,
+  // rather than putting its painting on the wire beside the splash's.
+  const read = (): void => {
+    const at = toValue(id)
+    src.value = at ? spriteFor(kind, at)?.src ?? null : null
+  }
   read()
   watch(() => toValue(id), read)
   // Only this mark's own arrival, or a flag flip. Every HUD icon on screen used

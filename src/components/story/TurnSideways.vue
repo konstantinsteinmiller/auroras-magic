@@ -4,18 +4,38 @@
  * 900 CSS px, or held upright, this prompt shows instead of a squeezed
  * half-UI. A phone that turns itself sideways, and one short line.
  */
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { CHROME_ART } from '@/game/artIds'
+import { itemBox } from '@/game/artItem'
+import { PHONE_ART, PHONE_UNIT } from '@/game/domArt'
+import { useArtImage } from '@/use/useArtImage'
 
 const { t } = useI18n()
+
+/**
+ * The phone is PAINTED when the art layer is on (paint-outstanding.md P14,
+ * `domArt.PHONE_ART`): one still inside the same rotating group, seated by the
+ * box the slicer cut, so it turns exactly as the drawing does. The turn arrow
+ * stays drawn — a stroke in a motion accent, and the message itself.
+ */
+const painted = useArtImage(CHROME_ART.phone.kind, CHROME_ART.phone.id)
+const phoneBox = computed(() => {
+  if (!painted.value) return null
+  const b = itemBox(PHONE_ART)
+  return { x: b.x * PHONE_UNIT, y: b.y * PHONE_UNIT, w: b.w * PHONE_UNIT, h: b.h * PHONE_UNIT }
+})
 </script>
 
 <template lang="pug">
   div.turn(role="status")
     svg.phone(viewBox="-60 -60 120 120" aria-hidden="true")
       g.rot
-        rect.shell(x="-22" y="-38" width="44" height="76" rx="9" stroke-width="5")
-        rect.screen(x="-15" y="-28" width="30" height="50" rx="3")
-        circle.dot(cx="0" cy="30" r="3")
+        image(v-if="painted && phoneBox" :href="painted" :x="phoneBox.x" :y="phoneBox.y" :width="phoneBox.w" :height="phoneBox.h")
+        template(v-else)
+          rect.shell(x="-22" y="-38" width="44" height="76" rx="9" stroke-width="5")
+          rect.screen(x="-15" y="-28" width="30" height="50" rx="3")
+          circle.dot(cx="0" cy="30" r="3")
       path.arc(d="M 40 -34 A 52 52 0 0 1 48 20" fill="none" stroke-width="6" stroke-linecap="round")
       path.arc(d="M 40 16 L 48 24 L 54 13" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round")
     p.story-text {{ t('versus.turnSideways') }}

@@ -28,6 +28,13 @@ export interface CoverLayer {
   res: number
   /** Changes whenever `cv` is re-baked, so a stale stamp is never reused. */
   key: string
+  /**
+   * The sector point `cv`'s top-left corner shows, in SU — (0, 0) unless the
+   * layer is a WINDOW onto the sector rather than the whole of it (an album
+   * sticker bakes only the square it frames, `album/stickers.ts`).
+   */
+  ox?: number
+  oy?: number
 }
 
 /** A box in sector units. */
@@ -118,17 +125,19 @@ const boxOf = (cover: CoverFn): Box | null => {
 const stampOf = (src: CoverLayer, cover: CoverFn): Stamp | null => {
   const box = boxOf(cover)
   if (!box) return null
-  const key = `${src.key}@${src.res}`
+  const ox = src.ox ?? 0
+  const oy = src.oy ?? 0
+  const key = `${src.key}@${src.res}@${ox},${oy}`
   const hit = stamps.get(cover)
   if (hit && hit.key === key) return hit
   // Snap to whole source pixels, so the painting is copied 1 : 1 rather than
   // resampled — a resample would soften the cover's edge against the layer it
   // is standing in, which is the one seam this whole exercise is closing.
   const r = src.res
-  const x0 = Math.max(0, Math.floor(box.x * r))
-  const y0 = Math.max(0, Math.floor(box.y * r))
-  const x1 = Math.min(src.cv.width, Math.ceil((box.x + box.w) * r))
-  const y1 = Math.min(src.cv.height, Math.ceil((box.y + box.h) * r))
+  const x0 = Math.max(0, Math.floor((box.x - ox) * r))
+  const y0 = Math.max(0, Math.floor((box.y - oy) * r))
+  const x1 = Math.min(src.cv.width, Math.ceil((box.x + box.w - ox) * r))
+  const y1 = Math.min(src.cv.height, Math.ceil((box.y + box.h - oy) * r))
   if (x1 <= x0 || y1 <= y0) return null
   const pw = x1 - x0
   const ph = y1 - y0
@@ -139,16 +148,25 @@ const stampOf = (src: CoverLayer, cover: CoverFn): Stamp | null => {
   g.globalAlpha = 1
   g.globalCompositeOperation = 'source-over'
   g.clearRect(0, 0, pw, ph)
-  g.setTransform(r, 0, 0, r, -x0, -y0)
+  g.setTransform(r, 0, 0, r, -x0 - ox * r, -y0 - oy * r)
   cover(g)
   g.setTransform(1, 0, 0, 1, 0, 0)
   g.globalCompositeOperation = 'source-in'
   g.drawImage(src.cv, x0, y0, pw, ph, 0, 0, pw, ph)
   g.globalCompositeOperation = 'source-over'
-  const st: Stamp = { key, cv, x: x0 / r, y: y0 / r, w: pw / r, h: ph / r }
+  const st: Stamp = { key, cv, x: ox + x0 / r, y: oy + y0 / r, w: pw / r, h: ph / r }
   stamps.set(cover, st)
   return st
 }
+
+/**
+ * Is a PAINTED layer under what is being drawn right now? True only inside
+ * `withCoverLayer` with a layer — i.e. while a tap creature or a rescue is
+ * drawn over its sector's painting. For the few beats that lay a vector copy
+ * of something the painting already has (the glowworm's lit crystal facet):
+ * with this true they draw only their light.
+ */
+export const coverLayerLive = (): boolean => live !== null
 
 /**
  * A tap creature's cover, in sector units on `g`. Every peek helper calls this

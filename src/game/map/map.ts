@@ -39,6 +39,8 @@ import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
 import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
+import { drawGlove } from '@/game/map/glove'
+import { drawBoardArt } from '@/game/map/bookBoard'
 import { badgeFrame, drawBadge, paintStarSticker } from '@/game/map/badge'
 import { hasStar } from '@/game/campaign/stars'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
@@ -51,7 +53,7 @@ import { stepTwin, drawTwin, twinShown } from '@/game/map/twinGift'
 import { dailyGift, drawDaily } from '@/game/map/dailyGift'
 import { drawBloom } from '@/game/map/bloom'
 import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
-import { spriteFor, onArtChanged } from '@/game/art'
+import { spriteFor, onArtChanged, withoutArt } from '@/game/art'
 import { drawSheetTiled } from '@/game/fit'
 import { pageArtId, frontPageArtId } from '@/game/artIds'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
@@ -189,7 +191,9 @@ const thumbs = new Map<number, Thumb>()
  * do not re-bake sixteen thumbnails each (`scoped-art-invalidation`).
  */
 let propGen = 0
-onArtChanged((c) => { if (!c || c.kind === 'prop') propGen++ })
+// A CREATURE too: the dust bakes the tap creature and the rescue at rest, and
+// a creature that decodes after the bake left its drawing in the dust (B4).
+onArtChanged((c) => { if (!c || c.kind === 'prop' || c.kind === 'creature') propGen++ })
 
 const thumbOf = (n: number): Thumb => {
   const done = hasBit(S.campaign.sectorsDone, n)
@@ -218,8 +222,12 @@ const thumbOf = (n: number): Thumb => {
     cv = makeCanvas(TW, TH)
     bakeDust(cv, colour, TRES, n + 1, (dg) => {
       sec.props(dg, 0, 0)
-      withCoverLayer(src, () => sec.tap?.draw(dg, 0, 0))
-      sec.rescue?.draw(dg, 0, 0)
+      // The rescue inside the cover layer too (B2): chapter 3's redraws its
+      // nest's front, which is in the sector's painting.
+      withCoverLayer(src, () => {
+        sec.tap?.draw(dg, 0, 0)
+        sec.rescue?.draw(dg, 0, 0)
+      })
     })
   }
   const th: Thumb = { key, cv, paintLayer: done ? src : null }
@@ -730,70 +738,15 @@ const wayLift = (): number => {
 /** The swipe's ribbon, top stripe to bottom — the page's own rainbow, turned
  *  up bright enough to be seen across the room. */
 const WAY_STRIPES = ['#ff6f9f', '#ffa24a', '#ffd84a', '#6fdc7a', '#5cb8ff', '#a883ff'] as const
-const WAY_INK = '#3A2340'
 /** The ribbon's spine, sampled once per frame (tail → head), and its normals. */
 const WAY_N = 28
 const wayPts = new Float32Array((WAY_N + 1) * 4)
 
-/**
- * A white cartoon glove with its index finger out — the universal "put your
- * finger here" — its fingertip at (0, 0), pointing up, `u` a finger's width.
- * Drawn as one silhouette: every part stroked fat in ink first, then every
- * part filled over it, so the outline runs round the whole hand and never
- * between its parts.
- */
-const drawGlove = (g: G2D, u: number): void => {
-  const parts = (): void => {
-    // The index finger, rounded at its tip.
-    g.beginPath()
-    g.roundRect(-0.46 * u, 0, 0.92 * u, 2.5 * u, 0.46 * u)
-    g.moveTo(0, 0)
-    // The three curled fingers, as knuckles along the palm's top.
-    g.moveTo(1.2 * u, 2.05 * u)
-    g.arc(0.8 * u, 2.05 * u, 0.4 * u, 0, TAU)
-    g.moveTo(1.8 * u, 2.2 * u)
-    g.arc(1.42 * u, 2.2 * u, 0.38 * u, 0, TAU)
-    g.moveTo(2.3 * u, 2.45 * u)
-    g.arc(1.96 * u, 2.45 * u, 0.34 * u, 0, TAU)
-    // The palm.
-    g.moveTo(2.25 * u, 3.1 * u)
-    g.ellipse(0.9 * u, 3.1 * u, 1.35 * u, 1.05 * u, 0, 0, TAU)
-    // The thumb, reaching up the index finger's side.
-    g.moveTo(-0.2 * u, 2.2 * u)
-    g.ellipse(-0.55 * u, 2.65 * u, 0.36 * u, 0.62 * u, -0.6, 0, TAU)
-  }
-  const cuff = (): void => {
-    g.beginPath()
-    g.roundRect(0.05 * u, 3.75 * u, 1.75 * u, 0.75 * u, 0.3 * u)
-  }
-  const ink = Math.max(2, u * 0.2)
-  g.lineJoin = 'round'
-  g.lineWidth = ink * 2
-  g.strokeStyle = WAY_INK
-  parts()
-  g.stroke()
-  cuff()
-  g.stroke()
-  g.fillStyle = '#ffffff'
-  parts()
-  g.fill()
-  g.fillStyle = '#d9c8ff'
-  cuff()
-  g.fill()
-  // The creases between the curled fingers, and the nail's shine.
-  g.lineWidth = ink * 0.7
-  g.lineCap = 'round'
-  g.beginPath()
-  g.moveTo(1.12 * u, 2.2 * u)
-  g.lineTo(1.1 * u, 2.6 * u)
-  g.moveTo(1.72 * u, 2.4 * u)
-  g.lineTo(1.68 * u, 2.75 * u)
-  g.stroke()
-  g.beginPath()
-  g.ellipse(-0.08 * u, 0.42 * u, 0.13 * u, 0.2 * u, 0, 0, TAU)
-  g.fillStyle = 'rgba(58,35,64,0.12)'
-  g.fill()
-}
+// The glove itself — the white cartoon hand with its index finger out — is
+// `map/glove.ts`'s `drawGlove`: the painting when it has decoded, the same
+// drawing as ever otherwise (paint-outstanding.md P3). One still, carried by
+// exactly the translate, rotate and press-scale below; the ribbon, the
+// ripples and its shadow on the paper stay drawn.
 
 /** The rainbow swipe over the front page's rect `r`. */
 const drawWayOn = (g: G2D, r: Rect): void => {
@@ -1163,6 +1116,11 @@ const drawBoard = (g: G2D): void => {
   g.roundRect(r.x - over, r.y - over + 7 * ms, r.w + over * 2, r.h + over * 2, round)
   g.fill()
   g.restore()
+  // Painted (§9.11, paint-outstanding.md P9): the board and the leaves as ONE
+  // painting, laid on as a 9-slice — the corners at their own size, the plain
+  // sides stretched (`bookBoard.ts`). The shadow above stays drawn: it is a
+  // wash with no edge. A miss draws both as before.
+  if (drawBoardArt(g, r.x, r.y, r.w, r.h, over)) return
   // The cover board: cloth over card, lit along the top-left fold.
   const board = g.createLinearGradient(r.x, r.y - over, r.x + r.w, r.y + r.h + over)
   board.addColorStop(0, '#5d4382')
@@ -1259,8 +1217,13 @@ export const paintFrontPage = (
   //
   // DASHES ARE UI, NOT LANDSCAPE. Shown a dashed line the painter painted a
   // dashed line, on top of the winding road it had already painted, so the
-  // page ended up with two paths. The reference shows ONE soft path and the
-  // live page keeps its dashes, which are the "turn me" hint.
+  // page ended up with two paths. The reference shows ONE soft path, and the
+  // DRAWN page keeps its dashes. The PAINTED page has none: `drawFrontPage`
+  // blits the painting instead of calling this at all, so with the art layer
+  // on the dashes are simply not drawn, and the rainbow swipe (`drawWayOn`) and
+  // the folded corner are the "turn me" hints. Whether the dashes belong over
+  // the painting too is the owner's call (paint-outstanding.md B18); nothing
+  // here decides it.
   g.beginPath()
   g.moveTo(x + w * 0.55, gy + sh * 0.8)
   g.quadraticCurveTo(x + w * 0.8, gy + sh * 0.76, x + w * 1.02, gy + sh * 0.84)
@@ -1470,7 +1433,16 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
     g.scale(k, k)
     // `onKey` because a card is not the arena: no contact shadow, no dread
     // aura — just the silhouette, inside the card's own clip.
-    drawUnicorn(g, 0, 0, 1, { foe: guardianOf(nodeChapter(n)), skin: GUARDIAN_SHADOW, onKey: true }, T)
+    //
+    // THE VECTORS ONLY (`withoutArt`, paint-outstanding.md B25). With the art
+    // layer on, the rig's painted parts are tinted to this plum and laid over
+    // the flat coat by LUMINOSITY (`chars.ts` `partArt`), so the barrel, neck,
+    // head, ear and horn carried the painting's form — its lights and creases,
+    // pressed into the plum — while the drawn legs and mane stayed flat: a
+    // half-shaded guardian rather than a silhouette, and five tint bakes in a
+    // colour nothing else wears, for a one-second flash. The drawing is the
+    // flat shape this is meant to be.
+    withoutArt(() => drawUnicorn(g, 0, 0, 1, { foe: guardianOf(nodeChapter(n)), skin: GUARDIAN_SHADOW, onKey: true }, T))
     g.restore()
   }
   // A restored sector's props keep moving on the map (§8.8) — up to a cap,

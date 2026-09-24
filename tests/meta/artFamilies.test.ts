@@ -11,12 +11,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   promptDocs, PORTRAIT_SHEETS, ISLAND_SHEETS, KEEPSAKE_SHEETS, STORY_SHEETS, ITEM_SHEETS, PROP_SHEETS,
-  WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS, ART_STYLE_ID
+  WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS, ART_STYLE_ID, manifestTargets
 } from '@/game/artSheet'
 import {
   PORTRAIT_SETS, portraitSetOf, portraitArtId, KEEPSAKE_ICON_SLUGS, keepsakeArtId, ISLAND_SLUGS, islandArtId,
   STORY_PANELS, storyArtId, ITEM_ART, PROP_ART, EMOTE_ORDER, wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG,
-  type PropName
+  KEEPSAKE_WORN_ART, type PropName
 } from '@/game/artIds'
 import { firstArtWants } from '@/game/artPreload'
 import { recordSector } from '@/game/artSchedule'
@@ -24,18 +24,23 @@ import { recordSector } from '@/game/artSchedule'
 // whole renderer (and a `window`) in behind it.
 import {
   BUTTERFLY_ART, DUCK_ART, SAILS_ART, WATERWHEEL_ART, TWINKLE_ART, PUFF_ART, MOTE_ART, BUBBLE_ART,
-  FLAG_ART, LANTERN_ART, BEE_ART, SWING_SEAT_ART, STREAK_ART, WATERFALL_ART
+  FLAG_ART, LANTERN_ART, BEE_ART, SWING_SEAT_ART, STREAK_ART, WATERFALL_ART, HOLLOW_LOG_ART, MOSS_BED_ART
 } from '@/game/map/kit'
-import { GULL_ART, CRAB_ART, FISH_ART, BOAT_ART, BUOY_ART, KELP_ART } from '@/game/map/kitBay'
+import { GULL_ART, CRAB_ART, FISH_ART, BOAT_ART, BUOY_ART, KELP_ART, BUBBLE_RING_ART } from '@/game/map/kitBay'
 import {
-  DOVE_ART, PENNANT_ART, MINI_BALLOON_ART, KITE_ART, PINWHEEL_ART, FLYER_ART, HEART_ART, STAR_ART, VANE_ART
+  DOVE_ART, PENNANT_ART, MINI_BALLOON_ART, KITE_ART, PINWHEEL_ART, FLYER_ART, HEART_ART, STAR_ART, VANE_ART,
+  KITE_BOW_ART, SLEEP_Z_ART
 } from '@/game/map/kitSky'
 import { SWALLOW_ART, WINDSOCK_ART, CHARM_ART, RAINBOW_ARC_ART } from '@/game/map/kitRidge'
-import { CAVE_LANTERN_ART, CANOE_ART, MINECART_ART, CART_WHEEL_ART } from '@/game/map/kitCaves'
-import { SNOWFLAKE_ART } from '@/game/map/kitTundra'
-import { BALLOON_ART, CONFETTI_ART, NOTE_ART, GONDOLA_ART } from '@/game/map/kitFestival'
-import { FROND_ART, COCONUT_ART, FLAME_ART } from '@/game/map/kitSands'
-import { CABIN_ART } from '@/game/map/kitMirror'
+import { CAVE_LANTERN_ART, CANOE_ART, MINECART_ART, CART_WHEEL_ART, ROCK_NEST_ART, CANOE_POLE_ART } from '@/game/map/kitCaves'
+import { SNOWFLAKE_ART, ICE_BLOCK_ART, SNOWBALL_ART } from '@/game/map/kitTundra'
+import { BALLOON_ART, CONFETTI_ART, NOTE_ART, GONDOLA_ART, CAROUSEL_DRUM_ART, CAROUSEL_HORSE_ART } from '@/game/map/kitFestival'
+import { FROND_ART, COCONUT_ART, FLAME_ART, GNOMON_ART } from '@/game/map/kitSands'
+import { CABIN_ART, GLASS_CHIP_ART } from '@/game/map/kitMirror'
+import { PLANET_ART } from '@/game/map/kitSummit'
+import { BUNNY_ART, FLOWER_HEAD_ART } from '@/game/map/bloom'
+import { WARD_ART } from '@/game/duel/fx'
+import { FROST_LOCK_ICE_ART } from '@/game/duel/stageArt'
 import type { ItemSpec } from '@/game/artItem'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
 import { dialogueFor, thanksLines, FINALE_CAST } from '@/game/story/story'
@@ -97,11 +102,13 @@ describe('the portrait strips (§8.27)', () => {
 
 describe('the keepsake badges and the islands (§8.27)', () => {
   it('give every keepsake on the shelf a painting, or declare it unpainted', () => {
-    // The crown's and the star's badges draw their S6 item paintings.
-    const covered = new Set<string>([...KEEPSAKE_ICON_SLUGS, 'flowerCrown', 'petStar'])
-    // The second shelf (§2.4 rule 20) landed after the art catalogue closed,
-    // so its fourteen draw themselves and are DECLARED unpainted rather than
-    // silently missing. The two sets must not overlap and must not drift:
+    // A badge that draws its keepsake's WORN painting needs no sheet of its
+    // own: the crown's and the star's (S6), and since 2026-09-24 the second
+    // shelf's hats, bow, pendant, wings, pack, companions and bubbles.
+    const covered = new Set<string>([...KEEPSAKE_ICON_SLUGS, ...Object.keys(KEEPSAKE_WORN_ART)])
+    // A shelf that lands before its art DECLARES its keepsakes unpainted
+    // rather than leaving them silently missing (the second shelf did, until
+    // the 2026-09-24 pass). The two sets must not overlap and must not drift:
     // painting one means deleting its name from that list, which is what
     // makes this a to-do rather than an excuse.
     const vector = new Set(VECTOR_ONLY_KEEPSAKES)
@@ -111,6 +118,13 @@ describe('the keepsake badges and the islands (§8.27)', () => {
     expect(ITEM_ART.crown.id).toBe('flower-crown')
     expect(ITEM_ART.petStar.id).toBe('pet-star')
     expect(KEEPSAKE_SHEETS.map((s) => s.target)).toEqual(KEEPSAKE_ICON_SLUGS.map((k) => artTarget('cosmetic', keepsakeArtId(k))))
+    // Every worn painting is a drawable the catalogue knows, so a badge that
+    // leans on one never leans on a file nobody paints.
+    const targets = manifestTargets()
+    for (const [slug, parts] of Object.entries(KEEPSAKE_WORN_ART)) {
+      expect(COSMETICS.some((c) => c.slug === slug), `${slug} is not a keepsake`).toBe(true)
+      for (const p of parts) expect(targets.has(artTarget(p.kind, p.id)), `${slug}: ${p.kind}/${p.id}`).toBe(true)
+    }
   })
 
   it('give every chapter theme its island, anchored by the top the duelists stand on', () => {
@@ -157,7 +171,15 @@ const PROP_SPECS: Readonly<Record<PropName, ItemSpec>> = {
   canoe: CANOE_ART, mineCart: MINECART_ART, cartWheel: CART_WHEEL_ART, heart: HEART_ART,
   rainbowArc: RAINBOW_ARC_ART, swingSeat: SWING_SEAT_ART, cabin: CABIN_ART, star: STAR_ART,
   kelp: KELP_ART, flame: FLAME_ART, waterfall: WATERFALL_ART, streak: STREAK_ART, vane: VANE_ART,
-  gondola: GONDOLA_ART
+  gondola: GONDOLA_ART,
+  // The sectors' live layers (paint-outstanding, 2026-09-24).
+  hollowLog: HOLLOW_LOG_ART, mossBed: MOSS_BED_ART, rockNest: ROCK_NEST_ART, iceBlock: ICE_BLOCK_ART,
+  bunny: BUNNY_ART, flowerHead: FLOWER_HEAD_ART, carouselDrum: CAROUSEL_DRUM_ART, carouselHorse: CAROUSEL_HORSE_ART,
+  gnomon: GNOMON_ART, planet: PLANET_ART, snowball: SNOWBALL_ART, kiteBow: KITE_BOW_ART, bubbleRing: BUBBLE_RING_ART,
+  canoePole: CANOE_POLE_ART, glassChip: GLASS_CHIP_ART, sleepZ: SLEEP_Z_ART,
+  // The duel's wards and Frost Lock's ice (paint-outstanding, 2026-09-24).
+  wardWind: WARD_ART.wind, wardIce: WARD_ART.ice, wardRock: WARD_ART.rock, wardBubble: WARD_ART.bubble,
+  wardCrystal: WARD_ART.crystal, wardFrost: WARD_ART.frost, frostLockIce: FROST_LOCK_ICE_ART
 }
 
 describe('the sectors\' live props (§8.8)', () => {

@@ -29,8 +29,23 @@ import { decoyX } from '@/game/duel/sim'
 import { drawForge } from '@/game/duel/forgeArt'
 import { STARTING_RUNES } from '@/game/campaign/tables'
 import { helpOn } from '@/game/duel/help'
+import { spriteFor } from '@/game/art'
+import { drawItem } from '@/game/artItem'
+import { runeArtId } from '@/game/artIds'
+import { TWINKLE_ART } from '@/game/map/kit'
+import { zAt } from '@/game/map/kitSky'
+import { SNOWFLAKE_ART } from '@/game/map/kitTundra'
+import { ICE_TINT, iceSlab, iceFacets, frostLockIceAt } from '@/game/duel/stageArt'
 
 type G2D = CanvasRenderingContext2D
+
+/**
+ * The world's one ink: warm deep plum, as the rig, the glyphs and every kit
+ * draw it (art-style.md §2). The stroke, the spell bodies and the Frost Lock
+ * block inked near-black (`#1a1030`, `#150f1c`) until the paint-outstanding
+ * pass (2026-09-24, B22) — the one colour on a painted page nothing else used.
+ */
+const INK = '#3A2340'
 
 /** Reused so a frame allocates nothing. */
 const AST: PoseState = { cast: 0, hurt: 0, hp: 1, win: 0, lose: 0, form: 0 }
@@ -60,7 +75,7 @@ const drawStroke = (g: G2D, p: readonly number[] = S.pts, core = '#fff'): void =
     g.lineTo(p[p.length - 2]!, p[p.length - 1]!)
   }
   g.lineWidth = 17 * k
-  g.strokeStyle = '#1a1030'
+  g.strokeStyle = INK
   g.stroke()
   g.lineWidth = 9 * k
   g.strokeStyle = core
@@ -240,7 +255,7 @@ const drawGlow = (g: G2D, r: number, reach: number, lit: string): void => {
 /** The body, in the element's own silhouette. Drawn around the origin, the
  *  shot's heading along +x. */
 const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: number): void => {
-  const ink = '#1a1030'
+  const ink = INK
   g.lineWidth = Math.max(3, r * 0.26)
   g.strokeStyle = ink
   g.lineJoin = 'round'
@@ -434,7 +449,7 @@ const drawBubbleShot = (g: G2D, r: number, col: string, lit: string): void => {
   g.fill()
   g.globalAlpha /= 0.55
   g.lineWidth = 4
-  g.strokeStyle = '#1a1030'
+  g.strokeStyle = INK
   g.stroke()
   g.beginPath()
   g.arc(0, 0, r * 0.8, Math.PI * 0.15, Math.PI * 0.85)
@@ -465,7 +480,7 @@ const drawBoltShot = (g: G2D, r: number, col: string, lit: string, dir: number):
   g.fill()
   g.lineWidth = 4
   g.lineJoin = 'round'
-  g.strokeStyle = '#1a1030'
+  g.strokeStyle = INK
   g.stroke()
   g.beginPath()
   g.moveTo(r * 0.55, -r * 0.1)
@@ -476,6 +491,27 @@ const drawBoltShot = (g: G2D, r: number, col: string, lit: string, dir: number):
   g.restore()
 }
 
+/**
+ * One snapped rune: its PAINTING (`rune/*`) once that has landed, or the
+ * drawn glyph. The snap is a whole glyph that swells and fades — a still
+ * carried by a scale and an alpha, not a trace — so the painted icon the HUD
+ * already shows is exactly what it should be. The painting was cut from
+ * `RuneGlyph.vue`'s 100-unit box around a glyph of radius 30 (`artDraw`'s
+ * `RUNE_BOX`), so a glyph of radius `r` is a square `100 / 30 · r` across.
+ */
+const snapGlyph = (g: G2D, k: number, x: number, y: number, r: number, a: number): void => {
+  const img = spriteFor('rune', runeArtId(k))
+  if (!img) {
+    drawGlyph(g, k, x, y, r, a)
+    return
+  }
+  const h = (50 / 30) * r
+  g.save()
+  g.globalAlpha = a
+  g.drawImage(img, x - h, y - h, 2 * h, 2 * h)
+  g.restore()
+}
+
 /** The clean rune flashing before it is stored (GDD 2.2). In versus, over
  *  each player's own half. */
 const drawSnap = (g: G2D): void => {
@@ -483,14 +519,14 @@ const drawSnap = (g: G2D): void => {
     for (const [sn, cx] of [[S.snap, 320], [S.esnap, 960]] as const) {
       if (!sn) continue
       const k = clamp(sn.t / 0.45, 0, 1)
-      drawGlyph(g, sn.r, cx, 370, 110 * (1 + ease(k) * 0.5), 1 - k)
+      snapGlyph(g, sn.r, cx, 370, 110 * (1 + ease(k) * 0.5), 1 - k)
     }
     return
   }
   if (!S.snap) return
   const k = clamp(S.snap.t / 0.45, 0, 1)
   const [cx, cy] = zoneCentre()
-  drawGlyph(g, S.snap.r, cx, cy, zoneSpan() * 0.32 * (1 + ease(k) * 0.5), 1 - k)
+  snapGlyph(g, S.snap.r, cx, cy, zoneSpan() * 0.32 * (1 + ease(k) * 0.5), 1 - k)
 }
 
 /**
@@ -618,6 +654,15 @@ const drawDreamDust = (g: G2D, t: number): void => {
     const y = hy + Math.sin(a) * 15 + Math.sin(t * 1.3 + i) * 4
     const r = 6.5 + 1.5 * Math.sin(t * 2.1 + i * 1.7)
     g.globalAlpha = 0.6 + 0.35 * Math.sin(t * 2 + i)
+    // The painted twinkle (`prop-twinkle`, tinted this lilac) once it has
+    // landed: the same four-point mote at the same radius, turning as the
+    // drawn one turns.
+    g.save()
+    g.translate(x, y)
+    g.rotate(t * 0.5)
+    const hit = drawItem(g, TWINKLE_ART, r, 0, '#e2cfff')
+    g.restore()
+    if (hit) continue
     g.beginPath()
     for (let k = 0; k < 8; k++) {
       const b = (k * Math.PI) / 4 + t * 0.5
@@ -638,6 +683,11 @@ const drawDreamDust = (g: G2D, t: number): void => {
   const zx = hx + 34 + zt * 24
   const zy = hy - 34 - zt * 46
   g.globalAlpha = Math.sin(zt * Math.PI) * 0.85
+  // The painted Z (`prop-sleep-z`, the sectors' sleepers' own), tinted.
+  if (zAt(g, zx, zy, s, '#e7d6ff')) {
+    g.restore()
+    return
+  }
   g.beginPath()
   g.moveTo(zx - s, zy - s)
   g.lineTo(zx + s, zy - s)
@@ -661,6 +711,8 @@ const drawDreamDust = (g: G2D, t: number): void => {
 /** One drawn Z — a picture of sleep, the same in every locale. */
 const drawZ = (g: G2D, x: number, y: number, s: number, alpha: number): void => {
   g.globalAlpha = alpha
+  // The painted Z (`prop-sleep-z`) once it has landed, tinted this lilac.
+  if (zAt(g, x, y, s, '#f3e8ff')) return
   g.beginPath()
   g.moveTo(x - s, y - s)
   g.lineTo(x + s, y - s)
@@ -779,6 +831,11 @@ const drawDecoys = (g: G2D, e: boolean, from: PoseState, t: number, front: boole
  * Frost Lock (§6.5): the frozen duelist stands in a block of ice — a pale,
  * faceted shell with a frosty rim and drifting snow. It cracks away in its
  * last quarter second.
+ *
+ * Painted (`stageArt.FROST_LOCK_ICE_ART`, P12): the block's rim and its two
+ * light planes are the painting, fading with the drawing's own alpha. The
+ * see-through wash inside it and the snow drifting down its face stay drawn
+ * — the snow as the painted `prop-snowflake` once that has landed.
  */
 const drawIce = (g: G2D, x: number, left: number, t: number): void => {
   if (left <= 0) return
@@ -786,36 +843,35 @@ const drawIce = (g: G2D, x: number, left: number, t: number): void => {
   g.save()
   g.lineJoin = 'round'
   g.globalAlpha = 0.46 * a
-  g.fillStyle = '#bfe9ff'
-  g.beginPath()
-  g.roundRect(x - 84, GY - 214, 168, 214, 30)
+  g.fillStyle = ICE_TINT
+  iceSlab(g, x, GY)
   g.fill()
   g.globalAlpha = a
-  g.lineWidth = 5
-  g.strokeStyle = '#150f1c'
-  g.stroke()
-  // Facets: two light planes and a highlight edge.
-  g.globalAlpha = 0.5 * a
-  g.fillStyle = '#ffffff'
-  g.beginPath()
-  g.moveTo(x - 70, GY - 200)
-  g.lineTo(x - 30, GY - 200)
-  g.lineTo(x - 64, GY - 120)
-  g.closePath()
-  g.fill()
-  g.beginPath()
-  g.moveTo(x + 40, GY - 30)
-  g.lineTo(x + 72, GY - 60)
-  g.lineTo(x + 72, GY - 16)
-  g.closePath()
-  g.fill()
+  if (!frostLockIceAt(g, x, GY)) {
+    // (The slab is still the current path: the probe above draws nothing.)
+    g.lineWidth = 5
+    g.strokeStyle = INK
+    g.stroke()
+    // Facets: two light planes and a highlight edge.
+    g.globalAlpha = 0.5 * a
+    g.fillStyle = '#ffffff'
+    iceFacets(g, x, GY)
+  }
   // Snowflakes drifting down its face.
   g.globalAlpha = 0.9 * a
-  g.strokeStyle = '#ffffff'
-  g.lineWidth = 2.5
   for (let k = 0; k < 4; k++) {
     const sx = x - 50 + k * 34
     const sy = GY - 190 + (((t * 22 + k * 53) % 170))
+    // The painted flake is a soft SPECK with a faint six-armed ghost (the
+    // tundra's own falling snow), which carries more weight than the drawn
+    // asterisk's three thin strokes: 10 across, where the asterisk is 12.
+    g.save()
+    g.translate(sx, sy)
+    const hit = drawItem(g, SNOWFLAKE_ART, 10)
+    g.restore()
+    if (hit) continue
+    g.strokeStyle = '#ffffff'
+    g.lineWidth = 2.5
     g.beginPath()
     for (let j = 0; j < 3; j++) {
       const b = (j * Math.PI) / 3

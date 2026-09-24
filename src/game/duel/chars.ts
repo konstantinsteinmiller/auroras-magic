@@ -48,7 +48,9 @@
  */
 import { FOES, type FoePalette } from '@/game/duel/foes'
 import { drawItem, type ItemSpec } from '@/game/artItem'
+import { spriteFor } from '@/game/art'
 import { RIG_ART } from '@/game/artIds'
+import { STAR_ART } from '@/game/map/kitSky'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
@@ -226,6 +228,18 @@ let GL = ''
 let BL = ''
 /** The hit flash's colour while it strobes, '' otherwise (`partArt`). */
 let FLASH = ''
+/**
+ * The colour the painted HORN is tinted with — `HO`, except on Prism, whose
+ * horn cycles the hues every frame (B20, paint-outstanding 2026-09-24). A tint
+ * is BAKED per colour (`artItem.tintedStrip`: a fresh canvas, a mask, a
+ * multiply), so a new `hsla()` each frame was a fresh bake each frame, churning
+ * the whole 64-entry tint cache the props share. The flat coat under the sheet
+ * keeps the smooth hue — `partArt` lays `HO` down and takes only LIGHTNESS
+ * from the painting — so stepping the painting's tint round the wheel in
+ * `HORN_HUES` steps is invisible and costs `HORN_HUES` bakes, once.
+ */
+let HOT = ''
+const HORN_HUES = 24
 
 /**
  * The anchors handed to the cosmetic hooks: ONE reused object, so a dressed
@@ -371,6 +385,9 @@ interface PartOpts {
   /** Lay the COAT'S bounce rim under it. Not for a horn or a hoof, whose
    *  colour has nothing to do with the coat's. */
   rim?: boolean
+  /** The colour the SHEET is tinted with, when it must differ from the flat
+   *  coat laid under it (Prism's horn, `HOT`). */
+  tint?: string
 }
 
 const partArt = (
@@ -409,7 +426,7 @@ const partArt = (
   g.globalCompositeOperation = 'luminosity'
   g.globalAlpha = a0 * COAT_UNDER
   if (place) place()
-  const ok = drawItem(g, spec, unit, 0, col)
+  const ok = drawItem(g, spec, unit, 0, o.tint ?? col)
   g.globalCompositeOperation = op
   g.globalAlpha = a0
   g.restore()
@@ -606,6 +623,15 @@ const hair = (x: number, y: number, a: number, len: number, w: number, sp: numbe
   }
 }
 
+/** The fluffy chest tuft: a silhouette-defining scallop, three overlapping
+ *  inked ellipses at the front of the chest, `by` the barrel's centre. */
+const chestTuft = (by: number): void => {
+  for (let i = 3; i--;) {
+    el(31 + i * 0.5, by + 15 - i * 6, 7.5 - i * 1.4, 6.5 - i * 1.2)
+    ink(CO, 2.4)
+  }
+}
+
 /** A short twitch: rises to 1 for a beat once every 1/sp seconds. */
 const twitch = (t: number, sp: number, ph: number, sharp: number): number =>
   clamp(1 - abs(((t * sp + ph) % 1) - 0.03) * sharp, 0, 1)
@@ -790,10 +816,12 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // A skin (§9.7) swaps only these colours; D below still decides the rest.
   ;[CO, SH, RM, MA, MH, HO, HF, EY, GL, BL] = (st.skin ?? (foe ? foe.pal : PAL[0])) as [string, string, string, string, string, string, string, string, string, string]
   // PRISM (ch6) is "every colour at once": her mane, horn and aura cycle.
+  HOT = HO
   if (foe && foe.slug === 'prism') {
     const rb = rainbow(t * 0.14)
     const rl = rainbow(t * 0.14 + 0.12, 80)
     ;[MA, MH, GL, HO] = [rb, rl, rb, rl]
+    HOT = rainbow(Math.round((t * 0.14 + 0.12) * HORN_HUES) / HORN_HUES, 80)
   }
   // The Mane Color Palette: the mane, tail and forelock, over the skin's.
   const mn = st.mane
@@ -968,17 +996,24 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // THE BARREL, painted as the three masses' union — traced once more so the
   // blit is clipped to exactly what was inked. `TQ`'s own shape is the sheet;
   // the stockier foe and the breath are a scale on it.
+  //
+  // THE CHEST TUFT goes UNDER a painted barrel (B23, §4f's no-line-inside
+  // rule). Drawn after it, as the drawing does, its three inked scallops sat
+  // INSIDE the painting — three hard lines across a sheet painted with none.
+  // Laid down first, the barrel's own fill covers every part of it that lies
+  // within the chest, and what survives is exactly what the tuft is FOR: the
+  // scalloped bump it adds to the silhouette at the front of the chest.
+  // Without a painting (or under the hit flash) the order is the drawing's.
+  const barrelArt = !FLASH && !!spriteFor(BARREL_ART.kind, BARREL_ART.id)
+  if (barrelArt) chestTuft(by)
   g.beginPath()
   each(elAdd)
   if (!partArt(BARREL_ART, BARREL_UNIT, CO, () => {
     g.translate(0, by)
     g.scale(K, K * (1 + br * 0.018))
-  }, { off: [29 * 0.08, -27 * 0.08], rim: true })) each(blob)
-
-  /* ---- fluffy chest tuft: a silhouette-defining scallop ------------- */
-  for (let i = 3; i--;) {
-    el(31 + i * 0.5, by + 15 - i * 6, 7.5 - i * 1.4, 6.5 - i * 1.2)
-    ink(CO, 2.4)
+  }, { off: [29 * 0.08, -27 * 0.08], rim: true })) {
+    each(blob)
+    chestTuft(by)
   }
 
   if (anc && st.afterTorso) {
@@ -1121,7 +1156,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const ty = -19 + hs
   poly([9 - hs / 6, -19 + hc / 6, 9 + hs / 6, -19 - hc / 6, tx, ty], true)
   ink(0, 9)
-  if (!partArt(HORN_ART, HORN_UNIT, HO, undefined, { off: [0.5, -1] })) {
+  if (!partArt(HORN_ART, HORN_UNIT, HO, undefined, { off: [0.5, -1], tint: HOT })) {
     ink(HO)
     for (let i = 1; i < 4; i++) {
       // three ridges across the horn: the spiral read, for 3 lines of code
@@ -1195,6 +1230,15 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       const r = (5.6 + 1.6 * sin(a)) * HK
       const sx = hx + 4 + cos(a) * 27 * HK
       const sy = hy - 42 * HK + sin(a) * 7 * HK
+      // The painted five-point star (`prop-star`, the 3-5 lamps' star) when it
+      // has landed: the same star at the same radius, spun the way the drawn
+      // one spins (its first point at `t * 2`; the sheet's points straight up).
+      g.save()
+      g.translate(sx, sy)
+      g.rotate(t * 2 + PI / 2)
+      const hit = drawItem(g, STAR_ART, r, 0, '#ffd84a')
+      g.restore()
+      if (hit) continue
       g.beginPath()
       for (let j = 0; j < 10; j++) {
         const b = t * 2 + (j * PI) / 5

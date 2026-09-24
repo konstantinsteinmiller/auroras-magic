@@ -67,9 +67,12 @@ import { track } from '@/use/useAnalytics'
 import { flushSaveNow } from '@/use/useSaveStatus'
 import { gotoScene, type SceneId } from '@/game/flow/scene'
 import { onUnboxed } from '@/game/flow/restoreFlow'
-import { forgetArt, onArtChanged } from '@/game/art'
+import { forgetArt, onArtChanged, spriteFor } from '@/game/art'
+import { drawItem } from '@/game/artItem'
 import { duelHeadStart } from '@/game/duel/duelPage'
-import { sectorArtId } from '@/game/artIds'
+import { sectorArtId, runeArtId } from '@/game/artIds'
+import { drawSignatureEmblem } from '@/game/restore/emblem'
+import { PAINT_BLOB_ART } from '@/game/restore/potArt'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { drawCloth } from '@/game/map/map'
 import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
@@ -349,8 +352,11 @@ onArtChanged((c) => {
   if (phase === 'idle' || !UNTOUCHED.has(phase)) return
   // A live PROP's painting belongs to this bake too: `bakeDust` draws the
   // props at rest into the dust, so one that lands afterwards leaves a vector
-  // silhouette under the dust with its painted self animating on top.
-  const prop = !c || c.kind === 'prop'
+  // silhouette under the dust with its painted self animating on top. So does
+  // a CREATURE's: the dust bakes the rescue (and the tap creature) at rest,
+  // and creatures have no preload of their own — one that decodes after the
+  // bake left the drained vector rescue in the dust over its painted self.
+  const prop = !c || c.kind === 'prop' || c.kind === 'creature'
   if (!prop && !(c.kind === 'sector' && c.id === sectorArtId(node))) return
   if (prop || sectorPainted(node, false) !== bakedPainted) bakeLayers()
 })
@@ -1442,8 +1448,9 @@ const TWINKLES: [number, number, number][] = (() => {
   return Array.from({ length: 36 }, () => [r(), r(), 0.8 + r() * 1.6] as [number, number, number])
 })()
 
-/** The sector's page: a paper border with a cel drop shadow. */
-const drawPage = (g: G2D, v: Box): void => {
+/** The sector's page: a paper border with a cel drop shadow. Returns the
+ *  border's width, which is also the picture's corner radius. */
+const drawPage = (g: G2D, v: Box): number => {
   const b = Math.max(4, v.w * 0.008)
   g.fillStyle = 'rgba(20,10,30,0.35)'
   g.beginPath()
@@ -1456,6 +1463,7 @@ const drawPage = (g: G2D, v: Box): void => {
   g.lineWidth = 2.5
   g.strokeStyle = '#3A2340'
   g.stroke()
+  return b
 }
 
 export const drawRestore = (g: G2D): void => {
@@ -1466,16 +1474,36 @@ export const drawRestore = (g: G2D): void => {
   g.globalCompositeOperation = 'source-over'
   drawBackdrop(g)
   const v = view()
-  drawPage(g, v)
+  const b = drawPage(g, v)
 
   const t0 = performance.now()
-  g.drawImage(colourCv, v.x, v.y, v.w, v.h)
-  // Live props, in sector units, UNDER the dust so they are revealed with it.
   const k = v.w / SEC_W
   g.save()
+  // The picture takes the MOUNT's corners, as the map's card does
+  // (`map.ts` drawSector): the paper is a rounded rect of radius `b * 2`
+  // drawn `b` outside the picture, so the concentric inner radius is `b`.
+  // Without it a painting's square corners poke into the paper's round ones.
   g.beginPath()
-  g.rect(v.x, v.y, v.w, v.h)
+  g.roundRect(v.x, v.y, v.w, v.h, b)
   g.clip()
+  g.drawImage(colourCv, v.x, v.y, v.w, v.h)
+  if (phase === 'paint' && paintedCv && paintLanded) {
+    // The new colour spreads out from where the paint landed; only the
+    // landmark differs between the two layers, so only it changes. It goes
+    // down HERE, over the old colour and under everything alive: blitted
+    // after the props, the spreading disc painted the old layer's frozen
+    // pixels over the live butterflies, sails, creature and rescue, and they
+    // vanished for the half second until the layers swapped.
+    const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
+    const r = ease(clamp((phaseT - T_PAINT) / T_SPREAD, 0, 1)) * Math.hypot(v.w, v.h)
+    g.save()
+    g.beginPath()
+    g.arc(lx, ly, Math.max(1, r), 0, TAU)
+    g.clip()
+    g.drawImage(paintedCv, v.x, v.y, v.w, v.h)
+    g.restore()
+  }
+  // Live props, in sector units, UNDER the dust so they are revealed with it.
   g.setTransform(d * k, 0, 0, d * k, d * v.x, d * v.y)
   sec.props(g, lifeT, clamp(lifeT / 0.8, 0, 1))
   withCoverLayer(coverLayer(), () => {
@@ -1500,18 +1528,6 @@ export const drawRestore = (g: G2D): void => {
     g.restore()
     drawWaveFront(g, v, k)
   } else if (phase !== 'admire' && phase !== 'pots' && phase !== 'paint') g.drawImage(dustCv, v.x, v.y, v.w, v.h)
-  if (phase === 'paint' && paintedCv && paintLanded) {
-    // The new colour spreads out from where the paint landed; only the
-    // landmark differs between the two layers, so only it changes.
-    const [lx, ly] = toCss(sec.landmark.x, sec.landmark.y)
-    const r = ease(clamp((phaseT - T_PAINT) / T_SPREAD, 0, 1)) * Math.hypot(v.w, v.h)
-    g.save()
-    g.beginPath()
-    g.arc(lx, ly, Math.max(1, r), 0, TAU)
-    g.clip()
-    g.drawImage(paintedCv, v.x, v.y, v.w, v.h)
-    g.restore()
-  }
   if (phase === 'wipe' && beam) drawBeam(g, k)
   g.restore()
   sample(performance.now() - t0 + stampMs)
@@ -1595,53 +1611,36 @@ const drawOpeningGift = (g: G2D): void => {
 }
 
 /**
- * A Signature Spell's emblem (§6.5), under its recipe: Crystal Ward's prism
- * cluster, Frost Lock's snowflake. Drawn, never written — zero-UI (§8.2).
+ * How long a traced glyph takes to settle into its PAINTING (`rune/*`) once
+ * its stroke has landed (paint-outstanding B5). The trace itself stays drawn —
+ * a trace is motion, a painting cannot be drawn in the order a finger makes it
+ * — but the HOLD after it is a picture, and with the art layer on the runes
+ * are painted everywhere else the child sees them. `RuneTrace.vue` settles the
+ * same way; without a painting the drawn glyph simply holds, as before.
  */
-const drawSigEmblem = (g: G2D, i: number, x: number, y: number, s: number): void => {
-  g.save()
-  g.lineJoin = 'round'
-  g.lineCap = 'round'
-  g.lineWidth = Math.max(2.5, s * 0.09)
-  g.strokeStyle = '#3A2340'
-  if (i === 0) {
-    const P3: readonly (readonly [number, number])[] = [[-0.42, 0.62], [0, 1], [0.42, 0.7]]
-    for (const [dx, h] of P3) {
-      const px = x + dx * s
-      g.beginPath()
-      g.moveTo(px - s * 0.2, y + s * 0.5)
-      g.lineTo(px - s * 0.2, y + s * 0.5 - h * s * 0.8)
-      g.lineTo(px, y + s * 0.5 - h * s)
-      g.lineTo(px + s * 0.2, y + s * 0.5 - h * s * 0.8)
-      g.lineTo(px + s * 0.2, y + s * 0.5)
-      g.closePath()
-      g.fillStyle = '#c9a2ff'
-      g.fill()
-      g.stroke()
-    }
-  } else {
-    g.strokeStyle = '#ffffff'
-    g.lineWidth = Math.max(4, s * 0.16)
-    for (let k = 0; k < 2; k++) {
-      g.beginPath()
-      for (let j = 0; j < 3; j++) {
-        const a = (j * PI) / 3
-        g.moveTo(x - cos(a) * s * 0.6, y - sin(a) * s * 0.6)
-        g.lineTo(x + cos(a) * s * 0.6, y + sin(a) * s * 0.6)
-        for (const sg of [-1, 1]) {
-          const bx = x + sg * cos(a) * s * 0.36
-          const by = y + sg * sin(a) * s * 0.36
-          g.moveTo(bx, by)
-          g.lineTo(bx + sg * cos(a + 0.8) * s * 0.18, by + sg * sin(a + 0.8) * s * 0.18)
-          g.moveTo(bx, by)
-          g.lineTo(bx + sg * cos(a - 0.8) * s * 0.18, by + sg * sin(a - 0.8) * s * 0.18)
-        }
-      }
-      g.stroke()
-      g.strokeStyle = '#7fd4ff'
-      g.lineWidth = Math.max(2, s * 0.07)
-    }
+const RUNE_SETTLE = 0.22
+
+/**
+ * Rune `rune` at (x, y), radius `r`, `f` of its stroke traced; `since` is how
+ * long ago the stroke finished (< 0 while it is still being traced). The
+ * faint whole glyph under the trace shows the eye where the stroke is going.
+ */
+const drawTracedRune = (
+  g: G2D, rune: number, x: number, y: number, r: number, a: number, f: number, since: number
+): void => {
+  const art = since >= 0 ? spriteFor('rune', runeArtId(rune)) : null
+  const k = art ? clamp(since / RUNE_SETTLE, 0, 1) : 0
+  if (k < 1) {
+    drawGlyph(g, rune, x, y, r, a * 0.16 * (1 - k), 1)
+    if (f > 0) drawGlyph(g, rune, x, y, r, a * (1 - k), f)
   }
+  if (!art || k <= 0) return
+  // The painting's box is `RuneGlyph.vue`'s: 100 units round a glyph of
+  // radius 30 (`artDraw.RUNE_BOX`), so it lands where the stroke was.
+  const u = r / 30
+  g.save()
+  g.globalAlpha *= a * k
+  g.drawImage(art, x - 50 * u, y - 50 * u, 100 * u, 100 * u)
   g.restore()
 }
 
@@ -1668,9 +1667,7 @@ const drawRuneReveal = (g: G2D): void => {
   g.fillStyle = halo
   g.fillRect(cx - r * 1.7, cy - r * 1.7, r * 3.4, r * 3.4)
   g.restore()
-  // The whole glyph, faint, so the eye knows where the stroke is going.
-  drawGlyph(g, revealRune, cx, cy, rr, a * 0.16, 1)
-  drawGlyph(g, revealRune, cx, cy, rr, a, f)
+  drawTracedRune(g, revealRune, cx, cy, rr, a, f, revealT - T_RUNE_TRACE)
 }
 
 /** A Signature Spell's recipe writing itself, rune by rune, then its emblem. */
@@ -1692,15 +1689,15 @@ const drawSignatureReveal = (g: G2D): void => {
   for (let i = 0; i < 3; i++) {
     const [gx, gy, gr] = recipeSlot(i)
     const f = ease(clamp((revealT - i * per) / per, 0, 1))
-    drawGlyph(g, recipe[i]!, gx, gy, gr, a * 0.16, 1)
-    if (f > 0) drawGlyph(g, recipe[i]!, gx, gy, gr, a, f)
+    // Each settles into its painting as its own stroke lands.
+    drawTracedRune(g, recipe[i]!, gx, gy, gr, a, f, revealT - (i + 1) * per)
   }
   // The emblem blooms in as the last glyph lands.
   const e = clamp((revealT - T_RUNE_TRACE) / 0.3, 0, 1)
   if (e > 0) {
     g.save()
     g.globalAlpha = a * e
-    drawSigEmblem(g, revealSig, cx, cy + r * 0.62, r * 0.36 * (0.7 + 0.3 * ease(e)))
+    drawSignatureEmblem(g, revealSig, cx, cy + r * 0.62, r * 0.36 * (0.7 + 0.3 * ease(e)))
     g.restore()
   }
 }
@@ -1834,6 +1831,12 @@ const drawPaintFlight = (g: G2D): void => {
   const x = lerp(fx, lx, e)
   const y = lerp(fy, ly, e) - sin(k * PI) * 90
   const r = 12 + 6 * sin(k * PI)
+  // The painted blob (P14), in the pot's colour; its arc and swell stay ours.
+  g.save()
+  g.translate(x, y)
+  const painted = drawItem(g, PAINT_BLOB_ART, r, 0, sec.pots[pot]!.base)
+  g.restore()
+  if (painted) return
   g.beginPath()
   g.arc(x, y, r, 0, TAU)
   g.fillStyle = sec.pots[pot]!.base

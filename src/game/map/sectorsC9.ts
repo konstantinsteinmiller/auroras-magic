@@ -27,7 +27,7 @@ import {
   skyN, constellation, farPeaks, rockHill, meadowN, goldPath, starDress, starFlower, stoneLantern, stoneGlow,
   greatLantern, greatLanternAt, observatory, telescope, starLily, lilyHeart, moonPond, lilyPad, moonBridge,
   bridgeGlows, bridgeReflection, throne, throneOrbs, throneHalo, starCrate, moonRock, starBush, starUrn,
-  peekCalf, fallenStar, starBed, flowerGlows, moonTree, scopeMouth, roundStar, halo
+  peekCalf, fallenStar, starBed, flowerGlows, moonTree, scopeMouth, roundStar, halo, planet
 } from '@/game/map/kitSummit'
 import { sin, cos, TAU, PI } from '@/game/duel/util'
 
@@ -352,16 +352,7 @@ const novasThrone: SectorDef = {
     const PL = [N.pink, N.blue, N.mint] as const
     for (let i = 0; i < 3; i++) {
       const a = -PI / 2 + (i * TAU) / 3 + t * 0.25 * alive
-      const px = hx + cos(a) * hr
-      const py = hy + sin(a) * hr
-      g.beginPath()
-      g.arc(px, py, 15, 0, TAU)
-      g.fillStyle = PL[i]!
-      g.fill()
-      ink(g, 3.5)
-      g.beginPath()
-      g.ellipse(px, py, 24, 6, -0.4, 0, TAU)
-      ink(g, 2.4)
+      planet(g, hx + cos(a) * hr, hy + sin(a) * hr, PL[i]!)
     }
     if (alive <= 0) return
     fireflies(g, 120, 420, 900, 160, t, alive)

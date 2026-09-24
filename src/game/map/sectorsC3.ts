@@ -22,8 +22,10 @@ import {
   skyFlowers, pole, balloon, miniBalloon, rainbowBridge, domeCottage, domeChimney, stable, stableFlag, windTower,
   towerVane, skyCastle, castleFlags, lampPost,
   planter, haystack, kiteBasket, topiary, nestBack, nestFront, pennant, bunting, pinwheel, pinStick, kite, vane,
-  dove, flyer, twinkles, babyPegasus, joy, zzz, skyPuff, sparkle, star5, star5At
+  dove, flyer, twinkles, babyPegasus, joy, zzz, skyPuff, sparkle, star5, star5At, STAR_ART
 } from '@/game/map/kitSky'
+import { drawItem } from '@/game/artItem'
+import { sectorShowsArt } from '@/game/map/sectorArt'
 import { sin, cos, TAU, clamp, ease } from '@/game/duel/util'
 
 /** The chapter's gift ribbon and chest gem (§8.2): sunny gold. */
@@ -97,7 +99,9 @@ const balloonMeadow: SectorDef = {
     g.lineTo(330, 126)
     ink(g, 3)
     pennant(g, 330, 126, 46, 22, K.pink, t, alive)
-    bunting(g, ROPE[0], ROPE[1], ROPE[2], ROPE[3], 18, FLAGS, 4, t, alive)
+    // The rope itself is paint (above) on this very curve: over a PAINTED
+    // sector only the flags are live (B14); the drawing keeps its cord.
+    bunting(g, ROPE[0], ROPE[1], ROPE[2], ROPE[3], 18, FLAGS, 4, t, alive, !sectorShowsArt(10))
     if (alive <= 0) return
     for (let i = 0; i < 2; i++) {
       const k = ((t * 0.05 + i * 0.5) % 1)
@@ -361,7 +365,15 @@ const zephyrsCastle: SectorDef = {
       g.arc(x, y - h - 14, 25, 0, TAU)
       fill(g, '#fff1a8')
       g.globalAlpha = alive
-      if (!star5At(g, x, y - h - 14, 11, '#fffbe0')) {
+      // The lamp is LIT by this star: on a painted sector the lamp's own star
+      // is in the painting, so the lit one is blitted over it at the painted
+      // star's size (`lampPost`'s radius 10) — the painted star turning pale,
+      // never a second, larger star round it (B14).
+      g.save()
+      g.translate(x, y - h - 14)
+      const lit = drawItem(g, STAR_ART, 10, 0, '#fffbe0')
+      g.restore()
+      if (!lit && !star5At(g, x, y - h - 14, 11, '#fffbe0')) {
         fill(g, '#fffbe0')
         ink(g, 2)
       }

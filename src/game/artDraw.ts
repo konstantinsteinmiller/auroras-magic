@@ -20,33 +20,53 @@ import { HP_FRAME_ART } from '@/game/duel/hpFrame'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
 import { NEUTRAL } from '@/game/artTint'
-import { GIFT_ART, BOX_GIFT_ART, CHEST_ART, SPONGE_ART, ERASER_ART } from '@/game/restore/gift'
+import {
+  GIFT_ART, BOX_GIFT_ART, CHEST_ART, SPONGE_ART, ERASER_ART, SUNBEAM_ART, SUNBEAM_RAYS_ART, TWIN_GIFT_ART
+} from '@/game/restore/gift'
+import { POT_ART, PAINT_BLOB_ART } from '@/game/restore/potArt'
+import { EMBLEM_ART } from '@/game/restore/emblem'
 import { TENT_ART } from '@/game/map/tent'
-import { CROWN_ART, PET_STAR_ART } from '@/game/cosmetics/rig-cosmetics'
+import { CROWN_ART, PET_STAR_ART, PEGASUS_WING_ART, NECKLACE_SHELL_ART, SCARF_WRAP_ART } from '@/game/cosmetics/rig-cosmetics'
+import {
+  ACORN_CAP_ART, STAR_TIARA_ART, GOGGLES_ART, BOW_TIE_ART, MOON_PENDANT_ART, FLUTTER_ART, BEDROLL_ART, SATCHEL_ART,
+  PET_CLOUD_ART, PET_FIREFLY_ART
+} from '@/game/cosmetics/rig-accessories'
 import { sectorOf, MOSS_SPRITE_ART } from '@/game/map/sectors'
 import { drawGlyph } from '@/game/duel/glyph'
 import { SEC_W, SEC_H } from '@/game/restore/mask'
-import { CALF_ART, FALLEN_STAR_ART } from '@/game/map/kitSummit'
+import { CALF_ART, FALLEN_STAR_ART, PLANET_ART } from '@/game/map/kitSummit'
 import { PORTRAIT_ART } from '@/game/story/portrait'
 import { islandArt } from '@/game/duel/arena'
 import { BARREL_ART, NECK_ART, HEAD_ART, EAR_ART, HORN_ART } from '@/game/duel/chars'
+import { WARD_ART } from '@/game/duel/fx'
+import { FROST_LOCK_ICE_ART } from '@/game/duel/stageArt'
 import { KEEPSAKE_ART } from '@/game/cosmetics/icons'
 import { BADGE_ART } from '@/game/map/badge'
+import { GLOVE_ART } from '@/game/map/glove'
+import { BOOK_BOARD_ART } from '@/game/map/bookBoard'
+import { DOM_ART } from '@/game/domArt'
+import { PICTO_SET_ART } from '@/components/story/pictoArt'
 import {
   BUTTERFLY_ART, DUCK_ART, SAILS_ART, WATERWHEEL_ART, TWINKLE_ART, PUFF_ART, MOTE_ART, BUBBLE_ART,
-  FLAG_ART, LANTERN_ART, BEE_ART, SWING_SEAT_ART, STREAK_ART, WATERFALL_ART, setRefInk
+  FLAG_ART, LANTERN_ART, BEE_ART, SWING_SEAT_ART, STREAK_ART, WATERFALL_ART, setRefInk,
+  HOLLOW_LOG_ART, MOSS_BED_ART
 } from '@/game/map/kit'
-import { GULL_ART, CRAB_ART, FISH_ART, BOAT_ART, BUOY_ART, KELP_ART, SEA_FOAL_ART, SHELL_ART } from '@/game/map/kitBay'
+import { GULL_ART, CRAB_ART, FISH_ART, BOAT_ART, BUOY_ART, KELP_ART, SEA_FOAL_ART, SHELL_ART, BUBBLE_RING_ART } from '@/game/map/kitBay'
 import {
   DOVE_ART, PENNANT_ART, MINI_BALLOON_ART, KITE_ART, PINWHEEL_ART, FLYER_ART, HEART_ART, STAR_ART, VANE_ART,
-  PEGASUS_ART
+  PEGASUS_ART, KITE_BOW_ART, SLEEP_Z_ART
 } from '@/game/map/kitSky'
 import { SWALLOW_ART, WINDSOCK_ART, CHARM_ART, RAINBOW_ARC_ART, RAINBOW_FOAL_ART, PRISM_PETAL_ART } from '@/game/map/kitRidge'
-import { CAVE_LANTERN_ART, CANOE_ART, MINECART_ART, CART_WHEEL_ART, WORM_ART, CLEAR_SHARD_ART } from '@/game/map/kitCaves'
-import { SNOWFLAKE_ART, HARE_ART, FROST_SHARD_ART } from '@/game/map/kitTundra'
-import { BALLOON_ART, CONFETTI_ART, NOTE_ART, GONDOLA_ART, SPRIG_ART } from '@/game/map/kitFestival'
-import { FROND_ART, COCONUT_ART, FLAME_ART, FOX_ART, SAND_CLOCK_ART } from '@/game/map/kitSands'
-import { CABIN_ART, MIRROR_SPRITE_ART, MENDED_SHARD_ART } from '@/game/map/kitMirror'
+import {
+  CAVE_LANTERN_ART, CANOE_ART, MINECART_ART, CART_WHEEL_ART, WORM_ART, CLEAR_SHARD_ART, ROCK_NEST_ART, CANOE_POLE_ART
+} from '@/game/map/kitCaves'
+import { SNOWFLAKE_ART, HARE_ART, FROST_SHARD_ART, ICE_BLOCK_ART, SNOWBALL_ART } from '@/game/map/kitTundra'
+import {
+  BALLOON_ART, CONFETTI_ART, NOTE_ART, GONDOLA_ART, SPRIG_ART, CAROUSEL_DRUM_ART, CAROUSEL_HORSE_ART
+} from '@/game/map/kitFestival'
+import { FROND_ART, COCONUT_ART, FLAME_ART, FOX_ART, SAND_CLOCK_ART, GNOMON_ART } from '@/game/map/kitSands'
+import { CABIN_ART, MIRROR_SPRITE_ART, MENDED_SHARD_ART, GLASS_CHIP_ART } from '@/game/map/kitMirror'
+import { BUNNY_ART, FLOWER_HEAD_ART } from '@/game/map/bloom'
 import { BOOKMARK_ART } from '@/game/flow/pageTurn'
 import { renderIntroPanel } from '@/game/story/intro'
 import { pageDecorBake } from '@/game/map/pageDecor'
@@ -64,7 +84,27 @@ export const ITEM_SPECS: Readonly<Record<ItemName, ItemSpec>> = {
   eraser: ERASER_ART,
   tent: TENT_ART,
   crown: CROWN_ART,
-  petStar: PET_STAR_ART
+  petStar: PET_STAR_ART,
+  pegasusWing: PEGASUS_WING_ART,
+  seashell: NECKLACE_SHELL_ART,
+  scarfWrap: SCARF_WRAP_ART,
+  acornCap: ACORN_CAP_ART,
+  starTiara: STAR_TIARA_ART,
+  goggles: GOGGLES_ART,
+  bowTie: BOW_TIE_ART,
+  moonPendant: MOON_PENDANT_ART,
+  butterflyWing: FLUTTER_ART,
+  packBedroll: BEDROLL_ART,
+  packSatchel: SATCHEL_ART,
+  petCloud: PET_CLOUD_ART,
+  petFirefly: PET_FIREFLY_ART,
+  sunbeam: SUNBEAM_ART,
+  sunbeamRays: SUNBEAM_RAYS_ART,
+  paintPot: POT_ART,
+  paintBlob: PAINT_BLOB_ART,
+  twinGift: TWIN_GIFT_ART,
+  emblemWard: EMBLEM_ART[0]!,
+  emblemFrost: EMBLEM_ART[1]!
 }
 
 /** The live props a transform carries (`artSheet.PROP_SHEETS`). */
@@ -114,7 +154,32 @@ export const PROP_SPECS: Readonly<Record<PropName, ItemSpec>> = {
   waterfall: WATERFALL_ART,
   streak: STREAK_ART,
   vane: VANE_ART,
-  gondola: GONDOLA_ART
+  gondola: GONDOLA_ART,
+  // The sectors' live layers (paint-outstanding, 2026-09-24).
+  hollowLog: HOLLOW_LOG_ART,
+  mossBed: MOSS_BED_ART,
+  rockNest: ROCK_NEST_ART,
+  iceBlock: ICE_BLOCK_ART,
+  bunny: BUNNY_ART,
+  flowerHead: FLOWER_HEAD_ART,
+  carouselDrum: CAROUSEL_DRUM_ART,
+  carouselHorse: CAROUSEL_HORSE_ART,
+  gnomon: GNOMON_ART,
+  planet: PLANET_ART,
+  snowball: SNOWBALL_ART,
+  kiteBow: KITE_BOW_ART,
+  bubbleRing: BUBBLE_RING_ART,
+  canoePole: CANOE_POLE_ART,
+  glassChip: GLASS_CHIP_ART,
+  sleepZ: SLEEP_Z_ART,
+  // The duel's wards and Frost Lock's ice (paint-outstanding, 2026-09-24).
+  wardWind: WARD_ART.wind,
+  wardIce: WARD_ART.ice,
+  wardRock: WARD_ART.rock,
+  wardBubble: WARD_ART.bubble,
+  wardCrystal: WARD_ART.crystal,
+  wardFrost: WARD_ART.frost,
+  frostLockIce: FROST_LOCK_ICE_ART
 }
 
 /** The creatures a restored sector gets back (`artSheet.CREATURE_SHEETS`). */
@@ -245,7 +310,14 @@ const WORLD_UI_SPECS: Readonly<Record<string, ItemSpec>> = {
   bookmark: BOOKMARK_ART,
   [MOVIE_ICON.id]: MOVIE_ICON_ART,
   [HP_FRAMES.aurora.id]: HP_FRAME_ART.aurora,
-  [HP_FRAMES.foe.id]: HP_FRAME_ART.foe
+  [HP_FRAMES.foe.id]: HP_FRAME_ART.foe,
+  // The 2026-09-24 paint-outstanding pass (map & UI): the show-how glove and
+  // the book's board from their game painters, the DOM's marks from
+  // `domArt.ts`, and the four pictogram sets from `Picto.vue`'s own paths.
+  [GLOVE_ART.id]: GLOVE_ART,
+  [BOOK_BOARD_ART.id]: BOOK_BOARD_ART,
+  ...DOM_ART,
+  ...Object.fromEntries(PICTO_SET_ART.map((s) => [s.id, s]))
 }
 
 /** `RuneGlyph.vue`'s box: 100 units around a glyph of radius 30, in units of R. */

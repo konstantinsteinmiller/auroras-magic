@@ -22,8 +22,17 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { dismissAdsBlockedModal, isAdsBlockedModalShown } from '@/use/useAds'
+import { CHROME_ART } from '@/game/artIds'
+import { useArtImage } from '@/use/useArtImage'
 
 const { t } = useI18n()
+
+// The shield on the card: the painted one when the art layer is on and it has
+// decoded (paint-outstanding.md P14), the emoji otherwise — exactly as before.
+// Not scheduled ahead, and not asked for until the card first opens: this
+// component is mounted from boot, and the card is rare. The emoji stands in
+// for the moment the painting takes.
+const shieldSrc = useArtImage(CHROME_ART.shield.kind, () => (isAdsBlockedModalShown.value ? CHROME_ART.shield.id : ''))
 
 // Hostname surfaced to the player so they know which site to allowlist.
 // Falls back gracefully when running in a non-browser context (SSR,
@@ -67,7 +76,9 @@ const host = computed(() => {
           class="p-6"
           @click.stop
         )
-          div.mb-2.text-5xl 🛡️
+          div.mb-2.text-5xl
+            img.ads-blocked__shield(v-if="shieldSrc" :src="shieldSrc" alt="" draggable="false")
+            template(v-else) 🛡️
           h2.ads-blocked__title.text-2xl.mb-2 {{ t('adsBlocked.title') }}
           p.ads-blocked__body.text-base.mb-4 {{ t('adsBlocked.body') }}
           p.ads-blocked__fine.text-sm.mb-5
@@ -92,6 +103,14 @@ const host = computed(() => {
 // dismiss handlers are untouched.
 .ads-blocked__scrim
   background-color: var(--am-scrim)
+
+// The painted shield takes the emoji's own box: one em of `text-5xl`.
+.ads-blocked__shield
+  display: block
+  width: 1em
+  height: 1em
+  margin: 0 auto
+  object-fit: contain
 
 .ads-blocked__card
   border: 4px solid var(--am-ink)

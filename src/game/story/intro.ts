@@ -47,6 +47,8 @@ import { drawSponge } from '@/game/restore/gift'
 import { sparkleBurst, glint, puff, bubble, brushTrail, drawFxUnder, drawFxOver, resetFx } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { spriteFor } from '@/game/art'
+import { drawItem } from '@/game/artItem'
+import { GLOVE_ART } from '@/game/map/glove'
 import { storyArtId, storyPanelOf, STORY_PANELS } from '@/game/artIds'
 import { introHud } from '@/use/useIntroHud'
 import { firstLoadAdSettled } from '@/use/useFirstLoadInterstitial'
@@ -763,6 +765,26 @@ const drawRuneTrace = (g: G2D, u: number): void => {
   if (f <= 0) return
   const [hx, hy] = drawGlyph(g, 0, RUNE.x, RUNE.y, RUNE.r, 1, f)
   if (f < 1) {
+    const ripple = (): void => {
+      g.beginPath()
+      g.arc(hx, hy + 6, 30 + (u * 60) % 18, 0, TAU)
+      g.lineWidth = 3
+      g.strokeStyle = 'rgba(255,255,255,0.5)'
+      g.stroke()
+    }
+    // With the art layer on, the fingertip is the map's painted show-how
+    // GLOVE (`map/glove.ts`, paint-outstanding.md P3): the same "put your
+    // finger here" the front page uses, its fingertip riding the rune's tip,
+    // tipped the way the map's is, over the drawn ripple.
+    if (spriteFor(GLOVE_ART.kind, GLOVE_ART.id)) {
+      ripple()
+      g.save()
+      g.translate(hx, hy)
+      g.rotate(-0.35)
+      drawItem(g, GLOVE_ART, GLOVE_U)
+      g.restore()
+      return
+    }
     // The fingertip: a soft round pad with a ripple, pressing along.
     g.beginPath()
     g.arc(hx, hy + 6, 22, 0, TAU)
@@ -771,13 +793,14 @@ const drawRuneTrace = (g: G2D, u: number): void => {
     g.lineWidth = 5
     g.strokeStyle = '#3A2340'
     g.stroke()
-    g.beginPath()
-    g.arc(hx, hy + 6, 30 + (u * 60) % 18, 0, TAU)
-    g.lineWidth = 3
-    g.strokeStyle = 'rgba(255,255,255,0.5)'
-    g.stroke()
+    ripple()
   }
 }
+
+/** The glove's finger width in the intro, sector units: a finger about as
+ *  wide as the drawn pad's radius, so the hand reads as a hand without
+ *  hiding the rune it is teaching. */
+const GLOVE_U = 24
 
 /* ------------------------------------------------------ the bench */
 

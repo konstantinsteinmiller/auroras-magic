@@ -19,14 +19,14 @@
  * shrub, a little igloo or an ice hedge and shaking off a puff of frost.
  */
 import type { SectorDef, SectorAccent, TapCreature } from '@/game/map/sectorDef'
-import { TUNDRA_POTS, INK, ink, fill, smoke, twinkleAt, type G2D } from '@/game/map/kit'
+import { TUNDRA_POTS, INK, ink, fill, smoke, twinkleAt, puffAt, type G2D } from '@/game/map/kit'
 import { pennant } from '@/game/map/kitSky'
 import {
   T, AUR, PINK_T, LILAC_T, SNOW_POT, HARE, type Ribbon, type Glow, type HareLook, type HareSpot, type SnowmanLook,
   skyT, aurora, farSnow, snowHill, snowField, drift, snowbank, snowDress, frostPine, frostShrub, candyTree,
   iceLantern, iceGlow, lampCrook, crookGlow, crookTip, lightString, stringPts, glows, bulbGlow, snowfall, winks, shootingStar, snowman,
   igloo, iglooPipe, skateHut, hutChimney, frozenLake, sled, chalet, icePalace, palaceFlags, iceHedge, auroraTree,
-  peekHare, frostShard, twinkle, flake, chaletWindow, crystals, trail, hareTracks, sledRack
+  peekHare, frostShard, twinkle, flake, chaletWindow, crystals, trail, hareTracks, sledRack, snowball
 } from '@/game/map/kitTundra'
 import { sin, cos, TAU, PI, clamp } from '@/game/duel/util'
 
@@ -399,15 +399,7 @@ const sledHill: SectorDef = {
       const [x, y, a] = runAt(u)
       const r = 9 + u * 22
       g.globalAlpha = alive
-      g.beginPath()
-      g.arc(x, y - r + 4, r, 0, TAU)
-      fill(g, T.snow)
-      ink(g, 3)
-      g.beginPath()
-      g.arc(x, y - r + 4, r * 0.62, a + t * 6, a + t * 6 + 1.6)
-      g.lineWidth = 3
-      g.strokeStyle = T.snowShade
-      g.stroke()
+      snowball(g, x, y - r + 4, r, a + t * 6)
       g.globalAlpha = 1
     } else {
       const k = (u - 1) / 0.25
@@ -417,6 +409,8 @@ const sledHill: SectorDef = {
         const ang = -PI * 0.1 - (i / 5) * PI * 0.8
         const px = RUN[RUN.length - 1]![0] + cos(ang) * (20 + 50 * k)
         const py = RUN[RUN.length - 1]![1] - 20 + sin(ang) * (20 + 40 * k)
+        // The burst is the shared painted puff, white, once it has landed.
+        if (puffAt(g, px, py, 10 * (1 - k * 0.5), '#ffffff')) continue
         g.moveTo(px + 10, py)
         g.arc(px, py, 10 * (1 - k * 0.5), 0, TAU)
       }

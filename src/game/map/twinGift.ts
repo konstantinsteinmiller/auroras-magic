@@ -23,6 +23,8 @@ import { twinBurst } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { haptic } from '@/use/useHaptics'
 import { clamp, sin, TAU, PI } from '@/game/duel/util'
+import { drawItem } from '@/game/artItem'
+import { TWINKLE_ART } from '@/game/map/kit'
 
 type G2D = CanvasRenderingContext2D
 
@@ -150,6 +152,13 @@ export const drawTwin = (g: G2D, x: number, y: number, s: number, t: number): vo
   g.save()
   g.translate(gx, gy)
   g.rotate(t)
+  // The shared painted twinkle once it has landed (B8), turning as this one
+  // does; the drawing's own straight-edged star otherwise.
+  g.globalAlpha = 0.9
+  if (drawItem(g, TWINKLE_ART, gr, 0, '#ffffff')) {
+    g.restore()
+    return
+  }
   g.beginPath()
   for (let i = 0; i < 8; i++) {
     const a = (i * PI) / 4

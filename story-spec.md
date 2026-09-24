@@ -5413,7 +5413,7 @@ Three gift silhouettes exist. The GDD's zero-UI pillar (re-scoped by §2.C21-equ
 - Sits centred on the boss sector rather than off to one side, because there is only one per chapter and it should read as the chapter's headline reward.
 
 **Twin Gift** `[S2]`, presentation only — ad gating is §11
-- Appears only AFTER a win, once that sector's reveal wave (§8.6) has finished playing — never during unboxing, never during the wipe. It sits on the map beside the just-restored sector: a second, visibly different gift, ribboned, carrying a small film-strip glyph rendered identically in every locale (no text on the glyph itself).
+- Appears only AFTER a win, once that sector's reveal wave (§8.6) has finished playing — never during unboxing, never during the wipe. It sits on the map beside the just-restored sector: a second, visibly different gift, ribboned, with the rewarded buttons' movie camera beside it (no text on either). *(2026-09-24: the box used to carry a film-strip glyph of its own; with the map's movie camera beside it that was two video marks on one gift, and the strip was dropped — paint-outstanding B15.)*
 - A slow, continuous shimmer/pulse loop (period ≈ 1.1 s, opacity 0.85→1.0→0.85) is its idle state — no idle-shake, so it is never confused with the tap-to-open standard gift.
 - Present only on a WIN, and only while `canOfferReward` is true (§7/§11's limiter — an ad-frequency cap, unrelated to which sectors have or haven't been offered a Bloom); absent entirely under `VITE_CHILD_DIRECTED` (§2/§11). There is no Twin Gift, and no reward offer of any kind, on a loss — a loss has no just-restored sector to attach a Bloom to, and the design intentionally does not sell an easier retry to a losing player.
 - Never contains a tool. Its only payload is a permanent cosmetic Bloom for the sector it's offered beside (§8.8.5) — one bloom per sector, ever, one-time-claimable; it therefore never plays a tool-float beat.
@@ -5765,9 +5765,10 @@ on "continue", the camera zooms back out to the map (§3.2.2 step 13).
   glints, and the boss haptic pattern.
 
 **The Twin Gift and the Bloom.**
-- The Twin Gift is a square lilac box with a gold ribbon and a film-strip
-  glyph. It sits at the restored sector's lower-right corner with a slow
-  shimmer and no shake.
+- The Twin Gift is a square lilac box with a gold ribbon and bow; the movie
+  camera beside it is the video mark (its own film strip was dropped
+  2026-09-24). It sits at the restored sector's lower-right corner with a
+  slow shimmer and no shake.
 - A DOM button laid over it is the hold target. It cancels past 12 px and
   also takes a held Space or Enter.
 - The ring and the four ribbon steps run on the scene's `dt`. After the hold
@@ -6160,12 +6161,34 @@ Until they exist, the art layer is off in every build
   slots, the weakness badge and the spellbook. The canvas traces (snap,
   reveal, onboarding) stay drawn: a trace is motion, not a picture.
 - **Stays drawn, deliberately:**
-  - Things that follow the rig's deformation: the necklace, wings and scarf
-    (§9.7).
-  - Things with continuous state: the Twin Gift's bow opens with the hold;
-    the Sunbeam has a halo, rays and a charge.
-  - The brush's twinkling star (drawn over the painted brush), the chest
-    clasp's glint (drawn over the painted chest), and every burst and puff.
+  - Of the keepsakes, only what the pose REBUILDS each frame (re-argued
+    2026-09-24 under art-roadmap's third-sweep test; this line used to keep
+    the necklace, wings and scarf drawn whole because they "follow the rig's
+    deformation" — they do not: each is a constant shape a matrix carries).
+    Painted now: the pegasus and butterfly wings (the flap is a rotation,
+    the fold a rotation and a scale), the necklace's shell, the scarf's wrap
+    and knot, and the second shelf's hats, bow, pendant crescent, pack and
+    companion bodies. Still drawn: every cord (a curve through points the
+    pose hands over), the scarf's two tails (a spine carrying a travelling
+    wave, the mane's reason), the pearls and raindrops (under the size
+    floor), the firefly's see-through wings and glow, and the petal and frost
+    trails' particles (no sheet is either shape). Every keepsake sparkle —
+    the hoof trail, the Pastel Dream, the Pet Star's trail — is the painted
+    `prop-twinkle`, tinted, and the bubble trail `prop-bubble` (§9.7).
+  - What MOVES a painted shape, not the shape (re-argued 2026-09-24 under
+    art-roadmap §4b's "paint the shape, keep what moves it"; this line used
+    to keep the Twin Gift and the Sunbeam drawn whole for "continuous
+    state"): the Sunbeam's halo, and its charge and pull, which now GROW its
+    painted wand-and-sun and scale and turn its painted rays; the Twin Gift's
+    hold, which cross-fades its 2-panel strip (tied → bow at its loosest).
+  - The sponge's twinkle — its pulse and its turn; the STAR is the sectors'
+    painted `prop-twinkle`, tinted — the chest clasp's glint (drawn over the
+    painted chest), and every burst and puff.
+  - Also painted since (2026-09-24): the paint-pot jar (one neutral jar,
+    tinted per pot, its mark still SVG), the paint blob in flight, the two
+    Signature Spell emblems, and the restore HUD's tool chip, which shows the
+    same tool painting the hand holds. art-roadmap.md, "paint-outstanding
+    pass (restore)".
   - Dialogue portraits: the probe (`portrait`) exists, but it is [later],
     per §9.12.
 
@@ -9954,7 +9977,7 @@ only asserts the ad/happy-moment sequence is unchanged in shape). `[S5]`
 ### §11.5 The Twin Gift — rewarded-ad gating
 
 Adopts C8/C4 exactly; this section is the gating **contract**, not the visual
-(§8 owns the gift's look, the ribbon, the film-strip glyph's exact art).
+(§8 owns the gift's look, the ribbon and the video mark beside it).
 
 **Presence.** Rendered only when **all** of:
 - `canOfferReward.value` is true, where **`isRewardOfferSuppressed` itself

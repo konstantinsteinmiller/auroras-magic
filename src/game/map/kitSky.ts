@@ -1468,27 +1468,47 @@ export const pennant = (g: G2D, x: number, y: number, len: number, h: number, co
   g.save()
   g.translate(x, y)
   g.rotate(a)
+  if (!pennantCloth(g, len, h, k, col)) pennantShape(g, len, h, k * h, col, 3)
+  g.restore()
+}
+
+/**
+ * The painted pennant CLOTH hoisted at the origin of the current transform —
+ * flying out along +x, its hoist running down +y — `len` long and `h` deep,
+ * rippled by `k` (its trailing edge pushed by `k·h`). False, with nothing
+ * drawn, when the strip has not landed. Shared with any cloth that flies from
+ * a stick the caller has already placed (Sprig's little flag).
+ */
+export const pennantCloth = (g: G2D, len: number, h: number, k: number, col: string): boolean => {
   // The painting is authored half as deep as it is long; a call site's own
   // len : h is a squash of a rectangle of cloth, which nobody can see.
   g.save()
   g.scale(1, h / (len * PENNANT_UNIT.h))
   const painted = drawItem(g, PENNANT_ART, len, pennantFrame(k), col)
   g.restore()
-  if (!painted) pennantShape(g, len, h, k * h, col, 3)
-  g.restore()
+  return painted
 }
 
-/** Flags hung along a sagging line from (x0, y0) to (x1, y1). */
+/**
+ * Flags hung along a sagging line from (x0, y0) to (x1, y1).
+ *
+ * `cord` false over the PAINTING of a sector whose own `paint()` already
+ * strokes this very curve (3-1's mooring rope): the live cord lay exactly on
+ * it, a second line over the painted one (B14). The flags still thread along
+ * the same curve.
+ */
 export const bunting = (
   g: G2D, x0: number, y0: number, x1: number, y1: number, sag: number,
-  cols: readonly string[], n: number, t: number, alive: number
+  cols: readonly string[], n: number, t: number, alive: number, cord = true
 ): void => {
   const mx = (x0 + x1) / 2
   const my = (y0 + y1) / 2 + sag * 2
-  g.beginPath()
-  g.moveTo(x0, y0)
-  g.quadraticCurveTo(mx, my, x1, y1)
-  ink(g, 2.6)
+  if (cord) {
+    g.beginPath()
+    g.moveTo(x0, y0)
+    g.quadraticCurveTo(mx, my, x1, y1)
+    ink(g, 2.6)
+  }
   for (let i = 1; i <= n; i++) {
     const k = i / (n + 1)
     const px = (1 - k) * (1 - k) * x0 + 2 * (1 - k) * k * mx + k * k * x1
@@ -1605,6 +1625,40 @@ const kiteHalfShape = (g: G2D, col: string, lw = 1): void => {
   ink(g, 2 * lw)
 }
 
+/** A kite tail's bow-tie across, in the kite's own units. */
+const KITE_BOW_UNIT = 20
+
+/** One bow of a kite's tail about its knot at the origin: two little
+ *  triangles of cloth meeting at the tail line. */
+const kiteBowShape = (g: G2D, col: string): void => {
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.lineTo(-10, -6)
+  g.lineTo(-10, 6)
+  g.closePath()
+  g.moveTo(0, 0)
+  g.lineTo(10, -6)
+  g.lineTo(10, 6)
+  g.closePath()
+  fill(g, col)
+  ink(g, 2)
+}
+
+/**
+ * A kite tail's BOW as a painted still, tinted — the three on every kite
+ * alternate the kite's two colours. Where the bow sits is the tail's wave, a
+ * translate; the bow itself never changes shape (3-4 and 6-4).
+ */
+export const KITE_BOW_ART: ItemSpec = {
+  ...PROP_ART.kiteBow, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / KITE_BOW_UNIT, s / KITE_BOW_UNIT)
+    kiteBowShape(g, accent.base)
+    g.restore()
+  }
+}
+
 /** Half a kite as a painted still — see `kite` for why it is a half. */
 export const KITE_ART: ItemSpec = {
   ...PROP_ART.kite, frames: 1, tinted: true,
@@ -1638,6 +1692,13 @@ export const kite = (
   for (let j = 1; j <= 3; j++) {
     const bx = sin(tail + j * 1.4) * 8
     const by = 46 + j * 22
+    // Each bow is one constant bow-tie carried along the waving tail — the
+    // tail's LINE is rebuilt per frame and stays drawn; its bows are painted.
+    g.save()
+    g.translate(bx, by)
+    const tied = drawItem(g, KITE_BOW_ART, KITE_BOW_UNIT, 0, j & 1 ? c1 : c2)
+    g.restore()
+    if (tied) continue
     g.beginPath()
     g.moveTo(bx, by)
     g.lineTo(bx - 10, by - 6)
@@ -2163,8 +2224,13 @@ export const heartAt = (g: G2D, x: number, y: number, r: number, col: string): b
  *
  * NOT the four-point `prop-twinkle`: that sheet's prompt rules a five-pointed
  * star out in as many words, because a twinkle with five points is the wrong
- * glimmer everywhere else in the game. This is the finial on the wind-vane
- * tower, and it is a star.
+ * glimmer everywhere else in the game. It is a star.
+ *
+ * WHERE IT IS DRAWN (corrected 2026-09-24 — this used to say "the wind-vane
+ * tower's finial", which is `paint()` and so already in that painting): the
+ * 3-5 castle lamps lighting up, registered on the lamp star their sector
+ * painting already carries, and the map's replay-star sticker (`badge.ts`),
+ * tinted gold.
  *
  * The seam is at the live call site, not inside `star5` — `star5` builds a
  * bare path that two dozen `paint()` shapes fill for themselves.
@@ -2216,10 +2282,72 @@ export const joy = (g: G2D, x: number, y: number, t: number, a: number): void =>
   g.globalAlpha = 1
 }
 
+/** The sleepy Z's own colour — the lilac core inside its plum line. */
+export const ZZZ_LILAC = '#c7a6ff'
+
+/** The half-size a Z is authored at, in SU — the middle one of `zzz`'s three. */
+const Z_UNIT = 9
+
+/** One Z about the origin, half-size `r`, stroked plum with a `col` core. */
+const zShape = (g: G2D, r: number, col: string): void => {
+  g.beginPath()
+  g.moveTo(-r, -r)
+  g.lineTo(r, -r)
+  g.lineTo(-r, r)
+  g.lineTo(r, r)
+  g.lineWidth = 7
+  g.strokeStyle = INK
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  g.stroke()
+  g.lineWidth = 3.4
+  g.strokeStyle = col
+  g.stroke()
+}
+
+/**
+ * The sleeping "Z" as a painted still, tinted — ONE sheet for every sleeper
+ * the sectors draw: the Wood Sprite's single z and the three drifting up from
+ * the 3-3, 4-3 and 5-3 rescues (`zzz`). A letter-shape is a constant shape;
+ * its drift, its size and its fade stay the drawing's.
+ *
+ * Its two strokes are fixed widths in the game while `r` runs 5 to 12, so the
+ * smallest Z inks relatively heavier than the painting of the middle one —
+ * a rounding nobody sees at a fiftieth of the scene.
+ */
+export const SLEEP_Z_ART: ItemSpec = {
+  ...PROP_ART.sleepZ, frames: 1, tinted: true,
+  draw: (g, s, _f, accent) => {
+    g.save()
+    g.scale(s / Z_UNIT, s / Z_UNIT)
+    zShape(g, Z_UNIT, accent.base)
+    g.restore()
+  }
+}
+
+/** One painted Z of half-size `r` at (x, y), or false with nothing drawn. */
+export const zAt = (g: G2D, x: number, y: number, r: number, col: string): boolean => {
+  g.save()
+  g.translate(x, y)
+  const hit = drawItem(g, SLEEP_Z_ART, r, 0, col)
+  g.restore()
+  return hit
+}
+
 /** Three sleepy "z" marks drifting up from a sleeper's head at (x, y). */
 export const zzz = (g: G2D, x: number, y: number, t: number, a: number): void => {
   if (a <= 0) return
   g.globalAlpha = a
+  // Painted: the sheet is there for the whole frame or it is not, so the
+  // first Z decides for all three.
+  let painted = true
+  for (let i = 0; i < 3 && painted; i++) {
+    painted = zAt(g, x + i * 16, y - i * 22 + sin(t * 1.6 + i) * 3, 6 + i * 3, ZZZ_LILAC)
+  }
+  if (painted) {
+    g.globalAlpha = 1
+    return
+  }
   g.beginPath()
   for (let i = 0; i < 3; i++) {
     const r = 6 + i * 3

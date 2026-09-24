@@ -65,7 +65,9 @@ describe('the art manifest', () => {
 
   it('briefs the painter in the same neutral the game tints', () => {
     expect(NEUTRAL_HEX).toBe(NEUTRAL.base)
-    for (const s of ITEM_SHEETS.filter((x) => x.tinted)) expect(s.name).toMatch(/^(gift|boxGift|chest)$/)
+    // A ribbon, a clasp gem — and the paint pot's paint and the blob it throws.
+    // …and the necklace's shell, one painting strung three colours (2026-09-24).
+    for (const s of ITEM_SHEETS.filter((x) => x.tinted)) expect(s.name).toMatch(/^(gift|boxGift|chest|paintPot|paintBlob|seashell)$/)
   })
 })
 
@@ -74,11 +76,23 @@ describe('the prompt documents', () => {
 
   it('hold one fenced block per drawable, with no stray fence inside one', () => {
     const want: Record<string, number> = {
-      // Items: 8 items, 5 world-UI sheets (node badges, bookmark, the
+      // Items: 15 items (the first 8, and the restore pass's 7: the Sunbeam's
+      // wand and rays, the paint pot and its blob, the Twin Gift, the two
+      // Signature emblems), 5 world-UI sheets (node badges, bookmark, the
       // rewarded-ad movie camera, the two HP-bar frames) and 7 keepsake badges.
-      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 20, 'PROMPTS-RUNES.md': 12,
+      // The wardrobe pass (2026-09-24) adds 17: 13 worn stills and the four
+      // second-shelf badges that draw nothing painted. The map & UI pass adds
+      // 11 world-UI sheets: the show-how glove, the book's board, the dialogue
+      // leaf, the chapter star, the versus trophy, the turn-sideways phone,
+      // the ad-blocker shield and the four pictogram sets.
+      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 27 + 17 + 11, 'PROMPTS-RUNES.md': 12,
       'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4,
-      'PROMPTS-PROPS.md': 46,
+      // 46, plus the duel pass's 7 (2026-09-24): six wards and Frost Lock's ice.
+      // …and the sectors pass's 16: the tap log, the rescues' bed, nest and ice,
+      // the Bloom's bunny and flower, the carousel's drum and horses, and eight
+      // small stills (gnomon, planet, snowball, kite bow, bubble ring, canoe
+      // pole, glass chip, the sleepy Z).
+      'PROMPTS-PROPS.md': 46 + 7 + 16,
       // A chapter's tap creature and its rescue, one sheet per body (§8.8).
       'PROMPTS-CREATURES.md': 17,
       // The duelists' barrel, neck, head, ear and horn (§9.7). The legs stayed
@@ -116,7 +130,12 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(212)
+    // 212, plus the restore pass's 7 items (2026-09-24).
+    // …and the duel pass's 7 props (six wards, Frost Lock's ice).
+    // …and the wardrobe pass's 17 (13 worn stills, 4 shelf badges).
+    // …and the map & UI pass's 11 world-UI sheets.
+    // …and the sectors pass's 16 props.
+    expect(jobs).toHaveLength(212 + 7 + 7 + 17 + 11 + 16)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

@@ -17,7 +17,7 @@
  */
 import { SEC_W, SEC_H } from '@/game/restore/mask'
 import { seeded, TAU, PI, sin, cos, clamp, lerp } from '@/game/duel/util'
-import { type G2D, type Pot, INK, C, fill, ink, flower, twinkleAt, puffAt, lanternAt, streakAt } from '@/game/map/kit'
+import { type G2D, type Pot, INK, C, fill, ink, flower, twinkleAt, puffAt, moteAt, lanternAt, streakAt } from '@/game/map/kit'
 import { tapCover } from '@/game/map/tapCover'
 import { K, skyPuff, inkFill, star5 } from '@/game/map/kitSky'
 import { type Pt, curve, scallop } from '@/game/map/kitBay'
@@ -1112,6 +1112,15 @@ export const dialShadow = (g: G2D, cx: number, cy: number, R: number, a: number)
   g.globalAlpha = 0.35
   fill(g, INK)
   g.globalAlpha = 1
+  g.save()
+  g.translate(cx, cy)
+  const set = drawItem(g, GNOMON_ART, GNOMON_UNIT)
+  g.restore()
+  if (!set) gnomonShape(g, cx, cy)
+}
+
+/** The gnomon's blade over the sun's nose, its foot at (cx, cy). */
+const gnomonShape = (g: G2D, cx: number, cy: number): void => {
   g.beginPath()
   g.moveTo(cx - 4, cy + 2)
   g.lineTo(cx - 26, cy - 34)
@@ -1119,6 +1128,26 @@ export const dialShadow = (g: G2D, cx: number, cy: number, R: number, a: number)
   g.closePath()
   fill(g, SS.gold)
   ink(g, 3)
+}
+
+/** The gnomon's height in SU. */
+const GNOMON_UNIT = 36
+
+/**
+ * 7-3's GNOMON as a painted still — the gold blade standing on the sundial.
+ * It never moves; it is drawn in `props()` only because it has to stand ON
+ * the hour's shadow wedge, which moves, so the sector painting lacks it and
+ * it sat on the painted dial as a flat vector triangle. The wedge under it is
+ * light with no edge and stays drawn.
+ */
+export const GNOMON_ART: ItemSpec = {
+  ...PROP_ART.gnomon, frames: 1,
+  draw: (g, s) => {
+    g.save()
+    g.scale(s / GNOMON_UNIT, s / GNOMON_UNIT)
+    gnomonShape(g, 0, 0)
+    g.restore()
+  }
 }
 
 /** The plaza floor from y0 down: peach-and-cream tiles in perspective. */
@@ -1705,6 +1734,12 @@ export const FLAME_ART: ItemSpec = {
  *  two sleepy embers. */
 export const flame = (g: G2D, x: number, y: number, s: number, t: number, alive: number): void => {
   if (alive <= 0) {
+    // Two sleepy embers: a glowing speck is the shared painted MOTE, tinted
+    // ember-orange (B12) — they sit in the dust for the whole of 7-5's wipe.
+    if (moteAt(g, x - 10 * s, y - 4 * s, 9 * s, '#ff9a6a')) {
+      moteAt(g, x + 10 * s, y - 3 * s, 8 * s, '#ff9a6a')
+      return
+    }
     disc(g, x - 10 * s, y - 4 * s, 7 * s, '#ff9a6a', 2.4)
     disc(g, x + 10 * s, y - 3 * s, 6 * s, '#ff9a6a', 2.4)
     return
@@ -2264,6 +2299,9 @@ export const foxTap = (p: FoxSpot, cover: (g: G2D) => void, r = 70): TapCreature
         const dir = i % 2 ? 1 : -1
         const sx = p.x + dir * (20 + q * 70 + i * 4)
         const sy = p.y - 30 - sin(q * PI) * 60 + i * 2
+        // The spray is sand dust: the shared painted puff in the sand's own
+        // colour (as `sandPuffs` wears it), once it has landed.
+        if (puffAt(g, sx, sy, 5 - q * 2, SS.sand)) continue
         g.moveTo(sx + 5, sy)
         g.arc(sx, sy, 5 - q * 2, 0, TAU)
       }

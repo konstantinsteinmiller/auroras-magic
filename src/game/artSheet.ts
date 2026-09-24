@@ -46,6 +46,7 @@ import {
   BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, HP_FRAMES, type PortraitEmote, type PropName, type CreatureName, type RigPart
 } from '@/game/artIds'
 import { ACTIVE_STYLE } from '@/game/artStyle'
+import { CHROME_ART, PICTO_SETS, pictoSetArtId, type ChromeName } from '@/game/artIds'
 
 /** The art style every prompt is written in (`artStyle.ts`, art-style.md §0).
  *  Stamped on the sheet index, and by the slicer on every painting it cuts. */
@@ -268,6 +269,14 @@ export interface ItemSheet {
   /** Images attached BEFORE the reference, in order (a character model, the
    *  style anchor) — the same list `SectorSheet.also` carries. */
   also?: readonly string[]
+  /**
+   * A SET, not a strip: every panel is a DIFFERENT drawable painted by one
+   * hand in one generation (the dialogue pictograms, `artIds.PICTO_SETS`).
+   * The slicer cuts it like any strip; the prompt must not say what a strip
+   * says — "the same object at a different moment" — or six pictograms come
+   * back as one pictogram six times.
+   */
+  set?: boolean
 }
 
 const item = (
@@ -277,6 +286,33 @@ const item = (
   const { kind, id } = ITEM_ART[name]
   return { name, kind, id, title, frames, anchor, blurb, colour, panels, file: `item-${id}`, target: artTarget(kind, id), ...extra }
 }
+
+/**
+ * A keepsake WORN on Aurora (§9.7; the 2026-09-24 wardrobe pass): how big it
+ * is on her, and the props' two paid-for rules — paint it boldly at the size
+ * it is seen, and never lay a shadow on the magenta. It is laid over her
+ * painted coat by the game, so it floats on nothing in its own picture.
+ */
+const wornKeep = (size: string, extra: readonly string[] = []): string => [
+  `HOW BIG IT IS IN PLAY — ${size} It is worn by Aurora, a small round chibi unicorn, and has to read at a glance on her painted cream coat and on the painted scenery behind her.`,
+  '· Paint it boldly and simply: a strong shape, strong clear colour, one soft highlight where the light lands (top left) and one soft shadow INSIDE its own outline where it turns away. Fine texture is invisible at that size and only turns it to mush.',
+  '· THE SHADOW IS ON THE THING, NEVER UNDER IT: no cast shadow, no dark patch, no soft smudge beside or below it. The game lays it over her, and a shadow on the magenta ships as a pink stain stuck to it for ever.',
+  // The reference's ink is thinned (`rig-accessories.WORN_REF_INK`): say so,
+  // or the painter "restores" the line it expects — the creature lesson.
+  '· THE LINE IN THE REFERENCE IS DELIBERATELY THIN. It shows where the shapes are; it is not a contour to ink in. Do not thicken it, and do not trace a line right round the outside.',
+  ...extra
+].join('\n')
+
+/** A worn thing's facing: the game turns and mirrors it, the painter must not. */
+const WORN_FACING = 'It faces exactly as the reference draws it — nothing flipped left to right, nothing turned upright. The game turns it, tilts it and mirrors it itself, so a painting drawn the other way round is backwards on her every time.'
+
+/** The WHAT IT IS NOT of a thing she wears: the thing, and not her. */
+const wornNot = (what: string, ...more: readonly string[]): readonly string[] => [
+  `Draw ONLY ${what}, exactly as the reference shows it.`,
+  '· NO unicorn, NO head, NO neck, NO body, NO hair or horn for it to sit on — the game lays it on her.',
+  ...more,
+  '· No text, letters or numbers.'
+]
 
 export const ITEM_SHEETS: readonly ItemSheet[] = [
   item('gift', 'Standard Gift', 2, 'feet',
@@ -325,7 +361,286 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       'Panel 2: a blink — both eyes closed as gentle downward curves.',
       'Panel 3: happy — both eyes squeezed into upturned crescents, grinning.',
       'The star itself — its outline, its points, its size, its cheeks and its smile — is IDENTICAL in all three. Only the eyes change.'
-    ])
+    ]),
+  // ── The 2026-09-24 paint-outstanding pass (wardrobe): every keepsake that
+  // is ONE shape a matrix carries on her rig (art-roadmap.md, that section).
+  // Cords, the scarf's tails, the pearls and the trails' particles stay drawn.
+  item('pegasusWing', 'Pegasus wing', 2, 'centre',
+    'ONE soft, fluffy pegasus wing on its own, seen flat from the side: a rounded leading edge along its top, three big scalloped feather tips along its trailing edge in a band of soft colour, and two gentle feather partings across it. It is rooted at its lower RIGHT end — the point where it would join a back — and sweeps up and out to the LEFT. Only the one wing.',
+    'See the panels: the same wing in two colourings.',
+    [
+      'Panel 1: the NEAR wing, in full light — creamy white feathers with candy-pink tips.',
+      'Panel 2: the FAR wing, the one behind her — soft lilac feathers with violet tips.',
+      'The wing is IDENTICAL in both — the same outline, the same three scallops, the same partings, the same size, rooted at the same spot in its panel. ONLY the colours change.'
+    ],
+    {
+      noun: 'wing',
+      facing: `${WORN_FACING} Its root stays at the lower right.`,
+      not: wornNot('the one wing', '· NO second wing and NO pair — the game places the far wing and the near wing itself.', '· No sky, no clouds, no loose feathers, no sparkles.'),
+      keep: wornKeep('the wing is about as tall as her head, spread from her back.'),
+      checks: [
+        '· One wing in each panel, never a pair, rooted at the lower right and sweeping up to the left.',
+        '· Lay one panel over the other: the two outlines agree.'
+      ]
+    }),
+  item('seashell', 'Necklace shell', 1, 'centre',
+    'ONE little scallop seashell hanging from its hinge: a rounded fan-shaped shell with its narrow hinge point at the TOP and its wide, softly scalloped edge at the bottom, with three shallow ribs fanning down from the hinge as painted ridges. Only the shell.',
+    'Keep the reference\'s pale neutral grey (see below): the game strings three of these on one cord, each in its own soft seashell colour. A pearly sheen along the rim.',
+    [],
+    {
+      noun: 'shell',
+      tinted: 'the whole shell, hinge to rim',
+      view: 'THE VIEW: flat and square-on, hinge straight up and the fan hanging below it, exactly as the reference has it. The game turns it on its cord.',
+      not: wornNot('the one shell', '· NO string, NO cord, NO pearls, NO other shells, NO sand, NO water.', '· The cord it hangs on is drawn by the game, bending with her neck — a painted one would hang the wrong way.'),
+      keep: wornKeep('it is a small charm about the size of her eye, one of three on a cord round her neck.'),
+      checks: ['· One shell, hinge at the top, and no cord anywhere.']
+    }),
+  item('scarfWrap', 'Winter scarf (the wrap)', 1, 'centre',
+    'The wrapped part of a chunky knitted winter scarf, on its own: a short, fat, rounded roll of knitting lying level, cranberry red with two broad cream stripes across it and a soft knit rib along its middle, and a round knot bulging from it just below its right end, where the scarf is tied. Only the roll and its knot.',
+    'Cranberry red and warm cream knitting, a deeper cranberry where the roll turns under.',
+    [],
+    {
+      noun: 'scarf',
+      facing: WORN_FACING,
+      not: wornNot('the roll of scarf and its knot', '· NO hanging ends, NO tails, NO fringe or tassels anywhere. The two ends flutter in the wind and the game draws them itself, under this — painted ones would hang frozen beside the moving pair.'),
+      keep: wornKeep('it is about as long as her neck is wide, wrapped low round her neck.'),
+      checks: ['· No tail, end or fringe anywhere: just the roll and its round knot.']
+    }),
+  item('acornCap', 'Acorn Cap', 1, 'centre',
+    'The cup of an acorn worn as a tiny hat, tilted jauntily down to the left: a brown felt half-dome with a woven cross-hatch texture over the dome, a flat darker-brown brim along its bottom edge, and a short curling stalk on top. Only the cap.',
+    'Warm acorn browns: a hazelnut dome, a darker chestnut brim and stalk.',
+    [],
+    {
+      noun: 'cap',
+      facing: WORN_FACING,
+      not: wornNot('the cap', '· NO acorn nut under it, NO leaves, NO oak twig.'),
+      keep: wornKeep('it is about the size of her ear, perched on the back of her head.')
+    }),
+  item('starTiara', 'Star Tiara', 1, 'centre',
+    'A slim silver tiara on its own: a gently arched silver band, lower at its left end, with three little pointed peaks rising from it — the middle one tallest — and a sky-blue five-pointed star with a tiny white gleam set just above the middle peak.',
+    'Bright silver with a cool blue-grey shadow side; a clear sky-blue star.',
+    [],
+    {
+      noun: 'tiara',
+      facing: WORN_FACING,
+      not: wornNot('the tiara', '· NO jewels and NO stars other than the one blue star.'),
+      keep: wornKeep('it spans about the width of her forehead.')
+    }),
+  item('goggles', 'Explorer Goggles', 1, 'centre',
+    'A pair of explorer goggles pushed up out of the way, on their own: a brown leather strap in a gentle arch with a small dark keeper loop near its left end, and two round brass-rimmed lenses of pale sky-blue glass sitting on the strap — the left lens a little bigger than the right — each with a white glint.',
+    'Warm tan leather, polished brass rims, pale sky-blue glass.',
+    [],
+    {
+      noun: 'goggles',
+      facing: WORN_FACING,
+      not: wornNot('the goggles and their strap', '· NO eyes behind the lenses and NO face — the lenses show only glass and a glint.'),
+      keep: wornKeep('the strap spans about the width of her forehead.')
+    }),
+  item('bowTie', 'Bow Tie', 1, 'centre',
+    'A neat navy-blue bow tie on its own: two plump pinched loops either side of a small round knot, and two short pointed tails hanging below the knot.',
+    'Deep cornflower navy, brighter blue on the loops where the light lands.',
+    [],
+    {
+      noun: 'bow tie',
+      not: wornNot('the bow tie', '· NO collar, NO shirt, NO button, NO ribbon running off it.'),
+      keep: wornKeep('it is about the size of her eye, at her throat.')
+    }),
+  item('moonPendant', 'Moon pendant', 1, 'centre',
+    'A little silver crescent-moon charm on its own: a plump crescent with its round back on the LEFT and its two horns pointing to the RIGHT. Only the crescent.',
+    'Moon silver-white with a cool pale-blue shadow side.',
+    [],
+    {
+      noun: 'charm',
+      facing: WORN_FACING,
+      not: wornNot('the crescent', '· NO cord, NO chain, NO loop or ring on top, NO stars, NO face on the moon.', '· The game hangs it on a cord it draws itself, with two little stars beside it.'),
+      keep: wornKeep('it is about the size of her eye, hanging at her chest.')
+    }),
+  item('butterflyWing', 'Butterfly wing', 2, 'centre',
+    'ONE monarch-butterfly wing on its own, seen flat: a big rounded upper lobe and a smaller rounded lower lobe — clearly two lobes — both edged along their outer rims by a dark band with a row of small pale cream spots in it. It is rooted at its RIGHT end, where it would join a back, and spreads up and out to the LEFT. Only the one wing.',
+    'See the panels: the same wing in two colourings.',
+    [
+      'Panel 1: the NEAR wing, in full light — bright apricot orange with a rich rust-brown edge.',
+      'Panel 2: the FAR wing, the one behind her — a deeper burnt orange with a dark chestnut edge.',
+      'The wing is IDENTICAL in both — the same two lobes, the same edging, the same spots, the same size, rooted at the same spot in its panel. ONLY the colours change.'
+    ],
+    {
+      noun: 'wing',
+      facing: `${WORN_FACING} Its root stays at the right.`,
+      not: wornNot('the one wing', '· NO butterfly body, NO second wing and NO pair — the game places the far wing and the near wing itself.', '· No flowers, no sky, no sparkles.'),
+      keep: wornKeep('the wing is about as tall as her head, spread from her back.'),
+      checks: [
+        '· One wing in each panel, never a pair or a whole butterfly.',
+        '· Lay one panel over the other: the two outlines agree.'
+      ]
+    }),
+  item('packBedroll', 'Explorer Pack (bedroll)', 1, 'centre',
+    'A rolled-up sage-green bedroll on its own, lying nearly level: a fat rounded cylinder seen from the side, its two rolled ends showing as ovals at the left and right, and two brown ties wrapped round it.',
+    'Soft sage green, a deeper green on the rolled ends, warm brown ties.',
+    [],
+    {
+      noun: 'bedroll',
+      facing: WORN_FACING,
+      not: wornNot('the bedroll', '· NO bag, NO straps other than the two ties, NO blanket unrolled.'),
+      keep: wornKeep('it is about as long as her head is wide, strapped across her back.')
+    }),
+  item('packSatchel', 'Explorer Pack (satchel)', 1, 'centre',
+    'A small canvas satchel on its own: a soft rounded square bag in sandy beige with a darker flap across its top and a little gold buckle on the flap, and its brown leather strap rising from the top of the bag in a curve to the upper right. Only the bag and that one strap end.',
+    'Sandy beige canvas, a toasted-brown flap and strap, a warm gold buckle.',
+    [],
+    {
+      noun: 'satchel',
+      facing: WORN_FACING,
+      not: wornNot('the satchel and its strap', '· NOTHING hangs from it: NO lantern, NO hook, NO charm. The game hangs its own little lantern off the corner and swings it — a painted one would hang frozen beside the swinging one.', '· NO second strap, NO bedroll.'),
+      keep: wornKeep('it is about the size of her head, on her side.')
+    }),
+  item('petCloud', 'Pet Cloud', 2, 'centre',
+    'A small, sleepy, friendly rain cloud with a face: three soft rounded puffs on a flat base, the middle puff the biggest, with two little dark eyes and a small smile. A little companion, round and cute.',
+    'Soft white with a pale blue-grey shadow along its base; dark plum eyes.',
+    [
+      'Panel 1: eyes open — two small round dark eyes.',
+      'Panel 2: a blink — both eyes closed as short flat lines.',
+      'The cloud itself — its puffs, its base, its size and its smile — is IDENTICAL in both. Only the eyes change.'
+    ],
+    {
+      noun: 'cloud',
+      not: [
+        'Draw ONLY the cloud, exactly as the reference shows it.',
+        '· NO rain, NO raindrops, NO lightning, NO sky, NO other clouds. The game lets its own little raindrops fall under it.',
+        '· No text, letters or numbers.'
+      ],
+      keep: wornKeep('it is about the size of her head, floating beside her.', ['· It is soft: no hard line runs round its puffs — at most a soft plum accent along its base.'])
+    }),
+  item('petFirefly', 'Pet Firefly', 1, 'centre',
+    'A little firefly beetle on its own, seen from the side with its head to the RIGHT: a plump dark-brown oval body, a small darker round head at its right end, and a glowing warm-yellow lantern tail at its left end. Only the body — it has NO wings in this picture.',
+    'Dark cocoa-brown body, a near-black head, a bright butter-yellow tail.',
+    [],
+    {
+      noun: 'firefly',
+      facing: 'Its head is at the RIGHT, exactly as the reference draws it: the game mirrors it itself, so one painted facing left is backwards.',
+      not: [
+        'Draw ONLY the beetle\'s body, exactly as the reference shows it.',
+        '· NO wings of any kind — the game beats its own see-through wings over it.',
+        '· NO glow or halo spreading off the tail into the background: the tail itself is bright, and the game adds the glow.',
+        '· No text, letters or numbers.'
+      ],
+      keep: wornKeep('it is tiny — about the size of her eye — looping round her.')
+    }),
+  // ── The 2026-09-24 paint-outstanding pass (restore): what the cleaning
+  // still drew in vector over its paintings (art-roadmap.md, that section).
+  //
+  // The Sunbeam is TWO stills, because its rays turn and its wand does not:
+  // the wand with its sun, and the ring of rays round an empty middle the sun
+  // covers. Its halo stays drawn (a wash with no edge).
+  item('sunbeam', 'Sunbeam wand', 1, 'centre',
+    'A little magic wand with a sun on its tip: a slim, rounded golden wand pointing down to the lower left, with a small caramel-brown grip band a short way below its top, and at its upper-right end a round, bright lemon-gold sun disc with a soft white highlight at its upper left. Only the wand and the round sun — the sun has no rays in this picture.',
+    'Warm butter-gold wand with a honey-gold shadow side, a caramel-brown grip band, a bright lemon-yellow sun, paler where the light lands.',
+    [], {
+      noun: 'wand',
+      not: [
+        'Draw ONLY what the reference shows: the wand and the round sun on its tip. NO RAYS, NO SPIKES and NO POINTS round the sun — the game turns its own rays round it, behind this picture, and painted ones would stand still under the turning ones.',
+        'NO GLOW, halo, sparkle or light spreading from the sun: the game lays its own soft halo round it, and a painted glow keys to a pink smear.',
+        'THE SUN HAS NO FACE — no eyes, no smile, no cheeks. It is a magic tool, not a character.',
+        'No hand holding it, no stars, no beam of light, no ground, no text.'
+      ],
+      keep: 'THE SUN IS A PLAIN ROUND DISC, where the reference puts it — at the wand\'s upper-right end, at the same size. The game grows and shrinks this whole picture about the sun\'s middle and aims its beam from there, so a sun that moves along the wand, or turns oval, puts the light in the wrong place.',
+      facing: 'The wand points down to the LOWER LEFT and the sun sits at its UPPER-RIGHT end, exactly as in the reference.',
+      checks: [
+        '· One wand and one round sun. Count the rays round the sun: there must be NONE.',
+        '· Nothing round the sun: no glow, no halo, no sparkles. Magenta touches the sun\'s edge all the way round.'
+      ]
+    }),
+  item('sunbeamRays', 'Sunbeam rays', 1, 'centre',
+    'The eight pointed RAYS of a little storybook sun, WITHOUT the sun: eight short, fat, pointed tangerine-gold triangles spaced evenly round a circle, each pointing straight out from the middle, their broad ends round an EMPTY round middle.',
+    'Warm tangerine-gold rays, a lighter gold along one edge of each where the light lands.',
+    [], {
+      noun: 'ring of rays',
+      not: [
+        'Draw ONLY the eight rays. NO SUN in the middle — the game draws its own there — and no wand, no stick, no hand, no glow, no sparkles, no text.',
+        'NOT a flower: the rays are triangles of light, each tapering to a soft point — not petals, no leaves, no stem.'
+      ],
+      holes: 'THE MIDDLE — the round space the eight rays point out from — is an open gap. It is flat magenta right up to the rays\' broad ends: no sun, no disc, no face, no glow and nothing painted in it at all. The game draws its own sun there, over this picture.',
+      keep: 'EIGHT RAYS, ALL THE SAME, EVENLY SPACED. The game spins this picture round its middle, so every ray is the same size and shape and the gaps between them are equal — one ray bigger or bent, and the sun wobbles as it turns. No ray touches another.',
+      checks: [
+        '· Count the rays: exactly 8, all the same, evenly spaced round the middle, none touching another.',
+        '· The middle is flat #FF00FF: no sun, no disc, nothing in it.'
+      ]
+    }),
+  // The colour pick's jar (a DOM button — `UnboxScene.vue`), ONE neutral jar
+  // tinted per pot, its mark left to the button's SVG; and the paint it
+  // throws at the landmark, tinted the same way.
+  item('paintPot', 'Paint pot', 1, 'centre',
+    'A small, chubby, round-bellied pot full to the brim with PAINT — the whole round belly is the paint\'s colour — with a thick cream rim across its top, one fat drip of paint running down over the rim on the left, and a soft shadow down the belly\'s right side. A child\'s paint pot in a storybook.',
+    'A warm cream rim. The paint is the colour-me part below.',
+    [], {
+      noun: 'pot',
+      tinted: 'the paint: the pot\'s whole round belly and the drip over its rim',
+      not: [
+        'Draw ONLY what the reference shows: the pot, its cream rim and its drip. NO brush in it, no lid, no label, no handle, no splashes round it, no ground, no shadow under it.',
+        'NOTHING PRINTED ON ITS BELLY — no flower, star, sun, bell, dot or pattern. The game prints its own small white mark there, and a painted one would sit under it.',
+        'No text, letters or numbers.'
+      ],
+      keep: 'IT IS SEEN SMALL — about a thumb wide, on a round cream button — so it is a bold, simple shape: one round belly, one rim, one drip. Still hand-painted: the paint is glossy, with a soft light along the belly\'s upper left.',
+      checks: ['· One pot, one cream rim, one drip, and nothing printed on the belly.']
+    }),
+  item('paintBlob', 'Paint blob', 1, 'centre',
+    'One round, glossy glob of wet paint flying through the air: a plump ball of paint with a bright wet highlight at its upper left.',
+    'The paint is the colour-me part below; its wet highlight is white.',
+    [], {
+      noun: 'blob',
+      tinted: 'the paint — the whole blob except its white highlight',
+      not: [
+        'Draw ONLY the one blob. No splash, no drops or droplets round it, no trail or motion lines behind it, no brush, no pot, no ground, no shadow.',
+        'No face: it is a blob of paint, not a character. No text.'
+      ],
+      keep: 'IT IS SEEN TINY — about a fingertip across, for half a second as it flies — so it is one bold round shape with one bright highlight, and nothing else.',
+      checks: ['· One round blob, one highlight, nothing flying off it.']
+    }),
+  // The map's Twin Gift (§8.2): a strip like the Standard Gift's. The film
+  // strip it used to wear is gone — the map's movie camera sits beside it.
+  item('twinGift', 'Twin Gift', 2, 'feet',
+    'A square gift box with softly rounded corners, in lilac paper with a slightly deeper lilac shadow side, a gold ribbon crossing it both ways, and a gold bow of two loops with a round gold knot on top. Nothing is printed on the box.',
+    'Soft lilac-violet paper with a deeper lilac shadow side; butter-gold ribbon and bow, a deeper honey-gold knot.',
+    [
+      'Panel 1: tied. The bow sits up neat on top of the box, its two loops close together.',
+      'Panel 2: the bow is coming loose — its two loops have lifted and swung apart, leaning out to either side, a little bigger. The box and the ribbon cross are exactly the same as in panel 1.'
+    ], {
+      noun: 'gift',
+      not: [
+        'Draw ONLY what the reference shows: the box, its ribbon cross and its bow. NO film strip, camera, play sign, picture or sticker on the box — the game puts its own little movie camera beside it, and one on the box as well makes two.',
+        'No tag, no card, no second gift, no sparkles, no ground, no shadow under it.',
+        'No text, letters or numbers.'
+      ],
+      checks: ['· A SQUARE box, not a round parcel, with nothing printed on its front.']
+    }),
+  // A Signature Spell's emblem, under its recipe as the boss chest grants it
+  // (`restore/emblem.ts`). Two stills, not a strip: a strip's panels are ONE
+  // object at different moments, and these are two different objects.
+  item('emblemWard', 'Crystal Ward emblem', 1, 'centre',
+    'Three lilac crystal prisms standing side by side on one base line, like a little cluster of gems: each a tall, flat-sided prism with a pointed top, the middle one the tallest, the right one a little taller than the left.',
+    'Soft lilac-violet crystal, lighter and almost white on the faces the light catches, a deeper violet on the shadow faces.',
+    [], {
+      noun: 'emblem',
+      not: [
+        'Draw ONLY the three prisms. No rock or ground under them, no fourth crystal, no sparkles, no glow, no shield, no circle or badge behind them.',
+        'No faces, no text.'
+      ],
+      checks: ['· Count them: three prisms, the middle one tallest, all standing on the same base line.']
+    }),
+  item('emblemFrost', 'Frost Lock emblem', 1, 'centre',
+    'A six-armed ice crystal — a snowflake emblem: six straight arms meeting in the middle, each with one small pair of side branches halfway along, drawn as thick white strokes with a thin ice-blue line down the middle of every stroke.',
+    'Snow white, with an ice-blue core line down every arm and branch.',
+    [], {
+      noun: 'snowflake',
+      not: [
+        'Draw ONLY the snowflake. NO circle, disc, badge or snowball behind it — it is the six arms and nothing between them.',
+        'No sparkles, no glow, no ground, no face, no text.'
+      ],
+      keep: 'SIX ARMS, ALL THE SAME, evenly spaced — a snowflake has six, never four, five or eight — each with ONE pair of side branches. Thick, bold, rounded strokes: it is shown about the size of a coin.',
+      checks: [
+        '· Count the arms: exactly 6, evenly spaced, each with one pair of side branches.',
+        '· Between the arms is plain magenta: no disc, no ball, no frosted circle behind the flake.'
+      ]
+    })
 ]
 
 const RUNE_INFO: readonly (readonly [string, string])[] = [
@@ -441,6 +756,264 @@ const hpFrameSheet = (side: 'aurora' | 'foe'): ItemSheet => {
 }
 
 /**
+ * THE BOOK'S CHROME AND THE DOM'S STORYBOOK MARKS (paint-outstanding.md P3,
+ * P9, P14; `artIds.CHROME_ART`), the 2026-09-24 pass (map & UI). The glove
+ * and the board are canvas drawables (`map/glove.ts`, `map/bookBoard.ts`);
+ * the rest are DOM marks drawn for the bench in `domArt.ts`.
+ *
+ * Two of them are STRETCHED, the HP frames' way (`hpFrameSheet`): the book's
+ * board round every shape of page, and the dialogue's paper leaf round every
+ * line of the story. Each brief says PLAIN three ways — in `keep`, in the
+ * checks, and in the reference, which draws a plain side between four corners.
+ */
+const chrome = (key: ChromeName, sheet: Omit<ItemSheet, 'name' | 'kind' | 'id' | 'file' | 'target' | 'panels' | 'frames'>): ItemSheet => {
+  const { kind, id } = CHROME_ART[key]
+  return { name: `worldUi:${id}`, kind, id, frames: 1, panels: [], file: `worldui-${id}`, target: artTarget(kind, id), ...sheet }
+}
+
+/** "HOW BIG IT IS IN PLAY", the movie camera's opening, for a small mark. */
+const seenAt = (where: string, how: string): string =>
+  `HOW BIG IT IS IN PLAY — ${where}. ${how} So it is a bold, simple silhouette first and a picture second: a few big masses, strong colour and a confident plum line; no small details, which only turn to mush at that size.`
+
+const NO_SHADOW_UNDER = '· THE SHADOW IS ON THE THING, NEVER UNDER IT. No ground shadow, no dark patch, no soft smudge below or behind it — a shadow on the magenta ships as a pink stain stuck to it for ever.'
+const STILL_PAINTED = '· It is still a hand-painted storybook thing, not a flat vector icon: the paint varies softly across it and the plum line swells and fades.'
+const NOTHING_ROUND = '· NOTHING under, behind or around it — no shadow, no glow, no sparkle, no plate. Magenta touches its outline the whole way round.'
+
+const CHROME_SHEETS: readonly ItemSheet[] = [
+  chrome('glove', {
+    title: 'Show-how glove',
+    anchor: 'top',
+    noun: 'glove',
+    blurb: 'A white cartoon GLOVE with its index finger held straight up — the storybook sign for "put your finger here": the index finger rounded at its tip, the other three fingers curled into the palm as three soft knuckles, the thumb tucked against the left side of the index finger, a plump palm, and a soft lilac cuff at the wrist.',
+    colour: 'A soft white glove, shaded with pale lilac-grey where it turns away from the light; a soft lilac cuff. Clean and friendly.',
+    not: [
+      'Draw ONLY the glove and its cuff. No arm or sleeve past the cuff, no sparkles, no motion lines, no ripple rings, no rainbow, no arrow, no shadow under it.',
+      'IT HAS NO FACE — it is a hand, not a character: no eyes, no mouth, no cheeks.',
+      'No text, letters or numbers.'
+    ],
+    keep: [
+      seenAt('about 40 to 110 pixels tall, sweeping across a painted storybook page and riding the tip of a magic rune as it draws itself', 'It has to read at a glance as "a finger, pressing HERE", on a pale cream page and on a green meadow alike.'),
+      '· THE FINGERTIP IS THE POINT. The very top of the drawing is the rounded tip of the index finger, and nothing reaches higher than it: the game puts that tip exactly where the child should press.',
+      '· A strong, warm plum line round the OUTSIDE of the hand — it is what makes a white glove read on cream paper — swelling and thinning as a brush does.',
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the glove'),
+      STILL_PAINTED
+    ].join('\n'),
+    facing: 'The finger points STRAIGHT UP, the thumb on its LEFT and the curled fingers and the palm to the RIGHT and below, exactly as in the reference. The game tilts it and moves it.',
+    checks: [
+      '· One index finger pointing straight up, three curled knuckles, one thumb on its left, one cuff at the wrist.',
+      '· The fingertip is the highest point of the drawing.',
+      NOTHING_ROUND
+    ]
+  }),
+  chrome('board', {
+    title: 'The book: cover board and leaves',
+    anchor: 'centre',
+    noun: 'book board',
+    canvas: { w: 1536, h: 864 },
+    blurb: 'The COVER BOARD of a big storybook lying open, seen straight from above, with its open page lifted away: a deep violet cloth-covered board, square-cornered along its LEFT edge (the spine side) and softly rounded at its two RIGHT corners; just inside its edge, a band of cream PAGE EDGES — the block of leaves seen edge-on, a stack of many thin sheets showing as fine stripes of lighter and darker cream that run parallel to the edge all the way round; and in the middle, where the open page lies, a big rectangular HOLE.',
+    colour: 'Deep violet book-cloth — a warm plum-violet, never black — a little lighter along the top and deeper toward the bottom. Warm cream page edges, finely striped with a soft brown-lilac shade between the sheets.',
+    holes: 'THE PAGE HOLE — the big rectangle in the middle, where the game lays the open page — is an open gap. It is flat magenta inside, right up to the cream page edges: no page, no paper, no picture, nothing painted in it at all.',
+    not: [
+      'Draw ONLY the board and the band of page edges round the hole, exactly as the reference shows them. No page, no pictures, no bookmark ribbon, no stitching, no spine, no clasp, no corner guards, no gems, no ornaments, no table or cloth under it.',
+      'NOTHING IN THE HOLE. The game lays the open page there, over your painting; anything you paint in it is hidden — or shows round the page\'s edge.',
+      'No text, letters, numbers or titles anywhere.'
+    ],
+    keep: [
+      'EVERY SIDE IS THE SAME ALL THE WAY ALONG — the one rule the game cannot work without.',
+      '· The game fits this board to every screen, wide and tall, by keeping the four corners as they are and STRETCHING each side along its length. So along each side the board is one plain band of cloth and the page edges one plain band of fine stripes — the same colour, the same width and the same light at every point along it. No motif, no patch, no stain, no worn spot and no change of colour anywhere along a side.',
+      '· THE PAGE-EDGE STRIPES RUN ALONG THE SIDES, parallel to the board\'s own edge, and turn each corner with it — never across a side. A stripe across a side is stretched into a smear. They are stripes of paint, not drawn lines.',
+      '· The cloth is SMOOTH: no weave, no grain and no texture that a stretch would pull into streaks. Its only change is the soft light, lighter at the top and deeper at the bottom.',
+      '· THE ONE PLACE STRAIGHT EDGES ARE RIGHT: the board\'s outer edges and the hole\'s edges run level and parallel — drawn by hand, but never bending, bulging or wobbling, because the game stretches them. The two RIGHT corners are rounded, the two LEFT corners square.'
+    ].join('\n'),
+    view: 'THE VIEW: flat and square-on from directly above, exactly as the reference shows it — a flat frame lying on a table seen from overhead. No perspective, no tilt, no thickness seen from the side.',
+    checks: [
+      '· Cover the four corners with your hands and look at what is left: plain violet cloth and plain page-edge stripes along each side, the same from one end to the other.',
+      '· The hole is flat #FF00FF inside, right up to the page edges: nothing painted in it.',
+      '· Left corners square, right corners rounded.',
+      '· Look at the magenta directly OUTSIDE the board: the same flat magenta as the corners of the sheet — no shadow, no glow, no table.'
+    ]
+  }),
+  chrome('leaf', {
+    title: 'Dialogue paper leaf',
+    anchor: 'centre',
+    noun: 'leaf of paper',
+    canvas: { w: 1536, h: 864 },
+    blurb: 'A LEAF OF PAPER from a storybook, lying flat: a wide rectangle of warm cream paper with softly rounded corners and a hand-drawn deep plum line running round its edge. It is the paper the story\'s words are printed on.',
+    colour: 'Warm cream paper — as light as the reference, never grey, never a darker yellow — edged with a deep plum line.',
+    not: [
+      'Draw ONLY the leaf of paper. No words or lines of writing on it, no picture, no portrait, no pictograms, no button, no ribbon, no tape, no torn edge, no folded corner, no curl.',
+      'No text, letters or numbers.'
+    ],
+    keep: [
+      'THE MIDDLE IS PLAIN, AND SO IS EVERY SIDE — the one rule the game cannot work without.',
+      '· The game fits this leaf to every line of the story, short and long, on every screen: it keeps the four rounded corners as they are and STRETCHES the rest — each side along its length, and the middle both ways. So the middle is one even, plain cream: no fibre, no grain, no spots, no stains, no watercolour blooms, no light patch and no darker edge creeping in. Anything there is stretched across the screen as a smear.',
+      '· Words are printed on the middle in deep plum, so it stays LIGHT cream everywhere — as light as the reference.',
+      '· The plum edge line is the same weight all along each side; the sides run straight and parallel — drawn by hand, but never bending or wobbling, because the game stretches them.',
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the paper'),
+      '· It is still hand-drawn: the edge is a brush line, not a ruled stroke, and the corners are drawn by hand.'
+    ].join('\n'),
+    view: 'THE VIEW: flat and square-on, exactly as the reference shows it — a flat sheet seen from straight above. No perspective, no tilt, no curl, no thickness.',
+    checks: [
+      '· Cover the four corners with your hands: what is left is plain, even cream edged by an even plum line.',
+      '· No writing and no picture: nothing on the paper at all.',
+      '· Look at the magenta directly under the leaf: the same flat magenta as the corners of the sheet — no shadow.'
+    ]
+  }),
+  chrome('star', {
+    title: 'Chapter star',
+    anchor: 'centre',
+    noun: 'star',
+    blurb: 'A plump five-pointed STAR in warm butter gold, point up, with softly rounded points and a plum line round it — the kind of gold star a teacher sticks on a page.',
+    colour: 'Warm butter gold, paler where the light lands at the top left and a deeper honey gold toward the bottom right.',
+    not: [
+      'Draw ONLY the one star. No sparkles round it, no glow, no ribbon, no badge or disc behind it.',
+      'IT HAS NO FACE — no eyes, no smile, no cheeks. It is a mark, not a character.',
+      'No text, letters or numbers.'
+    ],
+    keep: [
+      seenAt('about 18 to 30 pixels across, in a row of up to ten on a cream paper leaf, one star for each chapter of the story', 'Gold on cream is nothing without its line, so the plum line round it is strong.'),
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the star'),
+      STILL_PAINTED
+    ].join('\n'),
+    checks: ['· One star, five points, point up, no face.', NOTHING_ROUND]
+  }),
+  chrome('trophy', {
+    title: 'Versus trophy',
+    anchor: 'centre',
+    noun: 'trophy',
+    blurb: 'A small golden TROPHY CUP: a round-bottomed gold bowl on a short stem and a wide, stepped base, a curled handle on each side, and a small cream five-pointed star on the front of the bowl.',
+    colour: 'Warm polished gold — pale where the light lands on the bowl\'s upper left, a deeper honey gold on the handles, the stem and the base; a cream star.',
+    not: [
+      'Draw ONLY the cup. No confetti, no sparkles, no ribbon, no plinth, no ground, no hand holding it.',
+      'IT HAS NO FACE — no eyes, no smile. No engraving, text, letters or numbers anywhere on it.'
+    ],
+    keep: [
+      seenAt('about 72 pixels tall, floating over a painted duel arena above whichever of two friends won', 'It is a cheerful toy cup, not a sports prize.'),
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the cup'),
+      STILL_PAINTED
+    ].join('\n'),
+    checks: ['· One cup: a bowl, two handles, a stem, a base and one small star on the bowl — nothing else.', NOTHING_ROUND]
+  }),
+  chrome('phone', {
+    title: 'Turn-sideways phone',
+    anchor: 'centre',
+    noun: 'phone',
+    blurb: 'A friendly, toy-like SMARTPHONE standing upright, seen straight from the front: a chubby cream body with round corners, a big rounded lilac screen filling most of its front, and one small round plum button below the screen.',
+    colour: 'A warm cream body, a soft lilac screen with a gentle sheen at its top, a plum button.',
+    not: [
+      'Draw ONLY the phone. No hand holding it, no arrow, no motion lines, no sparkles, no cable, no stand, no shadow under it.',
+      'THE SCREEN IS EMPTY: no picture, no icons, no apps, no clock, no text and no face on it.',
+      'No text, letters or numbers anywhere.'
+    ],
+    keep: [
+      seenAt('about 76 pixels tall on a cream card, where the game slowly turns it onto its side and back to show a child to hold the device sideways', 'It is a toy phone from a picture book, not a real product: no brand, no camera bump, no notch.'),
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the phone'),
+      STILL_PAINTED
+    ].join('\n'),
+    facing: 'It stands UPRIGHT, its screen facing you and its button at the BOTTOM, exactly as in the reference. The game turns it.',
+    checks: ['· One upright phone: a cream body, one empty lilac screen, one button below it.', NOTHING_ROUND]
+  }),
+  chrome('shield', {
+    title: 'Ad-blocker shield',
+    anchor: 'centre',
+    noun: 'shield',
+    blurb: 'A small storybook SHIELD, pointed at the bottom: a rounded gold rim around a violet face, with a small cream five-pointed star in the middle of the face.',
+    colour: 'A warm gold rim, a soft violet face (lighter toward its top left), a cream star.',
+    not: [
+      'Draw ONLY the shield. No sword, no crest, no bars or stripes, no rivets, no glow, no sparkles.',
+      'IT HAS NO FACE — no eyes, no smile. No text, letters or numbers.'
+    ],
+    keep: [
+      seenAt('about 48 pixels tall, at the top of a little cream paper card that explains, kindly, why a reward could not be given', 'Friendly and soft, a toy knight\'s shield from a picture book — never warlike, never a warning sign.'),
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the shield'),
+      STILL_PAINTED
+    ].join('\n'),
+    checks: ['· One shield: a gold rim, a violet face, one cream star in its middle.', NOTHING_ROUND]
+  })
+]
+
+/**
+ * What each dialogue pictogram SHOWS, in the painter's words — only what its
+ * drawing in `pictos.ts` draws (`artIds.PICTO_SETS`).
+ */
+const PICTO_WORDS: Readonly<Record<string, string>> = {
+  sparkle: 'a big, soft four-pointed TWINKLE in pale butter yellow, with a tiny pink four-pointed twinkle beside its top right',
+  heart: 'a plump pink HEART',
+  dustCloud: 'a PUFF OF DUST: a cloud shape in dusty grey-lilac, with three little darker grey specks falling from under it',
+  cheer: 'a pink POM-POM for cheering: a round, frilly pink bloom on a short brown handle',
+  duel: 'two MAGIC WANDS crossed like an X, each tipped with a star — a gold star on the wand rising to the right, a pink star on the wand rising to the left',
+  sun: 'a round sunny-yellow SUN with eight short rays around it',
+  forest: 'two little pointed FIR TREES side by side, a bright green one at the left and a deeper green one at the right, a little taller and further back, each on a short brown trunk',
+  zzz: 'three plum letter Z shapes rising diagonally up to the right, each smaller than the one before — the sign for someone SLEEPING',
+  crescentMoon: 'a soft lilac CRESCENT MOON, opening toward the upper right',
+  thorn: 'a curving BRAMBLE stem rising from the bottom left to the top right, with five small, sharp brown thorns along it',
+  crystal: 'a cluster of three pointed CRYSTALS standing together — a tall lilac one in the middle, a pale aqua one leaning left and a pink one leaning right — each with a light face and a darker face',
+  mirror: 'a HAND MIRROR: an oval lilac frame round sky-blue glass with a white shine across it, a short lilac handle below, and a tiny yellow twinkle at its top right',
+  wave: 'a rolling SEA WAVE in bright aqua blue, one curl rising at the left and a smaller one at the right',
+  musicalNote: 'a pair of joined MUSIC NOTES — two lilac note heads on plum stems, joined across the top by a bar',
+  musicalNoteCrossed: 'the same pair of joined MUSIC NOTES in pale grey-lilac, with a plum line struck diagonally through them from the top left to the bottom right — no music',
+  cloud: 'a fluffy white CLOUD',
+  lightning: 'a sunny-yellow LIGHTNING BOLT zigzagging downward',
+  wing: 'a single soft white feathered WING, spread up toward the right',
+  rainbow: 'a small RAINBOW arch of three bands — pink outside, then yellow, then sky blue inside — with a little white cloud at each foot',
+  hourglass: 'an HOURGLASS: pale blue glass between a brown wooden top bar and bottom bar, golden sand in the top bulb running down into a little heap in the bottom bulb',
+  snowflake: 'a six-armed pale ice-blue SNOWFLAKE, each arm with one V of little branches',
+  star: 'a big, plump five-pointed butter-yellow STAR',
+  balloon: 'a round pink BALLOON with a white shine at its upper left, a little knot and a short wavy string below it'
+}
+
+/** Each pictogram's name in the count-and-check list. */
+const PICTO_SHORT: Readonly<Record<string, string>> = {
+  sparkle: 'twinkle', heart: 'heart', dustCloud: 'puff of dust', cheer: 'pom-pom', duel: 'crossed wands', sun: 'sun',
+  forest: 'fir trees', zzz: 'sleeping Z\'s', crescentMoon: 'crescent moon', thorn: 'bramble', crystal: 'crystals',
+  mirror: 'hand mirror', wave: 'wave', musicalNote: 'music notes', musicalNoteCrossed: 'crossed-out music notes',
+  cloud: 'cloud', lightning: 'lightning bolt', wing: 'wing', rainbow: 'rainbow', hourglass: 'hourglass',
+  snowflake: 'snowflake', star: 'star', balloon: 'balloon'
+}
+
+/** The dialogue pictograms, one SET per strip (`ItemSheet.set`). */
+const pictoSheet = (k: number): ItemSheet => {
+  const names = PICTO_SETS[k] as readonly string[]
+  const id = pictoSetArtId(k)
+  const hasZ = names.includes('zzz')
+  return {
+    name: `worldUi:${id}`,
+    kind: 'worldUi',
+    id,
+    title: `Dialogue pictograms, set ${k + 1} of ${PICTO_SETS.length}`,
+    frames: names.length,
+    set: true,
+    anchor: 'centre',
+    noun: 'pictogram',
+    panels: names.map((n, i) => `Panel ${i + 1}: ${PICTO_WORDS[n] ?? n}.`),
+    blurb: `${names.length} small storybook PICTOGRAMS, each a different little picture that tells a child what a line of the story is about without a single word. They are printed beside the words on a cream paper leaf, one or two at a time, next to the face of whoever is speaking.`,
+    colour: 'Each keeps the colours the reference gives it — bright, clean storybook colours, never muddy. Every one keeps a warm plum line round its OUTSIDE, swelling and fading as a brush does: on cream paper, a little picture with no edge at all dissolves into the page.',
+    not: [
+      `Draw ONLY the ${names.length} pictures the reference shows, one in each panel. No ground, no shadow, no scenery, no characters, no hands, and no bubble, badge, disc, tile or card behind any of them.`,
+      'THEY HAVE NO FACES — not the sun, the moon, the cloud, the star, the heart or the snowflake: no eyes, no mouth, no cheeks. They are signs, not characters.',
+      hasZ
+        ? 'No text, letters or numbers — except the three Z shapes of the sleeping sign, which ARE that picture. Nothing else in the strip is a letter.'
+        : 'No text, letters or numbers.'
+    ],
+    keep: [
+      seenAt('about 40 to 58 pixels across, beside a line of words on cream paper, one or two at a time', 'A child who cannot read yet follows the story from these alone, so each must say what it is at a glance.'),
+      '· Every one is a whole, separate little picture in the MIDDLE of its own panel, about the size the reference draws it — never touching a neighbour.',
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to each picture'),
+      STILL_PAINTED
+    ].join('\n'),
+    checks: [
+      `· Name them left to right: ${names.map((n) => PICTO_SHORT[n] ?? n).join(', ')}. Exactly ${names.length}, in that order.`,
+      '· None of them has a face.',
+      '· NOTHING under or around any of them — no shadow, no glow, no bubble, no card.'
+    ],
+    file: `worldui-${id}`,
+    target: artTarget('worldUi', id)
+  }
+}
+
+const PICTO_SHEETS: readonly ItemSheet[] = PICTO_SETS.map((_, k) => pictoSheet(k))
+
+/**
  * The chrome of the book itself — the things a player looks at on every map
  * screen and which, until now, had no painted seam at all.
  */
@@ -532,7 +1105,11 @@ export const WORLD_UI_SHEETS: readonly ItemSheet[] = [
     target: artTarget(MOVIE_ICON.kind, MOVIE_ICON.id)
   },
   hpFrameSheet('aurora'),
-  hpFrameSheet('foe')
+  hpFrameSheet('foe'),
+  // The 2026-09-24 paint-outstanding pass (map & UI): the book's chrome and
+  // the DOM's storybook marks, then the dialogue pictograms' four sets.
+  ...CHROME_SHEETS,
+  ...PICTO_SHEETS
 ]
 
 /* ───────────────────────────────────── the sectors' live props (§8.8) ── */
@@ -2028,6 +2605,484 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
         '· There is no wheel and no spoke anywhere in the picture.',
         '· Nothing under it: the magenta runs clean beneath its rounded foot.'
       ]
+    }),
+
+  /* ── the sectors' live layers: the paint-outstanding pass (2026-09-24) ── */
+  /*
+   * What the four earlier passes left drawn in the sectors' live layer, from
+   * `paint-outstanding.md`: a tap creature's log where the sector painting has
+   * none, the rescues' beds and nests, the Bloom's bunny and flower heads, the
+   * carousel's drum and horses, and the small silhouettes a transform carries.
+   * The same test decided each one — freeze a frame: is there a shape with an
+   * edge? — and art-roadmap.md's section of that date lists the ones it said
+   * no to, and why.
+   */
+
+  prop('hollowLog', 'Hollow log', 1,
+    'A short hollow log lying on its side, seen from the side: a rounded length of bark with a strip of green moss along its top, its RIGHT end sawn flat to show a pale round cut face with a darker ring inside it, and its LEFT end the open mouth of the hollow, seen as a darker oval rim just showing past the bark. There is NOTHING in it or on it.',
+    'Warm mid-brown bark with a deeper brown shadow along its underside, a pale honey-cream cut face with a soft tan ring, a fresh moss green along the top, and a darker brown rim at the hollow end.',
+    'it is about a tenth of the width of the scene — a little log lying in a meadow.',
+    [],
+    {
+      noun: 'log',
+      view: 'THE VIEW: flat and side-on, lying level, the cut face on the RIGHT and the hollow end on the LEFT, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the log, exactly as the reference shows it.',
+        '· NO creature, NO sprite, NO face, NO eyes — a little moss-sprite lives in this log and is painted separately; the game pops it up from behind the bark, so one painted here ends up as a second.',
+        '· NO grass, NO flowers, NO mushrooms, NO ground, NO shadow beneath it — the meadow is already painted and the log is put on top of it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One log, lying level, cut face on the RIGHT, hollow end on the LEFT.',
+        '· It is EMPTY: nothing peeks out of it and nothing sits on it.',
+        '· Nothing under it: the magenta runs clean beneath the log.'
+      ]
+    }),
+  prop('mossBed', 'Moss bed', 1,
+    'A low, flat bed of soft moss: an oval cushion of moss lying on the ground, about four times as wide as it is tall, gently domed, its edge soft and tufted rather than cut.',
+    'A soft, deep moss green, a little lighter along its top where the light lands and a little deeper round its lower edge.',
+    'it is about a fourteenth of the width of the scene — the little bed a sleeping sprite lies on.',
+    [],
+    {
+      noun: 'bed',
+      view: 'THE VIEW: flat and side-on, lying level, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the moss bed, exactly as the reference shows it.',
+        '· NO sprite, NO creature, NO flowers, NO stones, NO grass round it, NO shadow beneath it — the little sprite that sleeps on it is painted separately and put on top.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One flat oval of moss, about four times as wide as it is tall.',
+        '· Nothing on it and nothing under it.'
+      ]
+    }),
+  prop('rockNest', 'Rock nest', 1,
+    'A small nest of rock: a low, rounded rim of cave-stone that rises at both ends and dips in the middle, like a cupped hand, with a dark hollow showing behind the rim where something has been lying. A stone cradle, EMPTY.',
+    'Soft cave-lilac stone with a deeper violet shadow on its lower right, and a deep violet hollow behind the rim.',
+    'it is about a seventh of the width of the scene, on the floor of a crystal cave.',
+    [],
+    {
+      noun: 'nest',
+      view: 'THE VIEW: flat and side-on, lying level, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the rock nest, exactly as the reference shows it.',
+        '· It is EMPTY. NO crystal, NO shard, NO gem, NO creature in it — the Shard of Clear Light that sleeps in it is painted separately and stands up out of it, so one painted here ends up as a second.',
+        '· NO glow, NO rainbow, NO cave floor, NO other rocks, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· The hollow is empty: no crystal and no gem anywhere in the picture.',
+        '· The rim rises at BOTH ends and dips in the middle.',
+        '· Nothing under it: the magenta runs clean beneath the stone.'
+      ]
+    }),
+  prop('iceBlock', 'Block of ice', 1,
+    'A block of clear ice with a cap of snow: a rounded block of pale blue ice, a little wider than it is tall, with three white frost streaks running down inside it, and a soft lumpy cap of snow along its top edge — three round lobes, the middle one the biggest.',
+    'Pale icy blue with a cooler blue shade down one side and bright white frost streaks; the snow cap soft white with a faint lilac shadow underneath it.',
+    'it is about an eighth of the width of the scene — a block of ice something small is frozen inside.',
+    [],
+    {
+      noun: 'block',
+      view: 'THE VIEW: flat and square-on, standing level on its flat foot, exactly as the reference has it. The game melts it by shrinking it, so draw it whole.',
+      not: [
+        'Draw ONLY the ice block and its snow cap, exactly as the reference shows them.',
+        '· The ice is EMPTY and SOLID. NO star, NO crystal, NO creature, NOTHING frozen inside it — the thing asleep in it is painted separately, and the game lays this block over it half see-through. So paint the ice as a solid, opaque block: do not paint it transparent and do not show anything through it.',
+        '· NO snow drift, NO ground, NO icicles hanging off it, NO sparkles, NO glow, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· The block is EMPTY: nothing inside the ice.',
+        '· THREE white streaks inside the ice, and THREE lobes of snow on top, the middle one biggest.',
+        '· Nothing under it: the magenta runs clean along its foot.'
+      ]
+    }),
+  prop('bunny', 'Bunny', 1,
+    'A small fluffy white bunny sitting side-on and facing RIGHT: a round body, a round head in front of it, two long upright ears leaning back a little with pink insides, a small round tail puff behind, one dot of an eye and a small pink nose.',
+    'Snow white with a pale lilac shadow along its underside, soft pink inside the ears, a pink nose, a plum eye.',
+    'it is about a thirteenth of the height of the scene — a bunny hopping through a flower meadow.',
+    [],
+    {
+      noun: 'bunny',
+      facing: 'It faces RIGHT: its NOSE toward the right-hand edge, its TAIL toward the left. The game mirrors this painting itself when it hops the other way, so one painted facing left is backwards everywhere and unusable.',
+      view: 'THE VIEW: side-on and flat, sitting level with its feet along the bottom, exactly as the reference shows it. One eye, on the near side of the head.',
+      not: [
+        'Draw ONLY the bunny, exactly as the reference shows it.',
+        '· NO grass, NO flowers, NO ground, NO shadow beneath it — the game draws its shadow on the grass itself, and one painted here is stuck to it in mid-hop.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· TWO long ears standing up.',
+        '· FACING: the nose is nearer the RIGHT edge than the tail is.',
+        '· Nothing under it: the magenta runs clean beneath its feet.'
+      ]
+    }),
+  prop('flowerHead', 'Flower head', 1,
+    'ONE round flower head seen face-on: five round petals of the same size set evenly round a round butter-yellow middle — a simple storybook daisy-flower.',
+    'Keep the reference\'s pale neutral grey (see below) for the PETALS: the game gives each flower its own colour. The middle is a warm butter yellow.',
+    'it is about a thirtieth of the width of the scene, nodding on top of a tall stem.',
+    [],
+    {
+      noun: 'flower',
+      tinted: 'the five petals. The butter-yellow middle stays as it is',
+      view: 'THE VIEW: flat and square-on, face-on, exactly as the reference has it. The game turns it slowly, so draw it standing still.',
+      not: [
+        'Draw ONE flower head and nothing else, exactly as the reference shows it.',
+        '· NO stem, NO leaves, NO second flower, NO bee, NO grass.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· FIVE petals — count them.',
+        '· There is no stem and no leaf.'
+      ]
+    }),
+  prop('carouselDrum', 'Carousel drum', 1,
+    'The centre column of a merry-go-round: a tall rounded drum of cream panels with a gold band round its top and another round its foot, two tall oval mirrors of pale blue glass set side by side into its front, and its right-hand part in soft shadow.',
+    'Warm cream with a deeper cream shadow on its right, bright gold bands, pale sky-blue mirror glass.',
+    'it is about a tenth of the width of the scene and a quarter of its height — the drum at the heart of a carousel.',
+    [],
+    {
+      noun: 'drum',
+      view: 'THE VIEW: flat and square-on, standing upright, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the drum, exactly as the reference shows it.',
+        '· NO roof, NO canopy, NO poles, NO horses, NO platform, NO light bulbs, NO ground, NO shadow beneath it.',
+        '· The canopy above it and the platform under it are already painted, and the carousel\'s horses go round in front of it and behind it — a horse painted here ends up standing still while the others turn.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· TWO oval mirrors, side by side.',
+        '· No horse and no pole anywhere in the picture.'
+      ]
+    }),
+  prop('carouselHorse', 'Carousel unicorn', 6,
+    'A little carousel unicorn seen side-on and facing RIGHT, as if prancing: a round body, four short legs (the near two stretched out, the far two tucked), a round head on a short neck, a small pointed ear, a gold spiral horn, a curly mane and tail made of a few round tufts, a small saddle on its back, and one dot of an eye.',
+    'See the panels: each one is the same unicorn in its own coat, mane and saddle. The horn is gold in all six.',
+    'it is about a fifteenth of the width of the scene — one of six going round on a carousel.',
+    [
+      'Panel 1: a CREAM coat, a CANDY-PINK mane and tail, a SKY-BLUE saddle.',
+      'Panel 2: a BLUSH-PINK coat, a SKY-BLUE mane and tail, a LEMON saddle.',
+      'Panel 3: a PALE SKY-BLUE coat, a LEMON mane and tail, a CANDY-PINK saddle.',
+      'Panel 4: a BUTTER-YELLOW coat, a LILAC mane and tail, a MINT saddle.',
+      'Panel 5: a MINT coat, a CORAL mane and tail, a LILAC saddle.',
+      'Panel 6: a LILAC coat, a MINT mane and tail, a CORAL saddle.',
+      'It is the SAME unicorn in all six — the same pose, the same size, the same gold horn, in the same place on the panel, facing right. ONLY the coat, the mane and tail, and the saddle change colour. The coats are all soft and pale; the manes and saddles are the bright ones.'
+    ],
+    {
+      noun: 'unicorn',
+      character: true,
+      facing: 'It faces RIGHT in every panel: the game mirrors it for the horses going round the other way.',
+      not: [
+        'Draw ONLY the unicorn, exactly as the reference shows it.',
+        '· NO pole through it, NO carousel, NO platform, NO canopy, NO rider, NO ground, NO shadow beneath it.',
+        '· The brass pole it rides on is drawn by the game, straight through its back — a painted one ends up beside it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· SIX unicorns in one row, all facing right, all the same size and pose.',
+        '· ONE gold horn on each.',
+        '· No pole anywhere in the picture.',
+        '· Nothing under any of them: the magenta runs clean beneath every hoof.'
+      ]
+    }),
+  prop('gnomon', 'Sundial gnomon', 1,
+    'The pointer of a sundial: ONE slim triangle of polished gold standing up and leaning back to the LEFT — its short foot at the bottom right, its long edge running up to a point at the top left.',
+    'Warm polished gold, brighter on its lit face and a deeper amber along its shaded edge.',
+    'it is about a thirtieth of the width of the scene — the pointer standing on a sundial.',
+    [],
+    {
+      noun: 'pointer',
+      view: 'THE VIEW: flat and square-on, leaning exactly as the reference has it, its point at the top LEFT.',
+      not: [
+        'Draw ONLY the gold triangle, exactly as the reference shows it.',
+        '· NO dial, NO sun face, NO column, NO numbers round a dial, NO shadow on anything, NO ground.',
+        '· The dial and its sun are already painted, and the hour\'s shadow is drawn by the game and moves.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE gold triangle, its point at the top LEFT.',
+        '· No dial and no shadow anywhere in the picture.'
+      ]
+    }),
+  prop('planet', 'Little planet', 1,
+    'A little ringed planet: a round ball with a slim ring round it, the ring tilted so it rises a little to the RIGHT and crosses in front of the ball.',
+    'Keep the reference\'s pale neutral grey (see below) for the BALL: the game gives each of the three its own pastel. The ring is the warm deep plum the whole game is inked in.',
+    'it is about a fortieth of the width of the scene — one of three little planets riding a halo round a throne of stars.',
+    [],
+    {
+      noun: 'planet',
+      tinted: 'the round ball. The ring stays plum',
+      view: 'THE VIEW: flat and square-on, the ring tilted exactly as the reference has it.',
+      not: [
+        'Draw ONE planet and nothing else, exactly as the reference shows it.',
+        '· NO stars, NO moons, NO sparkles, NO glow, NO halo, NO sky, NO orbit line.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE ball and ONE ring round it.',
+        '· Nothing under it and no glow round it.'
+      ]
+    }),
+  prop('snowball', 'Snowball', 1,
+    'A round snowball: one plump ball of packed snow with a single soft curved streak on its lower right, showing it is rolling.',
+    'Snow white with a soft lilac shadow on its underside, and a lilac streak.',
+    'it is between a fortieth and a twentieth of the width of the scene — it grows as it rolls down a sledging hill.',
+    [],
+    {
+      noun: 'snowball',
+      view: 'THE VIEW: flat and square-on, a round ball, the streak low on its right, exactly as the reference has it. The game spins it as it rolls.',
+      not: [
+        'Draw ONE snowball and nothing else, exactly as the reference shows it.',
+        '· NO hill, NO snow on the ground, NO track behind it, NO puffs, NO flakes, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One round ball with ONE curved streak on it.',
+        '· Nothing under it: the magenta runs clean all round.'
+      ]
+    }),
+  prop('kiteBow', 'Kite-tail bow', 1,
+    'ONE bow from a kite\'s tail: two little triangles of cloth pointing in to meet at a knot in the middle, one flaring out to the LEFT and one to the RIGHT — a bow-tie.',
+    'Keep the reference\'s pale neutral grey (see below): the game gives each bow one of its kite\'s two colours. A soft deeper tone where the cloth folds in to the knot.',
+    'it is about a sixtieth of the width of the scene — three of them are tied along a kite\'s tail.',
+    [],
+    {
+      noun: 'bow',
+      tinted: 'both triangles — the whole bow',
+      view: 'THE VIEW: flat and square-on, the two triangles level either side of the knot, exactly as the reference has it.',
+      not: [
+        'Draw ONE bow and nothing else, exactly as the reference shows it.',
+        '· NO string, NO tail line through it, NO kite, NO second bow, NO sky.',
+        '· The tail is a line the game draws waving through the sky, and every bow on it is this one picture tied along it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE bow: two triangles meeting in the middle.',
+        '· There is no string anywhere in the picture.'
+      ]
+    }),
+  prop('bubbleRing', 'Bubble ring', 1,
+    'A soap-bubble RING: a floating ring of bubble skin, like a little doughnut of soap film seen face-on — an upright oval with its middle OPEN — and one small white highlight on its upper left.',
+    'Clear pale aqua soap film with a faint rainbow sheen round the ring, a bright rim, and one white highlight.',
+    'it is between a thirtieth and a tenth of the height of the scene — it swells as it drifts up from a sea-foal\'s mouth.',
+    [],
+    {
+      noun: 'ring',
+      view: 'THE VIEW: flat and square-on, an upright oval, exactly as the reference has it. The game swells it and floats it away.',
+      holes: 'THE RING IS OPEN IN THE MIDDLE. The oval in its centre is a HOLE: the magenta runs clean through it — the sea is painted behind it. Only the ring of soap skin, its rim and its highlight are painted.',
+      not: [
+        'Draw ONE ring and nothing else, exactly as the reference shows it.',
+        '· NO other bubbles, NO foal, NO water, NO splash, NO sky.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE ring, an upright oval, with magenta showing through its open middle.',
+        '· One white highlight, on its upper left.'
+      ]
+    }),
+  prop('canoePole', 'Canoe lantern pole', 1,
+    'A bent wooden pole: a slim round staff rising straight up and then curving over at the top into a short hook that points to the RIGHT, like a shepherd\'s crook — the pole a lantern hangs from at the back of a little boat.',
+    'Warm honey-brown wood, a little darker along its shaded side.',
+    'it is about a seventh of the height of the scene, standing in a canoe on an underground lake.',
+    [],
+    {
+      noun: 'pole',
+      view: 'THE VIEW: flat and side-on, the staff upright and its hook curving over to the RIGHT at the top, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the pole, exactly as the reference shows it.',
+        '· NO lantern, NO chain, NO hook hardware, NO canoe, NO water, NO cave.',
+        '· The lantern hanging from its tip and the canoe it stands in are painted separately — a lantern painted here ends up as a second one.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One pole, its hook at the top curving to the RIGHT.',
+        '· No lantern and no boat anywhere in the picture.'
+      ]
+    }),
+  prop('glassChip', 'Glass chip', 1,
+    'A small chip of mirror glass: ONE three-cornered sliver, like a little wedge broken off the edge of a mirror, lying flat.',
+    'Keep the reference\'s pale neutral grey (see below): the game makes it dull grey while it lies asleep and clear blue-white as it flies home into its mirror. Glassy — a lit edge and a soft sheen across it.',
+    'it is about a fortieth of the width of the scene — a chip lying beside a cracked hand-mirror.',
+    [],
+    {
+      noun: 'chip',
+      tinted: 'the whole chip',
+      view: 'THE VIEW: flat and square-on, exactly as the reference has it. The game turns it as it flies.',
+      not: [
+        'Draw ONE chip and nothing else, exactly as the reference shows it.',
+        '· NO mirror, NO frame, NO handle, NO other shards, NO ground, NO sparkle, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE three-cornered chip.',
+        '· Nothing under it: the magenta runs clean all round.'
+      ]
+    }),
+  prop('sleepZ', 'Sleepy Z', 1,
+    'ONE sleepy "Z" drawn as a thick, soft, rounded stroke — a flat top bar, a diagonal from its right end down to the left, and a flat bottom bar — the "z" that floats up from someone fast asleep in a picture book. A plump SHAPE, not a typed letter.',
+    'Keep the reference\'s pale neutral grey (see below) for the Z\'s body: the game gives it a soft lilac. Its rim is the warm deep plum the whole game is inked in.',
+    'it is about a fiftieth of the width of the scene — three of them drift up from a sleeper, getting bigger.',
+    [],
+    {
+      noun: 'Z',
+      tinted: 'the body of the Z, inside its plum rim',
+      view: 'THE VIEW: flat and square-on, upright, exactly as the reference has it. The game floats it up, swells it and fades it.',
+      not: [
+        'Draw ONE Z and nothing else, exactly as the reference shows it.',
+        '· NO second or third Z, NO other letters, NO word, NO speech bubble, NO cloud, NO moon, NO stars.',
+        '· It is a drawn shape, not type: no font, no serif, no italic slant.'
+      ],
+      checks: [
+        '· ONE Z — not two, not "zzz".',
+        '· There is nothing else anywhere in the picture.'
+      ]
+    }),
+
+  /* ── the duel's wards and Frost Lock's ice (paint-outstanding, 2026-09-24) ── */
+  /*
+   * Not the fx pool (art-roadmap's "never paint the duel's VFX" is about that):
+   * each ward is ONE persistent shape per flavour, raised at the same place
+   * every time, standing for seconds — a still a matrix carries, like every
+   * prop here (`fx.WARD_ART`, `duel/stageArt.ts`). The duel stage is the
+   * "scene" the sizes are measured against. Three are SEE-THROUGH shells a
+   * unicorn stands inside, so their middles are holes: the game lays its own
+   * pale wash there, and its own sheen, glitter, crack and flakes on top.
+   */
+  prop('wardRock', 'Rock ward', 1,
+    'A short, rough wall of six chunky broken rock blocks piled in two columns of three, each block a lumpy many-sided stone with flat broken faces, each set at its own tilt — a shield of stone raised in front of someone. NOTHING else: no ground under it, no pebbles, no dust, no figure behind it.',
+    'Warm clay-brown and tan earth: every block with a lit top face and a deeper brown shadow side, so the six read as separate stones.',
+    'it is about a tenth of the width of the scene and a quarter of its height — a wall a unicorn ducks behind.',
+    [],
+    {
+      noun: 'rock wall',
+      anchor: 'feet',
+      view: 'THE VIEW: flat, from the side, exactly as the reference has it. The game mirrors it for the duelist on the other side, so nothing in it turns toward the viewer.',
+      not: [
+        'Draw ONLY the six stones, exactly as the reference stacks them.',
+        '· NO ground, NO grass, NO dust cloud, NO pebbles round its foot, NO unicorn, NO sky, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· Six stones, in two columns of three.',
+        '· Nothing under it: the magenta runs clean beneath its bottom stones.'
+      ]
+    }),
+  prop('wardIce', 'Ice pillar ward', 3,
+    'One tall faceted pillar of clear blue ice standing on end like a giant crystal — a long spindle pointed at the top and at the bottom — with a second, narrower spindle set into its front, so that where the two meet the pillar is cut into a flat facet running down its face. The facet is a change of light from one face to the next, not a drawn line.',
+    'Clear sky-blue ice, paler and almost white on its lit faces, a deeper cool blue on its shaded ones.',
+    'it is about a fifteenth of the width of the scene and a quarter of its height — a crystal a unicorn stands behind.',
+    [
+      'Panel 1: the inner spindle leans a hair to the LEFT at its top, so the facet slants that way.',
+      'Panel 2: the inner spindle stands straight up.',
+      'Panel 3: the inner spindle leans a hair to the RIGHT at its top.',
+      'The pillar itself — its outline, its size, its colours, its place in the panel — is IDENTICAL in all three. Only the facet moves, by the small amount the reference shows: the game sways between the panels so the ice catches the light while it stands.'
+    ],
+    {
+      noun: 'pillar',
+      anchor: 'feet',
+      view: 'THE VIEW: flat, from the side, standing straight up exactly as the reference has it. The game mirrors it for the duelist on the other side.',
+      not: [
+        'Draw ONLY the pillar, exactly as the reference shows it.',
+        '· NO ground, NO snow, NO ice shards scattered round it, NO sparkles, NO glow, NO unicorn, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: ['· One pillar per panel, standing straight up, the same pillar in all three.']
+    }),
+  prop('wardWind', 'Wind ward', 1,
+    'A round shell of swirling air: a thick ring of pale aqua wind, hollow — you can see straight through the middle — with four little curling gusts, each like a comma with a long tapering tail, chasing each other round inside it.',
+    'Pale aqua and mint-white air, brightest where it curls, a cooler aqua in its turns.',
+    'it is about a tenth of the width of the scene — a shell of wind around a unicorn.',
+    [],
+    {
+      noun: 'wind shell',
+      holes: 'THE MIDDLE OF THE RING IS A HOLE. Inside the ring, round the four gusts and between them, the magenta runs straight through: a unicorn stands inside this shell and must show through it. Only the ring and the four gusts are painted.',
+      view: 'THE VIEW: flat and square-on, exactly as the reference has it. The game turns the whole shell round and round, so there is no up or down to it.',
+      not: [
+        'Draw ONLY the ring and its four gusts, exactly as the reference shows them.',
+        '· NO leaves, NO dust, NO clouds, NO sparkles, NO glow round it, NO unicorn inside it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One ring, four gusts inside it, and magenta showing through the middle.',
+        '· There is no glow outside the ring: the magenta runs clean up to its edge.'
+      ]
+    }),
+  prop('wardBubble', 'Bubble ward', 1,
+    'A big round soap-bubble shield: a thin bright skin of sea-turquoise round its rim and one small white highlight up and to the left, with nothing in the middle — you can see straight through it.',
+    'Sea-turquoise skin paling to a bright aqua-white along the rim; a white highlight.',
+    'it is about a tenth of the width of the scene — a bubble big enough to hold a unicorn.',
+    [],
+    {
+      noun: 'bubble',
+      holes: 'THE BUBBLE IS SEE-THROUGH. Its whole middle is a HOLE: the magenta runs right through it, and the painting is only its thin coloured rim and the one white highlight. A unicorn stands inside it and must show through.',
+      view: 'THE VIEW: flat and square-on, a single round bubble, exactly as the reference has it. The game swells it as it wobbles.',
+      not: [
+        'Draw ONE bubble and nothing else, exactly as the reference shows it.',
+        '· NO smaller bubbles inside or around it (the game floats its own), NO crack, NO rainbow swirl across it, NO water, NO unicorn, NO sky.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· ONE bubble, and you can see magenta through the whole of its middle.',
+        '· Exactly one highlight, up and to the left.'
+      ]
+    }),
+  prop('wardCrystal', 'Crystal ward', 1,
+    'A small wall of three amethyst crystal prisms standing side by side — a tall one in the middle and two shorter ones leaning a little outwards — each a column with a pointed roof, cut by one flat facet down its middle. The facet is a change of light from one face to the other, not a drawn line.',
+    'Lilac-violet amethyst, pale and glassy on its lit faces, a deeper violet on its shaded ones.',
+    'it is about a fifteenth of the width of the scene and a seventh of its height — a little crystal wall in front of a unicorn.',
+    [],
+    {
+      noun: 'crystal wall',
+      anchor: 'feet',
+      view: 'THE VIEW: flat, from the side, exactly as the reference has it. The game mirrors it for the duelist on the other side.',
+      not: [
+        'Draw ONLY the three prisms, exactly as the reference shows them.',
+        '· NO light beam across them, NO sparkles or glints on their tips (the game sweeps its own light over them), NO ground, NO rocks round their foot, NO glow, NO shadow beneath them.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· Three prisms, the middle one the tallest.',
+        '· Nothing under them: the magenta runs clean beneath their feet.'
+      ]
+    }),
+  prop('wardFrost', 'Frost dome ward', 1,
+    'A dome of frost: a half-circle shell of pale ice on two short straight sides down to a flat bottom edge, with four little frost ferns — each a short stem with one side-leaf — climbing up the inside of the shell from its rim. The shell is see-through.',
+    'Pale icy blue, near-white where the light catches the rim; the ferns pure white.',
+    'it is about a ninth of the width of the scene — a frosty dome over a unicorn.',
+    [],
+    {
+      noun: 'frost dome',
+      anchor: 'feet',
+      holes: 'THE DOME IS SEE-THROUGH. Inside its icy rim the magenta runs straight through, round the four ferns: a unicorn stands under it and must show through. Only the rim, its outline and the four white ferns are painted.',
+      view: 'THE VIEW: flat, from the side, exactly as the reference has it.',
+      not: [
+        'Draw ONLY the dome and its four ferns, exactly as the reference shows them.',
+        '· NO snowflakes, NO glitter or sparkles (the game adds its own), NO snow drift, NO ground, NO unicorn inside it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One dome, four ferns, and magenta showing through its middle.',
+        '· Its bottom edge is flat and straight, and nothing is under it.'
+      ]
+    }),
+  prop('frostLockIce', 'Frost Lock ice block', 1,
+    'A tall block of clear ice with softly rounded corners, standing on end: a pale, glassy, icy-blue rim running all the way round its edge, two pale planes of light on the glass — a slim sliver at the top left and a small wedge at the bottom right — and a clear, empty middle.',
+    'Pale icy blue glass, near-white on its lit edge; the two light planes white.',
+    'it is about an eighth of the width of the scene and a third of its height — a block of ice with a unicorn frozen inside.',
+    [],
+    {
+      noun: 'ice block',
+      anchor: 'feet',
+      holes: 'THE BLOCK IS SEE-THROUGH. Inside its rim the magenta runs straight through, round the two light planes: a frozen unicorn stands inside it and must show through. Only the rim, its outline and the two light planes are painted.',
+      view: 'THE VIEW: flat and square-on, standing upright exactly as the reference has it.',
+      not: [
+        'Draw ONLY the block, exactly as the reference shows it.',
+        '· NO unicorn or anything else frozen inside it, NO snowflakes (the game drifts its own), NO cracks, NO icicles, NO ground, NO puddle, NO shadow beneath it.',
+        '· No text, letters or numbers.'
+      ],
+      checks: [
+        '· One block, taller than it is wide, with magenta showing through its middle.',
+        '· Exactly two light planes, top left and bottom right.'
+      ]
     })
 ]
 
@@ -2055,7 +3110,21 @@ const KEEPSAKE_INFO: Readonly<Record<string, readonly [string, string, string]>>
     'Soft pastel pinks, mints and lilacs on a pale sky-blue disc.'],
   winterScarf: ['Winter Scarf',
     'A cosy knitted winter scarf, loosely looped, with chunky stripes and fringed ends.',
-    'Keep the reference\'s warm knitted colours.']
+    'Keep the reference\'s warm knitted colours.'],
+  // The second shelf's four that draw nothing painted (2026-09-24): the rest
+  // of that shelf's badges draw their worn stills (`KEEPSAKE_WORN_ART`).
+  petalTrail: ['Petal Trail',
+    'A rising drift of six soft blossom petals, the biggest at the bottom left and smaller as they rise, each a rounded teardrop with a gently folded edge.',
+    'Candy pink, blush white, apricot and rose petals.'],
+  frostTrail: ['Frost Trail',
+    'A rising drift of six little snowflakes, the biggest at the bottom left and smaller as they rise, each a star of six long slim arms.',
+    'Icy white and pale sky-blue flakes.'],
+  moonlitLook: ['Moonlit Look',
+    'A round badge: Aurora\'s smiling head in moonlit colours — a silver-blue coat, a deep indigo mane with frost-white streaks and a pale blue horn — on a pale blue disc inside a plum ring.',
+    'Silver-blue and deep indigo with frost-white streaks, on a pale blue disc.'],
+  sunsetLook: ['Sunset Look',
+    'A round badge: Aurora\'s smiling head in sunset colours — a warm apricot coat, a sunset-orange mane shot with gold and a honey horn — on a pale peach disc inside a plum ring.',
+    'Apricot, sunset orange and gold, on a pale peach disc.']
 }
 
 export const KEEPSAKE_SHEETS: readonly ItemSheet[] = KEEPSAKE_ICON_SLUGS.map((slug) => {
@@ -2869,7 +3938,7 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   const shape = wide
     ? `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne WIDE landscape image, 16:9, holding the single ${s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size. One picture — not a strip of panels, not a close-up of one part of it.`
     : many
-    ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS, NOT ONE PICTURE.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings of the same ${s.title.toLowerCase()} side by side, left to right, each in its own equal share of the width — on the same layout as the attached reference.\n· Exactly ${s.frames} panels. Not 1, not ${s.frames + 1}, not ${s.frames * 2}. One row.\n· ONE big drawing filling the canvas is the wrong answer however well it is painted.\n· THE COUNT IS THE WHOLE JOB, and it is the one mistake that cannot be repaired afterwards. The game cuts this picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT WHAT IS IN IT. One drawing too many and every slice lands across two of them — all ${s.frames} ship as halves, not just the extra one.\n· SO SPACE THEM EVENLY AND KEEP THE JOINS EMPTY. Share the width out equally between them in your head and put one drawing in the middle of each share, with a clear band of plain magenta between every neighbouring pair that nothing reaches into — no mane, no ear, no backdrop, no shadow.\n· DO NOT DRAW THE DIVISIONS. No lines, rules, bars, gutters, boxes, frames or guides between the drawings, in any colour. THE PANELS ARE INVISIBLE — they are only where the drawings happen to sit on one unbroken magenta sheet. A line you draw is paint: it survives the cut and ends up inside the pictures either side of it.`
+    ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS, NOT ONE PICTURE.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings ${s.set ? `— a DIFFERENT ${s.noun ?? 'object'} in each, in the order READ THE PANELS lists them —` : `of the same ${s.title.toLowerCase()}`} side by side, left to right, each in its own equal share of the width — on the same layout as the attached reference.\n· Exactly ${s.frames} panels. Not 1, not ${s.frames + 1}, not ${s.frames * 2}. One row.\n· ONE big drawing filling the canvas is the wrong answer however well it is painted.\n· THE COUNT IS THE WHOLE JOB, and it is the one mistake that cannot be repaired afterwards. The game cuts this picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT WHAT IS IN IT. One drawing too many and every slice lands across two of them — all ${s.frames} ship as halves, not just the extra one.\n· SO SPACE THEM EVENLY AND KEEP THE JOINS EMPTY. Share the width out equally between them in your head and put one drawing in the middle of each share, with a clear band of plain magenta between every neighbouring pair that nothing reaches into — no mane, no ear, no backdrop, no shadow.\n· DO NOT DRAW THE DIVISIONS. No lines, rules, bars, gutters, boxes, frames or guides between the drawings, in any colour. THE PANELS ARE INVISIBLE — they are only where the drawings happen to sit on one unbroken magenta sheet. A line you draw is paint: it survives the cut and ends up inside the pictures either side of it.`
     : `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding the single ${s.kind === 'rune' ? 'rune' : s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size.`
   const lines = [
     shape,
@@ -2894,7 +3963,14 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   lines.push(s.view ?? 'THE VIEW: flat and square-on, exactly as the reference shows it. No three-quarter view, no perspective, no tilt, nothing turned toward the viewer.')
   if (s.facing) lines.push(`· ${s.facing}`)
   lines.push('')
-  if (many) {
+  if (many && s.set) {
+    // A SET (`ItemSheet.set`): the panels are different drawables, so the
+    // strip's "same object, different moment" line would be exactly wrong.
+    lines.push(
+      `ONE HAND, ${s.frames} DIFFERENT PICTURES: every panel is painted in the same style — the same kind of plum line, the same light from the top left, the same finish, and about the same size in its panel — but each shows ITS OWN subject, the one READ THE PANELS names for it. Do not make them alike, do not merge two into one, and do not swap their order: the game cuts panel 1 out and uses it as the first picture, panel 2 as the second, and so on.`,
+      ''
+    )
+  } else if (many) {
     const noun = s.noun ?? 'object'
     // "butterflys" reads as carelessness in a brief whose whole job is to be
     // read carefully, and the manifest's nouns are the painter's own words.

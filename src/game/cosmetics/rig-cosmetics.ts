@@ -3,8 +3,19 @@
  *
  * Each item is a small named draw function hooked into the rig's draw order,
  * so it rides every pose — a rear, a victory hop, a portrait — and a head
- * item inherits the head's scale for free. Procedural until Step 3's painted
- * overlay replaces it.
+ * item inherits the head's scale for free.
+ *
+ * PAINTED where a matrix carries one shape (art-roadmap's third-sweep test,
+ * re-argued for the keepsakes 2026-09-24): the crown and the star (S6), and
+ * now the pegasus wing (the flap is a rotation, the fold a rotation and a
+ * scale; near and far are one wing's two colourings), the necklace's shell
+ * (one shell, tinted three ways, each carried by a translate) and the scarf's
+ * wrap and knot (a rotation to the neck). Every sparkle — the hoof trail, the
+ * Pastel Dream's twinkles, the Pet Star's trail — is the sectors' painted
+ * twinkle, tinted. What stays drawn is what is REBUILT per frame: the
+ * necklace's cord (a curve through points the pose hands over), the scarf's
+ * two tails (a spine carrying a travelling wave, the mane's own reason), and
+ * the pearls, which are under the family's size floor.
  *
  *   slot       item (chapter)                  hook
  *   head       Flower Crown (1)                `afterHead`, head space
@@ -33,8 +44,10 @@ import { ITEM_ART } from '@/game/artIds'
 // and the dependency runs ONE WAY, because a cycle between two modules of
 // top-level `const` records is a TDZ crash at import time.
 import {
-  HEAD_DRAW_X, NECK_DRAW_X, BACK_DRAW_X, COMPANION_DRAW_X, TRAIL_DRAW_X, SKIN_PAL_X, TRAIL_STYLES
+  HEAD_DRAW_X, NECK_DRAW_X, BACK_DRAW_X, COMPANION_DRAW_X, TRAIL_DRAW_X, SKIN_PAL_X, TRAIL_STYLES,
+  WORN_UNIT, wornStill, particleArt, thinInk
 } from '@/game/cosmetics/rig-accessories'
+import { TWINKLE_ART } from '@/game/map/kit'
 
 type G2D = CanvasRenderingContext2D
 
@@ -118,7 +131,21 @@ export const CROWN_ART: ItemSpec = {
 const scallop = (g: G2D, x: number, y: number, r: number, a: number, fill: string): void => {
   g.save()
   g.translate(x, y)
-  g.rotate(a)
+  // The painting hangs HINGE UP (`SHELL_HANG`), the way a shell on a string
+  // is drawn; turned back by that much it opens toward `a` like the vector.
+  g.save()
+  g.rotate(a - SHELL_HANG)
+  const painted = drawItem(g, NECKLACE_SHELL_ART, r, 0, fill)
+  g.restore()
+  if (!painted) {
+    g.rotate(a)
+    scallopShape(g, r, fill)
+  }
+  g.restore()
+}
+
+/** The shell at the origin, opening toward +x, radius `r`. */
+const scallopShape = (g: G2D, r: number, fill: string): void => {
   g.beginPath()
   g.moveTo(0, 0)
   g.arc(0, 0, r, -0.95, 0.95)
@@ -135,7 +162,35 @@ const scallop = (g: G2D, x: number, y: number, r: number, a: number, fill: strin
   }
   g.lineWidth = 0.9
   g.stroke()
-  g.restore()
+}
+
+/** How far the painted shell is turned from the vector's frame: a quarter
+ *  turn, so its reference hangs hinge-up with the fan below. */
+const SHELL_HANG = PI / 2
+/** The necklace's shells are all this big; the reference is drawn at it and
+ *  the CONTEXT scaled, so its ink scales with the shell on the bench. */
+const SHELL_R = 7.2
+
+/**
+ * The necklace's scallop as a painted still, radius `s`, hinge up. ONE shell
+ * for all three: they differ only in colour, which is the tinted region
+ * (`tinted`), so the three are the same shell the way a real string of them
+ * would be. The cord they hang on bends with her neck and stays drawn, and so
+ * do the two pearls — under the size floor.
+ */
+export const NECKLACE_SHELL_ART: ItemSpec = {
+  ...ITEM_ART.seashell,
+  frames: 1,
+  tinted: true,
+  draw: (g0, s, _f, accent) => {
+    const g = thinInk(g0)
+    g.save()
+    g.scale(s / SHELL_R, s / SHELL_R)
+    g.rotate(SHELL_HANG)
+    g.lineJoin = g.lineCap = 'round'
+    scallopShape(g, SHELL_R, accent.base)
+    g.restore()
+  }
 }
 
 /**
@@ -186,13 +241,28 @@ export const drawSeashellNecklace = (g: G2D, a: RigAnchors): void => {
   }
 }
 
+/** A pegasus wing's two colourings, `[fill, tip]`: the NEAR wing in full
+ *  light, the FAR one lilac behind her — the painted strip's two panels. */
+const WING_COLS = [['#fff6fb', '#ffb3d2'], ['#e2d6fa', '#c7a6ff']] as const
+
 /** One fluffy wing: a rounded leading edge and three scalloped feathers,
- *  rooted at (x, y), sweeping up and back; `flap` 0..1 lifts it. */
-const wing = (g: G2D, x: number, y: number, s: number, flap: number, fill: string, tip: string): void => {
+ *  rooted at (x, y), sweeping up and back; `flap` 0..1 lifts it.
+ *
+ *  story-spec §8.20 kept the wings drawn because they "follow the rig's
+ *  deformation". They do not: the shape never changes — the flap is a
+ *  rotation, the fold a rotation and a scale, the root an anchor the pose
+ *  hands over — so the shape is a painting and the matrix stays the game's. */
+const wing = (g: G2D, x: number, y: number, s: number, flap: number, far: 0 | 1): void => {
   g.save()
   g.translate(x, y)
   g.rotate(0.22 + flap * 0.35)
   g.scale(s, s)
+  if (!drawItem(g, PEGASUS_WING_ART, WORN_UNIT, far)) wingShape(g, WING_COLS[far][0], WING_COLS[far][1])
+  g.restore()
+}
+
+/** The wing itself, rooted on the origin at rest. */
+const wingShape = (g: G2D, fill: string, tip: string): void => {
   g.lineJoin = g.lineCap = 'round'
   g.beginPath()
   g.moveTo(0, 0)
@@ -225,8 +295,12 @@ const wing = (g: G2D, x: number, y: number, s: number, flap: number, fill: strin
   g.lineWidth = 1.2
   g.strokeStyle = INK
   g.stroke()
-  g.restore()
 }
+
+/** The pegasus wing as a painted strip: panel 1 the near wing's colours,
+ *  panel 2 the far wing's — one wing, rooted on the origin at rest. */
+export const PEGASUS_WING_ART: ItemSpec = wornStill(ITEM_ART.pegasusWing, 2, (g, f) =>
+  wingShape(g, WING_COLS[f ? 1 : 0][0], WING_COLS[f ? 1 : 0][1]))
 
 /** The wings' gentle flap: a slow breath at rest, a real flap on a hop — and
  *  nothing at all once she is down, when they fold back along her (`fold`). */
@@ -247,14 +321,14 @@ const fold = (g: G2D, x: number, y: number, lose: number): void => {
 export const drawWingsFar = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
   fold(g, x - 8, y - 2, a.lose)
-  wing(g, x - 8, y - 2, 1.4, flapOf(a) * 0.9, '#e2d6fa', '#c7a6ff')
+  wing(g, x - 8, y - 2, 1.4, flapOf(a) * 0.9, 1)
 }
 
 /** …and the near layer, over the body AND the mane (drawn at `afterMane`). */
 export const drawWingsNear = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
   fold(g, x - 16, y + 6, a.lose)
-  wing(g, x - 16, y + 6, 1.5, flapOf(a), '#fff6fb', '#ffb3d2')
+  wing(g, x - 16, y + 6, 1.5, flapOf(a), 0)
 }
 
 /* ------------------------------ sparkles ------------------------------ */
@@ -282,7 +356,8 @@ const inkFill = (g: G2D, fill: string, w: number): void => {
 }
 
 /** A fixed little cluster of sparkles, `spots` as [dx, dy, r, colour index]
- *  from (x, y), mirrored by `f`, each twinkling on its own slow beat. */
+ *  from (x, y), mirrored by `f`, each twinkling on its own slow beat. Each
+ *  one is the sectors' painted twinkle, tinted, once that has landed. */
 const sparkleSet = (
   g: G2D, x: number, y: number, f: number, spots: readonly (readonly number[])[], cols: readonly string[],
   t: number, still: boolean
@@ -298,7 +373,10 @@ const sparkleSet = (
       const p = still ? 0.3 : (t * 0.55 + i * 0.37) % 1
       const k = still ? 0.85 : p < 0.6 ? sin((p / 0.6) * PI) : 0
       if (k < 0.05) continue
-      sparklePath(g, x + f * s[0]!, y + s[1]! - p * 8, s[2]! * k, 0.3 * i)
+      const sx = x + f * s[0]!
+      const sy = y + s[1]! - p * 8
+      if (particleArt(g, TWINKLE_ART, sx, sy, s[2]! * k, 0.3 * i, cols[c]!)) continue
+      sparklePath(g, sx, sy, s[2]! * k, 0.3 * i)
       any = true
     }
     if (any) inkFill(g, cols[c]!, 2.2)
@@ -430,7 +508,11 @@ export const drawHoofTrail = (g: G2D, a: RigAnchors): void => {
       const k = age / TLIFE[i]!
       // Snaps in, then shrinks out rather than fading (art-style §6).
       const r = TSIZE[i]! * min(1, age * 16) * (k > 0.55 ? (1 - k) / 0.45 : 1)
-      sparklePath(g, TX[i]!, TY[i]!, r, TROT[i]! + age * 2.5)
+      const rot = TROT[i]! + age * 2.5
+      // Each sparkle is the sectors' painted twinkle, tinted; the pool, the
+      // drift, the spin and the shrink stay the emitter's.
+      if (particleArt(g, TWINKLE_ART, TX[i]!, TY[i]!, r, rot, TRAIL_COLS[c]!)) continue
+      sparklePath(g, TX[i]!, TY[i]!, r, rot)
       any = true
     }
     if (!any) continue
@@ -466,6 +548,9 @@ const trailStill = (slug: string): ((g: G2D, a: RigAnchors) => void) | undefined
   if (!shape) return undefined
   const cols = st ? st.cols : TRAIL_COLS
   const alpha = st ? st.alpha : 1
+  // The same painted prop the live trail is routed through, if it has one.
+  const art = st ? st.art : TWINKLE_ART
+  const spins = st ? !!st.artSpins : true
   return (g: G2D, a: RigAnchors): void => {
     const [hx, hy] = a.hoofFront
     g.lineJoin = 'round'
@@ -476,7 +561,10 @@ const trailStill = (slug: string): ((g: G2D, a: RigAnchors) => void) | undefined
       for (let i = 0; i < STILL_TRAIL.length; i++) {
         if (i % cols.length !== c) continue
         const s = STILL_TRAIL[i]!
-        shape(g, hx + a.facing * s[0]!, hy + s[1]!, s[2]!, i * 0.8)
+        const px = hx + a.facing * s[0]!
+        const py = hy + s[1]!
+        if (art && particleArt(g, art, px, py, s[2]!, spins ? i * 0.8 : 0, cols[c]!)) continue
+        shape(g, px, py, s[2]!, i * 0.8)
         any = true
       }
       if (any) inkFill(g, cols[c]!, 2.4)
@@ -626,27 +714,42 @@ export const drawPetStar = (g: G2D, a: RigAnchors): void => {
       // Their own path, so the authored four keep exactly the alpha they had,
       // and they SHRINK in on `S.qx` rather than fading up — a trail that
       // faded in would break art-style.md §6 on the way to obeying it.
+      // Each sparkle is the sectors' painted twinkle, tinted, once it has
+      // landed — the alpha is set first so a painting takes it too.
       if (S.qx > 0.01) {
+        g.globalAlpha = 0.4
         g.beginPath()
+        let any = false
         for (let j = 5; j <= 7; j++) {
           const tj = t - j * 0.11
-          sparklePath(
-            g, starX(a.tailStage[0], f, tj), starY(a.tailStage[1], tj) + 2,
-            STAR_R * (0.12 - (j - 5) * 0.03) * S.qx, tj * 3
-          )
+          const px = starX(a.tailStage[0], f, tj)
+          const py = starY(a.tailStage[1], tj) + 2
+          const r = STAR_R * (0.12 - (j - 5) * 0.03) * S.qx
+          if (particleArt(g, TWINKLE_ART, px, py, r, tj * 3, '#fff4b8')) continue
+          sparklePath(g, px, py, r, tj * 3)
+          any = true
         }
-        g.globalAlpha = 0.4
+        if (any) {
+          g.fillStyle = '#fff4b8'
+          g.fill()
+        }
+      }
+      g.globalAlpha = 0.55
+      g.beginPath()
+      let any = false
+      for (let j = 1; j <= 4; j++) {
+        const tj = t - j * 0.11
+        const px = starX(a.tailStage[0], f, tj)
+        const py = starY(a.tailStage[1], tj) + 2
+        const r = STAR_R * (0.34 - j * 0.05)
+        if (particleArt(g, TWINKLE_ART, px, py, r, tj * 3, '#fff4b8')) continue
+        sparklePath(g, px, py, r, tj * 3)
+        any = true
+      }
+      if (any) {
         g.fillStyle = '#fff4b8'
         g.fill()
       }
-      g.beginPath()
-      for (let j = 1; j <= 4; j++) {
-        const tj = t - j * 0.11
-        sparklePath(g, starX(a.tailStage[0], f, tj), starY(a.tailStage[1], tj) + 2, STAR_R * (0.34 - j * 0.05), tj * 3)
-      }
-      g.globalAlpha = 0.55
-      g.fillStyle = '#fff4b8'
-      g.fill()
       g.globalAlpha = 1
     }
   }
@@ -761,8 +864,8 @@ const scarfTail = (
  * on the throat side. `lift` 0..1 livens the flutter.
  */
 export const drawScarfAt = (g: G2D, cx: number, cy: number, nx: number, ny: number, t: number, lift: number): void => {
-  const W = 19
-  const H = 15
+  const W = SCARF_W
+  const H = SCARF_H
   // Down the neck, toward the chest.
   const dx = -ny
   const dy = nx
@@ -773,14 +876,36 @@ export const drawScarfAt = (g: G2D, cx: number, cy: number, nx: number, ny: numb
   // The back tail, blown back over the shoulder, then the front one down the chest.
   scarfTail(g, kx, ky, PI / 2 + 0.85, 30, 5.4, t, 1.3, amp * 1.25, SCARF_A_BACK, SCARF_B_BACK)
   scarfTail(g, kx, ky, PI / 2 - 0.22, 34, 6, t, 0, amp, SCARF_A, SCARF_B)
+  // The wrap and its knot: ONE shape turned to the neck — a painted still.
+  // The tails above are rebuilt every frame along a travelling wave (the
+  // mane's reason for staying drawn), so they stay the game's.
+  g.save()
+  g.translate(cx, cy)
+  g.rotate(Math.atan2(ny, nx))
+  const painted = drawItem(g, SCARF_WRAP_ART, WORN_UNIT)
+  if (!painted) wrapShape(g)
+  g.restore()
+  if (painted) return
+  // The knot over the tails' roots.
+  g.beginPath()
+  g.ellipse(kx, ky, 6.6, 5.6, 0.4, 0, TAU)
+  inkFill(g, SCARF_A, 3.6)
+}
+
+/** The wrap's size: half its length along the neck, and its depth. */
+const SCARF_W = 19
+const SCARF_H = 15
+
+/** The wrap in its own frame — the neck's normal along +x, centred on the
+ *  origin: a chunky pill striped across its length. */
+const wrapShape = (g: G2D): void => {
+  const W = SCARF_W
+  const H = SCARF_H
   // The wrap: a chunky pill round the neck, striped across its length. No
   // clip: the stripes sit inside the pill's straight run, and the roll's
   // band follows its rounded ends exactly.
   const r = H / 2
   const e = W - r
-  g.save()
-  g.translate(cx, cy)
-  g.rotate(Math.atan2(ny, nx))
   g.beginPath()
   g.roundRect(-W, -r, W * 2, H, r)
   inkFill(g, SCARF_A, 5)
@@ -807,12 +932,20 @@ export const drawScarfAt = (g: G2D, cx: number, cy: number, nx: number, ny: numb
   g.lineWidth = 1.3
   g.strokeStyle = 'rgba(58,35,64,0.45)'
   g.stroke()
-  g.restore()
-  // The knot over the tails' roots.
-  g.beginPath()
-  g.ellipse(kx, ky, 6.6, 5.6, 0.4, 0, TAU)
-  inkFill(g, SCARF_A, 3.6)
 }
+
+/**
+ * The wrap and its knot as a painted still, in the wrap's frame (the neck's
+ * normal along +x): the knot sits where `drawScarfAt` ties it, (0.58 W,
+ * 0.2 H) down the neck. NO TAILS and no fringe — they flutter on a wave the
+ * game rebuilds every frame, and are drawn under this.
+ */
+export const SCARF_WRAP_ART: ItemSpec = wornStill(ITEM_ART.scarfWrap, 1, (g) => {
+  wrapShape(g)
+  g.beginPath()
+  g.ellipse(SCARF_W * 0.58, SCARF_H * 0.2, 6.6, 5.6, 0.4, 0, TAU)
+  inkFill(g, SCARF_A, 3.6)
+})
 
 /** The scarf on the rig: low on the neck like the necklace, clear of the head. */
 export const drawWinterScarf = (g: G2D, a: RigAnchors): void => {

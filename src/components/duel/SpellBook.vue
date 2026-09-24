@@ -32,6 +32,8 @@ import { acquireMenuOpen } from '@/use/useModalState'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
 import RuneTrace from '@/components/duel/RuneTrace.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import ArtIcon from '@/components/icons/ArtIcon.vue'
+import { ITEM_ART } from '@/game/artIds'
 
 const emit = defineEmits<{ close: [] }>()
 const { t, locale } = useI18n()
@@ -178,7 +180,10 @@ const close = (): void => {
             @click.stop="trace(s.r, s.open)"
           )
             RuneTrace(:rune="s.r" :size="44" :locked="!s.open" :play="plays[s.r]")
-            GameIcon.coming(v-if="s.next" name="chest" aria-hidden="true")
+            //- The chest the map and the cleaning show — painted when the art
+            //- layer is on (its SHUT panel: the strip is shut, open), the
+            //- shared glyph otherwise (paint-outstanding.md §2).
+            ArtIcon.coming(v-if="s.next" kind="gift" :id="ITEM_ART.chest.id" fallback="chest" :frames="2" aria-hidden="true")
         //- The one ornament this page is allowed (§5.5, §5.8): a rainbow rule
         //- where a grey divider would be, under the reference strip.
         div.am-rule(aria-hidden="true")

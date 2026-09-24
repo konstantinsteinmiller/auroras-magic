@@ -227,7 +227,7 @@ const onFinish = async (won: boolean): Promise<void> => {
     // The controller already advanced `furthestNode`: a first win on this
     // node leaves its sector pending — that is the gift.
     const gift = !replay && pendingSectorNode(S.campaign) === n
-    if (gift) setArenaGift(true, sectorOf(n).accent, toolOf(n) === 'eraser')
+    if (gift) setArenaGift(true, sectorOf(n).accent, toolOf(n) === 'eraser', nodeIsBoss(n))
     duelBeat.phase = 'flourish'
     await wait(AD_BEAT_MS)
     if (my !== gen) return

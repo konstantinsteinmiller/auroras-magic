@@ -33,17 +33,47 @@
  * type error. The few helpers they have in common (a four-point sparkle, the
  * ink-then-fill order) are small enough to keep a copy of.
  *
- * NOT PAINTED YET (art-roadmap step 5's catalogue closed before these
- * existed): every item here draws itself, and none is registered in
- * `KEEPSAKE_ICON_SLUGS`/`ITEM_ART`, so nothing 404s and nothing is stamped
- * stale. `VECTOR_ONLY_KEEPSAKES` below is the list the art pass takes when it
- * reopens — see `tests/meta/artFamilies.test.ts`, which holds it to exactly
- * the unpainted set.
+ * PAINTED (2026-09-24, art-roadmap "paint-outstanding pass (wardrobe)"), by
+ * the roadmap's third-sweep test — a constant shape under an affine is a
+ * painting, a shape rebuilt per frame is not:
+ *
+ *   • every WORN THING that is one shape carried by a matrix has a still of
+ *     its own (`ITEM_ART`, kind `cosmetic`): the three head items in head
+ *     space, the bow tie squared to the neck, the pendant's crescent, the
+ *     butterfly wing (near and far are its two panels — one shape, two
+ *     colourings), the pack's bedroll and satchel, the cloud's body (eyes
+ *     open, blink) and the firefly's. Each `draw…` tries the painting and
+ *     falls back to the very same vectors, so with the layer off nothing
+ *     changes by a pixel.
+ *   • what they HANG OR THROW is routed through the sectors' shared props,
+ *     tinted: the pendant's two stars through `prop-star`, the pack's lantern
+ *     through `prop-lantern`, the bubble trail through `prop-bubble`.
+ *   • what stays drawn, and why: every CORD (the pendant's, the lantern's
+ *     hanger — a curve through points the pose hands over, §4b's kept
+ *     strings); the cloud's raindrops and the firefly's trail dots (particles
+ *     under the family's size floor); the firefly's wings (a see-through
+ *     blur); its glow (light); the PETAL and FROST trails' particles (no
+ *     petal sheet exists, and `prop-snowflake` is a soft round speck whose
+ *     brief forbids the crisp six-armed flake this trail IS); the two looks
+ *     (palettes — nothing to paint).
+ *
+ * Their shelf badges: a badge that draws a worn painting is painted by it
+ * (the Flower Crown's rule); the four that draw nothing painted — the petal
+ * and frost trails, the moonlit and sunset looks — have badge sheets of their
+ * own (`KEEPSAKE_ICON_SLUGS`). `VECTOR_ONLY_KEEPSAKES` is empty again.
  */
 import { S } from '@/game/duel/state'
 import type { FoePalette } from '@/game/duel/foes'
 import { TAU, PI, sin, cos, min, clamp } from '@/game/duel/util'
 import type { RigAnchors } from '@/game/duel/chars'
+import { spriteFor } from '@/game/art'
+import { drawItem, type ItemSpec } from '@/game/artItem'
+import { ITEM_ART } from '@/game/artIds'
+// The sectors' shared props, which a particle or a hanging charm is routed
+// through rather than given a sheet of its own. The kits import nothing from
+// the cosmetics, so this runs one way like everything else here.
+import { BUBBLE_ART, LANTERN_ART } from '@/game/map/kit'
+import { STAR_ART } from '@/game/map/kitSky'
 
 type G2D = CanvasRenderingContext2D
 
@@ -56,6 +86,80 @@ const inkFill = (g: G2D, fill: string, w: number): void => {
   g.stroke()
   g.fillStyle = fill
   g.fill()
+}
+
+/* ============================ painted stills ========================== */
+
+/**
+ * Local units per unit of a worn still's painted box.
+ *
+ * Every still below is drawn 1:1 in its OWN frame — head space for a hat,
+ * the neck's frame for a bow, a wing's root frame for a wing — so the game
+ * blits it with `drawItem(g, spec, WORN_UNIT)` exactly where the vectors
+ * were. The spec's `draw` scales the CONTEXT by `s / WORN_UNIT`, never the
+ * coordinates, so the ink scales with the shape on the bench (a width in
+ * device px is a hairline at the bench's size, and a painter paints the
+ * hairline it is shown — the props' first trap).
+ */
+export const WORN_UNIT = 20
+
+/**
+ * How much of the drawing's ink a worn still's REFERENCE keeps: the creature
+ * lesson (art-roadmap §4d) — an evenly inked reference comes back an evenly
+ * inked sticker, because a painter shown a line paints a line. Not zero: these
+ * are worn small, and the silhouette still has to read. The game's own vector
+ * fallback is never drawn through this; only the spec's `draw` is (the bench,
+ * the box, the tint mask).
+ */
+export const WORN_REF_INK = 0.6
+
+/** `g`, with every line width it is given thinned to `WORN_REF_INK`. */
+export const thinInk = (g: G2D): G2D => new Proxy(g, {
+  get(t, k) {
+    const v = Reflect.get(t, k) as unknown
+    return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(t) : v
+  },
+  set(t, k, v) {
+    return Reflect.set(t, k, k === 'lineWidth' && typeof v === 'number' ? v * WORN_REF_INK : v)
+  }
+})
+
+/** A one-look still: `shape` drawn in its own frame, panel `f`. */
+export const wornStill = (
+  art: { kind: ItemSpec['kind']; id: string }, frames: number, shape: (g: G2D, f: number) => void
+): ItemSpec => ({
+  ...art,
+  frames,
+  draw: (g0, s, f) => {
+    const g = thinInk(g0)
+    g.save()
+    g.scale(s / WORN_UNIT, s / WORN_UNIT)
+    // The rig strokes with round joins everywhere; a bench canvas does not.
+    g.lineJoin = g.lineCap = 'round'
+    shape(g, f)
+    g.restore()
+  }
+})
+
+/**
+ * One particle (or one hanging charm) as a shared painted prop, tinted `col`,
+ * at (x, y), radius `r`, turned by `rot` — or FALSE, with nothing drawn, so
+ * the caller adds it to its own batched vector path instead.
+ *
+ * The probe comes first and costs nothing with the layer off, so an art-off
+ * frame issues exactly the canvas calls it always did. A mixed frame cannot
+ * happen: a sheet is there for the whole frame or it is not.
+ */
+export const particleArt = (
+  g: G2D, spec: ItemSpec, x: number, y: number, r: number, rot: number, col: string
+): boolean => {
+  if (!spriteFor(spec.kind, spec.id)) return false
+  g.save()
+  g.translate(x, y)
+  if (rot) g.rotate(rot)
+  drawItem(g, spec, r, 0, col)
+  g.restore()
+  return true
 }
 
 /* ================================ head ================================ */
@@ -95,6 +199,10 @@ const bandAt = (u: number, lift: number): [number, number] => [
  * what turns "a brown dome, badly placed" into "worn at an angle".
  */
 export const drawAcornCap = (g: G2D): void => {
+  if (!drawItem(g, ACORN_CAP_ART, WORN_UNIT)) acornCapShape(g)
+}
+
+const acornCapShape = (g: G2D): void => {
   g.save()
   // Low enough that the brim CUTS the skull rather than floating over it:
   // the first placement sat a few units clear and read as a nut hovering
@@ -142,6 +250,9 @@ export const drawAcornCap = (g: G2D): void => {
   g.restore()
 }
 
+/** The Acorn Cap as a painted still, in head space where it is worn. */
+export const ACORN_CAP_ART: ItemSpec = wornStill(ITEM_ART.acornCap, 1, acornCapShape)
+
 /** A five-point star on the current path (no beginPath), centred (x, y). */
 const starPath = (g: G2D, x: number, y: number, r: number, rot: number): void => {
   for (let i = 0; i < 10; i++) {
@@ -161,6 +272,10 @@ const starPath = (g: G2D, x: number, y: number, r: number, rot: number): void =>
  * serving, in silver and blue rather than blossom pink.
  */
 export const drawStarTiara = (g: G2D): void => {
+  if (!drawItem(g, STAR_TIARA_ART, WORN_UNIT)) starTiaraShape(g)
+}
+
+const starTiaraShape = (g: G2D): void => {
   g.lineJoin = g.lineCap = 'round'
   headBand(g, 0, '#dfe8ff')
   // Three rising points along the band, tallest in the middle.
@@ -186,6 +301,9 @@ export const drawStarTiara = (g: G2D): void => {
   g.fill()
 }
 
+/** The Star Tiara as a painted still, in head space. */
+export const STAR_TIARA_ART: ItemSpec = wornStill(ITEM_ART.starTiara, 1, starTiaraShape)
+
 /**
  * The Explorer Goggles: brass-rimmed lenses on a leather strap, pushed UP
  * onto the forehead the way a goggle is worn when it is not being used.
@@ -195,6 +313,10 @@ export const drawStarTiara = (g: G2D): void => {
  * of them silences her face in every portrait and every duel.
  */
 export const drawExplorerGoggles = (g: G2D): void => {
+  if (!drawItem(g, GOGGLES_ART, WORN_UNIT)) gogglesShape(g)
+}
+
+const gogglesShape = (g: G2D): void => {
   g.lineJoin = g.lineCap = 'round'
   headBand(g, -3, '#8a5a3c')
   // The strap's keeper, where it tucks behind the far ear.
@@ -217,6 +339,9 @@ export const drawExplorerGoggles = (g: G2D): void => {
     g.fill()
   }
 }
+
+/** The Explorer Goggles as a painted still, in head space. */
+export const GOGGLES_ART: ItemSpec = wornStill(ITEM_ART.goggles, 1, gogglesShape)
 
 /* ================================ neck ================================ */
 /*
@@ -241,6 +366,12 @@ export const drawBowTie = (g: G2D, a: RigAnchors): void => {
   g.save()
   g.translate(cx, cy)
   g.rotate(Math.atan2(ny, nx))
+  if (!drawItem(g, BOW_TIE_ART, WORN_UNIT)) bowTieShape(g)
+  g.restore()
+}
+
+/** The bow in its own frame: the knot on the origin, squared to the neck. */
+const bowTieShape = (g: G2D): void => {
   g.lineJoin = g.lineCap = 'round'
   // The two tails first, so the knot lands over their roots.
   g.beginPath()
@@ -266,8 +397,10 @@ export const drawBowTie = (g: G2D, a: RigAnchors): void => {
   g.beginPath()
   g.ellipse(0, 0, 3.6, 4.6, 0, 0, TAU)
   inkFill(g, '#3a58ae', 2.2)
-  g.restore()
 }
+
+/** The Bow Tie as a painted still, knot on the origin. */
+export const BOW_TIE_ART: ItemSpec = wornStill(ITEM_ART.bowTie, 1, bowTieShape)
 
 /**
  * The Moon Pendant: a silver crescent and two small stars on a dark cord —
@@ -297,21 +430,42 @@ export const drawMoonPendant = (g: G2D, a: RigAnchors): void => {
     (1 - u) * (1 - u) * ax + 2 * (1 - u) * u * kx + u * u * bx,
     (1 - u) * (1 - u) * ay + 2 * (1 - u) * u * ky + u * u * by
   ]
+  // The two little stars ride the cord wherever the pose hangs it, so each is
+  // the sectors' painted five-point star, tinted, when it has landed.
   for (const u of [0.26, 0.74]) {
     const [x, y] = at(u)
+    if (particleArt(g, STAR_ART, x, y + 2, 3.6, 0.3, '#ffe9a8')) continue
     g.beginPath()
     starPath(g, x, y + 2, 3.6, 0.3)
     inkFill(g, '#ffe9a8', 1.6)
   }
   // The crescent: a disc with a second disc bitten out of it, drawn as one
-  // path so the ink runs round the horns instead of across the bite.
+  // path so the ink runs round the horns instead of across the bite. It hangs
+  // off the cord's lowest point and never turns — a constant shape the cord
+  // only CARRIES, so it is a painted still of its own.
   const [mx, my] = at(0.5)
+  g.save()
+  g.translate(mx, my + 9)
+  const painted = drawItem(g, MOON_PENDANT_ART, WORN_UNIT)
+  g.restore()
+  if (painted) return
   g.beginPath()
   g.arc(mx, my + 9, 9.6, 0.5, TAU - 0.5)
   g.arc(mx + 4.6, my + 9, 8.6, TAU - 0.75, 0.75, true)
   g.closePath()
   inkFill(g, '#eef4ff', 2.6)
 }
+
+/** The crescent alone, centred on the origin: the pendant's painted still.
+ *  No cord and no stars — the cord bends with her neck and the stars ride
+ *  it, so both stay the game's. */
+export const MOON_PENDANT_ART: ItemSpec = wornStill(ITEM_ART.moonPendant, 1, (g) => {
+  g.beginPath()
+  g.arc(0, 0, 9.6, 0.5, TAU - 0.5)
+  g.arc(4.6, 0, 8.6, TAU - 0.75, 0.75, true)
+  g.closePath()
+  inkFill(g, '#eef4ff', 2.6)
+})
 
 /* ================================ back ================================ */
 
@@ -329,15 +483,26 @@ const fold = (g: G2D, x: number, y: number, lose: number): void => {
   g.translate(-x, -y)
 }
 
+/** A butterfly wing's two colourings: the NEAR wing in full light, the FAR
+ *  one a shade deeper behind her — `[fill, edge]`, and the painted strip's
+ *  two panels in that order. */
+const FLUTTER_COLS = [['#ffb35a', '#b25a20'], ['#e0903f', '#8a4a22']] as const
+
 /** One butterfly wing: a big upper lobe and a smaller lower one, rooted at
- *  (x, y) and sweeping up and back; `flap` 0..1 opens it. */
-const flutterWing = (
-  g: G2D, x: number, y: number, s: number, flap: number, fill: string, edge: string
-): void => {
+ *  (x, y) and sweeping up and back; `flap` 0..1 opens it. The flap and the
+ *  fold are a rotation and a scale of ONE shape, so the shape is a painting
+ *  and the matrix stays the game's (the third sweep's rule). */
+const flutterWing = (g: G2D, x: number, y: number, s: number, flap: number, far: 0 | 1): void => {
   g.save()
   g.translate(x, y)
   g.rotate(0.12 + flap * 0.42)
   g.scale(s, s)
+  if (!drawItem(g, FLUTTER_ART, WORN_UNIT, far)) flutterShape(g, FLUTTER_COLS[far][0], FLUTTER_COLS[far][1])
+  g.restore()
+}
+
+/** The wing itself, rooted on the origin at rest (no flap). */
+const flutterShape = (g: G2D, fill: string, edge: string): void => {
   g.lineJoin = g.lineCap = 'round'
   // The upper lobe — big and round, the half a butterfly is known by.
   g.beginPath()
@@ -371,22 +536,26 @@ const flutterWing = (
   }
   g.fillStyle = '#fff6e8'
   g.fill()
-  g.restore()
 }
+
+/** The butterfly wing as a painted strip: panel 1 the near wing's colours,
+ *  panel 2 the far wing's — the same wing, rooted on the origin at rest. */
+export const FLUTTER_ART: ItemSpec = wornStill(ITEM_ART.butterflyWing, 2, (g, f) =>
+  flutterShape(g, FLUTTER_COLS[f ? 1 : 0][0], FLUTTER_COLS[f ? 1 : 0][1]))
 
 /** The Butterfly Wings, far layer (behind the body): rooted high and swept
  *  up, so it clears the near one instead of hiding underneath it. */
 export const drawFlutterFar = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
   fold(g, x - 4, y - 10, a.lose)
-  flutterWing(g, x - 4, y - 10, 1.4, flapOf(a) * 0.75, '#e0903f', '#8a4a22')
+  flutterWing(g, x - 4, y - 10, 1.4, flapOf(a) * 0.75, 1)
 }
 
 /** …and the near layer, over the body and the mane. */
 export const drawFlutterNear = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
   fold(g, x - 20, y + 8, a.lose)
-  flutterWing(g, x - 20, y + 8, 1.6, flapOf(a), '#ffb35a', '#b25a20')
+  flutterWing(g, x - 20, y + 8, 1.6, flapOf(a), 0)
 }
 
 /**
@@ -402,6 +571,12 @@ export const drawExplorerPackFar = (g: G2D, a: RigAnchors): void => {
   // the topline before any of it is visible at all.
   g.translate(x - 15, y - 21)
   g.rotate(-0.16)
+  if (!drawItem(g, BEDROLL_ART, WORN_UNIT)) bedrollShape(g)
+  g.restore()
+}
+
+/** The bedroll in its own frame, centred on the origin, level. */
+const bedrollShape = (g: G2D): void => {
   g.lineJoin = g.lineCap = 'round'
   g.beginPath()
   g.roundRect(-20, -9, 40, 15, 7)
@@ -420,12 +595,19 @@ export const drawExplorerPackFar = (g: G2D, a: RigAnchors): void => {
   g.lineWidth = 2.4
   g.strokeStyle = '#7d5a3c'
   g.stroke()
-  g.restore()
 }
+
+/** The bedroll as a painted still. */
+export const BEDROLL_ART: ItemSpec = wornStill(ITEM_ART.packBedroll, 1, bedrollShape)
 
 /**
  * …and the near layer: the satchel itself on her side, its strap running up
  * over the withers, with a buckle and a little lantern swinging off it.
+ *
+ * The strap and the bag are one shape in the pack's own frame — a painted
+ * still. The lantern SWINGS about its hook, so it is a second thing the
+ * matrix carries: the sectors' painted paper lantern, tinted gold, on the
+ * game's own hanger.
  */
 export const drawExplorerPackNear = (g: G2D, a: RigAnchors): void => {
   const [x, y] = a.backWithers
@@ -434,6 +616,36 @@ export const drawExplorerPackNear = (g: G2D, a: RigAnchors): void => {
   g.save()
   g.translate(x - 26, y + 16)
   g.lineJoin = g.lineCap = 'round'
+  if (!drawItem(g, SATCHEL_ART, WORN_UNIT)) satchelShape(g)
+  // The lantern, hung off the back corner and swinging with her.
+  g.save()
+  g.translate(-11, 20)
+  g.rotate(sway)
+  g.beginPath()
+  g.moveTo(0, 0)
+  g.lineTo(0, 5)
+  g.lineWidth = 2
+  g.strokeStyle = INK
+  g.stroke()
+  if (!particleArt(g, LANTERN_ART, 0, 10.5, 9, 0, '#ffd76a')) {
+    g.beginPath()
+    g.roundRect(-4.5, 5, 9, 11, 2.5)
+    inkFill(g, '#ffd76a', 2.2)
+    g.beginPath()
+    g.moveTo(-4.5, 8.5)
+    g.lineTo(4.5, 8.5)
+    g.moveTo(-4.5, 12.5)
+    g.lineTo(4.5, 12.5)
+    g.lineWidth = 1.2
+    g.strokeStyle = '#b2892e'
+    g.stroke()
+  }
+  g.restore()
+  g.restore()
+}
+
+/** The strap and the satchel in the pack's own frame — no lantern. */
+const satchelShape = (g: G2D): void => {
   // The strap, over the withers and down behind the shoulder.
   g.beginPath()
   g.moveTo(14, -14)
@@ -454,30 +666,10 @@ export const drawExplorerPackNear = (g: G2D, a: RigAnchors): void => {
   g.beginPath()
   g.rect(-3, 5, 6, 5)
   inkFill(g, '#e8c46a', 1.8)
-  // The lantern, hung off the back corner and swinging with her.
-  g.save()
-  g.translate(-11, 20)
-  g.rotate(sway)
-  g.beginPath()
-  g.moveTo(0, 0)
-  g.lineTo(0, 5)
-  g.lineWidth = 2
-  g.strokeStyle = INK
-  g.stroke()
-  g.beginPath()
-  g.roundRect(-4.5, 5, 9, 11, 2.5)
-  inkFill(g, '#ffd76a', 2.2)
-  g.beginPath()
-  g.moveTo(-4.5, 8.5)
-  g.lineTo(4.5, 8.5)
-  g.moveTo(-4.5, 12.5)
-  g.lineTo(4.5, 12.5)
-  g.lineWidth = 1.2
-  g.strokeStyle = '#b2892e'
-  g.stroke()
-  g.restore()
-  g.restore()
 }
+
+/** The satchel and its strap as a painted still. */
+export const SATCHEL_ART: ItemSpec = wornStill(ITEM_ART.packSatchel, 1, satchelShape)
 
 /* ============================= companions ============================= */
 /*
@@ -550,6 +742,15 @@ export const drawPetCloud = (g: G2D, a: RigAnchors): void => {
       g.fill()
     }
   }
+  // The body and its face: one shape the float carries, with a blink — the
+  // painted strip's two panels. The raindrops above stay the game's.
+  const blink = !a.portrait && (t * 0.31 + 0.2) % 1 < 0.05
+  if (!drawItem(g, PET_CLOUD_ART, WORN_UNIT, blink ? 1 : 0)) cloudShape(g, blink)
+  g.restore()
+}
+
+/** The cloud on the origin: three puffs on a flat base, eyes open or shut. */
+const cloudShape = (g: G2D, blink: boolean): void => {
   // The body: three puffs and a flat base, inked as one mass.
   g.beginPath()
   g.moveTo(-17, 6)
@@ -560,7 +761,6 @@ export const drawPetCloud = (g: G2D, a: RigAnchors): void => {
   g.closePath()
   inkFill(g, '#f2f7ff', 3)
   // Its face: two blinking dots and a little smile.
-  const blink = !a.portrait && (t * 0.31 + 0.2) % 1 < 0.05
   g.beginPath()
   for (const ex of [-4, 7]) {
     if (blink) {
@@ -584,12 +784,19 @@ export const drawPetCloud = (g: G2D, a: RigAnchors): void => {
   g.lineWidth = 1.6
   g.strokeStyle = INK
   g.stroke()
-  g.restore()
 }
+
+/** The Pet Cloud as a painted strip: eyes open, then the blink. */
+export const PET_CLOUD_ART: ItemSpec = wornStill(ITEM_ART.petCloud, 2, (g, f) => cloudShape(g, f === 1))
 
 /**
  * The Pet Firefly: a warm little lantern-bug looping a lazy figure-eight
  * around her, with a glow and a short trail of where it has just been.
+ *
+ * Its BODY is a painted still. Its glow is light, its trail is four fading
+ * dots under the size floor, and its wings are a half-transparent blur
+ * beating far too fast to see — a see-through thing that no painting may be
+ * (art-style.md §6) — so all three stay the game's.
  */
 export const drawPetFirefly = (g: G2D, a: RigAnchors): void => {
   const t = a.t
@@ -633,7 +840,12 @@ export const drawPetFirefly = (g: G2D, a: RigAnchors): void => {
     g.fill()
   }
   g.globalAlpha = 1
-  // The body: a dark little beetle with a lit tail.
+  if (!drawItem(g, PET_FIREFLY_ART, WORN_UNIT)) fireflyShape(g)
+  g.restore()
+}
+
+/** The body: a dark little beetle with a lit tail, head to the right. */
+const fireflyShape = (g: G2D): void => {
   g.beginPath()
   g.ellipse(0, 0, 6.4, 4.4, 0, 0, TAU)
   inkFill(g, '#5a4632', 2)
@@ -643,8 +855,10 @@ export const drawPetFirefly = (g: G2D, a: RigAnchors): void => {
   g.beginPath()
   g.arc(4.4, -0.6, 2.4, 0, TAU)
   inkFill(g, '#3a2c20', 1.4)
-  g.restore()
 }
+
+/** The Pet Firefly's body as a painted still — no wings, no glow. */
+export const PET_FIREFLY_ART: ItemSpec = wornStill(ITEM_ART.petFirefly, 1, fireflyShape)
 
 /* =============================== trails =============================== */
 /*
@@ -684,6 +898,14 @@ interface TrailStyle {
   ink: number
   alpha: number
   shape: (g: G2D, x: number, y: number, r: number, rot: number) => void
+  /**
+   * The sectors' shared painted prop this particle IS, tinted per particle
+   * (`particleArt`) — or none, and the shape stays drawn. The pool, the
+   * drift, the spin and the shrink stay the emitter's either way.
+   */
+  art?: ItemSpec
+  /** Whether the painting turns with the particle (a bubble's glint does not). */
+  artSpins?: boolean
 }
 
 /** A soft petal: a rounded teardrop with a folded edge. */
@@ -722,6 +944,10 @@ const bubblePath = (g: G2D, x: number, y: number, r: number, rot: number): void 
   g.arc(gx, gy, r * 0.22, 0, TAU)
 }
 
+// No `art` on the petal or the frost: there is no petal sheet, and the
+// sectors' snowflake is a soft round speck whose brief forbids the crisp
+// six-armed flake this trail is made of — routed through it, the frost trail
+// would become a trail of white dots.
 const PETAL: TrailStyle = {
   cols: ['#ffc2dd', '#fff0f6', '#ffd9a8', '#f7b6cf'],
   gy: 42, rate: 8, size: [6.5, 3.5], life: [1.1, 0.8], push: [16, 14], spin: 1.6, ink: 1.8, alpha: 1,
@@ -735,7 +961,8 @@ const FROST: TrailStyle = {
 const BUBBLE: TrailStyle = {
   cols: ['#cfeeff', '#eafaff', '#ffffff'],
   gy: -34, rate: 6, size: [4.5, 4], life: [1.4, 0.9], push: [12, 26], spin: 2.2, ink: 1.6, alpha: 0.72,
-  shape: bubblePath
+  shape: bubblePath,
+  art: BUBBLE_ART
 }
 
 /**
@@ -843,7 +1070,11 @@ const drawTrail = (g: G2D, a: RigAnchors, st: TrailStyle): void => {
       for (let i = 0; i < STILL.length; i++) {
         if (i % st.cols.length !== c) continue
         const s = STILL[i]!
-        st.shape(g, a.headStage[0] + a.facing * s[0]!, a.headStage[1] + s[1]!, (st.size[0] + 1) * s[2]!, i * 0.7)
+        const px = a.headStage[0] + a.facing * s[0]!
+        const py = a.headStage[1] + s[1]!
+        const r = (st.size[0] + 1) * s[2]!
+        if (st.art && particleArt(g, st.art, px, py, r, st.artSpins ? i * 0.7 : 0, st.cols[c]!)) continue
+        st.shape(g, px, py, r, i * 0.7)
         any = true
       }
       if (!any) continue
@@ -876,7 +1107,9 @@ const drawTrail = (g: G2D, a: RigAnchors, st: TrailStyle): void => {
       const k = age / PLIFE[i]!
       // Snaps in, then shrinks out rather than fading (art-style.md §6).
       const r = PSIZE[i]! * min(1, age * 14) * (k > 0.6 ? (1 - k) / 0.4 : 1)
-      st.shape(g, PX[i]!, PY[i]!, r, PROT[i]! + age * st.spin)
+      const rot = PROT[i]! + age * st.spin
+      if (st.art && particleArt(g, st.art, PX[i]!, PY[i]!, r, st.artSpins ? rot : 0, st.cols[c]!)) continue
+      st.shape(g, PX[i]!, PY[i]!, r, rot)
       any = true
     }
     if (!any) continue
@@ -966,19 +1199,16 @@ export const SKIN_PAL_X: Readonly<Record<string, FoePalette>> = {
 }
 
 /**
- * The second shelf's slugs, in one list: what the art pass has NOT painted.
+ * Keepsakes whose shelf badge has NO painting at all — neither a badge sheet
+ * of its own (`KEEPSAKE_ICON_SLUGS`) nor a worn still its badge draws
+ * (`KEEPSAKE_WORN_ART`). Declared here rather than left silent: the test that
+ * would otherwise read "a keepsake with no badge" as drift reads this list.
  *
- * Every keepsake on the first shelf has a badge sheet and (for the crown and
- * the star) an item sheet; these fourteen have neither yet, and the art
- * catalogue was closed before they existed. The test that would otherwise
- * read "a keepsake with no badge" as drift reads this list instead, so the
- * gap is declared rather than silent — and deleting a name from here is the
- * first half of painting it.
+ * EMPTY since the 2026-09-24 pass painted the second shelf. A future shelf
+ * that lands before its art does names its slugs here until it is painted —
+ * deleting a name from this list is the first half of painting it.
  */
-export const VECTOR_ONLY_KEEPSAKES: readonly string[] = [
-  ...Object.keys(HEAD_DRAW_X), ...Object.keys(NECK_DRAW_X), ...Object.keys(BACK_DRAW_X),
-  ...Object.keys(COMPANION_DRAW_X), ...Object.keys(TRAIL_DRAW_X), ...Object.keys(SKIN_PAL_X)
-]
+export const VECTOR_ONLY_KEEPSAKES: readonly string[] = []
 
 /** How much of a rig unit one stage unit is, for a still drawn by hand. */
 export const clampUnit = clamp

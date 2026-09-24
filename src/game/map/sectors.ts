@@ -18,8 +18,10 @@
 import {
   type G2D, type Pot, WOODS_POTS, C, INK, fill, ink, sky, farHills, hill, meadow, pathway, tree, pine, bush,
   flowers, mushrooms, log, stones, fence, pond, brook, cottage, millBody, sails, bridge, well, flowerBed,
-  beehive, treehouse, greatTree, brambleArch, waterfall, smoke, butterfly, bees, swing, waterwheel, fireflies, duck
+  beehive, treehouse, greatTree, brambleArch, waterfall, smoke, butterfly, bees, swing, waterwheel, fireflies, duck,
+  HOLLOW_LOG, hollowLogBack, hollowLogFront, hollowLogFrontPath, hollowLogAt, mossBed, lanternAt
 } from '@/game/map/kit'
+import { heartAt, zAt, ZZZ_LILAC } from '@/game/map/kitSky'
 import { sin, TAU, PI } from '@/game/duel/util'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { tapCover } from '@/game/map/tapCover'
@@ -125,47 +127,32 @@ const spriteShape = (g: G2D, x: number, y: number, s: number, awake: number, bod
  * The woods' tap creature: a sleepy moss-sprite in a hollow log, who pops up
  * to say hello (`k` 0 hidden … 1 fully out). Log centred at (x, y).
  *
- * THE LOG GOES THROUGH `tapCover` — both halves of it. It belongs to the
- * sector's `paint()`, so on a painted sector it is ALREADY there, and drawing
- * it again in vector put a second, crisp log on top of its own painted self
- * (the same "two boats, one wave" this chapter's cousins were fixed for on
- * 2026-09-21; chapter 1's was simply missed). Two covers, not one, because
- * the creature rises BETWEEN them: the hollow behind it, then the bark in
- * front.
+ * TWO KINDS OF LOG, decided by what the sector's `paint()` draws (B1 of the
+ * 2026-09-24 paint-outstanding audit — the 09-23 note that "the log belongs
+ * to paint()" was true of 1-1 and 1-4 only):
+ *
+ *   • `own` — 1-1 and 1-4 paint a log of their own (`log()`), so the sprite
+ *     pops up from behind THAT one, and it goes through `tapCover`: on a
+ *     painted sector the front comes out of the painting, which is exactly
+ *     the painted log. With the art layer off the cover redraws the very log
+ *     `paint()` drew, on top of itself.
+ *   • otherwise the log is a PROP — the sector painting has meadow there, and
+ *     a cover cut from meadow is an invisible log. `prop-hollow-log` is drawn
+ *     whole behind the sprite and its front blitted again over it, clipped to
+ *     the front's path; with no painting the vector back and front draw
+ *     directly (never as a cover), exactly as they did with the layer off.
  */
-const logSprite = (x: number, y: number): TapCreature => {
-  const w = 96
-  const h = 34
-  // The log's back rim and dark hollow, behind the creature.
-  const back = (g: G2D): void => {
-    g.beginPath()
-    g.ellipse(x - w / 2 + 10, y, 14, h / 2, 0, 0, TAU)
-    fill(g, '#9a6446')
-    ink(g, 3)
-  }
-  // The log's front: bark, rings on the cut face, moss along its top.
-  const front = (g: G2D): void => {
-    g.beginPath()
-    g.roundRect(x - w / 2 + 10, y - h / 2, w - 10, h, h / 2)
-    fill(g, C.trunk)
-    ink(g, 3.4)
-    g.beginPath()
-    g.ellipse(x + w / 2, y, 12, h / 2, 0, 0, TAU)
-    fill(g, '#f0c48a')
-    ink(g, 3)
-    g.beginPath()
-    g.ellipse(x + w / 2, y, 6, h / 4, 0, 0, TAU)
-    ink(g, 1.8)
-    g.beginPath()
-    g.ellipse(x - 6, y - 6, 20, 5, 0.1, 0, TAU)
-    fill(g, C.moss)
-  }
+const logSprite = (x: number, y: number, own?: readonly [number, number, number]): TapCreature => {
+  const { w } = HOLLOW_LOG
+  // Built once, so the cover's stamp caches (`tapCover` keys it by identity).
+  const ownLog = own ? (g: G2D): void => log(g, own[0], own[1], own[2]) : null
   return {
     x,
     y: y - 22,
     r: 56,
     draw: (g, k, t) => {
-      tapCover(g, back)
+      const painted = !ownLog && hollowLogAt(g, x, y)
+      if (!ownLog && !painted) hollowLogBack(g, x, y)
       // The sprite, rising from behind the log — clipped at the log's top.
       if (k > 0.01) {
         g.save()
@@ -176,7 +163,14 @@ const logSprite = (x: number, y: number): TapCreature => {
         sprite(g, x + 4, y - 2 - hop * 38 + Math.sin(t * 9) * 1.5 * k, 1, k)
         g.restore()
       }
-      tapCover(g, front)
+      if (ownLog) tapCover(g, ownLog)
+      else if (painted) {
+        g.save()
+        hollowLogFrontPath(g, x, y)
+        g.clip()
+        hollowLogAt(g, x, y)
+        g.restore()
+      } else hollowLogFront(g, x, y)
     }
   }
 }
@@ -189,16 +183,16 @@ const woodSprite = (x: number, y: number): RescueCollectible => ({
   r: 44,
   draw: (g, k, t) => {
     const bounce = k > 0.99 ? Math.abs(Math.sin(t * 3)) * 6 : k * 10
-    // A bed of moss.
-    g.beginPath()
-    g.ellipse(x, y + 20, 42, 11, 0, 0, TAU)
-    fill(g, C.mossShade)
-    ink(g, 3)
+    // A bed of moss (`prop-moss-bed`).
+    mossBed(g, x, y + 20)
     sprite(g, x, y - bounce, 1.35, k, k > 0.5 ? '#9ff07a' : '#7ee85a')
     if (k > 0.5) {
       g.globalAlpha = Math.min(1, (k - 0.5) * 2)
       for (const [dx, ph] of [[-30, 0], [30, 1.7]] as const) {
         const hy = y - 44 - ((t * 0.6 + ph) % 1) * 26
+        // The shared painted heart, registered on this one: tip at hy + 4,
+        // dip at hy − 3 is `heart()` of radius 5.2 about hy − 0.7.
+        if (heartAt(g, x + dx, hy - 0.7, 5.2, '#ff8fb8')) continue
         g.beginPath()
         g.moveTo(x + dx, hy + 4)
         g.bezierCurveTo(x + dx - 8, hy - 3, x + dx - 3, hy - 9, x + dx, hy - 3)
@@ -207,8 +201,9 @@ const woodSprite = (x: number, y: number): RescueCollectible => ({
         ink(g, 1.8)
       }
       g.globalAlpha = 1
-    } else {
-      // Asleep: a little "z" drawn, not typed.
+    } else if (!zAt(g, x + 27, y - 35, 5, ZZZ_LILAC)) {
+      // Asleep: a little "z" drawn, not typed — the shared painted Z when it
+      // has landed (the same one every sleeping rescue in the game wears).
       g.beginPath()
       g.moveTo(x + 22, y - 40)
       g.lineTo(x + 32, y - 40)
@@ -383,7 +378,9 @@ const treehouseHollow: SectorDef = {
   },
   props: (g, t, alive) => {
     swing(g, 880, 322, 150, alive > 0 ? sin(t * 1.6) * 0.35 * alive : 0)
-    // Lanterns strung along the platform: warm once restored.
+    // Lanterns strung along the platform: warm once restored. Each one is the
+    // shared paper lantern (`prop-lantern`, tinted) once it has landed — its
+    // glow stays drawn, under it, as light.
     for (let i = 0; i < 5; i++) {
       const x = 600 + i * 50
       const y = 392 + sin(i * 1.3) * 6
@@ -394,9 +391,15 @@ const treehouseHollow: SectorDef = {
         fill(g, '#fff1a8')
         g.globalAlpha = 1
       }
+      const col = i & 1 ? '#ff8fc4' : '#ffd34d'
+      g.save()
+      g.translate(x, y)
+      const lit = lanternAt(g, 16, col)
+      g.restore()
+      if (lit) continue
       g.beginPath()
       g.ellipse(x, y, 8, 10, 0, 0, TAU)
-      fill(g, i & 1 ? '#ff8fc4' : '#ffd34d')
+      fill(g, col)
       ink(g, 2.4)
     }
     if (alive <= 0) return
@@ -447,14 +450,25 @@ const briarsGrove: SectorDef = {
   }
 }
 
-/** Where each woods sector's log lies (open ground, clear of its gift). */
-const LOGS: readonly (readonly [number, number])[] = [[930, 600], [230, 600], [330, 500], [860, 600], [230, 610]]
+/**
+ * Where each woods sector's tap log lies. 1-1 and 1-4 paint a log of their
+ * own (`OWN_LOGS`, the very `log()` call in their `paint()`), and the tap sits
+ * ON it: the sprite rises from 45 % along it, and the log's top edge is where
+ * the tap log's own top would be (`y − 17`). The other three lie on open
+ * ground, clear of the gift, and bring their log with them.
+ */
+const OWN_LOGS: Readonly<Record<number, readonly [number, number, number]>> = {
+  0: [900, 574, 150],
+  3: [300, 600, 140]
+}
+const onLog = ([lx, ly, lw]: readonly [number, number, number]): readonly [number, number] => [lx + lw * 0.45, ly + 17]
+const LOGS: readonly (readonly [number, number])[] = [onLog(OWN_LOGS[0]!), [230, 600], [330, 500], onLog(OWN_LOGS[3]!), [230, 610]]
 
 const WOODS: readonly SectorDef[] = [cottageMeadow, brookBridge, flowerGarden, treehouseHollow, briarsGrove]
   .map((s, i) => ({
     ...s,
     accent: s.accent ?? WOODS_ACCENT,
-    tap: s.tap ?? logSprite(LOGS[i]![0], LOGS[i]![1]),
+    tap: s.tap ?? logSprite(LOGS[i]![0], LOGS[i]![1], OWN_LOGS[i]),
     // The Wood Sprite sleeps in the Flower Garden (§8.8).
     rescue: s.rescue ?? (i === 2 ? woodSprite(735, 612) : undefined)
   }))
