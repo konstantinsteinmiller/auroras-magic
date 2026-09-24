@@ -5,6 +5,19 @@
 // of an existing module rather than a declaration of a new one — so the id
 // still fails to resolve, which is why these do not live in `env.d.ts`.
 
+declare module 'virtual:painted-art' {
+  /**
+   * Every painting on disk when this bundle was built, as
+   * `images/<folder>/<id>` (no extension). `art.ts` requests nothing outside
+   * it, so a sheet registered before it is painted never 404s. `null` under
+   * the dev server and in tests: probe everything, as before.
+   *
+   * See `paintedArtPlugin` in `vite.config.ts`.
+   */
+  const painted: readonly string[] | null
+  export default painted
+}
+
 declare module 'virtual:leaderboard-snapshot' {
   /**
    * The leaderboard as it stood when this bundle was built.

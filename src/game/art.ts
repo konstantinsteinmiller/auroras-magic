@@ -39,7 +39,20 @@ import { prependBaseUrl } from '@/utils/function'
  * value that changes when a human clicks something.
  */
 import { ART_FOLDERS, type ArtKind } from '@/game/artFolders'
+import paintedOnDisk from 'virtual:painted-art'
 export { ART_FOLDERS, artTarget, type ArtKind } from '@/game/artFolders'
+
+/**
+ * The paintings this BUILD was made with (`paintedArtPlugin`, vite.config.ts),
+ * as `images/<folder>/<id>`, or null (dev server, tests): probe everything.
+ * A sheet can be registered before it is painted, and a portal's QA console
+ * prints every 404, so a build never asks for a file it does not ship.
+ */
+const PAINTED: ReadonlySet<string> | null = paintedOnDisk ? new Set(paintedOnDisk) : null
+
+/** Does this build ship a painting for `(kind, id)`? Always true with no index. */
+export const shipsPainting = (kind: ArtKind, id: string): boolean =>
+  !PAINTED || PAINTED.has(`${ART_FOLDERS[kind]}/${id}`)
 
 const BUILD_DEFAULT = import.meta.env.VITE_ENABLE_ART_OVERRIDES === 'true'
 const STORAGE_KEY = 'artOverrides'
@@ -463,6 +476,13 @@ const ensureProbe = (kind: ArtKind, id: string, lane: FetchPriority): Probe => {
   p = { kind, id, state: 'queued', img: null, settled, done, lane }
   probes.set(key, p)
   if (trace) traceOf(key, false)
+  // Registered but not painted in THIS build: settled as missing on the spot,
+  // with no request, so it never reaches a portal's console as a 404.
+  if (!shipsPainting(kind, id)) {
+    p.state = 'missing'
+    done()
+    return p
+  }
   lanes[lane].push(p)
   pump()
   return p

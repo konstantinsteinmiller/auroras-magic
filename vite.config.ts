@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from 'node:url'
 import { resolve, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 
@@ -323,6 +323,48 @@ const leaderboardSnapshotPlugin = (seeded: boolean): Plugin => ({
   }
 })
 
+/**
+ * WHICH PAINTINGS EXIST — baked into every build as `virtual:painted-art`.
+ *
+ * The art layer asks for `images/<folder>/<id>.webp` the first time a drawable
+ * is drawn, and a miss is free for the GAME but not for a portal: CrazyGames'
+ * QA console prints every 404 as "Missing resource detected", one line per
+ * drawable. The catalogue now registers sheets BEFORE they are painted (the
+ * paint-outstanding pass wired 58 of them in one go), so "only register what
+ * is painted" can no longer be the guard. This is: the build lists every
+ * painting that is actually on disk under `public/images`, and `art.ts` never
+ * requests anything else. A painting sliced later lands in the next build.
+ *
+ * `null` under the dev server, which keeps probing everything: a painting the
+ * desk drops into `public/` mid-session must show without a restart, and a
+ * dev-only 404 costs nothing.
+ */
+const PAINTED_VIRTUAL_ID = 'virtual:painted-art'
+const PAINTED_RESOLVED = '\0' + PAINTED_VIRTUAL_ID
+const paintedArtPlugin = (command: 'build' | 'serve'): Plugin => ({
+  name: 'auroras-magic-painted-art',
+  resolveId(id) {
+    return id === PAINTED_VIRTUAL_ID ? PAINTED_RESOLVED : null
+  },
+  load(id) {
+    if (id !== PAINTED_RESOLVED) return null
+    if (command === 'serve') return 'export default null'
+    const root = fileURLToPath(new URL('./public', import.meta.url))
+    const found: string[] = []
+    const walk = (rel: string): void => {
+      for (const e of readdirSync(resolve(root, rel), { withFileTypes: true })) {
+        const next = `${rel}/${e.name}`
+        if (e.isDirectory()) walk(next)
+        else if (e.name.endsWith('.webp')) found.push(next.slice(0, -'.webp'.length))
+      }
+    }
+    if (existsSync(resolve(root, 'images'))) walk('images')
+    found.sort()
+    console.log(`[art] ${found.length} paintings on disk — nothing else will be requested`)
+    return `export default ${JSON.stringify(found)}`
+  }
+})
+
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
@@ -381,6 +423,8 @@ export default defineConfig(({ mode, command }) => {
   plugins.push(leaderboardSnapshotPlugin(!env.VITE_LEADERBOARD_URL))
   // The game's own chunk on the wire with the HTML — fetched, not run.
   plugins.push(preloadFirstScenePlugin())
+  // The paintings on disk: `art.ts` never requests one that is not.
+  plugins.push(paintedArtPlugin(command))
 
 
   // Only push the obfuscator if both conditions are met
