@@ -80,7 +80,10 @@ export default {
     'tempest': 'มรสุม',
     'wildSurge': 'คลื่นคลั่ง',
     'crystalWard': 'ปราการคริสตัล',
-    'frostLock': 'ผนึกเยือกแข็ง'
+    'frostLock': 'ผนึกเยือกแข็ง',
+    'wildfire': 'ไฟป่า',
+    'frostbite': 'น้ำค้างแข็งกัด',
+    'bramble': 'เถาหนาม'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'วาดรูนเลย',
+    'triangle': 'วาดรูปสามเหลี่ยม',
     'stored': 'เก็บแล้ว! สูงสุด 3',
     'cast': 'ร่ายเวทเลย!'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'รอยกีบ',
     'mane': 'แผงคอ',
     'skin': 'ขน'
+  },
+
+  'wardrobe': {
+    'unlock': 'ปลดล็อก',
+    'getIt': 'รับเลย',
+    'unlockAria': 'ดูวิดีโอเพื่อปลดล็อก {name}',
+    'getItAria': 'รับ {name}',
+    'noVideo': 'วิดีโอยังไม่พร้อม',
+    'tryOn': 'ลอง {name}'
   },
 
   'place': {

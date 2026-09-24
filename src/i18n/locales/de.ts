@@ -80,7 +80,10 @@ export default {
     'tempest': 'UNWETTER',
     'wildSurge': 'WILDE WOGE',
     'crystalWard': 'KRISTALLSCHILD',
-    'frostLock': 'FROSTBANN'
+    'frostLock': 'FROSTBANN',
+    'wildfire': 'LAUFFEUER',
+    'frostbite': 'FROSTBISS',
+    'bramble': 'DORNRANKE'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'ZEICHNE DIE RUNE',
+    'triangle': 'ZEICHNE EIN DREIECK',
     'stored': 'GESPEICHERT! BIS ZU 3',
     'cast': 'JETZT ZAUBERN'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Hufspur',
     'mane': 'Mähne',
     'skin': 'Fell'
+  },
+
+  'wardrobe': {
+    'unlock': 'Freischalten',
+    'getIt': 'Holen',
+    'unlockAria': 'Schau ein Video, um {name} freizuschalten',
+    'getItAria': '{name} holen',
+    'noVideo': 'Video noch nicht bereit',
+    'tryOn': '{name} anprobieren'
   },
 
   'place': {

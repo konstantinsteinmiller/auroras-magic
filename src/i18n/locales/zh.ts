@@ -80,7 +80,10 @@ export default {
     'tempest': '狂风暴雨',
     'wildSurge': '狂野涌动',
     'crystalWard': '水晶守护',
-    'frostLock': '冰霜封印'
+    'frostLock': '冰霜封印',
+    'wildfire': '野火',
+    'frostbite': '霜咬',
+    'bramble': '荆棘'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': '画出符文',
+    'triangle': '画一个三角形',
     'stored': '已储存！最多 3 个',
     'cast': '现在施法'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': '足迹',
     'mane': '鬃毛',
     'skin': '毛色'
+  },
+
+  'wardrobe': {
+    'unlock': '解锁',
+    'getIt': '领取',
+    'unlockAria': '看视频解锁{name}',
+    'getItAria': '领取{name}',
+    'noVideo': '视频还没准备好',
+    'tryOn': '试穿{name}'
   },
 
   'place': {

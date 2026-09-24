@@ -6,6 +6,7 @@ import ArtIcon from '@/components/icons/ArtIcon.vue'
 import { vFit } from '@/use/vFit'
 import { resolveIconLabel } from '@/components/icons/iconLabels'
 import type { GameIconName } from '@/components/icons/iconNames'
+import type { ArtKind } from '@/game/art'
 
 /**
  * The primary CTA button.
@@ -59,8 +60,13 @@ interface Props {
   /** Required whenever the button has no visible text. */
   ariaLabel?: string
   /** A painting under `images/ui/` that may stand in for the glyph of an
-   *  icon-only button once the art pipeline has produced it — see `ArtIcon`. */
+   *  icon-only button once the art pipeline has produced it — see `ArtIcon`.
+   *  With a caption, it stands in for the LEFT glyph beside it (the rewarded
+   *  button's movie icon in front of its label). */
   art?: string
+  /** The art family `art` is painted in. `ui` unless the painting lives in
+   *  another one (the movie icon is `worldUi`). */
+  artKind?: ArtKind
   /**
    * Grow the whole control by this factor - the "this is the one that ends the
    * screen" mark for a row of otherwise identical glyph buttons.
@@ -83,6 +89,7 @@ const props = withDefaults(defineProps<Props>(), {
   block: false,
   iconPosition: 'right',
   iconOnly: false,
+  artKind: 'ui',
   emphasis: 1
 })
 
@@ -249,10 +256,11 @@ const styleVars = computed(() => {
       //- Glyph-only. A separate `v-if` rather than a `v-else` on the label, so
       //- an icon-only button that was passed no icon still renders its slot
       //- instead of an empty box.
-      ArtIcon.f-button__glyph.is-solo(v-if="iconOnly && icon && art" kind="ui" :id="art" :fallback="icon")
+      ArtIcon.f-button__glyph.is-solo(v-if="iconOnly && icon && art" :kind="artKind" :id="art" :fallback="icon")
       GameIcon.f-button__glyph.is-solo(v-else-if="iconOnly && icon" :name="icon")
       template(v-else)
-        GameIcon.f-button__glyph(v-if="icon && iconPosition === 'left'" :name="icon")
+        ArtIcon.f-button__glyph(v-if="icon && art && iconPosition === 'left'" :kind="artKind" :id="art" :fallback="icon")
+        GameIcon.f-button__glyph(v-else-if="icon && iconPosition === 'left'" :name="icon")
         //- The caption is nowrap inside a body that hides its overflow, so a
         //- label the button cannot hold used to be CUT — no ellipsis, just a
         //- missing tail ("SPEICHERN & SCHLIESS"). `v-fit` shrinks it to fit

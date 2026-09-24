@@ -10,14 +10,14 @@
 import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
 import { drawCloth } from '@/game/map/map'
-import { drawSky, drawIsland, drawWeather } from '@/game/duel/arena'
-import { drawDuelPage } from '@/game/duel/duelPage'
+import { drawSky, drawSkyWash, drawIsland, drawWeather } from '@/game/duel/arena'
+import { drawDuelPage, drawDuelPageBelow } from '@/game/duel/duelPage'
 import { castLook, bodyRadius, heft, type Body, type Mark, type CastLook } from '@/game/duel/spellArt'
 import type { Shot } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
 import { drawGlyph } from '@/game/duel/glyph'
-import { LAYOUT, PORTRAIT_WIN, zoneCentre, zoneSpan } from '@/game/duel/layout'
+import { LAYOUT, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
@@ -808,26 +808,98 @@ const hurtPose = (left: number): number => {
  */
 const hurtIn = (left: number): number => hurtPose(left) / 4
 
-/** Portrait: clip to the visible duel window (saves; the caller restores). */
-const portraitClip = (g: G2D): void => {
-  g.save()
+/**
+ * The world transform of the frame being drawn, device px per stage unit and
+ * its offset — kept so a portrait frame can step out to SCREEN space (the page
+ * card, its clip, its paper strip) and back in without rebuilding it.
+ */
+let WK = 1
+let WX = 0
+let WY = 0
+const toWorld = (g: G2D): void => { g.setTransform(WK, 0, 0, WK, WX, WY) }
+
+/**
+ * Portrait: the page card lying on the cloth (`layout.ts`) — a cel shadow, the
+ * card's cream paper, the plum line round it. The wipe frames the sector the
+ * same way (`wipe.ts` drawPage), so the page fought on and the page cleaned
+ * are one object. Screen space, under the world, which fills its inside.
+ */
+const drawPageCard = (g: G2D, d: number): void => {
+  const c = LAYOUT.card
+  const r = LAYOUT.border * 2
+  g.setTransform(d, 0, 0, d, 0, 0)
+  g.fillStyle = 'rgba(20,10,30,0.35)'
   g.beginPath()
-  g.rect(-S.vx / S.vs, PORTRAIT_WIN.y0, S.w / S.vs, SH - PORTRAIT_WIN.y0)
-  g.clip()
+  g.roundRect(c.x + 5, c.y + 7, c.w, c.h, r)
+  g.fill()
+  g.fillStyle = '#fff4e6'
+  g.beginPath()
+  g.roundRect(c.x, c.y, c.w, c.h, r)
+  g.fill()
+  g.lineWidth = 2.5
+  g.strokeStyle = '#3A2340'
+  g.stroke()
 }
 
-/** Portrait: a faint dashed frame so the pad reads as a place to draw. */
-const drawPadFrame = (g: G2D): void => {
-  const z = LAYOUT.zone
-  const k = 1 / S.vs
+/** Which part of the portrait page card a clip admits. */
+const PANE = 0
+const PAD = 1
+const CARD = 2
+
+/**
+ * Portrait: clip to a part of the page card's inside — the picture's PANE,
+ * the PAD below it, or the whole CARD inside (picture, paper strip and pad).
+ * Set in SCREEN space, so the card holds still while the world shakes inside
+ * it. Saves; the caller restores. Leaves the world transform set.
+ */
+const portraitClip = (g: G2D, d: number, part: number): void => {
+  const p = LAYOUT.pane
+  const z = LAYOUT.zonePx
+  // The picture takes the CARD's corners, as the map's sector cards do: the
+  // paper is rounded at twice its border, so the inside is rounded at one.
+  const r = LAYOUT.border
   g.save()
-  g.setLineDash([10 * k, 12 * k])
-  g.lineWidth = 2.5 * k
-  g.strokeStyle = 'rgba(207,196,255,0.16)'
+  g.setTransform(d, 0, 0, d, 0, 0)
   g.beginPath()
-  g.roundRect(z.x, z.y, z.w, z.h, 22 * k)
+  if (part === PANE) g.roundRect(p.x, p.y, p.w, p.h, [r, r, 0, 0])
+  else if (part === PAD) g.roundRect(z.x, z.y, z.w, z.h, [0, 0, r, r])
+  else g.roundRect(p.x, p.y, p.w, z.y + z.h - p.y, r)
+  g.clip()
+  toWorld(g)
+}
+
+/**
+ * Portrait: the strip of the card's own paper between the picture and the
+ * pad — the same cream as its border, so the picture reads as a plate on the
+ * page and the pad as the page going on below it. Over the world (the
+ * island's tip ends at it), under the sparks that fly across it.
+ */
+const drawPaneStrip = (g: G2D, d: number): void => {
+  const p = LAYOUT.pane
+  g.setTransform(d, 0, 0, d, 0, 0)
+  g.fillStyle = '#fff4e6'
+  g.fillRect(p.x, p.y + p.h, p.w, LAYOUT.zonePx.y - (p.y + p.h))
+  toWorld(g)
+}
+
+/**
+ * Portrait: a faint dashed line just inside the pad, so it reads as a place
+ * to draw. Cream on the dusty page (it was lilac on the bare cloth). Screen
+ * space; leaves the world transform set.
+ */
+const drawPadFrame = (g: G2D, d: number): void => {
+  const z = LAYOUT.zonePx
+  const i = 9
+  g.save()
+  g.setTransform(d, 0, 0, d, 0, 0)
+  g.setLineDash([10, 12])
+  g.lineWidth = 2
+  g.strokeStyle = 'rgba(255,244,230,0.26)'
+  g.beginPath()
+  g.roundRect(z.x + i, z.y + i, Math.max(1, z.w - 2 * i), Math.max(1, z.h - 2 * i), 16)
   g.stroke()
   g.restore()
+  toWorld(g)
 }
 
 export const render = (g: G2D): void => {
@@ -841,6 +913,7 @@ export const render = (g: G2D): void => {
   // what surrounds it is the surround, not a black bar. Matches
   // `--am-surround` and `.app-scene` exactly; they meet at the safe area.
   drawCloth(g, S.w * d, S.h * d)
+  if (S.portrait) drawPageCard(g, d)
 
   const so = shakeOffset()
   const k = S.vs * d
@@ -850,20 +923,29 @@ export const render = (g: G2D): void => {
   const pz = 1 + S.punch * 0.022
   const px = (pz - 1) * (SW / 2) * k
   const py = (pz - 1) * (SH / 2) * k
-  g.setTransform(k * pz, 0, 0, k * pz, (S.vx + so[0] * S.vs) * d - px, (S.vy + so[1] * S.vs) * d - py)
-  if (S.portrait) drawPadFrame(g)
+  WK = k * pz
+  WX = (S.vx + so[0] * S.vs) * d - px
+  WY = (S.vy + so[1] * S.vs) * d - py
+  toWorld(g)
 
   g.save()
-  // Landscape clips to the stage like the jam build. Portrait does not: the
-  // stroke, its sparkles and the snap live on the pad BELOW the stage.
+  if (S.portrait) {
+    // The pad first, in its own clip: the page goes on under it, and the
+    // sky's mood with it (to the pad's foot, with room for the shake).
+    portraitClip(g, d, PAD)
+    const foot = (LAYOUT.zonePx.y + LAYOUT.zonePx.h - S.vy) / S.vs + 40
+    drawSkyWash(g, drawDuelPageBelow(g, foot), SH - 40, foot)
+    g.restore()
+  }
+  // Landscape clips to the stage like the jam build; portrait to the
+  // picture's pane of the page card, so nothing of the world — the island's
+  // rock tail least of all — hangs down over the paper strip into the pad.
   if (!S.portrait) {
     g.beginPath()
     g.rect(0, 0, SW, SH)
     g.clip()
   } else {
-    // The portrait window: the stage from PORTRAIT_WIN.y0 down, across the
-    // whole screen width. Everything above is the HUD band.
-    portraitClip(g)
+    portraitClip(g, d, PANE)
   }
 
   // The duel is fought over the page it is about to restore (§8.29): the
@@ -908,21 +990,21 @@ export const render = (g: G2D): void => {
   // A won sector's gift drops onto the island during the flourish (§3.2.2).
   if (arenaGiftShown() && S.phase === PH_WIN) drawArenaGift(g, 640, GY + 8, S.over)
   if (S.portrait) {
-    // The stage clip ends here: debris and the stroke's sparkles may spill
-    // DOWN onto the pad, never up into the HUD band.
+    // The picture ends here; debris and the stroke's sparkles may spill DOWN
+    // over the paper strip onto the pad, never out of the card.
     g.restore()
-    g.save()
-    g.beginPath()
-    g.rect(-S.vx / S.vs, PORTRAIT_WIN.y0, S.w / S.vs, S.h / S.vs)
-    g.clip()
+    portraitClip(g, d, CARD)
+    drawPaneStrip(g, d)
+    drawPadFrame(g, d)
   }
   drawFxOver(g)
   drawSnap(g)
   if (S.draw && !S.portrait) drawStroke(g)
   if (S.versus && S.edraw) drawStroke(g, S.epts, '#ecdcff')
   if (S.portrait) {
+    // Weather and the flash / vignette belong to the picture alone.
     g.restore()
-    portraitClip(g)
+    portraitClip(g, d, PANE)
   }
   drawWeather(g, t)
   drawPost(g)

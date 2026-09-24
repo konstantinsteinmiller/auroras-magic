@@ -7,8 +7,8 @@ import { resetDuel, updateSim, cast } from '@/game/duel/sim'
 import { FIRE, WIND, ICE, NATURE, PH_WIN, PH_LOSE, comboEnumerationIndex } from '@/game/duel/config'
 import { defaultCampaign } from '@/game/campaign/state'
 import { hasBit } from '@/game/campaign/bitset'
-import { duelSetup, COSMETICS, STARTING_RUNES, FIRST_GIFT_NODE } from '@/game/campaign/tables'
-import { installCampaignController, onUnboxComplete, markDialogueSeen, isReplay, lossStreakOf } from '@/game/campaign/controller'
+import { duelSetup, COSMETICS, STARTING_RUNES, FIRST_GIFT_NODE, ALTERNATIVES, isAlternative } from '@/game/campaign/tables'
+import { installCampaignController, onUnboxComplete, markDialogueSeen, isReplay, lossStreakOf, backfillKeepsakes } from '@/game/campaign/controller'
 
 const STEP = 1 / 120
 const run = (s: number): void => { for (let i = 0; i < Math.round(s / STEP); i++) updateSim(STEP) }
@@ -121,20 +121,36 @@ describe('the campaign controller', () => {
     expect(onUnboxComplete(FIRST_GIFT_NODE)).toEqual({ rune: null, signature: null, cosmetic: null })
   })
 
-  it('still hands out every keepsake, none twice, once the crown moved', () => {
+  it('still hands out every STORY keepsake, none twice, and never an alternative', () => {
     const seen: number[] = []
     for (let n = 0; n < 50; n++) {
       const c = onUnboxComplete(n).cosmetic
       if (c !== null) seen.push(c)
     }
-    expect(seen.length, 'every keepsake, across the story').toBe(COSMETICS.length)
-    expect(new Set(seen).size, 'and never the same one twice').toBe(COSMETICS.length)
+    // The nine story keepsakes, across the story. The second shelf's fourteen
+    // are the wardrobe's rewarded unlocks (owner, 2026-09-23): no chest.
+    expect(seen.length, 'every story keepsake, across the story').toBe(COSMETICS.length - ALTERNATIVES.length)
+    expect(new Set(seen).size, 'and never the same one twice').toBe(seen.length)
+    for (const c of seen) expect(isAlternative(c), COSMETICS[c]!.slug).toBe(false)
+  })
+
+  it('never takes back an alternative an older schedule already gave', () => {
+    // A save that opened node 3's chest when it carried the Acorn Cap keeps it:
+    // ownership is the bit, and replaying or backfilling never clears one.
+    S.campaign.giftsOwned = 1 << 9
+    S.campaign.furthestNode = 20
+    for (let n = 0; n < 50; n++) onUnboxComplete(n)
+    backfillKeepsakes()
+    expect((S.campaign.giftsOwned >> 9) & 1).toBe(1)
+    // …and backfilling hands out no other alternative.
+    for (const id of ALTERNATIVES) if (id !== 9) expect((S.campaign.giftsOwned >> id) & 1, `id ${id}`).toBe(0)
   })
 
   it('every other standard gift grants nothing (its payload is the tool)', () => {
-    // The chests that carry something are node 1 (§8.2), every boss, and
-    // the second shelf's fourteen (§2.4 rule 20) — these are the rest.
-    for (const n of [5, 7, 11, 12, 15, 17, 20, 25, 30, 35, 40, 45, 47]) {
+    // The chests that carry something are node 1 (§8.2) and every boss —
+    // these are the rest, including the fourth nodes the second shelf rode
+    // until it moved into the wardrobe.
+    for (const n of [3, 5, 6, 7, 8, 11, 12, 13, 15, 16, 17, 18, 20, 23, 25, 28, 30, 33, 35, 38, 40, 43, 45, 47, 48]) {
       expect(onUnboxComplete(n), `node ${n}`).toEqual({ rune: null, signature: null, cosmetic: null })
     }
     expect(S.campaign.runesUnlocked).toBe(STARTING_RUNES)

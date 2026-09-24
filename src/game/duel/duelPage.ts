@@ -26,8 +26,10 @@
  * composite rebuilt only when a spell lands — the frame itself is two blits.
  * The bakes are half the sector's size while the page is DRAWN and full size
  * once it is PAINTED (`RES_DRAWN` / `RES_PAINTED`), because half a painting
- * stretched back over the stage is visibly soft. Everything is dropped when
- * the duel ends.
+ * stretched back over the stage is visibly soft. Portrait adds the page's
+ * soft double for the drawing pad (`drawDuelPageBelow`), re-made only when
+ * the composite is, and only once a portrait frame asks for it. Everything
+ * is dropped when the duel ends.
  */
 import { S } from '@/game/duel/state'
 import { SW, SH } from '@/game/duel/config'
@@ -35,15 +37,29 @@ import { sectorOf } from '@/game/map/sectors'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { artSettled, forgetArt, onArtChanged } from '@/game/art'
 import { sectorArtId } from '@/game/artIds'
-import { bakeDust, makeCanvas } from '@/game/restore/dust'
+import { bakeDust, makeCanvas, DUST_INK } from '@/game/restore/dust'
 import {
   SEC_W, SEC_H, CELLS, cellCover, createCoverage, resetCoverage, stamp, coverage01, type Coverage
 } from '@/game/restore/mask'
 import { NEUTRAL } from '@/game/artTint'
 import { getPaintPick, hasBit, packBits, unpackBits } from '@/game/campaign/bitset'
 import { clamp, rnd } from '@/game/duel/util'
+import { coverFit, type Fit } from '@/game/fit'
 
 type G2D = CanvasRenderingContext2D
+
+/**
+ * WHERE THE PAGE LIES ON THE STAGE: it covers the 1280 x 720 stage at ONE
+ * scale (`fit.ts`) — the full width, with 13 units of its 672-unit height
+ * cropped off the top and the bottom. Everything that has to register to
+ * the picture goes through this one placement: the draw, and the way a
+ * spell's landing point is turned back into sector units for the mask.
+ *
+ * The screen never sees this box whole in portrait: `layout.ts` frames a
+ * window of the STAGE, and that transform is uniform too, so the page a
+ * phone held upright shows is a crop of the same picture, never a squash.
+ */
+export const PAGE_ON_STAGE: Readonly<Fit> = coverFit(SEC_W, SEC_H, SW, SH)
 
 /**
  * What fraction of the sector's size the page is baked at.
@@ -131,6 +147,7 @@ const bakeLayers = (): boolean => {
   if (!paintSectorArt(g, node, sec, pot, false)) sec.paint(g, pot)
   g.setTransform(1, 0, 0, 1, 0, 0)
   colour = cv
+  softDirty = true
   if (restored) {
     // Nothing to clear: the page is hers already, and IS what is shown.
     shown = colour
@@ -206,14 +223,21 @@ export const resetDuelPage = (): void => {
   node = -1
   colour = dust = mask = null
   shown = null
+  soft = softTmp = softBlur = null
+  softDirty = true
   restored = false
   dirty = false
   resetCoverage(cov)
 }
 
-/** Stage px → sector units. */
-const toSecX = (x: number): number => (x / SW) * SEC_W
-const toSecY = (y: number): number => (y / SH) * SEC_H
+/**
+ * Stage px → sector units, back through the page's own placement. These used
+ * to be `x / SW * SEC_W` and `y / SH * SEC_H` — two DIFFERENT scales (0.900
+ * and 0.933) for a page that is drawn at one, so a blast's cleared patch
+ * landed up to 12 sector units off the spot it hit, vertically only.
+ */
+export const toSecX = (x: number): number => (x - PAGE_ON_STAGE.x) / PAGE_ON_STAGE.k
+export const toSecY = (y: number): number => (y - PAGE_ON_STAGE.y) / PAGE_ON_STAGE.k
 
 /**
  * A spell landed at stage `(x, y)`. `clean` — Aurora's, which blows the dust
@@ -276,6 +300,7 @@ const compose = (): void => {
   g.drawImage(dust, 0, 0)
   g.globalCompositeOperation = 'source-over'
   dirty = false
+  softDirty = true
 }
 
 /**
@@ -285,10 +310,120 @@ const compose = (): void => {
 export const drawDuelPage = (g: G2D): boolean => {
   if (!shown) return false
   if (dirty) compose()
-  const k = Math.max(SW / SEC_W, SH / SEC_H)
-  const w = SEC_W * k
-  const h = SEC_H * k
-  g.drawImage(shown, (SW - w) / 2, (SH - h) / 2, w, h)
+  const P = PAGE_ON_STAGE
+  g.drawImage(shown, P.x, P.y, P.w, P.h)
+  return true
+}
+
+/* ─────────────────── the page below the window (portrait) ─────────────────── */
+
+/**
+ * The page as a soft, blurred double: 1/24 of the sector each way (the SAME
+ * factor on both axes, so it is a smaller picture, not a squashed one), then
+ * a 3 x 3 box pass. Blown back up across the pad it keeps the page's colours
+ * — which way the light falls, where the ground is darker — and loses every
+ * shape, so nothing reads as an upside-down mushroom.
+ *
+ * The blurred 48 x 28 is enlarged ONCE, here, 4x at high quality, so the
+ * frame's own draw is a cheap bilinear one that shows no interpolation grid.
+ */
+const SOFT_W = SEC_W / 24
+const SOFT_H = SEC_H / 24
+const SOFT_UP = 4
+let soft: HTMLCanvasElement | null = null
+let softTmp: HTMLCanvasElement | null = null
+let softBlur: HTMLCanvasElement | null = null
+/** `soft` is stale: the page was re-baked or a spell changed what it shows. */
+let softDirty = true
+
+const bakeSoft = (): void => {
+  if (!shown) return
+  softTmp ??= makeCanvas(SOFT_W, SOFT_H)
+  softBlur ??= makeCanvas(SOFT_W, SOFT_H)
+  soft ??= makeCanvas(SOFT_W * SOFT_UP, SOFT_H * SOFT_UP)
+  const a = softTmp.getContext('2d')
+  const b = softBlur.getContext('2d')
+  const c = soft.getContext('2d')
+  if (!a || !b || !c) return
+  a.setTransform(1, 0, 0, 1, 0, 0)
+  a.globalCompositeOperation = 'copy'
+  a.imageSmoothingEnabled = true
+  a.imageSmoothingQuality = 'high'
+  a.drawImage(shown, 0, 0, SOFT_W, SOFT_H)
+  a.globalCompositeOperation = 'source-over'
+  // A box blur that is exact at the edges: nine shifted copies ADDED at a
+  // ninth each, and then the unshifted picture laid UNDER the result, which
+  // fills in exactly the share an edge pixel's missing neighbours left out.
+  b.setTransform(1, 0, 0, 1, 0, 0)
+  b.globalAlpha = 1
+  b.globalCompositeOperation = 'source-over'
+  b.clearRect(0, 0, SOFT_W, SOFT_H)
+  b.globalCompositeOperation = 'lighter'
+  b.globalAlpha = 1 / 9
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) b.drawImage(softTmp, dx, dy)
+  b.globalAlpha = 1
+  b.globalCompositeOperation = 'destination-over'
+  b.drawImage(softTmp, 0, 0)
+  b.globalCompositeOperation = 'source-over'
+  c.setTransform(1, 0, 0, 1, 0, 0)
+  c.globalCompositeOperation = 'copy'
+  c.imageSmoothingEnabled = true
+  c.imageSmoothingQuality = 'high'
+  c.drawImage(softBlur, 0, 0, SOFT_W * SOFT_UP, SOFT_H * SOFT_UP)
+  c.globalCompositeOperation = 'source-over'
+  softDirty = false
+}
+
+let veil: CanvasGradient | null = null
+let veilCtx: G2D | null = null
+let veilKey = NaN
+
+/**
+ * PORTRAIT: the page goes on under the drawing pad (`layout.ts`), so the
+ * child draws her runes on the same dusty page she is fighting over — as she
+ * does in landscape, where the pad IS the page.
+ *
+ * There is no more painting below the picture's foot, so the page is
+ * CONTINUED, never stretched: its soft double, mirrored about the stage's
+ * bottom edge (where the portrait window ends, so the colours meet their own
+ * reflection at the seam), and upright again below that on a very tall
+ * phone. Then a veil of the dust's own plum that deepens toward the CAST bar.
+ *
+ * `bottom` is the pad's foot in stage units. Draws nothing — and returns
+ * false — when no page is being fought on.
+ */
+export const drawDuelPageBelow = (g: G2D, bottom: number): boolean => {
+  if (!shown) return false
+  if (dirty) compose()
+  if (softDirty || !soft) bakeSoft()
+  if (!soft) return false
+  const P = PAGE_ON_STAGE
+  g.save()
+  g.beginPath()
+  g.rect(-SW, SH, SW * 3, Math.max(0, bottom - SH) + 4)
+  g.clip()
+  g.imageSmoothingEnabled = true
+  // Mirrored about y = SH: a point d below the edge shows the page d above it.
+  g.save()
+  g.translate(0, 2 * SH)
+  g.scale(1, -1)
+  g.drawImage(soft, P.x, P.y, P.w, P.h)
+  g.restore()
+  // The mirror ends at 2·SH − (P.y + P.h); a taller pad gets the page upright
+  // again from there, which meets the mirror's edge with its own.
+  const turn = 2 * SH - P.y
+  if (bottom > turn) g.drawImage(soft, P.x, turn, P.w, P.h)
+  if (!veil || veilCtx !== g || veilKey !== bottom) {
+    veilCtx = g
+    veilKey = bottom
+    veil = g.createLinearGradient(0, SH, 0, Math.max(SH + 1, bottom))
+    veil.addColorStop(0, `${DUST_INK}00`)
+    veil.addColorStop(0.45, `${DUST_INK}40`)
+    veil.addColorStop(1, `${DUST_INK}8c`)
+  }
+  g.fillStyle = veil
+  g.fillRect(-SW, SH, SW * 3, Math.max(0, bottom - SH) + 4)
+  g.restore()
   return true
 }
 

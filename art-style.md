@@ -631,6 +631,20 @@ dread aura are switched off for the reference by `PoseState.onKey`
 (`chars.ts`) — the drawn rig is authored for a duel floor, and a keyed sheet
 has no floor.
 
+**Amendment 2026-09-24 — the build is written out, and the horns are
+counted.** The first mascot was thrown away (owner: *"she has 2 horns and has
+a bad body shape"*). Two causes, both in the brief rather than the painter:
+the models are HEAD strips, so "the model wins on the build" had no body to
+win with, and the shared reference clause told the painter to follow the
+reference's PROPORTIONS — the duel rig's long jointed legs, which it did.
+And the rig's small far ear came back as a dark spike out of the back of the
+mane, which at splash size is a second horn. `mascotPrompt` now describes the
+chibi body in words (short thick straight legs, each shorter than the head is
+tall; a low round body; a soft-lock tail), limits the reference to LAYOUT
+only, says "exactly one horn each" with the far ear's allowed form, and makes
+the painter COUNT the horns and hold a head against a leg. The next roll came
+back right first time (25.7 kB). Keep those checks in; they are what fixed it.
+
 ### 11.4 The one place the 256 px frame cap is lifted
 
 The pipeline caps every sliced frame at 256 px tall, and that cap is about

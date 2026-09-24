@@ -88,11 +88,13 @@ export interface CosmeticDef {
  * save in the wild somebody else's hat.
  *
  * 0–8 are the nine story keepsakes, one per chapter, drawn by
- * `rig-cosmetics.ts`. 9–22 are the SECOND SHELF (`rig-accessories.ts`): the
- * alternatives that make a slot a choice rather than a switch, which is
- * §2.2's rule 20 — "no wardrobe slot ships with only one, narrowly gendered
- * default and no alternative". Every slot the rig can carry now offers three
- * or four, and each set spans more than the pastel default.
+ * `rig-cosmetics.ts` — the chests give those. 9–22 are the SECOND SHELF
+ * (`rig-accessories.ts`): the alternatives that make a slot a choice rather
+ * than a switch, which is §2.2's rule 20 — "no wardrobe slot ships with only
+ * one, narrowly gendered default and no alternative". Every slot the rig can
+ * carry now offers three or four, and each set spans more than the pastel
+ * default. No chest gives those: they are unlocked in the wardrobe itself
+ * (`ALTERNATIVES`, below).
  */
 export const COSMETICS: readonly CosmeticDef[] = [
   { slot: 'head', slug: 'flowerCrown' },
@@ -120,6 +122,24 @@ export const COSMETICS: readonly CosmeticDef[] = [
   { slot: 'trail', slug: 'petalTrail' },
   { slot: 'skin', slug: 'sunsetLook' }
 ]
+
+/**
+ * THE SECOND SHELF IS THE WARDROBE'S OWN (owner, 2026-09-23): "the player can
+ * use rewarded ads to buy the alternative decorative items in the dressing
+ * room, he can't get the alternative items any other way". So no chest gives
+ * one of these any more — they sit on the shelf from the first visit, the
+ * child can try each on, and one rewarded video unlocks it (`useWardrobeUnlock`;
+ * free, with no video, on a build that cannot play one).
+ *
+ * Listed rather than computed as "9 and up": a tenth story keepsake appended
+ * at 23 must not become a rewarded one by accident — whoever appends one says
+ * which kind it is. A save that already owns one from the old chest schedule
+ * keeps it: ownership is the `giftsOwned` bit, and no bit moved.
+ */
+export const ALTERNATIVES: readonly number[] = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+const ALTERNATIVE_SET: ReadonlySet<number> = new Set(ALTERNATIVES)
+/** Is keepsake `id` one of the wardrobe's rewarded-only alternatives? */
+export const isAlternative = (id: number): boolean => ALTERNATIVE_SET.has(id)
 
 /** Every keepsake in a slot, in shelf order — the wardrobe's tab contents. */
 export const cosmeticsIn = (slot: CosmeticSlot): number[] => {
@@ -210,35 +230,26 @@ export interface NodeDef {
  */
 export const FIRST_GIFT_NODE = 1
 
-/**
- * The SECOND SHELF's chests (keepsakes 9–22), by node.
- *
- * A boss chest per chapter could only ever hand out ten things, which is why
- * a slot had one item in it. These fourteen ride the chapter's FOURTH node
- * (`pos 3`) all the way down, plus the second node of chapters 2, 4, 6 and 8
- * — nodes that gave a tool and nothing else, and are the two duels furthest
- * from a chest under the old schedule.
- *
- * Each is matched to where it is found rather than dealt out: the acorn cap
- * comes out of the woods, the bubble trail out of the bay, the pet cloud out
- * of the Cloud Kingdom, the goggles out of the Crystal Caves, the moonlit
- * coat off the Starlight Summit, the tiara out of the Festival.
+/*
+ * The SECOND SHELF used to ride these chests too (2026-09-21 → 09-23): keepsakes
+ * 9–22 on each chapter's fourth node and on the second node of chapters 2, 4,
+ * 6 and 8. They are the wardrobe's rewarded unlocks now (`ALTERNATIVES`), so
+ * those nodes are back to giving their tool and nothing else. A save that
+ * opened one of those chests under the old schedule keeps what it got.
  */
-const SECOND_SHELF: Readonly<Record<number, number>> = {
-  3: 9, 6: 19, 8: 10, 13: 11, 16: 20, 18: 12, 23: 13, 26: 21, 28: 14, 33: 15, 36: 22, 38: 16, 43: 17, 48: 18
-}
 
 export const NODES: readonly NodeDef[] = Array.from({ length: CHAPTER_COUNT * NODES_PER_CHAPTER }, (_, n) => ({
   // Chapter 1's boss gives no keepsake, because its crown moved forward to
   // `FIRST_GIFT_NODE` — and that chest is far from empty: it is the one that
-  // hands over the Nature rune. Every other chapter keeps its own, the last
-  // chapter's boss gives the Friendship Duo instead, and the second shelf
-  // fills in between: all 23 keepsakes given exactly once, and none twice.
+  // hands over the Nature rune. Every other chapter keeps its own, and the
+  // last chapter's boss gives the Friendship Duo instead: the nine story
+  // keepsakes given exactly once, and none twice. The fourteen alternatives
+  // are never in a chest.
   giftId: n === FIRST_GIFT_NODE
     ? 0
-    : SECOND_SHELF[n] ?? (nodeIsBoss(n) && nodeChapter(n) > 0
+    : nodeIsBoss(n) && nodeChapter(n) > 0
       ? (nodeChapter(n) === CHAPTER_COUNT - 1 ? VERSUS_GIFT : nodeChapter(n))
-      : null)
+      : null
 }))
 
 /** The duel foe (an index into `FOES`) a node fights. */

@@ -80,7 +80,10 @@ export default {
     'tempest': 'ШТОРМ',
     'wildSurge': 'ДИКА ХВИЛЯ',
     'crystalWard': 'КРИШТАЛЕВИЙ ЩИТ',
-    'frostLock': 'КРИЖАНИЙ ЗАМОК'
+    'frostLock': 'КРИЖАНИЙ ЗАМОК',
+    'wildfire': 'ДИКИЙ ВОГОНЬ',
+    'frostbite': 'КРИЖАНИЙ УКУС',
+    'bramble': 'ТЕРНИ'
   },
 
   // {A} is the rune's nominative name, so the form noun joins it with a hyphen.
@@ -110,6 +113,7 @@ export default {
 
   'intro': {
     'draw': 'НАМАЛЮЙТЕ РУНУ',
+    'triangle': 'НАМАЛЮЙТЕ ТРИКУТНИК',
     'stored': 'ЗБЕРЕЖЕНО! ДО 3',
     'cast': 'ТЕПЕР ЧАКЛУЙТЕ'
   },
@@ -496,6 +500,15 @@ export default {
     'trail': 'Слід копит',
     'mane': 'Грива',
     'skin': 'Шерстка'
+  },
+
+  'wardrobe': {
+    'unlock': 'Відкрити',
+    'getIt': 'Забрати',
+    'unlockAria': 'Переглянь відео, щоб відкрити: {name}',
+    'getItAria': 'Забрати: {name}',
+    'noVideo': 'Відео ще не готове',
+    'tryOn': 'Приміряти: {name}'
   },
 
   'place': {

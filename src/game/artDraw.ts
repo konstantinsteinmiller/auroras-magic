@@ -15,7 +15,7 @@ import {
   WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, SECTOR_REF,
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
-import type { ItemName, PropName, CreatureName, RigPart } from '@/game/artIds'
+import { MOVIE_ICON, type ItemName, type PropName, type CreatureName, type RigPart } from '@/game/artIds'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
 import { NEUTRAL } from '@/game/artTint'
@@ -146,6 +146,100 @@ export const RIG_SPECS: Readonly<Record<RigPart, ItemSpec>> = {
   horn: HORN_ART
 }
 
+/**
+ * The rewarded-ad button's MOVIE CAMERA (`artIds.MOVIE_ICON`).
+ *
+ * The one reference in the catalogue with no game painter behind it: on screen
+ * the button shows the shared `video` glyph (`iconPaths.ts`) until a painting
+ * exists, so this is drawn here, on that glyph's own layout — a rounded body
+ * with a flared lens on its right — plus the two film reels on top that make
+ * it read as a MOVIE camera rather than a video call at 24 px, and a play
+ * sign. Plum body, cream reels, gold play: dark against light inside the icon,
+ * because it sits on the gold rewarded button AND on cream paper.
+ *
+ * Drawn in the glyph's 24-unit box around its centre, `s / 12` px per box
+ * unit, so the whole icon spans about ±1 unit — well inside `measureBox`.
+ */
+const MOVIE_ICON_ART: ItemSpec = {
+  kind: MOVIE_ICON.kind,
+  id: MOVIE_ICON.id,
+  frames: 1,
+  draw: (g, s) => {
+    const INK = '#3A2340'
+    g.save()
+    g.scale(s / 12, s / 12)
+    g.translate(-12, -12)
+    g.lineJoin = 'round'
+    g.lineCap = 'round'
+    g.lineWidth = 0.8
+    g.strokeStyle = INK
+    const disc = (x: number, y: number, r: number, fill: string, stroke = true): void => {
+      g.beginPath()
+      g.arc(x, y, r, 0, Math.PI * 2)
+      g.fillStyle = fill
+      g.fill()
+      if (stroke) g.stroke()
+    }
+    // The reels first: the body overlaps their lower edge. Three holes round
+    // the hub, or a cream disc with a dark middle is an EYE, and the painter
+    // gives the camera a face.
+    for (const [x, y, r, a] of [[6.2, 6.4, 3.3, 0.3], [12.2, 6.0, 3.6, 1.1]] as const) {
+      disc(x, y, r, '#FFF3DC')
+      disc(x, y, r * 0.2, '#6A4A94', false)
+      for (let k = 0; k < 3; k++) {
+        const t = a + (k * Math.PI * 2) / 3
+        disc(x + Math.cos(t) * r * 0.55, y + Math.sin(t) * r * 0.55, r * 0.17, '#B79FD6', false)
+      }
+    }
+    // The lens hood, flaring out to the right.
+    g.beginPath()
+    g.moveTo(15.2, 12.6)
+    g.lineTo(21.2, 10.4)
+    g.quadraticCurveTo(22.2, 10.1, 22.2, 11.2)
+    g.lineTo(22.2, 18.8)
+    g.quadraticCurveTo(22.2, 19.9, 21.2, 19.6)
+    g.lineTo(15.2, 17.4)
+    g.closePath()
+    g.fillStyle = '#563A7E'
+    g.fill()
+    g.stroke()
+    // The body: a soft rounded box, lighter along its top where the light lands.
+    const body = (): void => {
+      g.beginPath()
+      g.roundRect(2.2, 9.2, 13.6, 11.2, 2.8)
+    }
+    body()
+    g.fillStyle = '#6A4A94'
+    g.fill()
+    g.save()
+    body()
+    g.clip()
+    g.fillStyle = '#8A6BB8'
+    g.fillRect(2.2, 9.2, 13.6, 3.2)
+    g.restore()
+    body()
+    g.stroke()
+    // The play sign, pointing the way the lens does.
+    g.beginPath()
+    g.moveTo(7.0, 12.3)
+    g.lineTo(12.0, 14.8)
+    g.lineTo(7.0, 17.3)
+    g.closePath()
+    g.fillStyle = '#FFC93F'
+    g.fill()
+    g.lineWidth = 0.5
+    g.stroke()
+    g.restore()
+  }
+}
+
+/** The book's own furniture and the one DOM glyph, by id (`WORLD_UI_SHEETS`). */
+const WORLD_UI_SPECS: Readonly<Record<string, ItemSpec>> = {
+  'node-badge': BADGE_ART,
+  bookmark: BOOKMARK_ART,
+  [MOVIE_ICON.id]: MOVIE_ICON_ART
+}
+
 /** `RuneGlyph.vue`'s box: 100 units around a glyph of radius 30, in units of R. */
 const RUNE_BOX: ArtBox = { x: -50 / 30, y: -50 / 30, w: 100 / 30, h: 100 / 30 }
 
@@ -159,7 +253,7 @@ export const specOf = (sheet: ItemSheet): ItemSpec => {
   if (family === 'portrait') return PORTRAIT_ART[key!]!
   if (family === 'island') return islandArt(Number(key))
   if (family === 'keepsake') return KEEPSAKE_ART[key!]!
-  if (family === 'worldUi') return key === 'bookmark' ? BOOKMARK_ART : BADGE_ART
+  if (family === 'worldUi') return WORLD_UI_SPECS[key!]!
   if (family === 'prop') return PROP_SPECS[key as PropName]!
   if (family === 'creature') return CREATURE_SPECS[key as CreatureName]!
   if (family === 'rig') return RIG_SPECS[key as RigPart]!

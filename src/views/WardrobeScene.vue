@@ -22,6 +22,16 @@
  * the mane slot: tap one and her mane takes it, instantly. Each swatch is a
  * colour AND a micro-glyph (§3.11), never hue alone.
  *
+ * THE SECOND SHELF IS UNLOCKED HERE (owner, 2026-09-23). The alternatives
+ * (`tables.ALTERNATIVES`) are in no chest: each stands on its slot's shelf in
+ * full colour from the first visit, marked with the movie icon where a video
+ * pays for it. Tap one and Aurora TRIES IT ON — nothing is saved — and the
+ * unlock button rises under the shelf: [movie icon] "Unlock" on a build that
+ * plays rewarded videos (offered only while one is ready; otherwise it waits,
+ * disabled, and says so), or a plain "Get it" — free, no icon — on a build
+ * that cannot play one (`useWardrobeUnlock`). Tap the tile again, another
+ * slot, or anything she owns, and the try-on ends.
+ *
  * THE TENT HAS TWO PAGES (retention items 3 and 16). The shelf is one; the
  * sticker album — with the dress-up photo cards at the top of it — is the
  * other, and a rail of two picture tabs sits over both. The album is a SHEET
@@ -37,12 +47,15 @@ import { COSMETICS, COSMETIC_SLOTS, cosmeticsIn, type CosmeticSlot } from '@/gam
 import { backfillKeepsakes } from '@/game/campaign/controller'
 import { sfx } from '@/game/duel/audio'
 import { leaveWardrobe } from '@/game/flow/restoreFlow'
-import { admire, setWardrobeShelf } from '@/game/cosmetics/wardrobe'
+import { admire, setWardrobeShelf, setWardrobeTryOn } from '@/game/cosmetics/wardrobe'
+import { canOfferUnlock, isLockedAlternative, unlockAlternative, unlockMode } from '@/use/useWardrobeUnlock'
 import { itemIconUrl, swatchIconUrl, slotIconUrl, tentTabUrl } from '@/game/cosmetics/icons'
 import { MANE_SWATCHES, maneSwatchIndex, ownManeColours } from '@/game/cosmetics/rig-cosmetics'
 import { haptic } from '@/use/useHaptics'
 import { track } from '@/use/useAnalytics'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import ArtIcon from '@/components/icons/ArtIcon.vue'
+import FButton from '@/components/atoms/FButton.vue'
 import SceneCorner from '@/components/story/SceneCorner.vue'
 import AlbumPanel from '@/components/album/AlbumPanel.vue'
 
@@ -86,19 +99,47 @@ const tabs = computed(() => {
   }))
 })
 
+/** The alternative Aurora is trying on, or −1. Never saved. */
+const tryOnId = ref(-1)
+/** A video is paying for one right now. */
+const unlocking = ref(false)
+/** This build pays with a rewarded video (and marks it with the movie icon). */
+const byVideo = unlockMode === 'video'
+
 const tiles = computed(() => {
   void rev.value
   return cosmeticsIn(slot.value).map((id) => {
     const owned = owns(id)
+    // An alternative is never a ghost: it is on show, to be tried on.
+    const alt = !owned && isLockedAlternative(id)
     return {
       id,
       slot: COSMETICS[id]!.slot,
       owned,
+      alt,
+      picked: alt && tryOnId.value === id,
       worn: owned && wornIn(COSMETICS[id]!.slot) === id,
-      name: owned ? t(`gift.${COSMETICS[id]!.slug}`) : t('a11y.keepsakeToFind'),
-      icon: itemIconUrl(COSMETICS[id]!.slug, !owned)
+      name: owned || alt ? t(`gift.${COSMETICS[id]!.slug}`) : t('a11y.keepsakeToFind'),
+      icon: itemIconUrl(COSMETICS[id]!.slug, !owned && !alt)
     }
   })
+})
+
+/** The unlock button: up while an alternative is being tried on. */
+const unlockShown = computed(() => {
+  void rev.value
+  return tryOnId.value >= 0 && isLockedAlternative(tryOnId.value)
+})
+const unlockEnabled = computed(() => canOfferUnlock.value && !unlocking.value)
+const unlockLabel = computed(() => {
+  if (!byVideo) return t('wardrobe.getIt')
+  return unlockEnabled.value || unlocking.value ? t('wardrobe.unlock') : t('wardrobe.noVideo')
+})
+const unlockAria = computed(() => {
+  const id = tryOnId.value
+  const name = id >= 0 ? t(`gift.${COSMETICS[id]!.slug}`) : ''
+  if (!byVideo) return t('wardrobe.getItAria', { name })
+  return unlockEnabled.value || unlocking.value ? t('wardrobe.unlockAria', { name }) : t('wardrobe.noVideo')
 })
 
 /** The swatch row, shown on the mane slot while the Palette is worn. */
@@ -118,14 +159,61 @@ const swatches = computed(() => {
   }))
 })
 
+/** End any try-on: she is back in her own things. */
+const endTryOn = (): void => {
+  if (tryOnId.value < 0) return
+  tryOnId.value = -1
+  setWardrobeTryOn(-1)
+}
+
+/** Tap an alternative: she tries it on (tap it again to take it off). */
+const tryOnTile = (id: number): void => {
+  if (unlocking.value) return
+  if (tryOnId.value === id) {
+    endTryOn()
+    sfx('ui')
+    haptic('tick')
+    return
+  }
+  tryOnId.value = id
+  setWardrobeTryOn(id)
+  sfx('paint', 1)
+  haptic('tick')
+  admire(id)
+}
+
+/** The unlock button: the video (or nothing, on a free build), then it is hers. */
+const unlock = async (): Promise<void> => {
+  const id = tryOnId.value
+  if (id < 0 || unlocking.value || !unlockEnabled.value) return
+  sfx('ui')
+  unlocking.value = true
+  try {
+    if (!(await unlockAlternative(id))) return
+    // Hers now, and already worn (`useWardrobeUnlock` saved it): the try-on
+    // gives way to the real thing, with the admire moment a new keepsake gets.
+    tryOnId.value = -1
+    setWardrobeTryOn(-1)
+    rev.value++
+    sfx('reveal')
+    haptic('reward')
+    track('keepsake_equip', { slot: COSMETICS[id]!.slot, cosmeticId: id })
+    admire(id)
+  } finally {
+    unlocking.value = false
+  }
+}
+
 const showSlot = (s: CosmeticSlot): void => {
   if (slot.value === s) return
+  endTryOn()
   slot.value = s
   sfx('ui')
   haptic('tick')
 }
 
 const toggle = (s: CosmeticSlot, id: number): void => {
+  endTryOn()
   const si = COSMETIC_SLOTS.indexOf(s)
   const eq = [...S.campaign.giftsEquipped] as typeof S.campaign.giftsEquipped
   const on = eq[si] !== id
@@ -177,14 +265,15 @@ const observeShelf = (): void => {
 
 const showPage = (p: TentPage): void => {
   if (page.value === p) return
+  endTryOn()
   page.value = p
   sfx('ui')
   haptic('tick')
 }
 
 onMounted(() => {
-  // A save from before the second shelf existed has opened chests that now
-  // carry keepsakes; hand those over rather than show them as missed.
+  // A save made before a schedule change may have opened a chest that now
+  // carries a keepsake; hand it over rather than show it as missed.
   if (backfillKeepsakes()) rev.value++
   const first = COSMETIC_SLOTS.find((s) => cosmeticsIn(s).some(owns))
   if (first) slot.value = first
@@ -192,7 +281,7 @@ onMounted(() => {
   observeShelf()
   window.addEventListener('resize', measure)
 })
-watch([palette, slot], () => nextTick(measure))
+watch([palette, slot, unlockShown], () => nextTick(measure))
 // The album takes the whole scene, so the shelf's box is withdrawn while it
 // is up — otherwise Aurora would keep standing clear of a shelf that is not
 // there, off to one side of a photo nobody can see her in.
@@ -211,6 +300,8 @@ onBeforeUnmount(() => {
   ro?.disconnect()
   window.removeEventListener('resize', measure)
   setWardrobeShelf(0, 0, 0)
+  // A try-on never outlives the tent.
+  setWardrobeTryOn(-1)
 })
 </script>
 
@@ -254,8 +345,32 @@ onBeforeUnmount(() => {
             @click.stop="toggle(tile.slot, tile.id)"
           )
             img(:src="tile.icon" alt="" draggable="false")
+          button.item.alt(
+            v-else-if="tile.alt"
+            :class="{ picked: tile.picked }"
+            :aria-label="t('wardrobe.tryOn', { name: tile.name })"
+            :aria-pressed="tile.picked"
+            @click.stop="tryOnTile(tile.id)"
+          )
+            img(:src="tile.icon" alt="" draggable="false")
+            //- The movie icon: a video pays for this one. None where it is free.
+            span.alt-mark(v-if="byVideo" aria-hidden="true")
+              ArtIcon(kind="worldUi" id="movie-icon" fallback="video")
           div.item.ghost(v-else :aria-label="tile.name" role="img")
             img(:src="tile.icon" alt="" draggable="false")
+      //- The unlock: [movie icon] + label where a video pays for it (the
+      //- rewarded gold), a plain primary "Get it" where it is free.
+      div.unlock(v-if="unlockShown")
+        FButton.unlock-btn(
+          :type="byVideo ? 'warning' : 'primary'"
+          :is-disabled="!unlockEnabled"
+          :aria-label="unlockAria"
+          :icon="byVideo ? 'video' : undefined"
+          icon-position="left"
+          :art="byVideo ? 'movie-icon' : undefined"
+          art-kind="worldUi"
+          @click="unlock"
+        ) {{ unlockLabel }}
       div.swatches(v-if="palette" role="radiogroup" :aria-label="t('gift.colorPicker')")
         button.swatch(
           v-for="sw in swatches"
@@ -453,6 +568,47 @@ button
     background: var(--am-paper-sunken)
     img
       opacity: 0.16
+
+// A locked alternative (the second shelf): the real thing in full colour,
+// never a ghost — it is on show to be tried on — but cut into the shelf rather
+// than sitting on it, on a dashed rule, until it is hers.
+.item.alt
+  position: relative
+  border-style: dashed
+  background: var(--am-paper-sunken)
+  img
+    opacity: 0.9
+  // Being tried on: the lilac of "this is happening now", lifted onto the
+  // shelf, with a solid line.
+  &.picked
+    border-style: solid
+    background: var(--am-lilac)
+    transform: scale(1.06)
+    box-shadow: var(--am-shadow-chip)
+  &:active
+    transform: scale(0.94)
+
+// The movie icon on a locked alternative: a paper chip hung on the tile's
+// corner, so the tile's own picture is never covered.
+.alt-mark
+  position: absolute
+  right: -9px
+  top: -9px
+  width: clamp(22px, 3.4vh, 28px)
+  height: clamp(22px, 3.4vh, 28px)
+  padding: 3px
+  box-sizing: border-box
+  border-radius: 50%
+  background: var(--am-paper-raised)
+  border: 2px solid var(--am-ink)
+  color: var(--am-ink)
+  pointer-events: none
+
+// The unlock button's row, under the tiles.
+.unlock
+  display: flex
+  justify-content: center
+  width: 100%
 
 // The mane swatches: 44 px round targets, two rows of four.
 .swatches

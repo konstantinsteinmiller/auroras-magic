@@ -253,6 +253,11 @@ export interface SpellRiders {
   reflect?: boolean
   /** Frost Lock: seconds the opponent is frozen, her hand discarded (§6.5). */
   freeze?: number
+  /** A LINGERING spell (§8.35): [HP per second, seconds] it leaves ticking on
+   *  the one it lands on — the rare slow damage, apart from the 4/s `dot`. */
+  linger?: readonly [number, number]
+  /** Whose afterlife the linger wears on its victim (embers, frost, leaves). */
+  lingerLook?: number
 }
 
 export interface SpellTriple extends SpellRiders { kind: SpellKind; dmg: number }
@@ -347,6 +352,39 @@ export const SIGNATURE_SPELLS: readonly SignatureSpell[] = [
 ]
 
 /**
+ * THE LINGERING SPELLS (owner, 2026-09-23; story-spec §8.35) — *"some rare
+ * damage over time effects that do a bit more than the 3 tier attacks but
+ * over e.g. 20 seconds."*
+ *
+ * Three named three-rune spells, one rule a child can say out loud: **a pair
+ * of an element and one Nature makes that element LINGER** — Nature is the
+ * rune that grows. Each lands as a small field (4) and then takes 1.7 a
+ * second off its victim for 20 s: 38 in all, 1.27 × Fire Rain's 30, the
+ * canonical three-rune hit, before the element counts. Slower than any hit,
+ * more than any hit, and a ward that is raised AFTER it landed does nothing.
+ * Rare by construction: a hand of exactly these three runes.
+ *
+ * Refreshed, never stacked: a second linger on the same side restarts the
+ * 20 s at the stronger rate. A Water spell cast by its victim washes it off.
+ * Its ticks go through the director like every blow — the mercy floor, the
+ * AFK rule, the trade's scales (`sim.tick`).
+ */
+export const LINGER_SECS = 20
+export interface LingerSpell { key: string; nameId: string; kind: SpellKind; dmg: number; riders: SpellRiders }
+export const LINGER_SPELLS: readonly LingerSpell[] = [
+  // Fire, Fire, Nature — embers that keep burning.
+  { key: '0.0.4', nameId: 'wildfire', kind: 1, dmg: 4, riders: { linger: [1.7, LINGER_SECS], lingerLook: FIRE } },
+  // Ice, Ice, Nature — a frost that keeps biting.
+  { key: '2.2.4', nameId: 'frostbite', kind: 1, dmg: 4, riders: { linger: [1.7, LINGER_SECS], lingerLook: ICE } },
+  // Earth, Nature, Nature — thorny vines that keep winding.
+  { key: '3.4.4', nameId: 'bramble', kind: 1, dmg: 4, riders: { linger: [1.7, LINGER_SECS], lingerLook: NATURE } }
+]
+
+/** What a spell takes off in all: its hit plus everything its linger ticks. */
+export const totalDamage = (sp: { dmg: number; linger?: readonly [number, number] }): number =>
+  sp.dmg + (sp.linger ? sp.linger[0] * sp.linger[1] : 0)
+
+/**
  * The dominant rune of a queue: the most frequent; a tie breaks toward the
  * LAST-DRAWN rune — the one whose colour the player sees flying (§6.2 step 4).
  */
@@ -399,6 +437,9 @@ const resolveRaw = (q: readonly number[], signatures: number): ResolvedSpell => 
       return { key, nameId: sg.nameId, kind: sg.kind, dmg: sg.dmg, count, dominant: lead, lead, ...sg.riders }
     }
   }
+  for (const lg of LINGER_SPELLS) {
+    if (lg.key === key) return { key, nameId: lg.nameId, kind: lg.kind, dmg: lg.dmg, count, dominant: lead, lead, ...lg.riders }
+  }
   const golden = SPELLS[key]
   if (golden) {
     return { key, nameId: golden[0], kind: golden[1], dmg: golden[2], count, dominant: lead, lead, ...goldenRiders(golden) }
@@ -443,7 +484,10 @@ const substitute = (q: readonly number[], signatures: number): ResolvedSpell | n
     const cand = q.map((x) => (x === RAINBOW ? r : x))
     const sp = resolveRaw(cand, signatures)
     const at = q.lastIndexOf(r)
-    if (!best || sp.dmg > best.dmg || (sp.dmg === best.dmg && at > bestAt)) {
+    // Measured in ALL it takes off — a lingering spell's hit alone is small.
+    const n = totalDamage(sp)
+    const b = best ? totalDamage(best) : 0
+    if (!best || n > b || (n === b && at > bestAt)) {
       best = { ...sp, key: comboKey(q), wild: cand }
       bestAt = at
     }
@@ -461,9 +505,10 @@ export const comboBonus = (q: readonly number[], raw: ResolvedSpell, signatures 
   let bestPair = 0
   for (let i = 0; i < 3; i++) {
     const pair = q.filter((_, j) => j !== i)
-    bestPair = Math.max(bestPair, resolveRaw(pair, signatures).dmg)
+    bestPair = Math.max(bestPair, totalDamage(resolveRaw(pair, signatures)))
   }
-  return Math.max(1, (bestPair * 1.5) / raw.dmg)
+  // Against everything the three runes take off, a linger's ticks included.
+  return Math.max(1, (bestPair * 1.5) / totalDamage(raw))
 }
 
 /** The whole generator (§6.2 steps 1–6 and 8). Step 7 (elements) is the caller's. */

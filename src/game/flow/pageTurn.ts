@@ -34,7 +34,8 @@
  * the few hundred milliseconds a turn lasts.
  */
 import { cos, sin, PI } from '@/game/duel/util'
-import { drawItem, type ItemSpec } from '@/game/artItem'
+import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
+import { spriteFor } from '@/game/art'
 
 type G2D = CanvasRenderingContext2D
 
@@ -432,6 +433,22 @@ export const BOOKMARK_ART: ItemSpec = {
   }
 }
 
+/**
+ * Was this painting of the ribbon cut to the box it is about to be blitted
+ * into? A strip is sliced to exactly its box, so the two share an aspect.
+ *
+ * THE FIRST SLICE WAS CUT SHORT (2026-09-23): the box was measured on a canvas
+ * the ribbon hung out of (`artBox.measureBox`), so the slicer cut the V's two
+ * tips off flat — the painting itself has them. A strip from that cut is
+ * ~15 % too wide for the whole ribbon's box and would be stretched down over
+ * it, flat foot and all, so it is refused and the ribbon DRAWS itself, tips
+ * and all, until the painting is sliced again to the whole box.
+ */
+const bookmarkFits = (img: HTMLImageElement): boolean => {
+  const b = itemBox(BOOKMARK_ART)
+  return Math.abs((img.naturalWidth * b.h) / (Math.max(1, img.naturalHeight) * b.w) - 1) < 0.06
+}
+
 /** The ribbon that marks the reader's place, hanging over a page's top edge. */
 export const drawBookmark = (g: G2D, x: number, y: number, len: number, w: number, colour: string, t: number): void => {
   const sway = sin(t * 1.6) * w * 0.08
@@ -440,7 +457,8 @@ export const drawBookmark = (g: G2D, x: number, y: number, len: number, w: numbe
   // same way the drawing did rather than sliding sideways as a rigid block.
   g.translate(x, y)
   g.transform(1, 0, sway / Math.max(1, len), 1, 0, 0)
-  if (!drawItem(g, BOOKMARK_ART, w, 0, colour)) {
+  const art = spriteFor(BOOKMARK_ART.kind, BOOKMARK_ART.id)
+  if (!(art && bookmarkFits(art) && drawItem(g, BOOKMARK_ART, w, 0, colour))) {
     bookmarkShape(g, w)
     g.fillStyle = colour
     g.fill()

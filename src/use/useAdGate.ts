@@ -1,7 +1,8 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { isCrazyWeb, isWaveDash } from '@/use/useUser'
 import { isCrazyGamesFullRelease } from '@/use/useMatch'
 import { adProviderName, isRewardedReady, showRewardedAd } from '@/use/useAds'
+import { isAdShowing, isPlatformPaused, isVisibilityHidden } from '@/use/useGamePause'
 
 /**
  * ─── Reward gating ──────────────────────────────────────────────────────────
@@ -186,26 +187,87 @@ export const canOfferReward = computed(
   () => !isRewardOfferSuppressed && (!isRewardGated || (isRewardedReady.value && !isRewardRateLimited()))
 )
 
+// ─── Rewarded-only UNLOCKS (the dressing room's alternatives) ───────────────
+//
+// Every perk above is OPTIONAL: on a build that cannot play a video it is
+// either free (noop) or simply not offered (CG pre-release, Wavedash), and
+// nothing is lost by not offering it. The wardrobe's second shelf is different
+// (owner, 2026-09-23): those keepsakes can be had in NO other way — no chest
+// gives them — so a build that withheld the offer would lock them away for
+// good. The owner's rule for them:
+//
+//   • a build that plays rewarded videos → the video, and the button wears the
+//     movie icon in front of its label;
+//   • every build that cannot (noop: plain web, itch, a dev server with the
+//     simulated ads off — AND the two builds that suppress offers above, the
+//     CG pre-release and Wavedash) → FREE, with a plain label and no icon.
+//
+// Both suppressed builds are ungated by construction (`isRewardGated` is false
+// for CG pre-release and for the noop provider Wavedash resolves), so "free"
+// is exactly `!isRewardGated`. This is deliberately a separate door from
+// `claimReward`: the other placements keep their suppression semantics.
+
+/** How a rewarded-only unlock is paid for on this build. Build-time constant. */
+export const unlockMode: 'video' | 'free' = isRewardGated ? 'video' : 'free'
+
+/**
+ * Can an unlock button be pressed right now? Always on a free build. On a
+ * video build only while a rewarded ad is genuinely ready, the player has
+ * allowance left and no other video is in flight — otherwise the button waits
+ * in a gentle disabled state rather than failing on the tap (playbook §6.4).
+ */
+export const canOfferUnlock = computed(
+  () => unlockMode === 'free' || (canOfferReward.value && !adInFlight.value)
+)
+
+/**
+ * Pay for a rewarded-only unlock: the video on a gated build (through
+ * `claimReward`, so the rate limit, the in-flight lock and the pause/mute
+ * guarantee all hold), the grant straight away on a free one. Returns whether
+ * `grant` ran.
+ */
+export const claimUnlock = async (grant: () => void): Promise<boolean> => {
+  if (unlockMode === 'free') {
+    grant()
+    return true
+  }
+  return claimReward(grant)
+}
+
 // ─── Interstitial pacing ────────────────────────────────────────────────────
 //
-// Two rules, both on the wall clock:
+// The owner's cadence (2026-09-23): "this game should be easy on ads".
 //
-//   1. nothing in the first FIRST_INTERSTITIAL_AFTER_MS of a session;
-//   2. after that, at least INTERSTITIAL_MIN_GAP_MS between any two ads.
+//   1. The FIRST paced interstitial of a session waits for EITHER
+//        • FIRST_INTERSTITIAL_AFTER_MS (240 s) of PLAYTIME, or
+//        • a chapter's boss beaten — first time or replay (owner, 2026-09-24):
+//          a boss win is itself the natural break, so that ad may come early;
+//   2. after ANY interstitial, INTERSTITIAL_MIN_GAP_MS (160 s) of playtime
+//      before the next one. Each later chapter-boss win shows one too, if the
+//      gap allows — which is simply rule 2.
+//
+// PLAYTIME, not the wall clock. The clock runs only while the tab is visible,
+// no ad is on screen and the portal has not paused the game: a player who
+// leaves the tab for ten minutes has not played for ten minutes, and must not
+// come back to an ad for it. (Menus and dialogue DO count — the player is in
+// the game.) It is also strictly the kinder measure for the portals: playtime
+// can never run ahead of the wall clock, so 160 s of playtime is always at
+// least 160 s of real time between two requests.
 //
 // The clock is ONE for every placement: the between-duels break asks
 // `canShowInterstitial`, and the two placements that deliberately do not ask
-// (the portal-mandated first-load ad, the hidden QA chord) still call
+// (the portal-mandated first-load ad, the hidden QA chords) still call
 // `markInterstitialShown`, so the next ad owes the full gap from them.
 
 /**
- * No interstitial before the session is this old, ms. Four minutes from page
- * load.
+ * No paced interstitial before this much PLAYTIME, ms — unless a chapter boss
+ * was just beaten (first time or replay). Four minutes.
  *
  * The first few duels decide whether a stranger stays. At 30-60 s a duel, four
- * minutes is the onboarding, the first rank bought and a couple of rungs of the
- * ladder, which is long enough for the game to earn the interruption. It also
- * covers Yandex's "none in the first 60 s" rule.
+ * minutes is the onboarding and the first handful of pages of the book, which
+ * is long enough for the game to earn the interruption. It also covers
+ * Yandex's "none in the first 60 s" rule — the chapter-1 boss is the fifth
+ * duel, far past a minute of play.
  *
  * The first-load ad that GameMonetize, GamePix and GameDistribution require
  * does not wait for it. Their moderation rejects a build without that ad, so it
@@ -214,75 +276,121 @@ export const canOfferReward = computed(
 export const FIRST_INTERSTITIAL_AFTER_MS = 240_000
 
 /**
- * Minimum gap between interstitials, ms.
- *
- * 121 s, not 120. CrazyGames and Playgama both rate-limit interstitials to one
- * every two minutes and REJECT the request that arrives early — so a gate set
- * to exactly the platform's own limit loses the race to clock skew, timer
- * coalescing in a background tab, or the few milliseconds between our check and
- * the SDK's. The extra second costs nothing and turns a rejected request into a
- * filled one.
+ * Minimum gap between interstitials, ms of playtime. 160 s (owner, 2026-09-23;
+ * it was 121 s).
  *
  * ─── Why one number and not a per-platform table ────────────────────────────
  *
  * The pacing is time-based on EVERY build — not keyed to stages or waves — so
  * the only thing that could vary per portal is the length of the gap. Walking
- * the shipped targets, 121 s is the maximum of every documented minimum, so a
- * table would today hold nine identical entries:
+ * the shipped targets, every documented minimum sits BELOW 160 s, so a table
+ * would today hold nine identical entries:
  *
  *   • CrazyGames  — one midgame ad per 2 min; an early request is rejected.
+ *                   160 s clears it by 40 s, which also covers the clock skew,
+ *                   background-tab timer coalescing and the few milliseconds
+ *                   between our check and the SDK's that the old 121 s was
+ *                   padded by one second for.
  *   • Playgama    — Bridge's own `minimumDelayBetweenInterstitial` is 120 s.
- *   • Yandex      — ≥ 60 s apart, and none in the first 60 s after load. 121 s
- *                   satisfies the first, FIRST_INTERSTITIAL_AFTER_MS the
- *                   second.
+ *   • Yandex      — ≥ 60 s apart, and none in the first 60 s after load. 160 s
+ *                   satisfies the first, the 240 s opening (or a chapter-1 boss,
+ *                   five duels in) the second.
  *   • Poki        — paced server-side; the SDK's own bad-event gate is the only
  *                   client-side limit and it is about event SPACING, not ads.
  *   • GamePix / GameDistribution / GameMonetize — frequency-capped inside the
  *                   SDK, with published guidance of one interstitial every
- *                   2-3 min. 121 s is the floor, their cap is the ceiling.
+ *                   2-3 min. 160 s is inside that band.
+ *
+ * And because the gap is measured in PLAYTIME (see above), the real time
+ * between two requests is never shorter than 160 s, only longer.
  *
  * If a portal ever publishes a LONGER minimum, raise it here for that build
  * rather than reintroducing a stage counter — a stage-keyed cadence drifts with
  * how fast the player is, which is exactly what the portals' rules are not.
  */
-export const INTERSTITIAL_MIN_GAP_MS = 121_000
+export const INTERSTITIAL_MIN_GAP_MS = 160_000
 
 /**
- * When this session started, on the `Date.now()` clock: navigation start, not
+ * When this page started, on the `Date.now()` clock: navigation start, not
  * module evaluation. This module arrives with a lazily loaded chunk, and the
- * player's four minutes started when the page did.
+ * player's playtime started when the page did.
  */
 const pageStartedAt = (): number =>
   Date.now() - (typeof performance !== 'undefined' ? performance.now() : 0)
 
-let sessionStartedAt = pageStartedAt()
-/** 0 = no interstitial yet this session. */
-let lastInterstitialAt = 0
+/** Is playtime accruing right now? Visible, no ad up, no portal pause. On the
+ *  Playgama/Playables build `isVisibilityHidden` is pinned false (the Page
+ *  Visibility API is forbidden there) and the Bridge's pause drives
+ *  `isPlatformPaused` instead — so the rule holds without touching the API. */
+const playtimeRunning = (): boolean =>
+  !isAdShowing.value && !isVisibilityHidden.value && !isPlatformPaused.value
+
+/** Playtime banked before the current running stretch, ms. */
+let playBanked = 0
+/** `Date.now()` when the current running stretch began; null while stopped. */
+let playSince: number | null = playtimeRunning() ? pageStartedAt() : null
+/** Playtime at the last interstitial; null = none yet this session. */
+let lastAdAtPlay: number | null = null
+
+/** Active playtime this session, ms (see the section note). */
+export const playtimeMs = (now: number = Date.now()): number =>
+  playBanked + (playSince === null ? 0 : Math.max(0, now - playSince))
+
+// The edges, in the same call stack as the flag flip (`flush: 'sync'`), so an
+// ad that opens and closes inside one tick is still excluded to the ms.
+watch(playtimeRunning, (on) => {
+  const now = Date.now()
+  if (on) {
+    if (playSince === null) playSince = now
+  } else if (playSince !== null) {
+    playBanked = playtimeMs(now)
+    playSince = null
+  }
+}, { flush: 'sync' })
+
+/** What a duel's end is, to the pacing. */
+export type DuelEndMoment = 'win' | 'loss' | 'boss'
 
 /**
- * True when an interstitial may be shown now: the session is past its opening
- * four minutes AND the last ad (if any) is a full gap behind us. Pure, with no
- * side effects. Asking does not start or restart any clock; only
+ * Any chapter-boss WIN is a break of its own — the first time AND on a replay
+ * (owner, 2026-09-24) — so it may bring an ad inside the opening four minutes.
+ * Deliberately no replay input: nothing about the node's history matters here.
+ */
+export const duelEndMoment = (won: boolean, bossNode: boolean): DuelEndMoment =>
+  !won ? 'loss' : bossNode ? 'boss' : 'win'
+
+/**
+ * True when an interstitial may be shown now: the session has had its four
+ * minutes of play — or `afterBoss`, a chapter's boss has just been beaten
+ * (first time or replay) — AND the last ad (if any) is a full gap of play
+ * behind us.
+ * Pure, with no side effects. Asking does not start or restart any clock; only
  * `markInterstitialShown` does.
  */
-export const canShowInterstitial = (now: number = Date.now()): boolean =>
-  now - sessionStartedAt >= FIRST_INTERSTITIAL_AFTER_MS
-  && (lastInterstitialAt === 0 || now - lastInterstitialAt >= INTERSTITIAL_MIN_GAP_MS)
-
-/** Record that an interstitial was just shown, restarting the 121 s gap. */
-export const markInterstitialShown = (now: number = Date.now()): void => {
-  lastInterstitialAt = now
+export const canShowInterstitial = (now: number = Date.now(), afterBoss = false): boolean => {
+  const played = playtimeMs(now)
+  return (afterBoss || played >= FIRST_INTERSTITIAL_AFTER_MS)
+    && (lastAdAtPlay === null || played - lastAdAtPlay >= INTERSTITIAL_MIN_GAP_MS)
 }
 
-/** Seconds until the next interstitial is allowed. For debug and telemetry only. */
+/** Record that an interstitial was just shown, restarting the 160 s gap. */
+export const markInterstitialShown = (now: number = Date.now()): void => {
+  lastAdAtPlay = playtimeMs(now)
+}
+
+/** Seconds of play until the next ordinary interstitial is allowed (a boss win
+ *  waits only for the gap). For debug and telemetry only. */
 export const interstitialCooldownLeft = (now: number = Date.now()): number => {
-  const opening = sessionStartedAt + FIRST_INTERSTITIAL_AFTER_MS - now
-  const gap = lastInterstitialAt === 0 ? 0 : lastInterstitialAt + INTERSTITIAL_MIN_GAP_MS - now
+  const played = playtimeMs(now)
+  const opening = FIRST_INTERSTITIAL_AFTER_MS - played
+  const gap = lastAdAtPlay === null ? 0 : lastAdAtPlay + INTERSTITIAL_MIN_GAP_MS - played
   return Math.max(0, opening, gap) / 1000
 }
 
-/** Test seam: start a fresh session at `startedAt` with no ad shown yet. */
+/** Test seam: start a fresh session at `startedAt` with no play banked and no
+ *  ad shown yet. The clock runs from `startedAt` if nothing is pausing it. */
 export const __resetInterstitialClock = (startedAt: number = Date.now()): void => {
-  sessionStartedAt = startedAt
-  lastInterstitialAt = 0
+  playBanked = 0
+  playSince = playtimeRunning() ? startedAt : null
+  lastAdAtPlay = null
 }

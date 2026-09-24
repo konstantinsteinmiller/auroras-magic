@@ -172,6 +172,89 @@ const readSnapshotFile = (file: string): LeaderboardSnapshotFile | null => {
 }
 
 /**
+ * THE FIRST SCENE'S CODE GOES OUT WITH THE HTML (the loading pass, 2026-09-24).
+ *
+ * `AppScene` — the whole game — is a lazy route, so the browser only asks for
+ * it at the END of the boot chain: the entry, then `main.ts` initialising the
+ * save, then `App.vue`, then the locale, then the router. On a slow phone
+ * connection that chain started the game's biggest chunk ~2.5 s after the page
+ * did, with the line idle between each step. A `modulepreload` for it (and the
+ * chunks it statically imports) puts it on the wire at once, in parallel —
+ * and so do the chain's own two always-needed links, `App.vue` and the English
+ * messages, which were each another round trip in the queue.
+ *
+ * FETCH ONLY — a preload does not evaluate the module, so nothing in the game
+ * reads `localStorage` before `SaveManager.init()` has hydrated it (the reason
+ * `main.ts` imports `App.vue` only after the save). A single-file build has no
+ * such chunk and gets nothing; the href carries the build's base, so a
+ * `--base=./` portal archive stays relative.
+ */
+const preloadFirstScenePlugin = (): Plugin => {
+  let base = '/'
+  return {
+    name: 'auroras-magic-preload-first-scene',
+    apply: 'build',
+    configResolved(c) { base = c.base || '/' },
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, ctx) {
+        const bundle = ctx.bundle
+        if (!bundle) return
+        type Chunk = {
+          type: 'chunk'; fileName: string; imports: string[]; isEntry: boolean; isDynamicEntry: boolean
+          facadeModuleId: string | null; viteMetadata?: { importedCss?: Set<string> }
+        }
+        const chunks = Object.values(bundle).filter((c) => c.type === 'chunk') as unknown as Chunk[]
+        const scene = chunks.find((c) => c.isDynamicEntry && /[\\/]src[\\/]views[\\/]AppScene\.vue$/.test(c.facadeModuleId ?? ''))
+        if (!scene) return
+        const closure = (from: Chunk[]): Set<string> => {
+          const seen = new Set<string>()
+          const walk = (f: string): void => {
+            const c = bundle[f] as unknown as Chunk | undefined
+            if (!c || c.type !== 'chunk' || seen.has(f)) return
+            seen.add(f)
+            for (const i of c.imports) walk(i)
+          }
+          for (const c of from) walk(c.fileName)
+          return seen
+        }
+        const eager = closure(chunks.filter((c) => c.isEntry))
+        // The two links of the boot chain EVERY boot walks, one after the
+        // other: `App.vue` (imported once the save is up) and the English
+        // messages (the locale, or its fallback). Default priority — they are
+        // the chain itself.
+        const chain = chunks.filter((c) => c.isDynamicEntry
+          && /[\\/]src[\\/](App\.vue|i18n[\\/]locales[\\/]en\.ts)$/.test(c.facadeModuleId ?? ''))
+        const first = [...closure(chain)].filter((f) => !eager.has(f))
+        const late = [...closure([scene])].filter((f) => !eager.has(f) && !first.includes(f))
+        const css = new Set<string>()
+        for (const f of [...first, ...late]) for (const c of (bundle[f] as unknown as Chunk).viteMetadata?.importedCss ?? []) css.add(c)
+        // `low` for the game: the ENTRY and its short chain (the save, App,
+        // the locale) must win the line — the game's code only has to be
+        // there by the time that chain asks for it, not before it.
+        return [
+          ...first.map((f) => ({
+            tag: 'link',
+            attrs: { rel: 'modulepreload', crossorigin: true, href: `${base}${f}` },
+            injectTo: 'head' as const
+          })),
+          ...late.map((f) => ({
+            tag: 'link',
+            attrs: { rel: 'modulepreload', crossorigin: true, fetchpriority: 'low', href: `${base}${f}` },
+            injectTo: 'head' as const
+          })),
+          ...[...css].map((f) => ({
+            tag: 'link',
+            attrs: { rel: 'preload', as: 'style', crossorigin: true, href: `${base}${f}` },
+            injectTo: 'head' as const
+          }))
+        ]
+      }
+    }
+  }
+}
+
+/**
  * @param seeded whether this build can never gain a real player (Poki, Yandex —
  *   no endpoint, so no writes). Those bake the modelled board; every other
  *   target bakes the real snapshot as the bottom rung of its offline ladder.
@@ -296,6 +379,8 @@ export default defineConfig(({ mode, command }) => {
   // from a modelled curve. Every other build bakes the live snapshot as the
   // bottom rung of its offline ladder.
   plugins.push(leaderboardSnapshotPlugin(!env.VITE_LEADERBOARD_URL))
+  // The game's own chunk on the wire with the HTML — fetched, not run.
+  plugins.push(preloadFirstScenePlugin())
 
 
   // Only push the obfuscator if both conditions are met
@@ -367,6 +452,12 @@ export default defineConfig(({ mode, command }) => {
           // modules to bake the island behind the splash. Same
           // obfuscator-vs-dynamic-import constraint as above.
           /use[\\/]useAssets\.ts$/,
+          // The art schedule reaches the sector painters and the live save
+          // through dynamic imports (so the kits stay out of its light chunk).
+          // Same obfuscator-vs-dynamic-import constraint: mangled, the built
+          // bundle threw `Failed to resolve module specifier
+          // '@/game/map/sectors'` and every stage after the splash was lost.
+          /game[\\/]artSchedule\.ts$/,
           // capabilities.ts has per-platform URL-detector helpers (with
           // hostname literals like `'crazygames'`, `'wavedash'`, `'glitch.fun'`,
           // ...) gated by env-literal IFs so Rollup can tree-shake the dead

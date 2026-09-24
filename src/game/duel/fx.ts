@@ -39,7 +39,7 @@
  */
 import { RUNES, SW, SH, GY } from '@/game/duel/config'
 import { S, rainbow } from '@/game/duel/state'
-import { TAU, PI, sin, cos, rnd as sysRnd, min, max, clamp, atan2 } from '@/game/duel/util'
+import { TAU, PI, sin, cos, rnd as sysRnd, min, max, clamp, atan2, seeded } from '@/game/duel/util'
 import { lookOf } from '@/game/duel/spellArt'
 
 /**
@@ -646,6 +646,51 @@ export const wardHit = (x: number, y: number, rune: number, p = 0.35): void => {
   BRH[x < SW / 2 ? 0 : 1] = 0.26
   impact(x, y, rune, p)
 }
+
+/**
+ * A WEAK POINT gave (§8.35): part of the spell broke on the ward — the caller
+ * has already rippled it with `wardHit` — and a SMALLER part of it carries on
+ * through. `share` is how much (0.25 / 0.5). The carried part is the spell's
+ * own element, so a child sees the same rain, the same rocks, arrive thinner:
+ * from above (`above`, a field or a heavy) it falls through as a patter of
+ * drops onto the duelist behind; from the side it streams on past the ward
+ * toward her. The hit itself is the caller's (`impact`, scaled by `share`).
+ */
+export const seepThrough = (wx: number, tx: number, y: number, rune: number, share: number, above: boolean): void => {
+  rune = fxRune(rune)
+  const k = kindOf(rune)
+  const n = 3 + share * 10
+  if (above) burst(tx, y - 120, n, 420, 0.5, 9, k, rune, hi(rune), 0.12, 0.7, PI / 2)
+  else burst(wx, y, n, 460, 0.42, 10, k, rune, hi(rune), 0.03, 0.5, tx > wx ? 0 : PI)
+  ring(tx, y, rune, 10, 260, 0.22, k)
+}
+
+/**
+ * The cosmetic dice for the two CONTINUOUS tells below. They emit every few
+ * frames on the duel's own clock, so on `Math.random` they would re-roll every
+ * rule after them; a seeded stream of their own keeps them provably cosmetic,
+ * like the perfect-rune sparkle (`borrowDice`).
+ */
+const tellDice = seeded(20260924)
+
+/**
+ * A LINGERING spell ticking on its victim (§8.35): a wisp of that element's
+ * own afterlife, again and again, for as long as it lasts — embers still
+ * climbing off her, frost still settling, leaves still curling round. It is
+ * the telegraph that the damage is not over, in the vocabulary the hit
+ * already taught (`spellArt.LOOK[].after`); no new shape, no text.
+ */
+export const lingerMote = (x: number, y: number, rune: number): void =>
+  borrowDice(tellDice, () => after(x + (rnd() - 0.5) * 60, y + (rnd() - 0.5) * 90, fxRune(rune), 0.12))
+
+/**
+ * THE HASTE'S TELL (director.ts, §8.35): a foe being hurried forms her runes
+ * faster, and her horn says so — little sparks rushing IN to its tip, more of
+ * them the harder she is hurrying. The gather vocabulary, small.
+ */
+export const hasteSpark = (x: number, y: number, level: number): void =>
+  borrowDice(tellDice, () =>
+    burst(x, y, 2 + level * 2, -240, 0.26, 7, K_GLINT, C_WHITE, C_PASTEL + 1, 0, TAU, 0, 30 + level * 18))
 
 /**
  * The flash itself: the shell's own light, thrown outward as a ring from the

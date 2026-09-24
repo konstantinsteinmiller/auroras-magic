@@ -19,7 +19,7 @@
  * into a strip of its own (`artTint.ts`), so a frame costs one `drawImage`
  * whatever the tint.
  */
-import { spriteFor, type ArtKind } from '@/game/art'
+import { spriteFor, withoutArt, type ArtKind } from '@/game/art'
 import { measureBox, type ArtBox } from '@/game/artBox'
 import { accentMask, multiplyMasked, ACCENT_A, ACCENT_B, NEUTRAL } from '@/game/artTint'
 
@@ -44,11 +44,13 @@ export interface ItemSpec {
   tinted?: boolean
 }
 
-/** The box every panel of `spec` is painted into, in units of its scale. */
+/** The box every panel of `spec` is painted into, in units of its scale —
+ *  measured on the DRAWING alone (`withoutArt`): a drawing that nests painted
+ *  parts (a portrait's rig head) must not be measured through them. */
 export const itemBox = (spec: ItemSpec): ArtBox =>
-  measureBox(`${spec.kind}/${spec.id}`, (g, s) => {
+  measureBox(`${spec.kind}/${spec.id}`, (g, s) => withoutArt(() => {
     for (let f = 0; f < spec.frames; f++) spec.draw(g, s, f, NEUTRAL)
-  })
+  }))
 
 interface Tinted { img: HTMLImageElement; cv: HTMLCanvasElement }
 const tinted = new Map<string, Tinted>()

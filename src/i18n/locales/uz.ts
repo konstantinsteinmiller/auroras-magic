@@ -80,7 +80,10 @@ export default {
     'tempest': 'DOVUL',
     'wildSurge': 'ASOV TO‘LQIN',
     'crystalWard': 'BILLUR QALQON',
-    'frostLock': 'AYOZ QULFI'
+    'frostLock': 'AYOZ QULFI',
+    'wildfire': 'YOVVOYI OLOV',
+    'frostbite': 'AYOZ TISHLASHI',
+    'bramble': 'TIKANZOR'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'RUNANI CHIZING',
+    'triangle': 'UCHBURCHAK CHIZING',
     'stored': 'SAQLANDI! 3 TAGACHA',
     'cast': 'ENDI SEHRLANG'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Tuyoq izi',
     'mane': 'Yol',
     'skin': 'Jun'
+  },
+
+  'wardrobe': {
+    'unlock': 'Ochish',
+    'getIt': 'Olish',
+    'unlockAria': '{name}ni ochish uchun video ko‘ring',
+    'getItAria': '{name}ni olish',
+    'noVideo': 'Video hali tayyor emas',
+    'tryOn': '{name}ni kiyib ko‘rish'
   },
 
   'place': {

@@ -80,7 +80,10 @@ export default {
     'tempest': 'ДАУЫЛ',
     'wildSurge': 'АСАУ ТОЛҚЫН',
     'crystalWard': 'КРИСТАЛЛ ҚАЛҚАН',
-    'frostLock': 'АЯЗ ҚҰЛПЫ'
+    'frostLock': 'АЯЗ ҚҰЛПЫ',
+    'wildfire': 'ДАЛА ӨРТІ',
+    'frostbite': 'АЯЗ ШАҒУЫ',
+    'bramble': 'ТІКЕН ШЫРМАУЫҚ'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'РУНАНЫ СЫЗЫҢЫЗ',
+    'triangle': 'ҮШБҰРЫШ СЫЗЫҢЫЗ',
     'stored': 'САҚТАЛДЫ! 3-КЕ ДЕЙІН',
     'cast': 'ЕНДІ СИҚЫРЛАҢЫЗ'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Тұяқ ізі',
     'mane': 'Жал',
     'skin': 'Жүн'
+  },
+
+  'wardrobe': {
+    'unlock': 'Ашу',
+    'getIt': 'Алу',
+    'unlockAria': '{name} ашу үшін бейне көр',
+    'getItAria': '{name} алу',
+    'noVideo': 'Бейне әлі дайын емес',
+    'tryOn': '{name} киіп көру'
   },
 
   'place': {

@@ -43,7 +43,7 @@ import {
   STORY_PANELS, storyPanelId, PORTRAIT_SETS, portraitArtId, ISLAND_SLUGS, islandArtId,
   KEEPSAKE_ICON_SLUGS, keepsakeArtId, pageArtId, frontPageArtId, PROP_ART,
   wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG, BRAND_LOGO, BRAND_MASCOT,
-  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, type PortraitEmote, type PropName, type CreatureName, type RigPart
+  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, type PortraitEmote, type PropName, type CreatureName, type RigPart
 } from '@/game/artIds'
 import { ACTIVE_STYLE } from '@/game/artStyle'
 
@@ -416,6 +416,43 @@ export const WORLD_UI_SHEETS: readonly ItemSheet[] = [
     ],
     file: 'worldui-bookmark',
     target: artTarget('worldUi', 'bookmark')
+  },
+  // The rewarded-ad button's mark (`artIds.MOVIE_ICON`), shown in front of the
+  // button's label by `ArtIcon`. The only DOM glyph in the family: it is read
+  // at about 24 CSS px on a gold button and on cream paper, so the brief is a
+  // bold silhouette with a dark body and light reels — detail is mush there.
+  {
+    name: `worldUi:${MOVIE_ICON.id}` as const,
+    kind: MOVIE_ICON.kind,
+    id: MOVIE_ICON.id,
+    title: 'Rewarded-ad movie camera',
+    frames: 1,
+    anchor: 'centre' as const,
+    panels: [],
+    blurb: 'A small, chubby storybook MOVIE CAMERA seen from the side: a soft rounded box body, a short flared lens hood on its right-hand end, two round film reels sitting on top of the body (each a cream disc with a small hub and three little round holes around it), and a small gold play triangle painted on its side. It stands in front of the words on a "watch a short video" button, about the size of one letter — a toy-like, friendly little camera, not a real one.',
+    colour: 'A deep plum-violet body with a lighter lilac-violet top where the light lands; the lens hood a little deeper violet; cream reels with a small plum hub and soft lilac holes; a warm sunny-gold play triangle.',
+    noun: 'icon',
+    not: [
+      'Draw ONLY what the reference shows: the camera body, its lens, its two reels and its play triangle. No film strip unrolling from it, no light beam, no sparkles or stars, no hand, no tripod, no ground.',
+      'NOT a badge, a button or an app icon: no circle, rounded square, tile, plate or frame behind it. The button it sits on is already its tile.',
+      'IT HAS NO FACE. The two reels are film reels, not eyes — no pupils, no catch-lights, no lashes, no mouth, no blush. A camera with a face is a character, and this is a sign.',
+      'No text, letters or numbers anywhere on it — no "REC", no "AD", no "TV", no numbers on the reels.'
+    ],
+    keep: [
+      'HOW BIG IT IS IN PLAY — about 24 pixels tall, next to a word on a button, on a GOLD button and on CREAM paper. It has to read as a movie camera at a glance at that size, so it is a bold, simple silhouette first and a picture second.',
+      '· Four big masses and nothing else: the body, the lens hood, the two reels. No buttons, dials, screws, handles, straps, sprocket holes or tiny highlights — at 24 pixels they only turn it to mush.',
+      '· STRONG CONTRAST INSIDE IT: a DARK plum-violet body against LIGHT cream reels and a BRIGHT gold play triangle. A body as pale as the reels vanishes on cream paper; gold reels vanish on a gold button.',
+      '· THE SHADOW IS ON THE THING, NEVER UNDER IT. No ground shadow, no dark patch, no soft smudge below or behind it — a shadow on the magenta ships as a pink stain stuck to the icon for ever.',
+      '· It is still a hand-painted storybook thing, not a flat vector app icon: the paint varies softly across the body and the plum line swells and fades.'
+    ].join('\n'),
+    facing: 'It faces RIGHT: the lens hood is on the right-hand end and the reels sit on top — the same way round as the reference.',
+    checks: [
+      '· Shrink it in your head to the size of one letter on a button: it still reads as a film camera — a box, a lens, two reels on top.',
+      '· Exactly two reels, one lens hood on the right, one play triangle on the side — and nothing else added.',
+      '· NOTHING under, behind or around it — no shadow, no glow, no plate, no circle. Magenta touches its outline the whole way round.'
+    ],
+    file: `worldui-${MOVIE_ICON.id}`,
+    target: artTarget(MOVIE_ICON.kind, MOVIE_ICON.id)
   }
 ]
 
@@ -3193,6 +3230,26 @@ export const mascotPrompt = (s: ItemSheet, fit?: Fit): string => {
     '· Paint Aurora and Umbra exactly like their models — the same faces, the same huge glossy eyes, the same colours, the same manes and horns, AND THE SAME CHIBI PROPORTIONS: the head as wide as the body, the legs short and sturdy.',
     '· The last image draws them with smaller heads and longer legs. That is a placeholder. It tells you only WHERE each one stands, how much room she takes up, which way she faces and what she is doing. Where the two disagree about how she is BUILT, the model wins every time.',
     '· Each one still fills the same overall space in the picture as in the last image — a big-headed character in the same footprint, not a bigger one.',
+    '',
+    // The first mascot (2026-09-23) was thrown away for both of these. The
+    // models are HEAD strips, so "the model wins on the build" had no body to
+    // win with, and the only body the painter ever saw was the duel rig's long
+    // jointed legs — which it copied. And the rig's small FAR EAR, behind the
+    // head, came back as a dark spike out of the back of Aurora's mane: the
+    // owner read it as a second horn. Naming the failure AND what it costs is
+    // what has worked everywhere else in this file, plus a count in the checks.
+    'THE MODELS SHOW ONLY THEIR HEADS — SO HERE IS THE BODY, IN WORDS, AND THE LAST IMAGE\'S BODY IS NOT IT.',
+    '· The last image\'s bodies are a stick-legged duel PUPPET: long thin legs bent at a knee, a small barrel perched high on top of them. A previous painting copied that, and it was thrown away: a foal on stilts with a stiff, bent stance and an awkward rump is not our Aurora, however well it is painted.',
+    '· THE CHIBI BUILD, for BOTH of them: a BIG round head; a small, soft, rounded body like a bean or a plush toy, barely longer than the head is wide, sitting LOW; a round rump and a gently curved back.',
+    '· FOUR SHORT, THICK, STRAIGHT LEGS, like soft little pillars, ending in small rounded hooves — gold for Aurora, violet for Umbra. Each leg is SHORTER than her head is tall. No visible knees, hocks, fetlocks or thin ankles — no realistic horse anatomy at all.',
+    '· ALL FOUR STAND STRAIGHT DOWN AND PLANTED: two front legs under the chest, two back legs under the rump, the far pair just peeking out behind the near pair. Nothing bent, crossed, kicked, stepping or tucked.',
+    '· To keep the same footprint, SHORTEN THE LEGS AND LET THE HEAD GROW: they still stand on the last image\'s hoof line and fill the same space in the picture, but far more of that space is head.',
+    '· The tail is a few big soft locks in the mane\'s colours (Aurora: gold with pastel streaks), falling softly — never the last image\'s flat, stiff, hard-edged blades.',
+    '',
+    'EXACTLY ONE HORN EACH — COUNT THEM. The same previous painting grew Aurora a SECOND horn and was thrown away for it: the last image draws a small FAR EAR behind her head, and it came back as a dark pointed spike sticking up out of the back of her mane. At splash size that is a two-horned unicorn, which is not Aurora.',
+    '· Each has ONE single spiral horn, rising from the middle of her forehead, pointing up and a little forward — gold for Aurora, violet for Umbra.',
+    '· Her ears are two SOFT, ROUNDED ears in her coat colour (pink inside for Aurora, lilac inside for Umbra), set on top of her head just behind the horn, clearly SMALLER than the horn and never pointed like it. The far ear is at most a small soft rounded bump peeking out of the mane — coat-coloured, never dark, never a spike, or simply hidden by the mane.',
+    '· NOTHING ELSE ON EITHER HEAD IS POINTED: no second horn, no spike, no antenna, no dark wedge poking out of the mane. The mane is soft rounded locks all the way round — big soft curls for Aurora.',
     '· UMBRA\'S COLOURS COME FROM HER MODEL, NOT FROM THE LAST IMAGE. The last image inks her almost black and gives her one glowing cyan eye, which is how the game draws her mid-duel. Her model is who she really is: a soft, deep VIOLET coat you can read the shading in, a lilac mane with pale cyan streaks, and ordinary warm eyes with two white catch-lights. Paint the model. A black unicorn with a glowing eye is the wrong character for this picture.',
     '',
     'THE FACES THEY WEAR — a model is several moods side by side, and only one of them belongs here. Find each by its EXPRESSION; do not count panels.',
@@ -3215,11 +3272,15 @@ export const mascotPrompt = (s: ItemSheet, fit?: Fit): string => {
     '',
     `WHAT IT IS: ${s.blurb}`,
     '',
-    REFERENCE_CLAUSE,
+    // NOT the shared REFERENCE_CLAUSE: that says "follow its shapes and its
+    // PROPORTIONS", which here is an order to paint the puppet's stilt legs —
+    // the exact thing the paragraph on the body forbids. The first mascot
+    // resolved that contradiction in the reference's favour.
+    'THE LAST ATTACHED IMAGE is a flat computer drawing that decides the LAYOUT ONLY: where each one stands, how much of the picture she fills, which way she faces and where her hooves meet the invisible ground. Take NOTHING else from it — not its body proportions, not its legs, not its ears, not its tail, not its line weight, not its flat colours. Their build comes from the paragraph above and their faces from the models.',
     '',
     `COLOUR IDENTITY (keep the hues; the exact shades are yours): ${s.colour}`,
     '',
-    'THE VIEW: both seen from the side, flat and square-on, exactly as the last image shows them. No three-quarter body, no perspective, no tilt, no camera angle. Only the faces turn, and only as far as the models turn them.',
+    'THE VIEW: both seen from the side, flat and square-on, exactly as the last image shows them. No three-quarter body, no perspective, no tilt, no camera angle. Only the faces turn, and only as far as the models turn them — Aurora\'s muzzle points RIGHT, toward Umbra, and Umbra\'s points LEFT, toward Aurora.',
     '',
     withCharacter(STYLE_ITEM),
     '',
@@ -3235,7 +3296,13 @@ export const mascotPrompt = (s: ItemSheet, fit?: Fit): string => {
     'BEFORE YOU CALL IT FINISHED, count and check:',
     '· TWO unicorns, one picture, side by side on one unbroken magenta sheet.',
     '· Aurora left facing right, Umbra right facing left, eyes meeting, a clear gap between them.',
-    '· Both are built like their models: the head as wide as the body, the legs short and sturdy.',
+    '· COUNT THE HORNS: one on Aurora, one on Umbra — TWO in the whole picture, no more. Then look at the BACK of each head: nothing pointed and nothing dark sticks up out of the mane, and each ear is round, soft and smaller than the horn.',
+    '· COUNT THE LEGS: four each, all short, thick, straight and planted. Hold her head against one of her legs: the leg is SHORTER. If any leg is long, thin or bent at a knee, it is the puppet\'s leg — shorten it.',
+    '· Both are built like chibi plush toys: the head as wide as the body, the body round and low, the rump round.',
+    // The roll that fixed the build (2026-09-24) shaded the little enclosed
+    // crease between Aurora's tail and her rump a darker pink: it was walled in
+    // by ink, so it was not ground to the key, and shipped a hot-pink sliver.
+    '· Look into every small enclosed gap — between the tail and the rump, between the legs, under the chin. Each is the same flat magenta as the four corners, never a darker pink "shadow" in the crease.',
     '· Cover everything but the two heads. Aurora reads as delighted and Umbra as warm and blushing, at a glance.',
     '· Nothing under them. NO shadow, no dark patch, no soft smudge where a hoof meets the magenta — that is a darker magenta, it cannot be cut away, and it ships as a pink stain welded under them for ever.',
     '· No sparkles, no runes, no ground, no text.',

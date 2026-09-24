@@ -80,7 +80,10 @@ export default {
     'tempest': 'TEMPESTADE',
     'wildSurge': 'ONDA SELVAGEM',
     'crystalWard': 'ESCUDO DE CRISTAL',
-    'frostLock': 'SELO DE GEADA'
+    'frostLock': 'SELO DE GEADA',
+    'wildfire': 'FOGO SELVAGEM',
+    'frostbite': 'MORDIDA GÉLIDA',
+    'bramble': 'ESPINHEIRO'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'DESENHE A RUNA',
+    'triangle': 'DESENHE UM TRIÂNGULO',
     'stored': 'GUARDADA! ATÉ 3',
     'cast': 'AGORA LANCE'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Rasto',
     'mane': 'Crina',
     'skin': 'Pelagem'
+  },
+
+  'wardrobe': {
+    'unlock': 'Desbloquear',
+    'getIt': 'Pegar',
+    'unlockAria': 'Assista a um vídeo para desbloquear {name}',
+    'getItAria': 'Pegar {name}',
+    'noVideo': 'O vídeo ainda não está pronto',
+    'tryOn': 'Experimentar {name}'
   },
 
   'place': {

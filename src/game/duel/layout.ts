@@ -15,6 +15,16 @@
  * CAST in the thumb arc at the bottom. Drawing is scale-invariant (the
  * recogniser normalises the stroke), so a rune drawn on the pad is the same
  * rune.
+ *
+ * THE PORTRAIT PAGE (2026-09-24). The window and the pad are one PAGE CARD
+ * lying on the cloth — the same cream border, plum line and cel shadow the
+ * wipe frames the sector in (`restore/frame.ts`, `wipe.ts` drawPage), so the
+ * page a child fights on is framed the way the page she then cleans is. The
+ * picture fills the card's top pane; a strip of the card's own paper divides
+ * it from the pad below, where the page goes on (`drawDuelPageBelow`) —
+ * she draws her runes on the dusty page, as she does in landscape. Every
+ * transform here is ONE scale (`vs`): the window is a crop of the stage,
+ * never a squash of it.
  */
 import { SW, SH, BOX, type Rect } from '@/game/duel/config'
 import { S } from '@/game/duel/state'
@@ -37,8 +47,24 @@ export interface DuelLayout {
   zone: Rect
   /** The same zone in CSS px — the DOM positions its drawing prompts here. */
   zonePx: Rect
+  /**
+   * CSS px. Portrait: the page card's outer edge (paper border included), the
+   * picture's pane inside it, and the card's paper border width — the pad
+   * pane is `zonePx`. Landscape: the stage's own rect for both, border 0.
+   */
+  card: Rect
+  pane: Rect
+  border: number
   insets: Insets
 }
+
+/** Portrait: how far the page card's picture sits in from the screen's side
+ *  edges, CSS px — the wipe's own frame (`restore/frame.ts`). */
+export const CARD_MARGIN = 8
+/** Portrait: breathing room between the HUD band's rune slots and the card. */
+export const CARD_GAP = 4
+/** The page card's paper border for a picture `w` CSS px wide — the wipe's. */
+export const cardBorder = (w: number): number => Math.max(4, w * 0.008)
 
 /**
  * The part of the stage a PORTRAIT screen shows. The duel happens between the
@@ -72,34 +98,47 @@ export const computeLayout = (w: number, h: number, insets: Insets): DuelLayout 
     const vs = min(w / SW, h / SH)
     const vx = (w - SW * vs) / 2
     const vy = (h - SH * vs) / 2
+    const stage = { x: vx, y: vy, w: SW * vs, h: SH * vs }
     return {
       w, h, portrait, vx, vy, vs,
       topBand: 0,
       bottomBar: 0,
       zone: { ...BOX },
       zonePx: { x: vx + BOX.x * vs, y: vy + BOX.y * vs, w: BOX.w * vs, h: BOX.h * vs },
+      card: stage,
+      pane: { ...stage },
+      border: 0,
       insets
     }
   }
   const topBand = Math.round(insets.top + clamp(w * 0.25, 84, 132))
   const bottomBar = Math.round(insets.bottom + clamp(h * 0.115, 76, 108))
   const MIN_PAD = 96
-  const gap = 10 // above and below the pad
   const winW = PORTRAIT_WIN.x1 - PORTRAIT_WIN.x0
   const winH = SH - PORTRAIT_WIN.y0
-  // Fit the duel WINDOW to the width. A squat portrait (a tablet, a split
-  // screen) cannot give it the full width AND leave a pad: shrink the window
-  // rather than lose the pad.
-  let vs = min(w / winW, (h - topBand - bottomBar - MIN_PAD - 2 * gap) / winH)
+  // The page card: its picture spans the screen less the wipe's margin, its
+  // paper border starts just under the HUD band and ends right over the
+  // button bar. Inside it, top to bottom: the picture, a strip of the card's
+  // own paper, the pad.
+  const paneX = insets.left + CARD_MARGIN
+  const paneW = Math.max(1, w - insets.left - insets.right - 2 * CARD_MARGIN)
+  const b = cardBorder(paneW)
+  const paneY = topBand + CARD_GAP + b
+  const cardBottom = h - bottomBar
+  // Fit the duel WINDOW to the pane's width. A squat portrait (a tablet, a
+  // split screen) cannot give it the full width AND leave a pad: shrink the
+  // window rather than lose the pad — it stays centred in a pane that is still
+  // the card's full width, which then simply shows more of the stage's sides.
+  let vs = min(paneW / winW, (cardBottom - paneY - 2 * b - MIN_PAD) / winH)
   vs = Math.max(vs, 0.05)
-  const vx = (w - winW * vs) / 2 - PORTRAIT_WIN.x0 * vs
-  const vy = topBand - PORTRAIT_WIN.y0 * vs
+  const vx = paneX + (paneW - winW * vs) / 2 - PORTRAIT_WIN.x0 * vs
+  const vy = paneY - PORTRAIT_WIN.y0 * vs
   const stageBottom = vy + SH * vs
   const zonePx = {
-    x: insets.left + 12,
-    y: stageBottom + gap,
-    w: w - insets.left - insets.right - 24,
-    h: Math.max(40, h - bottomBar - gap - (stageBottom + gap))
+    x: paneX,
+    y: stageBottom + b,
+    w: paneW,
+    h: Math.max(40, cardBottom - b - (stageBottom + b))
   }
   const zone = {
     x: (zonePx.x - vx) / vs,
@@ -107,7 +146,9 @@ export const computeLayout = (w: number, h: number, insets: Insets): DuelLayout 
     w: zonePx.w / vs,
     h: zonePx.h / vs
   }
-  return { w, h, portrait, vx, vy, vs, topBand, bottomBar, zone, zonePx, insets }
+  const card = { x: paneX - b, y: paneY - b, w: paneW + 2 * b, h: zonePx.y + zonePx.h + b - (paneY - b) }
+  const pane = { x: paneX, y: paneY, w: paneW, h: stageBottom - paneY }
+  return { w, h, portrait, vx, vy, vs, topBand, bottomBar, zone, zonePx, card, pane, border: b, insets }
 }
 
 /** The live layout — written by `applyLayout`, read by the renderer and HUD. */

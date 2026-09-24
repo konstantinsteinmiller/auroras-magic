@@ -341,6 +341,15 @@ export type KeepsakeIconSlug = (typeof KEEPSAKE_ICON_SLUGS)[number]
 export const keepsakeArtId = (slug: string): string =>
   `keepsake-${slug.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}`
 
+/**
+ * The REWARDED-AD mark: the little film camera in front of every "watch an ad
+ * for …" button's label (`<ArtIcon kind="worldUi" id="movie-icon"
+ * fallback="video">`). A DOM icon, not a canvas drawable — `ArtIcon` shows the
+ * painting when the art layer is on and the shared `video` glyph otherwise, so
+ * this kind/id pair IS the contract with every rewarded button.
+ */
+export const MOVIE_ICON = { kind: 'worldUi', id: 'movie-icon' } as const
+
 /* ──────────────────────────────────── the brand pair (art-style.md §11) ── */
 
 /**

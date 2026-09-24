@@ -80,7 +80,10 @@ export default {
     'tempest': 'GIÔNG TỐ',
     'wildSurge': 'SÓNG HOANG DÃ',
     'crystalWard': 'LÁ CHẮN PHA LÊ',
-    'frostLock': 'KHÓA BĂNG GIÁ'
+    'frostLock': 'KHÓA BĂNG GIÁ',
+    'wildfire': 'LỬA RỪNG',
+    'frostbite': 'RĂNG SƯƠNG GIÁ',
+    'bramble': 'BỤI GAI'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'VẼ PHÙ VĂN',
+    'triangle': 'VẼ HÌNH TAM GIÁC',
     'stored': 'ĐÃ LƯU! TỐI ĐA 3',
     'cast': 'GIỜ HÃY TUNG PHÉP'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Vệt móng',
     'mane': 'Bờm',
     'skin': 'Bộ lông'
+  },
+
+  'wardrobe': {
+    'unlock': 'Mở khóa',
+    'getIt': 'Nhận',
+    'unlockAria': 'Xem video để mở khóa {name}',
+    'getItAria': 'Nhận {name}',
+    'noVideo': 'Video chưa sẵn sàng',
+    'tryOn': 'Thử {name}'
   },
 
   'place': {

@@ -80,7 +80,10 @@ export default {
     'tempest': 'زوبعة',
     'wildSurge': 'موجة جامحة',
     'crystalWard': 'درع بلّوري',
-    'frostLock': 'قفل الصقيع'
+    'frostLock': 'قفل الصقيع',
+    'wildfire': 'نار برّية',
+    'frostbite': 'لسعة الصقيع',
+    'bramble': 'أشواك العُلّيق'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'ارسم الرمز',
+    'triangle': 'ارسم مثلثًا',
     'stored': 'تم الحفظ! حتى 3',
     'cast': 'والآن ألقِه'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'أثر الحوافر',
     'mane': 'العرف',
     'skin': 'الفراء'
+  },
+
+  'wardrobe': {
+    'unlock': 'افتح',
+    'getIt': 'خُذها',
+    'unlockAria': 'شاهد فيديو لفتح {name}',
+    'getItAria': 'خُذ {name}',
+    'noVideo': 'الفيديو ليس جاهزًا بعد',
+    'tryOn': 'جرّب {name}'
   },
 
   'place': {

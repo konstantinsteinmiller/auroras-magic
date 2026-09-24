@@ -290,9 +290,9 @@ describe('the bubble over the arena', () => {
     const w = openOver()
     await settle(w)
     expect(w.classes()).toContain('over-arena')
-    // No dimming scrim over a live duel, and no dog-ear inviting a turn.
+    // No dimming scrim over a live duel, and no continue cue inviting a turn.
     expect(w.find('.dim').exists()).toBe(false)
-    expect(w.find('.dog-ear').exists()).toBe(false)
+    expect(w.find('.turn-cue').exists()).toBe(false)
     await w.trigger('click')
     expect(w.emitted('done')).toBeUndefined()
     w.unmount()
@@ -403,5 +403,40 @@ describe('the arena\'s beats, turning themselves over', () => {
     // This is what the first stroke does: the parent drops the component.
     w.unmount()
     expect(w.emitted('done')).toBeUndefined()
+  })
+})
+
+// The continue cue on an ordinary story page (the arena's leaf has none — see
+// above): up once the dwell is over, wordless but labelled for a reader, and
+// a real press that turns the page like a tap anywhere does.
+describe('the continue cue on a story page', () => {
+  beforeEach(() => {
+    freshSave()
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'performance'] })
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('waits out the dwell, is labelled through i18n, and turns the page', async () => {
+    // A chapter's first node as a PAGE (not over the arena): it opens on the
+    // title page, and the cue there turns to the first beat. That turn is
+    // pinned too: the title leaf once shared key 0 with the first beat, Vue
+    // patched one into the other, threw, and the chapter stayed on its title.
+    const w = mount(DialogueBubbles, { props: { lines: openingLines(), node: OPENING_NODE }, global: { plugins: [i18n] } })
+    await settle(w)
+    expect(w.find('.title-leaf').exists()).toBe(true)
+    expect(w.find('.turn-cue').exists()).toBe(false)
+    vi.advanceTimersByTime(700)
+    await w.vm.$nextTick()
+    const cue = w.find('button.turn-cue')
+    expect(cue.exists()).toBe(true)
+    expect(cue.attributes('aria-label')).toBe(en.continue)
+    expect(cue.text()).toBe('')
+    await cue.trigger('click')
+    expect(w.find('.title-leaf').exists()).toBe(false)
+    expect(w.find('.words').text()).toContain(en.story.c1.n1.b1)
+    // …and the next page's cue waits out its own dwell again.
+    expect(w.find('.turn-cue').exists()).toBe(false)
+    expect(w.emitted('done')).toBeUndefined()
+    w.unmount()
   })
 })

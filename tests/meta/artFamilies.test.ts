@@ -19,6 +19,7 @@ import {
   type PropName
 } from '@/game/artIds'
 import { firstArtWants } from '@/game/artPreload'
+import { recordSector } from '@/game/artSchedule'
 // The specs themselves, from the kits — not through `artDraw`, which pulls the
 // whole renderer (and a `window`) in behind it.
 import {
@@ -188,22 +189,18 @@ describe('the sectors\' live props (§8.8)', () => {
     expect(PROP_SHEETS.some((s) => /glow|halo|shimmer/.test(s.id))).toBe(false)
   })
 
-  it('holds the first screen for the UBIQUITOUS props, and streams the rest', () => {
-    // A map page animates its props over the thumbnails from the first frame,
-    // so a prop that streams in behind the splash pops in under the cards.
-    // That argued for preloading all of them, and did, while the family was
-    // nine sheets. At forty-six it is ~350 kB — most of a first-timer's
-    // ~500 kB budget, spent on what the roadmap itself calls the mildest
-    // pop-in in the game. The splash now holds only the handful that are on
-    // screen wherever you look: one twinkle serves some sixty call sites, one
-    // butterfly twenty-five.
-    const wants = firstArtWants(0).map(([kind, id]) => `${kind}/${id}`)
-    for (const q of [PROP_ART.twinkle, PROP_ART.butterfly, PROP_ART.mote, PROP_ART.puff]) {
-      expect(wants, q.id).toContain(`${q.kind}/${q.id}`)
-    }
+  it('holds the first screen for ITS OWN props, and streams the rest', async () => {
+    // The hold once carried the ubiquitous props for a MAP-first boot, and
+    // before that the whole family (~350 kB at forty-six sheets). A fresh
+    // save boots into node 0's DUEL (retention item 2), whose only props are
+    // the ones its page's dust layer bakes — and those are RECORDED off the
+    // sector's own painters (`artSchedule.recordSector`), never listed here.
+    const wants = firstArtWants().map(([kind, id]) => `${kind}/${id}`)
+    expect(wants.filter((k) => k.startsWith('prop/'))).toEqual([])
+    const rec = (await recordSector(0, 'rest')).map(([kind, id]) => `${kind}/${id}`)
     // If this creeps back toward the whole family the budget is gone again,
     // and nobody notices until someone measures a first load.
-    const held = Object.values(PROP_ART).filter((q) => wants.includes(`${q.kind}/${q.id}`))
+    const held = Object.values(PROP_ART).filter((q) => rec.includes(`${q.kind}/${q.id}`))
     expect(held.length).toBeLessThanOrEqual(10)
   })
 
@@ -258,7 +255,7 @@ describe('the wardrobe kiosk\'s room (§3.5.4)', () => {
   })
 
   it('leaves the room out of the splash: nobody opens it in the first seconds', () => {
-    const wants = firstArtWants(0).map(([kind, id]) => `${kind}/${id}`)
+    const wants = firstArtWants().map(([kind, id]) => `${kind}/${id}`)
     for (const s of WARDROBE_SHEETS) expect(wants).not.toContain(`wardrobe/${s.id}`)
     expect(wants).not.toContain(`${WARDROBE_RUG.kind}/${WARDROBE_RUG.id}`)
   })

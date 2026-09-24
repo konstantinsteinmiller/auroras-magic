@@ -18,7 +18,8 @@
  *   3  done     gold   + star
  *   4  done     gold   + crown
  */
-import type { ItemSpec } from '@/game/artItem'
+import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
+import { spriteFor } from '@/game/art'
 import { TAU, PI } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
@@ -144,3 +145,112 @@ export const BADGE_ART: ItemSpec = {
   frames: 5,
   draw: (g, s, f) => paintBadge(g, s, (f as BadgeFrame))
 }
+
+/* ─────────────────── the painted badge, seated on its node ─────────────────
+ *
+ * THE PAINTER DID NOT SPACE THE FIVE DISCS A FIFTH APART (2026-09-23). They
+ * came back ~7 px of a 196 px panel closer together than the lattice, so each
+ * one drifts across its own panel: the padlock sits 7 % of the box right of
+ * centre, the NEXT star 3.6 % right, the NEXT crown dead centre, the gold star
+ * and crown 3 % and 7 % left. The strip is registered as ONE picture, so
+ * nothing in the pipeline could see it — but the breathing ring is drawn
+ * round the node's true centre, and a star button sitting off-centre in its
+ * own attention ring is the first thing the eye finds. The discs also came
+ * back ~8 % smaller than the drawing, which widened the ring's gap all round.
+ *
+ * So each panel's disc is MEASURED once, when the strip decodes, and the
+ * painting is moved and scaled so that disc lands exactly where the drawn one
+ * was: centred on the node, the drawn disc's size. A repaint that fixes the
+ * spacing measures as centred and is left alone.
+ */
+
+/** The drawn disc's outer edge — the radius plus half its ink ring — in
+ *  units of `r` (`paintBadge` strokes it `4 * r / 28` wide). */
+const DRAWN_OUTER = 1 + 2 / 28
+
+/** How to seat one panel's painted disc: the offset of its centre from the
+ *  origin and the scale that makes it the drawn disc's size (units of `r`). */
+interface DiscFit { dx: number; dy: number; k: number }
+const discFits = new WeakMap<HTMLImageElement, readonly (DiscFit | null)[] | null>()
+
+/** Each panel's solid disc (α > 128, so the soft rim is light, not size). */
+const measureDiscs = (img: HTMLImageElement): readonly (DiscFit | null)[] | null => {
+  const W = img.naturalWidth
+  const H = img.naturalHeight
+  if (!W || !H) return null
+  try {
+    const cv = document.createElement('canvas')
+    cv.width = W
+    cv.height = H
+    const c = cv.getContext('2d', { willReadFrequently: true })
+    if (!c) return null
+    c.drawImage(img, 0, 0)
+    const d = c.getImageData(0, 0, W, H).data
+    const box = itemBox(BADGE_ART)
+    const n = BADGE_ART.frames
+    const fw = W / n
+    const out: (DiscFit | null)[] = []
+    for (let f = 0; f < n; f++) {
+      const xa = Math.round(f * fw)
+      const xb = Math.round((f + 1) * fw)
+      let x0 = xb, y0 = H, x1 = -1, y1 = -1
+      for (let y = 0; y < H; y++) {
+        for (let x = xa; x < xb; x++) {
+          if (d[(y * W + x) * 4 + 3]! <= 128) continue
+          if (x < x0) x0 = x
+          if (x > x1) x1 = x
+          if (y < y0) y0 = y
+          if (y > y1) y1 = y
+        }
+      }
+      if (x1 < 0) {
+        out.push(null)
+        continue
+      }
+      // Panel pixels → the box `drawItem` blits the panel into, units of r.
+      const ux = box.w / fw
+      const uy = box.h / H
+      const outer = ((x1 - x0 + 1) * ux + (y1 - y0 + 1) * uy) / 4
+      out.push({
+        dx: box.x + ((x0 + x1 + 1) / 2 - f * fw) * ux,
+        dy: box.y + ((y0 + y1 + 1) / 2) * uy,
+        k: DRAWN_OUTER / outer
+      })
+    }
+    return out
+  } catch {
+    // An undecoded or tainted strip: blit it as it comes.
+    return null
+  }
+}
+
+/** Panel `f`'s seat, or null when there is no painting (or no measure). */
+const discFit = (f: BadgeFrame): DiscFit | null => {
+  const img = spriteFor(BADGE_ART.kind, BADGE_ART.id)
+  if (!img) return null
+  let fits = discFits.get(img)
+  if (fits === undefined) {
+    fits = measureDiscs(img)
+    discFits.set(img, fits)
+  }
+  return fits?.[f] ?? null
+}
+
+/**
+ * One badge centred on the origin, `r` its radius — painted when the strip
+ * has decoded, with its disc seated on the origin (see above), and drawn
+ * otherwise. Either way the disc's edge is where `paintBadge`'s is, so a ring
+ * drawn round the origin at `r + gap` is concentric with it.
+ */
+export const drawBadge = (g: G2D, r: number, f: BadgeFrame): void => {
+  const fit = discFit(f)
+  g.save()
+  if (fit) {
+    g.scale(fit.k, fit.k)
+    g.translate(-fit.dx * r, -fit.dy * r)
+  }
+  const painted = drawItem(g, BADGE_ART, r, f)
+  g.restore()
+  if (!painted) paintBadge(g, r, f)
+}
+

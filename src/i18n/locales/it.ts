@@ -80,7 +80,10 @@ export default {
     'tempest': 'TEMPESTA',
     'wildSurge': 'ONDA SELVAGGIA',
     'crystalWard': 'SCUDO DI CRISTALLO',
-    'frostLock': 'SIGILLO DI GELO'
+    'frostLock': 'SIGILLO DI GELO',
+    'wildfire': 'FUOCO SELVAGGIO',
+    'frostbite': 'MORSO DEL GELO',
+    'bramble': 'ROVO'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'DISEGNA LA RUNA',
+    'triangle': 'DISEGNA UN TRIANGOLO',
     'stored': 'SALVATA! FINO A 3',
     'cast': 'ORA LANCIALA'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Scia',
     'mane': 'Criniera',
     'skin': 'Manto'
+  },
+
+  'wardrobe': {
+    'unlock': 'Sblocca',
+    'getIt': 'Prendi',
+    'unlockAria': 'Guarda un video per sbloccare {name}',
+    'getItAria': 'Prendi {name}',
+    'noVideo': 'Video non ancora pronto',
+    'tryOn': 'Prova {name}'
   },
 
   'place': {

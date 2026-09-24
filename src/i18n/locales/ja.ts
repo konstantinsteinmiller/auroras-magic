@@ -80,7 +80,10 @@ export default {
     'tempest': '暴風雨',
     'wildSurge': '荒波',
     'crystalWard': '水晶の守り',
-    'frostLock': '氷の封印'
+    'frostLock': '氷の封印',
+    'wildfire': '野火',
+    'frostbite': '霜の牙',
+    'bramble': 'いばら'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'ルーンを描こう',
+    'triangle': '三角を描こう',
     'stored': 'ストック！最大3つ',
     'cast': 'さあ、発動！'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'あしあと',
     'mane': 'たてがみ',
     'skin': 'けなみ'
+  },
+
+  'wardrobe': {
+    'unlock': 'アンロック',
+    'getIt': 'もらう',
+    'unlockAria': 'どうがを見て{name}をアンロック',
+    'getItAria': '{name}をもらう',
+    'noVideo': 'どうがはまだ見られないよ',
+    'tryOn': '{name}をためしてみる'
   },
 
   'place': {

@@ -187,20 +187,31 @@ onUnmounted(() => {
     div.dim(v-if="!overArena")
     template(v-if="open")
       //- The chapter's title page.
-      div.leaf.title-leaf(v-if="title" role="status" aria-live="polite")
+      //-
+      //- KEYED APART FROM THE BEATS. A `v-if` branch without a key of its own
+      //- is keyed by its position (0), and the first beat's `:key="i"` is 0
+      //- too — so Vue took the title leaf and the first beat for ONE element
+      //- and patched the one into the other, which threw ("reading 'el'")
+      //- and left every chapter stuck on its title page.
+      div.leaf.title-leaf(v-if="title" key="title" role="status" aria-live="polite")
         h2.chapter-name.ink-text {{ chapterName }}
         div.stars(aria-hidden="true")
           span.star(v-for="s in stars" :key="s") ★
-        div.dog-ear(v-if="ready" aria-hidden="true")
+        button.turn-cue(v-if="ready" type="button" :aria-label="t('continue')" @click.stop="advance")
+          GameIcon.cue-glyph(name="play")
       //- A story beat: the words on the page, the speaker inset beside them.
-      div.leaf(v-else-if="line" :key="i" :class="left ? 'from-left' : 'from-right'")
+      div.leaf(v-else-if="line" :key="`beat-${i}`" :class="left ? 'from-left' : 'from-right'")
         img.portrait(:src="portrait" alt="" draggable="false")
         div.words(role="status" aria-live="polite")
           div.pictos
             Picto.picto(v-for="p in line.pictos" :key="p" :name="p")
           p.story-text(v-if="text") {{ text }}
-        //- The dog-ear says "turn me". Over the arena nothing turns.
-        div.dog-ear(v-if="ready && !overArena" aria-hidden="true")
+        //- The continue cue says "tap and the page turns". It is only the
+        //- visible half of that promise — a tap ANYWHERE turns the page, and
+        //- Space/Enter do too — but it is a real button, so a screen reader
+        //- has something to press. Over the arena nothing turns.
+        button.turn-cue(v-if="ready && !overArena" type="button" :aria-label="t('continue')" @click.stop="advance")
+          GameIcon.cue-glyph(name="play")
     button.skip.duel-plate(
       v-if="skippable"
       :aria-label="t('ui.next')"
@@ -254,15 +265,24 @@ onUnmounted(() => {
   background: linear-gradient(to top, var(--am-scrim-soft), transparent 46%)
 
 // The words, set on paper along the foot of the page.
+//
+// `--cue` is the continue cue's diameter, and the leaf is seated around it:
+// the cue straddles the leaf's bottom edge, so the leaf keeps half a cue of
+// padding under the words (nothing can run beneath it) and stands at least
+// half a cue plus a hair off the screen's foot (it never hangs off-screen on
+// a short landscape phone). Where 3.5vh was already more than that, nothing
+// moved.
 .leaf
+  --cue: clamp(40px, 4.4vmin + 20px, 52px)
   position: absolute
   left: calc(env(safe-area-inset-left) + 3vw)
   right: calc(env(safe-area-inset-right) + 3vw)
-  bottom: calc(env(safe-area-inset-bottom) + 3.5vh)
+  bottom: max(calc(env(safe-area-inset-bottom) + 3.5vh), calc(env(safe-area-inset-bottom) + var(--cue) * 0.5 + 6px))
   display: flex
   align-items: flex-end
   gap: 16px
   padding: 16px 22px
+  padding-bottom: max(16px, calc(var(--cue) * 0.5 - 2px))
   background: var(--am-paper)
   border: 4px solid var(--am-ink)
   border-radius: 22px
@@ -328,20 +348,68 @@ onUnmounted(() => {
     -webkit-text-stroke: 0.09em var(--am-ink)
     paint-order: stroke fill
 
-// The corner that says "turn me", folded up off the paper's own corner.
-.dog-ear
+// ── The continue cue ────────────────────────────────────────────────────────
+//
+// "Tap, and the page turns": a round gold chip with a plum ▶, straddling the
+// leaf's bottom edge at its trailing corner. It replaced a folded dog-ear — a
+// cream tab outlined in one thin plum line on a cream page. The fold was the
+// paper's own colour, so it measured as nothing, and what little read of it
+// read as a torn corner rather than as something to press.
+//
+// Measured (WCAG 2.2), the pairs that carry it:
+//   • the chip against the leaf, 1.4.11 non-text: its plum ring on
+//     `--am-paper` is 13.1:1 (needs 3:1). The gold face alone would be 1.3:1
+//     on cream — the ring is what makes it a thing, so it is not optional.
+//     Where the chip hangs over the picture below the leaf, the gold face is
+//     what separates it from a dark page and the ring from a light one.
+//   • the ▶ against its chip: `--am-on-accent` on `--am-gold` 10.2:1, on
+//     `--am-gold-foot` 7.8:1 (needs 4.5:1).
+// Gold because it is the one thing on this page to press (theme.sass).
+//
+// Wordless on purpose — the youngest reader here reads nothing; the label is
+// for the screen reader only. Physical `right`, like everything else on this
+// leaf: `AppScene` pins the world to `dir="ltr"`, the page turns the same way
+// in every locale, and a ▶ is a media sign that is not mirrored.
+.turn-cue
   position: absolute
-  right: -3px
-  bottom: -3px
-  width: clamp(34px, 6vmin, 62px)
-  height: clamp(34px, 6vmin, 62px)
-  background: linear-gradient(to bottom left, var(--am-paper) 50%, transparent 50%)
-  border-right: 3px solid var(--am-ink)
-  border-top: 3px solid var(--am-ink)
-  border-top-right-radius: 6px
-  filter: drop-shadow(-3px -3px 0 rgba(58, 35, 64, 0.25))
-  animation: ear-lift 1.5s ease-in-out infinite
-  pointer-events: none
+  right: clamp(14px, 3vmin, 28px)
+  // Centred on the middle of the leaf's 4 px border. `bottom` is measured from
+  // the PADDING edge, i.e. inside that border, hence the extra 2 px; with them
+  // the cue's top lands exactly on the words' bottom edge (the leaf's padding
+  // is `--cue` / 2 − 2 px) and not a pixel into them.
+  bottom: calc(var(--cue) * -0.5 - 2px)
+  box-sizing: border-box
+  width: var(--cue)
+  height: var(--cue)
+  margin: 0
+  padding: 0
+  display: grid
+  place-items: center
+  border: 3px solid var(--am-ink)
+  border-radius: 50%
+  background-color: var(--am-gold)
+  background-image: linear-gradient(to bottom, var(--am-gold), var(--am-gold-foot))
+  box-shadow: var(--am-shadow-chip)
+  color: var(--am-on-accent)
+  cursor: pointer
+  -webkit-tap-highlight-color: transparent
+  // Pops in once the dwell is over (the enter tokens collapse under reduced
+  // motion by themselves), then nudges: a slow bob of a few px the way the ▶
+  // points, an invitation rather than an alarm. Sideways, not up — a bob up
+  // would lift the chip into the words it is seated clear of. `scale` and
+  // `translate` are separate properties so the two animations never fight
+  // over one `transform`.
+  animation: cue-in var(--am-dur-enter) var(--am-ease-pop) both, cue-bob 1.6s ease-in-out var(--am-dur-enter) infinite
+  &:active
+    transform: scale(0.9)
+  &:focus-visible
+    outline: 3px solid var(--am-ink)
+    outline-offset: 3px
+  // The ▶ path fills about half of its 24-unit box, so 60 % of the chip is a
+  // triangle a third of the chip across — big enough to name the chip.
+  .cue-glyph
+    width: 60%
+    height: 60%
 
 .skip
   position: absolute
@@ -369,12 +437,21 @@ onUnmounted(() => {
   .leaf
     gap: 12px
     padding: 14px 16px
+    padding-bottom: max(14px, calc(var(--cue) * 0.5 - 2px))
 
-@keyframes ear-lift
+@keyframes cue-in
+  from
+    opacity: 0
+    scale: 0.4
+  to
+    opacity: 1
+    scale: 1
+
+@keyframes cue-bob
   0%, 100%
-    transform: translate(0, 0)
+    translate: 0 0
   50%
-    transform: translate(-3px, -3px)
+    translate: 3px 0
 
 // The opening leaf arriving over a duel that is already on screen.
 @keyframes opening-in
@@ -385,7 +462,13 @@ onUnmounted(() => {
     opacity: 1
     transform: none
 
+// The bob is an ambient loop, so it settles when less motion is asked for —
+// by the device, or by the game's own Options toggle (`useAccessibility` puts
+// `.am-reduced` on <html>). The pop-in stays; its token is already 1 ms.
 @media (prefers-reduced-motion: reduce)
-  .dog-ear
-    animation: none
+  .turn-cue
+    animation: cue-in var(--am-dur-enter) var(--am-ease-pop) both
+
+html.am-reduced .turn-cue
+  animation: cue-in var(--am-dur-enter) var(--am-ease-pop) both
 </style>

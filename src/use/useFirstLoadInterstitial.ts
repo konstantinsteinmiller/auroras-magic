@@ -85,9 +85,10 @@ const tryFire = (): void => {
   // Start the shared interstitial clock. This placement does not ASK
   // `canShowInterstitial()` — it is the portal-required first-load ad and runs
   // unconditionally — but it is still an interstitial, so the next one owes the
-  // full 121 s gap. Without this the result-screen placement would start its
-  // own clock from scratch minutes later and could request a second ad well
-  // inside the window every portal rate-limits on.
+  // full 160 s gap (of play). Without this the between-duels placement would
+  // start its own clock from scratch minutes later and could request a second
+  // ad well inside the window every portal rate-limits on — a chapter boss won
+  // inside the opening four minutes, for one, skips the opening but not this.
   markInterstitialShown()
   // Restart the music once the ad is done — win, no-fill or error alike.
   //

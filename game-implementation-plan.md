@@ -54,6 +54,20 @@ Resume point for any session. Update the status column as work lands.
 | Rewarded after every duel: ×2 coins on a win, +`winCoins(foe)` on a loss, shown only while an ad can be served | `DuelResult.vue` (existed since step 1) | dev-server run: grant, skip, claimed |
 | Simulated ads on `pnpm dev` (a "TEST AD" card), so all of the above can be seen locally; opt out with `localStorage.am_dev_ads = 'off'` | `use/ads/DevAdProvider.ts` | aliased to a stub on every build; `tools/pack` fails any archive that carries it |
 
+**Ads pass 2 (2026-09-23, owner: "this game should be easy on ads").** Supersedes the pacing row above; the
+between-duels placement moved to `flow/duelFlow.maybeShowInterstitial` (win and loss, after the flourish/sting, before
+the page turns — ad-before-next-screen ordering unchanged).
+
+| What | Where | Proof |
+|------|-------|-------|
+| First paced interstitial after **240 s of PLAYTIME** (clock runs only while visible, no ad up, no portal pause; menus count) **or** right after ANY chapter-boss win, replays included (owner, 2026-09-24); then **≥ 160 s of playtime** between any two ads, boss or not (160 > CG/Playgama 120 s, Yandex 60 s). One clock for every placement | `useAdGate.canShowInterstitial(now, afterBoss)`, `duelEndMoment`, `playtimeMs`; `duelFlow` passes `'boss'` | `tests/platforms/adGate.test.ts` (first and REPLAYED boss inside grace, 160 s gap, hidden tab / ad / portal pause excluded); browser: boss win at ~20 s → ad before the map |
+| First-load ad (GM/GP/GD) unchanged; seeds the clock | `useFirstLoadInterstitial` | `tests/platforms/firstLoadInterstitial.test.ts` |
+| QA chord 2: **20 taps in a row on the storybook's bookmark ribbon** → interstitial; the NEXT 20 → a **rewarded** ad through the real `showRewardedAd` (grants nothing; Poki QA sees `rewardedBreak`); alternates from there. Same rules as the HP-bar chord (≤ 1.5 s gap, any other press breaks it, seeds the clock for interstitials, refuses while an ad is up, music restarts after). The 30-tap foe-HP chord is unchanged | `useQaAdTrigger.registerBookmarkTap/breakBookmarkChain`; hit-test `map.ts onBookmark` in `mapPointerDown`; non-map presses break it in `AppScene.onQaChord` | `tests/platforms/qaAdTrigger.test.ts` |
+| Wardrobe alternatives (second shelf, keepsakes 9–22) are **rewarded-only**: no chest gives them any more (`tables.ALTERNATIVES`; nodes 3/6/8/13/… give their tool only). On the shelf in full colour with a movie-icon chip; tap = try-on (not saved); button **[movie icon] Unlock** (reward gold) while an ad is ready, disabled "Video not ready yet" otherwise. Where no video can play (noop, CG pre-release, Wavedash) → **free**, plain "Get it", no icon | `useWardrobeUnlock`, `useAdGate.unlockMode/canOfferUnlock/claimUnlock`, `WardrobeScene.vue`, `wardrobe.setWardrobeTryOn` | `tests/campaign/wardrobeUnlock.test.ts`, `tables.test.ts`, `controller.test.ts` |
+| Movie icon on every rewarded surface, only where a video plays: the unlock button (FButton `art="movie-icon" art-kind="worldUi"`), the alternative tiles, the Twin Gift (chip on the box) | `ArtIcon kind="worldUi" id="movie-icon" fallback="video"` | draws the `video` glyph until `public/images/world-ui/movie-icon.webp` exists |
+
+Save compat: `giftsOwned` bits did not move; a save that got an alternative from the old chest schedule keeps it.
+
 QA note: while `VITE_GAME_ID` is blank the GameMonetize SDK does not init, so
 `qa:portal --platform gamemonetize` fails its two SDK checks. To test the ad
 path anyway, build with a throwaway id, then rebuild clean:

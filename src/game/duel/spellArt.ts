@@ -95,8 +95,9 @@ export interface CastLook extends SpellLook {
 /**
  * The golden spells' own silhouettes (§6.4). Only these 20 fly — the two
  * barriers in the matrix are walls, not shots — and only these have names a
- * child reads on the callout, so only these are worth hand-drawing. Every
- * other combination is the generated look plus its `mix`.
+ * child reads on the callout, so only these are worth hand-drawing (with the
+ * three lingering spells of §8.35, named for the same reason). Every other
+ * combination is the generated look plus its `mix`.
  */
 const SIG: Readonly<Record<string, Partial<SpellLook> & { mark: Mark }>> = {
   '0.0': { mark: 'halo', tail: 11, shed: 34 },                        // Fire Storm
@@ -114,7 +115,12 @@ const SIG: Readonly<Record<string, Partial<SpellLook> & { mark: Mark }>> = {
   '0.1.2': { mark: 'star', tail: 13, spin: 2.6, glow: 3.4 },          // Prism Nova
   '0.1.3': { mark: 'halo', tail: 12, shed: 36 },                      // Ash Storm
   '0.2.3': { mark: 'shards', tail: 9, glow: 3, shed: 34 },            // Shatter
-  '1.2.3': { mark: 'halo', tail: 13, spin: 7, glow: 2.8 }             // Tempest
+  '1.2.3': { mark: 'halo', tail: 13, spin: 7, glow: 2.8 },            // Tempest
+  // The three LINGERING spells (§8.35) have names of their own too, and the
+  // flourish says "this one is special" before the embers on the target do.
+  '0.0.4': { mark: 'crown', shed: 34 },                               // Wildfire
+  '2.2.4': { mark: 'star', shed: 26 },                                // Frostbite
+  '3.4.4': { mark: 'halo', shed: 24 }                                 // Bramble
 }
 
 /**

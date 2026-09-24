@@ -168,6 +168,82 @@ describe('reward gating', () => {
   })
 })
 
+describe('rewarded-only unlocks (the wardrobe alternatives)', () => {
+  // The second shelf can be had in NO other way, so unlike every other perk it
+  // is never withheld: a video where one can play, free (plain label, no icon)
+  // everywhere else — including the two builds that suppress every other offer.
+
+  it('is free, with no video, when no ad provider resolved', async () => {
+    const gate = await loadGate({ provider: 'noop' })
+    const grant = vi.fn()
+    expect(gate.unlockMode).toBe('free')
+    expect(gate.canOfferUnlock.value).toBe(true)
+    await expect(gate.claimUnlock(grant)).resolves.toBe(true)
+    expect(grant).toHaveBeenCalledTimes(1)
+    expect(gate.showRewardedAd).not.toHaveBeenCalled()
+  })
+
+  it('is free on the CrazyGames pre-release, where every other offer is withheld', async () => {
+    const gate = await loadGate({ crazy: true, fullRelease: false })
+    const grant = vi.fn()
+    // The Twin Gift is not offered here…
+    expect(gate.canOfferReward.value).toBe(false)
+    // …but an alternative is not withheld: it is simply free.
+    expect(gate.unlockMode).toBe('free')
+    expect(gate.canOfferUnlock.value).toBe(true)
+    await expect(gate.claimUnlock(grant)).resolves.toBe(true)
+    expect(grant).toHaveBeenCalledTimes(1)
+    expect(gate.showRewardedAd).not.toHaveBeenCalled()
+  })
+
+  it('is free on Wavedash, where every other offer is withheld', async () => {
+    const gate = await loadGate({ wavedash: true, provider: 'noop' })
+    const grant = vi.fn()
+    expect(gate.canOfferReward.value).toBe(false)
+    expect(gate.unlockMode).toBe('free')
+    await expect(gate.claimUnlock(grant)).resolves.toBe(true)
+    expect(grant).toHaveBeenCalledTimes(1)
+  })
+
+  it('plays the rewarded video on every portal that has one', async () => {
+    for (const provider of ['poki', 'playgama', 'gamepix', 'gamemonetize', 'yandex', 'gameDistribution']) {
+      const gate = await loadGate({ provider })
+      const grant = vi.fn()
+      expect(gate.unlockMode, provider).toBe('video')
+      await expect(gate.claimUnlock(grant)).resolves.toBe(true)
+      expect(gate.showRewardedAd, `${provider} skipped the video`).toHaveBeenCalledTimes(1)
+      expect(grant).toHaveBeenCalledTimes(1)
+    }
+    const cg = await loadGate({ crazy: true, fullRelease: true })
+    expect(cg.unlockMode).toBe('video')
+  })
+
+  it('grants nothing when the video does not complete', async () => {
+    const gate = await loadGate({ provider: 'poki' })
+    ;(gate.showRewardedAd as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false)
+    const grant = vi.fn()
+    await expect(gate.claimUnlock(grant)).resolves.toBe(false)
+    expect(grant).not.toHaveBeenCalled()
+  })
+
+  it('waits (is not offered) on a video build with no ad ready, or while one is in flight', async () => {
+    const notReady = await loadGate({ provider: 'poki', rewardedReady: false })
+    expect(notReady.canOfferUnlock.value).toBe(false)
+
+    const gate = await loadGate({ provider: 'poki' })
+    expect(gate.canOfferUnlock.value).toBe(true)
+    let release: (v: boolean) => void = () => {}
+    ;(gate.showRewardedAd as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      () => new Promise<boolean>((r) => { release = r })
+    )
+    const first = gate.claimUnlock(vi.fn())
+    expect(gate.canOfferUnlock.value).toBe(false)
+    release(true)
+    await first
+    expect(gate.canOfferUnlock.value).toBe(true)
+  })
+})
+
 describe('interstitial pacing', () => {
   // Fixed session start, so every assertion reads as "seconds into the session".
   const T0 = 1_000_000
@@ -177,74 +253,177 @@ describe('interstitial pacing', () => {
     vi.setSystemTime(T0)
     const gate = await loadGate()
     gate.__resetInterstitialClock(T0)
-    return gate
+    // The SAME instance the gate imported (`loadGate` reset the module graph).
+    const pause = await import('@/use/useGamePause')
+    pause.isAdShowing.value = false
+    pause.isVisibilityHidden.value = false
+    pause.isPlatformPaused.value = false
+    return { ...gate, pause }
   }
   const at = (s: number): number => T0 + s * 1000
+  /** Move the wall clock to `s` seconds, so a pause flag's edge lands there. */
+  const clockTo = (s: number): void => { vi.setSystemTime(at(s)) }
 
-  it('pins the numbers: first ad after 240 s, then 121 s apart', async () => {
+  it('pins the numbers: first ad after 240 s of play, then 160 s apart', async () => {
     const gate = await gateAt()
     expect(gate.FIRST_INTERSTITIAL_AFTER_MS).toBe(240_000)
-    expect(gate.INTERSTITIAL_MIN_GAP_MS).toBe(121_000)
+    expect(gate.INTERSTITIAL_MIN_GAP_MS).toBe(160_000)
   })
 
-  it('shows nothing in the first four minutes of a session', async () => {
+  it('shows nothing in the first four minutes of play', async () => {
     const gate = await gateAt()
     // The first duels decide whether a stranger stays. An ad there is the most
     // reliable way to lose them.
-    for (const s of [0, 30, 121, 180, 239]) {
+    for (const s of [0, 30, 121, 160, 180, 239]) {
       expect(gate.canShowInterstitial(at(s)), `at ${s} s`).toBe(false)
     }
     expect(gate.canShowInterstitial(at(240))).toBe(true)
   })
 
+  it('a chapter boss beaten inside the opening brings the first ad early', async () => {
+    const gate = await gateAt()
+    // A boss win is its own break (owner, 2026-09-23/24): the chapter-1 boss
+    // at 90 s may have the session's first ad…
+    expect(gate.canShowInterstitial(at(90), true)).toBe(true)
+    // …while an ordinary duel end at the same moment may not.
+    expect(gate.canShowInterstitial(at(90))).toBe(false)
+    gate.markInterstitialShown(at(90))
+    // After it, the 160 s gap holds for EVERY placement — the four-minute mark
+    // included, and the next boss too.
+    expect(gate.canShowInterstitial(at(240))).toBe(false)
+    expect(gate.canShowInterstitial(at(249), true)).toBe(false)
+    expect(gate.canShowInterstitial(at(250))).toBe(true)
+    expect(gate.canShowInterstitial(at(250), true)).toBe(true)
+  })
+
+  it('a REPLAYED boss win inside the opening is an ad moment too (owner, 2026-09-24)', async () => {
+    const gate = await gateAt()
+    // Any chapter-boss win skips the 240 s grace — first time or replay. The
+    // moment has no replay input at all, so a replay cannot be told apart.
+    expect(gate.duelEndMoment(true, true)).toBe('boss')
+    expect(gate.duelEndMoment(true, false)).toBe('win')
+    expect(gate.duelEndMoment(false, true)).toBe('loss')
+    expect(gate.duelEndMoment.length).toBe(2)
+    // A returning player replays chapter 3's boss 40 s into a session: an ad…
+    expect(gate.canShowInterstitial(at(40), gate.duelEndMoment(true, true) === 'boss')).toBe(true)
+    gate.markInterstitialShown(at(40))
+    // …and the 160 s cooldown still holds for the next replayed boss.
+    expect(gate.canShowInterstitial(at(199), true)).toBe(false)
+    expect(gate.canShowInterstitial(at(200), true)).toBe(true)
+  })
+
+  it('the duel flow asks with any boss win, replay or not', async () => {
+    // `duelFlow` is too wired to import here; pin its one call instead. The
+    // first-time-only version read `!replay && nodeIsBoss(n)`.
+    const { readFileSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const src = readFileSync(resolve(__dirname, '../../src/game/flow/duelFlow.ts'), 'utf8')
+    expect(src).toMatch(/maybeShowInterstitial\(duelEndMoment\(true, nodeIsBoss\(n\)\)\)/)
+    expect(src).not.toMatch(/!replay && nodeIsBoss/)
+    expect(src).toMatch(/canShowInterstitial\(Date\.now\(\), trigger === 'boss'\)/)
+  })
+
+  it('a later boss win shows one only if the cooldown allows', async () => {
+    const gate = await gateAt()
+    gate.markInterstitialShown(at(300))
+    expect(gate.canShowInterstitial(at(400), true)).toBe(false)
+    expect(gate.canShowInterstitial(at(460), true)).toBe(true)
+  })
+
   it('asking does not start a clock', async () => {
     const gate = await gateAt()
     // The old gate started its clock on the first ASK, so the first ad drifted
-    // to "121 s after the first duel ended" instead of a fixed point in the
-    // session. Asking early must not move the first opportunity.
+    // to "N s after the first duel ended" instead of a fixed point in play.
+    // Asking early must not move the first opportunity.
     gate.canShowInterstitial(at(10))
-    gate.canShowInterstitial(at(200))
+    gate.canShowInterstitial(at(200), true)
     expect(gate.canShowInterstitial(at(240))).toBe(true)
   })
 
-  it('holds 121 s after every ad, not 120', async () => {
+  it('holds 160 s of play after every ad', async () => {
     const gate = await gateAt()
     gate.markInterstitialShown(at(250))
     expect(gate.canShowInterstitial(at(250))).toBe(false)
-    expect(gate.canShowInterstitial(at(370))).toBe(false)
-    expect(gate.canShowInterstitial(at(371))).toBe(true)
+    expect(gate.canShowInterstitial(at(409))).toBe(false)
+    expect(gate.canShowInterstitial(at(410))).toBe(true)
   })
 
   it('a first-load ad does not open the opening window early', async () => {
     const gate = await gateAt()
     // GameMonetize / GamePix / GameDistribution show a mandated ad at the splash
-    // and seed the clock. The next ad still waits for the four-minute mark, not
-    // just 121 s after that one.
+    // and seed the clock. The next ordinary ad still waits for the four-minute
+    // mark, not just 160 s after that one…
     gate.markInterstitialShown(at(3))
-    expect(gate.canShowInterstitial(at(124))).toBe(false)
+    expect(gate.canShowInterstitial(at(163))).toBe(false)
     expect(gate.canShowInterstitial(at(239))).toBe(false)
     expect(gate.canShowInterstitial(at(240))).toBe(true)
+    // …and a boss inside the opening still owes that ad its full gap.
+    expect(gate.canShowInterstitial(at(162), true)).toBe(false)
+    expect(gate.canShowInterstitial(at(163), true)).toBe(true)
   })
 
-  it('an ad late in the opening window pushes the next one past 240 s', async () => {
+  it('an ad late in the opening pushes the next one past 240 s', async () => {
     const gate = await gateAt()
     // The hidden QA chord bypasses pacing but seeds the clock. At 200 s, the
-    // next paced ad is due at 321 s, not at the four-minute mark.
+    // next paced ad is due at 360 s, not at the four-minute mark.
     gate.markInterstitialShown(at(200))
     expect(gate.canShowInterstitial(at(240))).toBe(false)
-    expect(gate.canShowInterstitial(at(320))).toBe(false)
-    expect(gate.canShowInterstitial(at(321))).toBe(true)
+    expect(gate.canShowInterstitial(at(359))).toBe(false)
+    expect(gate.canShowInterstitial(at(360))).toBe(true)
   })
 
-  it('reports the wait until the next allowed ad', async () => {
+  it('a hidden tab is not playtime', async () => {
+    const gate = await gateAt()
+    // Hidden from 60 s to 160 s: those 100 s never happened, as far as the
+    // opening is concerned.
+    clockTo(60)
+    gate.pause.isVisibilityHidden.value = true
+    expect(gate.playtimeMs(at(160))).toBe(60_000)
+    clockTo(160)
+    gate.pause.isVisibilityHidden.value = false
+    expect(gate.canShowInterstitial(at(339))).toBe(false)
+    expect(gate.canShowInterstitial(at(340))).toBe(true)
+    expect(gate.playtimeMs(at(340))).toBe(240_000)
+  })
+
+  it('a hidden tab does not wear the cooldown down either', async () => {
+    const gate = await gateAt()
+    gate.markInterstitialShown(at(300))
+    clockTo(310)
+    gate.pause.isVisibilityHidden.value = true
+    clockTo(1000)
+    gate.pause.isVisibilityHidden.value = false
+    // Ten minutes away: still only 10 s of play since that ad.
+    expect(gate.canShowInterstitial(at(1000))).toBe(false)
+    expect(gate.canShowInterstitial(at(1149))).toBe(false)
+    expect(gate.canShowInterstitial(at(1150))).toBe(true)
+  })
+
+  it('neither the ad itself nor a portal pause counts', async () => {
+    const gate = await gateAt()
+    clockTo(20)
+    gate.pause.isAdShowing.value = true
+    clockTo(50)
+    gate.pause.isAdShowing.value = false
+    clockTo(100)
+    gate.pause.isPlatformPaused.value = true
+    clockTo(130)
+    gate.pause.isPlatformPaused.value = false
+    // 300 s of wall clock, 60 s of it an ad or a portal pause.
+    expect(gate.playtimeMs(at(300))).toBe(240_000)
+    expect(gate.canShowInterstitial(at(299))).toBe(false)
+    expect(gate.canShowInterstitial(at(300))).toBe(true)
+  })
+
+  it('reports the wait (in play) until the next allowed ad', async () => {
     const gate = await gateAt()
     expect(gate.interstitialCooldownLeft(at(40))).toBe(200)
     gate.markInterstitialShown(at(300))
-    expect(gate.interstitialCooldownLeft(at(301))).toBe(120)
+    expect(gate.interstitialCooldownLeft(at(301))).toBe(159)
     expect(gate.interstitialCooldownLeft(at(500))).toBe(0)
   })
 
-  it('counts the session from page load, not from when the module loaded', async () => {
+  it('counts playtime from page load, not from when the module loaded', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(T0)
     // The gate arrives with a lazily loaded chunk; the player's four minutes

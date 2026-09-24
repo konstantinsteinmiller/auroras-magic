@@ -153,11 +153,13 @@ export const onUnboxComplete = (node: number): ChestGrant => {
 /**
  * Hand over every keepsake whose chest is already BEHIND this player.
  *
- * The second shelf (§2.4 rule 20) put fourteen keepsakes on nodes that used
- * to give only a tool. A save made before them has opened those chests and
- * will never open them again, so without this a player who got to chapter 6
- * on the old schedule would find eight permanent ghosts on the shelf — a
- * wardrobe that says "you missed these" for things that did not exist.
+ * A schedule change can move a keepsake onto a chest a save has already
+ * opened (the Flower Crown moved forward to the second battle; the second
+ * shelf briefly rode nodes that gave only a tool). That save will never open
+ * the chest again, so without this it would find a permanent ghost on the
+ * shelf — a wardrobe that says "you missed this" for something it never
+ * could have had. (The second shelf is the wardrobe's rewarded unlocks now,
+ * owner 2026-09-23: no node carries one, so this never hands one out.)
  *
  * Deterministic and idempotent: it grants exactly what the same nodes would
  * have granted, and only up to the furthest DUEL already won. Returns true

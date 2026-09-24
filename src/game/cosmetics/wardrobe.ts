@@ -20,8 +20,8 @@
 import { S } from '@/game/duel/state'
 import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { sparkleBurst, drawFxOver, drawFxUnder } from '@/game/duel/fx'
-import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
-import { COSMETICS, type CosmeticSlot } from '@/game/campaign/tables'
+import { equippedHooks, outfitHooks, maneSwatchIndex } from '@/game/cosmetics/rig-cosmetics'
+import { COSMETICS, COSMETIC_SLOTS, type CosmeticSlot } from '@/game/campaign/tables'
 import { TAU, sin, clamp } from '@/game/duel/util'
 import { reducedMotion } from '@/use/useAccessibility'
 import { spriteFor } from '@/game/art'
@@ -95,6 +95,26 @@ export const admire = (id?: number): void => {
   } else if (slot === 'trail') {
     sparkleBurst(s.x - 27 * k, s.y - 8 * k, 0.8)
   }
+}
+
+/** What she wears for a TRY-ON, or null: the shelf's locked alternatives
+ *  (`WardrobeScene`, owner 2026-09-23) show on her before they are hers. */
+let tryOn: ReturnType<typeof outfitHooks> | null = null
+
+/**
+ * Show keepsake `id` on her as if worn, over whatever she has on now; −1 ends
+ * the try-on. Nothing is saved — her real outfit is untouched, so a photo, the
+ * duel and the map never see it.
+ */
+export const setWardrobeTryOn = (id: number): void => {
+  const def = id >= 0 ? COSMETICS[id] : undefined
+  if (!def) {
+    tryOn = null
+    return
+  }
+  const eq = [...S.campaign.giftsEquipped]
+  eq[COSMETIC_SLOTS.indexOf(def.slot)] = id
+  tryOn = outfitHooks(eq, maneSwatchIndex())
 }
 
 export const updateWardrobe = (dt: number): void => {
@@ -290,7 +310,7 @@ export const drawWardrobe = (g: G2D): void => {
   g.scale(k, k)
   POSE.win = hop * 0.8
   POSE.form = 0.15 + 0.1 * sin(Ta * 1.4)
-  Object.assign(POSE, equippedHooks())
+  Object.assign(POSE, tryOn ?? equippedHooks())
   drawUnicorn(g, 0, 0, -1, POSE, Ta)
   g.restore()
   g.setTransform(d, 0, 0, d, 0, 0)

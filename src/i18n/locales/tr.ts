@@ -80,7 +80,10 @@ export default {
     'tempest': 'BORA',
     'wildSurge': 'VAHŞİ DALGA',
     'crystalWard': 'KRİSTAL KALKAN',
-    'frostLock': 'BUZ KİLİDİ'
+    'frostLock': 'BUZ KİLİDİ',
+    'wildfire': 'YABAN ATEŞİ',
+    'frostbite': 'AYAZ ISIRIĞI',
+    'bramble': 'DİKENLİ SARMAŞIK'
   },
 
   // Bare {A} + possessive-suffixed noun (ATEŞ OKU), so any rune name fits as is.
@@ -110,6 +113,7 @@ export default {
 
   'intro': {
     'draw': 'RÜNÜ ÇİZ',
+    'triangle': 'ÜÇGEN ÇİZ',
     'stored': 'SAKLANDI! EN FAZLA 3',
     'cast': 'ŞİMDİ BÜYÜ YAP'
   },
@@ -497,6 +501,15 @@ export default {
     'trail': 'Toynak izi',
     'mane': 'Yele',
     'skin': 'Post'
+  },
+
+  'wardrobe': {
+    'unlock': 'Kilidi aç',
+    'getIt': 'Al',
+    'unlockAria': '{name} kilidini açmak için video izle',
+    'getItAria': '{name} al',
+    'noVideo': 'Video henüz hazır değil',
+    'tryOn': '{name} dene'
   },
 
   'place': {

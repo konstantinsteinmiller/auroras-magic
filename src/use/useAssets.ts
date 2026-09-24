@@ -1,11 +1,13 @@
 import { ref } from 'vue'
 import { prependBaseUrl } from '@/utils/function'
 
-// Auroras Magic ships NO gameplay bitmaps and NO audio files: the arena, the
-// duelists, every spell and the whole score are drawn and synthesised from
-// code. So "loading" is the JS parse plus the one procedural bake worth doing
-// behind the splash (the island + cloud band, see `game/duel/arena.ts`). The
-// rest of this module is the shared audio plumbing every platform gate drives.
+// Auroras Magic ships NO audio files, and its bitmaps are drop-in paintings
+// over a game that draws itself (`game/art.ts`). So "loading" is the game's
+// code booting its first scene, the one procedural bake worth doing behind the
+// splash (the island + cloud band, see `game/duel/arena.ts`), and — with the
+// art layer on — the paintings THAT scene draws, as `game/artSchedule.ts`
+// plans them. The rest of this module is the shared audio plumbing every
+// platform gate drives.
 
 const loadingProgress = ref(100)
 const areAllAssetsLoaded = ref(true)
@@ -180,14 +182,37 @@ export const getCachedImage = (src: string): HTMLImageElement => {
   return img
 }
 
-/** Upper bound on the loader's wait. The bake is milliseconds; a device that
- *  cannot finish it in this long gets the game anyway and bakes on frame one. */
-const PRELOAD_CAP_MS = 4000
+/**
+ * Upper bound on the loader's whole wait: the game's code arriving and booting
+ * its first scene, the bake, and that scene's paintings. Under `FLogoProgress`'s
+ * own 8 s ceiling, so it is the loader that lets go, not the fallback — and it
+ * is only ever reached on a connection too slow to have the game's code by
+ * then, where the player gets the game the moment it mounts.
+ */
+const PRELOAD_CAP_MS = 7500
+
+/**
+ * How long the splash waits for the first screen's PAINTINGS once that screen
+ * exists. Their fetch started long before (predicted from the save, alongside
+ * the game's code), so this is only the tail; a painting still missing after
+ * it is drawn as vectors until it lands, exactly as with the art layer off.
+ */
+const ART_HOLD_CAP_MS = 3000
+
+const sleep = (ms: number): Promise<void> => new Promise<void>((r) => setTimeout(r, ms))
 
 export default () => {
   const preloadAssets = async (): Promise<void> => {
     loadingProgress.value = 0
     areAllAssetsLoaded.value = false
+    // The bar: the bake and the code to 40, the first screen's paintings the
+    // rest — so it keeps moving while bitmaps land instead of parking at 100.
+    let baked = false
+    let booted = false
+    let artDone = 0
+    const show = (): void => {
+      loadingProgress.value = Math.max(loadingProgress.value, Math.min(99, Math.round((baked ? 20 : 5) + (booted ? 20 : 0) + artDone * 60)))
+    }
 
     // ── The procedural bake, primed FROM THE LOADER ──
     //
@@ -203,42 +228,54 @@ export default () => {
           import('@/game/duel/layout'),
           import('@/game/duel/arena')
         ])
-        loadingProgress.value = 50
         applyLayout(window.innerWidth, window.innerHeight, Math.min(window.devicePixelRatio || 1, 2))
         primeArena()
       } catch (e) {
         console.warn('[assets] arena bake failed; the scene will bake on its first frame', e)
       }
+      baked = true
+      show()
     })()
-    // ── The paintings the first screens draw (S6), when the art layer is on ──
+    // ── The first screen's paintings (S6), when the art layer is on ──
     //
-    // A no-op on every build until paintings exist (the layer is off by
-    // default). Dynamic, like the bake, so the art modules stay out of the
-    // eager chunk.
+    // `artSchedule` owns WHICH and WHEN (its table is the one place); here is
+    // only the splash's side: predict the first screen from the save and put
+    // its paintings on the wire at once, alongside the game's code; wait for
+    // the game to boot into its real first scene; then hold for that scene's
+    // paintings — and nothing else. Every later stage (the win, the map, the
+    // picture book, the cleaning, the next node, the next chapter) goes out
+    // behind the splash, one stage ahead of the child.
+    //
+    // A no-op with the art layer off. Dynamic, like the bake, so the art
+    // modules stay out of the eager chunk.
     const art = (async () => {
       try {
         // Read from the save itself: the scene may not have loaded it yet, and
-        // which map page a player is on decides which paintings are first.
-        const [{ preloadFirstArt, primeIntroArt }, { readCampaign }, { getState }, { CAMPAIGN_KEY }] = await Promise.all([
-          import('@/game/artPreload'),
+        // where the save boots decides which paintings are first.
+        const [sched, { readCampaign }, { getState }, { CAMPAIGN_KEY }] = await Promise.all([
+          import('@/game/artSchedule'),
           import('@/game/campaign/state'),
           import('@/use/useGameState'),
           import('@/keys')
         ])
         const cs = readCampaign(getState<unknown>(CAMPAIGN_KEY, null))
-        await preloadFirstArt(cs.furthestNode)
-        // The picture book's four pages are the tier AFTER this one, not part
-        // of it (retention-roadmap item 2 moved the book off the front of the
-        // game — it now plays at the first map with nothing owed and
-        // something won). Started here, unawaited and at low priority, so the
-        // splash never holds for them and they queue behind the paintings the
-        // first screens actually draw; they have a whole node to land in.
-        primeIntroArt(cs.introSeen)
+        const hold = sched.holdFirstScreen(cs, (done, total) => {
+          booted = true
+          artDone = total > 0 ? done / total : 1
+          show()
+        })
+        if (!sched.artScheduleInstalled()) return
+        // The code first — the splash never dismisses onto a scene that has
+        // not mounted — then at most the tail of the paintings' own wait.
+        await sched.firstSceneBooted()
+        booted = true
+        show()
+        await Promise.race([hold, sleep(ART_HOLD_CAP_MS)])
       } catch (e) {
         console.warn('[assets] painted-art preload failed; the drawings stand in', e)
       }
     })()
-    await Promise.race([Promise.all([bake, art]), new Promise<void>((r) => setTimeout(r, PRELOAD_CAP_MS))])
+    await Promise.race([Promise.all([bake, art]), sleep(PRELOAD_CAP_MS)])
 
     loadingProgress.value = 100
     areAllAssetsLoaded.value = true

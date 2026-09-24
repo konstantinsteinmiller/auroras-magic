@@ -80,7 +80,10 @@ export default {
     'tempest': 'TOURMENTE',
     'wildSurge': 'VAGUE SAUVAGE',
     'crystalWard': 'BOUCLIER DE CRISTAL',
-    'frostLock': 'VERROU DE GIVRE'
+    'frostLock': 'VERROU DE GIVRE',
+    'wildfire': 'FEU SAUVAGE',
+    'frostbite': 'MORSURE DU GEL',
+    'bramble': 'RONCES'
   },
 
   // Apposition (« NOVA PRISME », « LASER GLACE »), not « … DE {A} »: French
@@ -112,6 +115,7 @@ export default {
 
   'intro': {
     'draw': 'DESSINEZ LA RUNE',
+    'triangle': 'DESSINEZ UN TRIANGLE',
     'stored': 'STOCKÉE ! JUSQU’À 3',
     'cast': 'LANCEZ-LA MAINTENANT'
   },
@@ -497,6 +501,15 @@ export default {
     'trail': 'Traînée',
     'mane': 'Crinière',
     'skin': 'Pelage'
+  },
+
+  'wardrobe': {
+    'unlock': 'Débloquer',
+    'getIt': 'Prendre',
+    'unlockAria': 'Regarde une vidéo pour débloquer {name}',
+    'getItAria': 'Prendre {name}',
+    'noVideo': 'Vidéo pas encore prête',
+    'tryOn': 'Essayer {name}'
   },
 
   'place': {

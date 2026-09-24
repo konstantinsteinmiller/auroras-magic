@@ -1012,3 +1012,21 @@ warm line left) → **`0.20/0.4`** (painterly clouds, no hard edge anywhere).
    public/images --max-effort --backup-dir public-backup --fresh`.
 4. Chapter 1 is deliberately never re-rolled — its paintings are the target.
 
+
+## 2026-09-24 — the mascot re-rolled, and the rewarded-ad movie camera
+
+- **`brand-mascot`, one roll.** The first one had two horns (the rig's far ear
+  painted as a spike) and the duel rig's stilt legs. The brief now writes the
+  chibi body out in words, limits the reference to LAYOUT, and counts horns
+  and legs (art-style.md §11.3 amendment). The return was right first time;
+  one enclosed crease between Aurora's tail and rump came back a DARKER pink —
+  walled in by ink, so not keyed — and was set to pure `#FF00FF` in the
+  painting (`painted/brand-mascot.png`; the raw Gemini return is in
+  `painted/replaced/`) before slicing. The prompt now checks enclosed gaps.
+- **`worldui-movie-icon`, new, one roll.** `artIds.MOVIE_ICON`: the glyph in
+  front of every rewarded button's label (`ArtIcon kind="worldUi"
+  id="movie-icon" fallback="video"`). Drawn reference in `artDraw.ts` (the
+  `video` glyph's layout plus two reels and a play sign); default 256 px cap
+  like the runes — 280 × 256, 5.5 kB. Judged at 24 px on cream and on the
+  reward gold: reads as a film camera on both.
+- `art:status`: **260 painted, 0 still drawn, 260 in the catalogue.**

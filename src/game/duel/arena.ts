@@ -304,6 +304,35 @@ export const primeArena = (): void => {
 export const arenaReady = (): boolean => !!isle && qs() === bk && bt === S.theme
 
 /**
+ * The sky's BODY alone — its gradient, rebuilt only when the balance moves a
+ * whole bucket — over stage rows `y0`..`y1`. Past `SH` the gradient simply
+ * holds its horizon colour.
+ *
+ * `drawSky` lays it over the stage. Portrait lays it over the drawing pad as
+ * well, where the page goes on below the picture (`drawDuelPageBelow`): the
+ * mood has to go on with it, or the pad would sit in daylight while the storm
+ * closes in over the picture above it.
+ */
+export const drawSkyWash = (g: G2D, overPage = false, y0 = 0, y1 = SH): void => {
+  sync(g)
+  const b = (K * 32) | 0
+  if (b !== gk || gradCtx !== g || !grad) {
+    gk = b
+    gradCtx = g
+    grad = g.createLinearGradient(0, 0, 0, SH)
+    grad.addColorStop(0, col(K, 0))
+    grad.addColorStop(1, col(K, 1))
+  }
+  // Over a page, the mood is a veil: heavier while she is losing (the storm
+  // closes in over the picture), thinner as the sky clears.
+  const a = D.globalAlpha
+  if (overPage) AL(0.3 + 0.34 * L)
+  D.fillStyle = grad
+  D.fillRect(0, y0, SW, y1 - y0)
+  AL(a)
+}
+
+/**
  * Sky, clouds, rainbow. Fills the whole stage; draw this first.
  *
  * `overPage`: the duel is being fought over the sector's own page (§8.29),
@@ -315,21 +344,8 @@ export const drawSky = (g: G2D, t: number, overPage = false): void => {
   sync(g)
   SV()
 
-  /* body of the sky — rebuilt only when the balance moves a whole bucket */
-  const b = (K * 32) | 0
-  if (b !== gk || gradCtx !== g || !grad) {
-    gk = b
-    gradCtx = g
-    grad = g.createLinearGradient(0, 0, 0, SH)
-    grad.addColorStop(0, col(K, 0))
-    grad.addColorStop(1, col(K, 1))
-  }
-  // Over a page, the mood is a veil: heavier while she is losing (the storm
-  // closes in over the picture), thinner as the sky clears.
-  if (overPage) AL(0.3 + 0.34 * L)
-  D.fillStyle = grad
-  D.fillRect(0, 0, SW, SH)
-  if (overPage) AL(1)
+  /* body of the sky */
+  drawSkyWash(g, overPage)
 
   /* the rainbow — a hint from 0.52 up, a full brilliant arc at 1.0 */
   const ra = clamp(K * 2.2 - 1.15, 0, 1)

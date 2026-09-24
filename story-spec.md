@@ -4223,6 +4223,11 @@ Ordered, applied in `strike()` in this sequence, once per landing spell:
 7. **The combo bonus (§6.16) applies last**, after every rider and precedence rule, as a pure
    multiplier on the final damage number.
 
+> **§8.35 (2026-09-23):** between rule 1 and the block, a ward's WEAK POINT — a share of a spell
+> the ward stops still comes through (rain through earth 50 %, rock and ice through wind 25 %, fire
+> through an ice pillar 50 %, a rock through a Crystal Ward 50 % with no bounce). What comes through
+> is damage only, and then meets rule 3's decoy like any hit.
+
 ### §6.9 The Love finisher gate
 
 `friendshipFinisher` (triple Love, §6.3) requires, at the moment `cast()` is pressed:
@@ -4440,6 +4445,11 @@ fight as a blowout.
 
 `[S2]` for the base chain (needed the moment any duel exists); `dreamDust`/`phaseWindup` terms are
 `[S3]`/`[S4]` as their respective content ships.
+
+> **§8.35 (2026-09-23): the director's rush.** The chain above is untouched, but the foe forms at
+> `min(2.5, chain × max(1 + 1.6·press, haste))` — the trade's press, or the HASTE, whichever is
+> larger: an always-running controller that matches her pace to a player casting faster than
+> §7.2's core child. 2.5 runes/s is a readability SAFETY limit, not a balance cap.
 
 > **S4 tuning (2026-09-19), superseding `base(aiTier)` above:**
 > `base = 0.40 + 0.03 × aiTier` (0.40 / 0.43 / 0.46 runes/s). Measured on the
@@ -7386,6 +7396,210 @@ Pinned by `tests/ui/potCue.test.ts` — every pot marked in its OWN colour and
 never a neighbour's, the pots louder than the landmark, the auto-pick told in
 advance, and nothing clock-dependent under reduced motion. Seen in a browser
 at 1280×720 and 390×844.
+
+### §8.35 Owner request, 2026-09-23 — the foe keeps up, every ward has a weak point, and three spells linger
+
+Three asks, one pass (`duel/director.ts`, `duel/sim.ts`, `duel/config.ts`):
+
+*"If the player is dealing a lot of damage while the enemy is barely firing
+a spell off, the AI gets a faster rune drawing bonus for a while until the
+enemy is on par in health with the player, then it drops its speed bonus."*
+
+*"Block spells are quite op and might need some weak points, e.g. a water
+spell raining from above should be able to penetrate earth wall with 50 %
+damage or the wind shield should be able to still take 25 % damage from hard
+projectiles like earth attacks or frost attacks."*
+
+*"Maybe add some rare damage over time effects that do a bit more than the 3
+tier attacks but over e.g. 20 seconds."*
+
+**1. The haste** (`director.ts`, `HASTE`, `hasteTarget`). The director's
+fourth rule, beside the mercy floor, the trade and the AFK rule — and, after
+the owner's review of a first version (an engage/release latch capped at 2×,
+only for a player far ahead): *"it must NOT be capped at 2x and must NOT only
+apply when the player is far ahead. It should be ADAPTIVE, so the player is
+'kinda always challenged', without making the foe too strong and overkilling
+the player."* So it is a CONTROLLER on the foe's forming speed, always
+running, on three readings:
+
+- **pace** — the runes the player casts a second, over the last 6 s (over
+  the duel so far while it is younger, never under 2 s);
+- **lead** — mine − hers on the two bars (shares of each side's maximum),
+  signed;
+- **trend** — how fast that lead is moving, over the same window: the damage
+  she LANDS against the damage she takes (a blocked spell counts nothing).
+
+```
+excess = max(0, pace / 0.68 − 1)          0.68 = §7.2's core child, the pace every
+                                           foe's §6.14 rate was tuned against
+push   = clamp((lead + 4 s · trend) / 0.2, 0, 2.5) · min(1, lead / 0.05)
+want   = 1 + excess · push                 (exactly 1 once the foe is level or ahead)
+haste  → want, time constant 1 s rising, 0.35 s falling
+rate   = min(2.5, §6.14's chain × max(1 + 1.6·press, haste))
+```
+
+- **It keeps the balance the roster was tuned at.** Every foe's pace was
+  measured against a child casting 0.68 runes a second; at `push` 1 the haste
+  restores exactly that ratio for a faster player. A bigger lead drives it
+  past (`push` up to 2.5): the fast grown-up (1.6 runes/s) then meets a foe
+  forming 1.2–1.3× as fast as HE casts. A faster player gets a faster foe —
+  **no balance cap**. The one ceiling is a **safety limit**: no rune of hers
+  forms in under 0.4 s (2.5 runes/s), because the ghost rune in her slot is
+  what a player reads to counter her.
+- **Anti-overkill, three ways.** The push fades to zero as the bars level and
+  IS zero once the foe leads, whatever the trend; the trend bleeds it off
+  while she is catching up, before she gets there; and it falls three times
+  faster than it rises (0.35 s against 1 s), so a foe who has caught up never
+  arrives at a run. It never multiplies the trade's press (the larger of the
+  two, never the product — both answer the same lead); it changes only how
+  fast she forms, so the trade's damage scale (0.45–1.6), the mercy floor and
+  the AFK rule are exactly what they were — and an absent player's pace
+  decays to nothing, so no foe is hurried against someone who is not there.
+- **The children, by construction.** No excess pace, nothing to multiply: the
+  small child (≈ 0.26 runes/s) never sees it at all; the core child casts at
+  the design pace and sees a breath of it in her quickest seconds, under the
+  trade's own press, which it does not exceed. The campaign's reliefs
+  (`ease.rate`, Dream Dust, onboarding) sit inside the chain, so they slow a
+  hurried foe exactly as much as a plain one.
+- Off in local versus. `foeRate()` — §6.14's chain, pinned by
+  `tests/duel/rules.test.ts` — is untouched. The one tell is at her horn:
+  sparks rush IN to its tip, more of them the harder she is hurrying
+  (`fx.hasteSpark`), no text.
+
+Measured on the way (the balance harness below): the first version's
+`max(press, haste)` with the haste capped at 2 did nothing (end HP 92 → 91 %),
+because a fast player's press was already that big; its product under a cap
+of 3 took the grown-up to 84 %. The pace term is what tells a fast drawer
+from a winning child — damage alone could not: the core child's counter-hits
+land as hard as a grown-up's for a few seconds (peak 5.8 HP/s median, 7.7 at
+p90, against his 8.8), and even the small child reaches 6.7 at p99, while
+peak runes cast a second separate them cleanly (small child ≤ 0.65, core
+child ≤ 0.97, fast grown-up ≥ 1.04 at p10).
+
+**2. The weak points** (`sim.ts`, `WEAK_POINTS`). One element per ward, each
+something a child already knows about the world, each a SHARE — the ward
+still takes the rest:
+
+| ward (`guardK`) | stops | weak point (new) | already beaten by |
+|---|---|---|---|
+| earth wall (1) — lone Earth, 2 s; Frost Lock's wall | everything | **Water falling from above** (a field or a heavy): **50 %** — rain soaks through soil | Lightning's pierce |
+| wind wall (0) — Wind pair, 6 s | bolts, pushes, heavies | **Earth and Ice** (hard): **25 %** — too heavy to blow aside | fields creep under; pierce |
+| ice pillar (2) — Ice pair, 4 s, one hit | one bolt or push | **Fire: 50 %** — fire melts ice (the pillar is spent) | fields and heavies go round; pierce |
+| crystal ward (4) — 5 s, reflects | everything, bounced | **Earth: 50 %**, and the ward SHATTERS instead of bouncing it — a rock cracks crystal | pierce |
+| bubble ward (3) — Water pair, 5 s, two hits | bolts, fields, pushes | none new | heavies fall onto it; pierce; it holds two |
+
+- The element that counts is the LEAD — the last rune drawn, the one the shot
+  is drawn as and the one `elemMul` pays — so what she sees flying is what
+  finds the gap. "From above" is the trajectory the duel already has: a field
+  or a heavy hangs over its target and falls (`DELAY`; `fromAbove`).
+- What comes through is its share of the DAMAGE only — no dot, slow,
+  lifesteal or linger (the ward still took the spell). After that it is an
+  ordinary hit: a decoy swallows it, the mercy floor holds, the director's
+  scales apply, and it never says BLOCKED.
+- It LOOKS partial (`fx.seepThrough`): the ward ripples (`wardHit`) and the
+  spell breaks on it, then a thinner stream of the same element carries on
+  past the ward — a patter of drops falling through when it came from above —
+  and a smaller impact lands on the duelist.
+- The foe's answer is one line and only ever gentler: she no longer throws her
+  own hand away for a lone-Earth wall against a Water spell falling from
+  above, which that wall would only halve (`earthHalves`, both in her
+  threat-read panic and in her "a lone Earth is the fastest wall" pick).
+
+**3. The lingering spells** (`config.ts`, `LINGER_SPELLS`). One rule a child
+can say: **a pair of an element and one Nature makes that element LINGER** —
+Nature is the rune that grows.
+
+| spell | runes | hit | linger | total | its victim wears |
+|---|---|---|---|---|---|
+| Wildfire | Fire, Fire, Nature | 4 (a field) | 1.7 HP/s × 20 s | 38 | embers climbing off her |
+| Frostbite | Ice, Ice, Nature | 4 | 1.7 × 20 | 38 | frost settling |
+| Bramble | Earth, Nature, Nature | 4 | 1.7 × 20 | 38 | leaves curling round |
+
+- 38 in all is **1.27 × Fire Rain's 30**, the canonical three-rune hit, before
+  the element counts (the linger's rate carries `elemMul` like its hit). A
+  ward raised after it landed does nothing against it.
+- **Rare by construction:** a hand of exactly those three runes (or a Rainbow
+  completing one, §6.20). Neither child model builds three-rune hands; the
+  fast grown-up cast 0–0.3 a duel.
+- **Refreshed, never stacked:** a second one on the same side restarts the
+  20 s at the stronger rate.
+- **Water washes it off:** any spell with Water in it, cast by its victim.
+- **Through the director** like every blow (`sim.tick`): on the player the
+  ticks clamp to `mercyFloor()` (so the AFK rule can still finish an absent
+  player) and scale by `foeDamageScale`; on the foe, by `playerDamageScale`.
+  No flinch per tick — twenty seconds of twitching reads as a broken rig; the
+  telegraph is the element's own afterlife re-emitted on the victim
+  (`fx.lingerMote`, `spellArt.LOOK[].after`).
+- Named in all 21 locales (`spell.wildfire` / `frostbite` / `bramble`); each
+  flies with a flourish (`spellArt.SIG`). A Crystal Ward sends one back as its
+  hit alone. The combo bonus (§6.16) and the wildcard now compare TOTAL damage
+  (`totalDamage`), so neither mistakes a linger's small hit for a weak spell.
+- The two continuous tells roll on a seeded stream of their own
+  (`borrowDice`), so they never shift a rule's dice.
+
+**Measured** — a throwaway harness on the real `updateSim`, 150 duels per
+node at eleven nodes across the story (1-1, 1-5, 2-3, 3-3, 4-3, 5-3, 6-3, 7-5,
+8-5, 9-5, 10-5), `earlyEase` applied: the small child and the core child of
+`winRate.test.ts`, and a FAST GROWN-UP (a rune every 0.6 s, 95 % recognised,
+the counter 70 % of the time, three-rune hands). Before → after:
+
+| model | win | duel | end HP | weak-point seeps / duel | linger damage share |
+|---|---|---|---|---|---|
+| small child | 74 % → 75 % | 52.8 → 52.6 s | 17 % → 16 % | 0–0.4 | 0–1 % |
+| core child | 100 % → 100 % | 22.9 → 22.9 s | 55 % → 55 % | 0–0.4 | 0–1 % |
+| fast grown-up | 100 % → 100 % | 10.5 → 10.2 s | **92 % → 80 %** | 0–0.1 | 0–3 % |
+
+(The children's only linger is chapter 1's boss reaching for a Bramble now and
+then — 0.1 a duel; Briar's Nature is the one foe magic that builds it.)
+
+**The haste, first version (latch, 2× cap) → the controller**, same harness:
+
+| model | end HP | haste mean / peak | time hasted | foe's forming, × chain (mean) | mean lead (mine − hers) | foe's largest lead |
+|---|---|---|---|---|---|---|
+| small child | 16 % → 16 % | 1.00 / 1.00 → 1.00 / 1.00 | 0 % → 0 % | 1.09 → 1.09 | −0.02 → −0.02 | 1.00 → 1.00 (her own losses) |
+| core child | 55 % → 55 % | 1.00 / 1.00 → 1.04 / 1.26 | 0 % → 30 % | 1.42 → 1.42 | 0.31 → 0.31 | 0.52 → 0.66 (noise: 0.51–0.69 at n = 400, with or without it) |
+| fast grown-up | 84 % → **80 %** | 1.44 / 2.0 → 2.12 / 3.6 | 53 % → 66 % | 1.98 → 2.13 | 0.38 → 0.37 | 0.30 → 0.33 |
+
+Per chapter, the grown-up's end HP (first version → controller, before the
+pass in brackets): 3-3 [94] 93 → 88 %, 6-3 [91] 85 → 84 %, 7-5 [86] 79 →
+71 %, 8-5 [95] 73 → 65 %, 9-5 [72] 55 → 46 %, 10-5 [83] 70 → 67 %; the foe
+never leads him by more than a third of a bar, and on average not at all.
+The early chapters' duels are over in 7–9 s — before any forming speed can
+matter — which is the teaching chapters' own easing (`campaign/easing.ts`)
+doing what §8.18's child-first ruling asked of them (owner: *"the early
+chapters are fine as they are"*). What keeps the bars apart even late is his
+DAMAGE, not his pace — a matter for health or the trade's soak if it is ever
+wanted. Also measured and NOT adopted: a 3× push with a faster rise (end HP
+76 %, but the foe at the readability limit and her largest lead 0.41), and
+letting a hurried foe read the player's slots as a tier-2 foe does (+1.3 s a
+duel, end HP 84 → 85 %: she spends her runes on walls instead of blows).
+
+**`winRate.test.ts`, re-run on the new rules** (seeded, n = 360; 13 / 13
+pass, and the same to the digit after the haste became a controller — the
+small child's haste is exactly 1, so not one of her dice moves): every §7.2 cell of the core child's table is still 100 % first try
+(standard and boss, all ten chapters; 100 % within three). The small child's
+first ten duels are 90.3–97.8 % first try (before 92.2–98.1 %), all 100 %
+within three. Her whole-story table moves mostly by noise; where it moves for
+a reason: chapter 4's nodes 3–4 / boss 91.9 / 88.6 % → 93.3 / 92.2 % (a rock
+cracks the Crystal Ward chapter 4's foes build) and chapter 5's 78.6 / 79.7 /
+75.0 % → 82.5 / 82.2 / 78.3 %, while chapter 4's nodes 1–2 read 80.0 % →
+74.7 % (80.0 % on an earlier run of the same rules — the foe there leans on
+EARTH, and a wind wall the child raises by accident now lets a quarter of it
+through). Every chapter still clears within six tries at 100 %. The file's
+longest table timed out at 300 s on a loaded machine with every number
+already written, so its limit is now 20 minutes (a timeout is not a
+finding).
+
+Pinned by `tests/duel/director.test.ts` (the haste wants more with the
+lead, the trend and the pace, continuously; nothing from a player at the
+design pace or from a foe who is level or ahead; no 2× cap — a faster player
+meets a faster foe — but the readability limit holds; it rises gently and
+falls fast; a hurried foe who catches up and goes past has shed it; it is off
+in versus; and across 192 child duels the small child never sees it and the
+core child's average stays under 1.08)
+and `tests/duel/weakPoints.test.ts` (the table, each weak point in the real
+duel, riders withheld, the mercy floor through a seep, the foe's answer, the
+three lingering spells' names/numbers/refresh/wash-off/floor/AFK/reflect).
 
 ## §9 Rendering, assets & performance
 

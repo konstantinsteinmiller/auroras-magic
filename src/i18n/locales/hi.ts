@@ -80,7 +80,10 @@ export default {
     'tempest': 'आँधी',
     'wildSurge': 'जंगली लहर',
     'crystalWard': 'स्फटिक कवच',
-    'frostLock': 'हिम बंधन'
+    'frostLock': 'हिम बंधन',
+    'wildfire': 'दावानल',
+    'frostbite': 'पाला दंश',
+    'bramble': 'कँटीली बेल'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'रून बनाएँ',
+    'triangle': 'त्रिभुज बनाएँ',
     'stored': 'जमा हुआ! 3 तक',
     'cast': 'अब जादू करें'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'खुरों की लकीर',
     'mane': 'अयाल',
     'skin': 'खाल'
+  },
+
+  'wardrobe': {
+    'unlock': 'अनलॉक करो',
+    'getIt': 'ले लो',
+    'unlockAria': '{name} अनलॉक करने के लिए वीडियो देखो',
+    'getItAria': '{name} ले लो',
+    'noVideo': 'वीडियो अभी तैयार नहीं है',
+    'tryOn': '{name} पहनकर देखो'
   },
 
   'place': {

@@ -39,7 +39,7 @@ import { bakeDust, makeCanvas } from '@/game/restore/dust'
 import { drawGift, drawBoxGift, drawChest, giftShake, chestRattle } from '@/game/restore/gift'
 import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
-import { BADGE_ART, badgeFrame, paintBadge, paintStarSticker } from '@/game/map/badge'
+import { badgeFrame, drawBadge, paintStarSticker } from '@/game/map/badge'
 import { hasStar } from '@/game/campaign/stars'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
@@ -52,6 +52,7 @@ import { dailyGift, drawDaily } from '@/game/map/dailyGift'
 import { drawBloom } from '@/game/map/bloom'
 import { pageDecorBake, type KeepOut } from '@/game/map/pageDecor'
 import { spriteFor, onArtChanged } from '@/game/art'
+import { drawSheetTiled } from '@/game/fit'
 import { pageArtId, frontPageArtId } from '@/game/artIds'
 import { wanderHome, greetWanderer, drawWanderer } from '@/game/map/wanderer'
 import { reducedMotion } from '@/use/useAccessibility'
@@ -62,6 +63,7 @@ import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { drawFxUnder, drawFxOver, sparkleBurst, trail, glint } from '@/game/duel/fx'
 import { sfx } from '@/game/duel/audio'
 import { haptic } from '@/use/useHaptics'
+import { registerBookmarkTap, breakBookmarkChain } from '@/use/useQaAdTrigger'
 
 type G2D = CanvasRenderingContext2D
 
@@ -405,6 +407,9 @@ const tapScreen = (n: number): [number, number, number] | null => {
 let onTap: (t: MapTarget) => void = () => {}
 /** The flow tells the map what a tap means (kept out of this module). */
 export const setMapTapHandler = (fn: (t: MapTarget) => void): void => { onTap = fn }
+/** The chrome's wardrobe button (`MapScene`): exactly a tap on the tent, so
+ *  the dressing room opens one way whichever of the two the player used. */
+export const openTent = (): void => { if (tentShown()) onTap({ kind: 'tent' }) }
 
 /** Node marker radius, CSS px: never below a 64 px target (§3.4). */
 const markerR = (): number => Math.max(32, 30 * ms * 1.1)
@@ -447,6 +452,10 @@ const hitTest = (x: number, y: number): MapTarget | null => {
 }
 
 export const mapPointerDown = (x: number, y: number, t: number): void => {
+  // The hidden QA ad chord (`useQaAdTrigger`): twenty presses in a row on the
+  // ribbon; any other press on the book starts the count over. Silent.
+  if (onBookmark(x, y)) registerBookmarkTap()
+  else breakBookmarkChain()
   // The first touch ends the "next up" peek: the player is steering now, and
   // a page that turns itself under a finger is the camera fight item 6 is
   // explicitly not allowed to start.
@@ -1034,9 +1043,13 @@ export const paintCloth = (g: G2D, w: number, h: number): void => {
  * The cloth the book lies on, into a box `w` x `h` from the origin — wherever
  * the book is.
  *
- * Painted (§9.11): one square sheet stretched over the viewport, because a
- * weave has no layout to distort and so one sheet serves every screen shape.
- * A miss keeps the gradient, which is what it was.
+ * Painted (§9.11): one square sheet serves every screen shape — but it is
+ * never STRETCHED to one (`fit.ts`). It used to be drawn `w` x `h`, which on
+ * a phone held upright pulled the weave out 2x vertically into streaks,
+ * behind most of the duel's screen. Now its height fits the box (so the
+ * whole dusk-to-dawn shading shows everywhere) and its width is cropped, or
+ * on a wide screen continued by mirrored copies. A miss keeps the gradient,
+ * which is what it was.
  *
  * EXPORTED because the book is not only on the map. The wipe, the intro and
  * the duel's letterbox each drew this same cloth for themselves — two of them
@@ -1047,7 +1060,7 @@ export const paintCloth = (g: G2D, w: number, h: number): void => {
 export const drawCloth = (g: G2D, w: number, h: number): void => {
   const art = spriteFor('page', 'cover-cloth')
   if (art) {
-    g.drawImage(art, 0, 0, w, h)
+    drawSheetTiled(g, art, art.naturalWidth || 1, art.naturalHeight || 1, w, h)
     return
   }
   paintCloth(g, w, h)
@@ -1516,8 +1529,8 @@ const drawMarker = (g: G2D, n: number): void => {
     g.stroke()
   }
   // The badge itself — painted when its strip has decoded, drawn otherwise.
-  // `drawItem` blits the painting into the same box `paintBadge` draws in,
-  // so the two are interchangeable and the ring above is unaffected.
+  // `drawBadge` seats the painted disc exactly where `paintBadge`'s is (the
+  // painter drifted each one across its panel), so the ring above is round it.
   const f = badgeFrame(st, nodeIsBoss(n))
   g.save()
   g.translate(x, y)
@@ -1526,7 +1539,7 @@ const drawMarker = (g: G2D, n: number): void => {
   // one-shot reward beat, so it runs on `T` and not on the ambient `Td` —
   // reduced motion silences the loops, not the moments (§3.11).
   if (nextUpK(n)) g.rotate(giftShake(T - nextUpAt - NEXT_UP_HOLD))
-  if (!drawItem(g, BADGE_ART, r, f)) paintBadge(g, r, f)
+  drawBadge(g, r, f)
   g.restore()
 }
 
@@ -1699,6 +1712,27 @@ const bookmarkX = (r: { x: number; y: number; w: number; h: number }, bw: number
   return clamp(beside, r.x + r.w * (portrait ? 0.56 : 0.2), home)
 }
 
+/**
+ * Where `drawBook` hangs the ribbon (its centre x, its hang point, its width),
+ * or null while it is not drawn — off the page the player is up to, or mid-turn.
+ * `onBookmark` is a press on it, never narrower than a 44 px target, which the
+ * ribbon itself is on a phone. For the hidden QA ad chord only: the ribbon
+ * does nothing when tapped.
+ */
+const bookmarkBox = (): { x: number; top: number; bw: number } | null => {
+  if (page !== currentChapter() + 1 || turning()) return null
+  const r = pageRect(page)
+  const bw = Math.max(14, r.h * 0.05)
+  return { x: bookmarkX(r, bw), top: r.y - r.h * 0.035, bw }
+}
+const onBookmark = (x: number, y: number): boolean => {
+  const b = bookmarkBox()
+  if (!b) return false
+  // `bookmarkShape` spans −0.6 w above its hang point to its tails, 3.2 w below.
+  return Math.abs(x - b.x) <= Math.max(22, b.bw * 0.75)
+    && y >= b.top - b.bw * 0.6 - 8 && y <= b.top + b.bw * 3.2 + 8
+}
+
 const drawBook = (g: G2D): void => {
   const r = pageRect(page)
   // The binding sits in the gutter beside the page — a band, not a slab: on
@@ -1780,6 +1814,10 @@ const publish = (): void => {
   if (mapHud.front !== (page === 0)) mapHud.front = page === 0
   if (mapHud.portrait !== portrait) mapHud.portrait = portrait
   if (mapHud.versus !== S.campaign.versusUnlocked) mapHud.versus = S.campaign.versusUnlocked
+  // The wardrobe button stands wherever the tent does (something to wear),
+  // and steps aside with the page-pinned chrome while a leaf is in the air.
+  if (mapHud.wardrobe !== tentShown()) mapHud.wardrobe = tentShown()
+  if (mapHud.turning !== turning()) mapHud.turning = turning()
   // The paper itself, for chrome that is printed ON the page (the rank plate,
   // §8.33). `pageRect` puts every page in the same place, so this settles on
   // the first frame and then only moves on a resize.
@@ -1848,6 +1886,11 @@ export const qaMap = {
   tentAt: (): [number, number] => {
     const [x, y, s] = tentScreen()
     return [x, y - s * 0.4]
+  },
+  /** The ribbon's middle on screen while it hangs, or null (the QA ad chord). */
+  bookmarkAt: (): [number, number] | null => {
+    const b = bookmarkBox()
+    return b ? [b.x, b.top + b.bw * 1.3] : null
   },
   /** The book (§8.28): which page is open, and any turn in flight. */
   page: (): number => page,

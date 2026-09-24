@@ -74,7 +74,9 @@ describe('the prompt documents', () => {
 
   it('hold one fenced block per drawable, with no stray fence inside one', () => {
     const want: Record<string, number> = {
-      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 17, 'PROMPTS-RUNES.md': 12,
+      // Items: 8 items, 3 world-UI sheets (node badges, bookmark, the
+      // rewarded-ad movie camera) and 7 keepsake badges.
+      'PROMPTS-SECTORS.md': 50, 'PROMPTS-ITEMS.md': 18, 'PROMPTS-RUNES.md': 12,
       'PROMPTS-PORTRAITS.md': 20, 'PROMPTS-ISLANDS.md': 10, 'PROMPTS-STORY.md': 4,
       'PROMPTS-PROPS.md': 46,
       // A chapter's tap creature and its rescue, one sheet per body (§8.8).
@@ -114,7 +116,7 @@ describe('the prompt documents', () => {
 
   it('parse in the Art Desk to every reference and target, in order', () => {
     const jobs: Job[] = Object.entries(docs).flatMap(([name, text]) => parsePromptDoc(text, name) as Job[])
-    expect(jobs).toHaveLength(209)
+    expect(jobs).toHaveLength(210)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

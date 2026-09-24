@@ -16,6 +16,7 @@ import DuelHelpNote from '@/components/duel/DuelHelpNote.vue'
 import GameIcon from '@/components/icons/GameIcon.vue'
 import { vFit } from '@/use/vFit'
 import { STARTING_RUNES } from '@/game/campaign/tables'
+import { GLYPH_INK_W } from '@/game/duel/glyph'
 
 /**
  * The duel's chrome, as the jam build laid it out.
@@ -141,6 +142,25 @@ const zoneBottomCaption = computed(() => {
 })
 const zoneFont = computed(() => Math.round(Math.max(18, Math.min(30, L.value.w * 0.062))))
 /**
+ * Beat 0's second line names the shape, for the players the ghost finger
+ * alone does not reach. It sits just under the ghost triangle — the one
+ * `drawIntroTrace` draws at 0.26 of the pad's short side, whose flat bottom
+ * edge is half a radius below centre and inked `GLYPH_INK_W` thick — and
+ * never below the pad. `z` and `font` share one unit: stage units in
+ * landscape, CSS px in portrait.
+ */
+const underTriangle = (z: { x: number; y: number; w: number; h: number }, font: number): number => {
+  const R = 0.26 * Math.min(z.w, z.h)
+  const under = z.y + z.h / 2 + (0.5 + GLYPH_INK_W / 2) * R + 6 + font / 2
+  return Math.min(under, z.y + z.h - font * 0.6)
+}
+const TRI_FONT = 28
+const triFont = computed(() => Math.round(zoneFont.value * 0.8))
+const triCaption = computed(() => {
+  const z = L.value.zonePx
+  return { left: `${z.x + z.w / 2}px`, top: `${underTriangle(z, triFont.value)}px`, width: `${z.w - 24}px` }
+})
+/**
  * Portrait: the note sits across the top of the drawing pad, where the nudge
  * it replaces was. `--hn` is the card's own unit — the pad's width over the
  * 540 stage units the landscape card gets — capped so it never eats more than
@@ -194,7 +214,9 @@ const helpStyle = computed(() => {
 
       //- Onboarding: three beats, none of which block play. The ghost trace of
       //- beat 0 is drawn on the canvas; these are its captions.
-      span.abs.ink-text(v-if="introBeat === 0" :style="[at(640, 138, 36), { color: 'var(--am-gold)' }]") {{ t('intro.draw') }}
+      template(v-if="introBeat === 0")
+        span.abs.ink-text(:style="[at(640, 138, 36), { color: 'var(--am-gold)' }]") {{ t('intro.draw') }}
+        span.abs.ink-text.tri-hint(v-fit="TRI_FONT" :style="[at(640, underTriangle(L.zone, TRI_FONT), TRI_FONT), { width: L.zone.w + 'px', color: 'var(--am-gold)' }]") {{ t('intro.triangle') }}
       span.abs.ink-text(v-else-if="introBeat === 1" :style="[at(640, 138, 34), { color: 'var(--am-gold)' }]") {{ t('intro.stored') }}
       template(v-else-if="introBeat === 2")
         span.abs.ink-text(:style="[at(640, 490, 36), { color: 'var(--am-gold)' }]") {{ t('intro.cast') }}
@@ -279,7 +301,9 @@ const helpStyle = computed(() => {
         DuelHelpNote
 
       span.fixed-caption.ink-text.breathe(v-if="showDrawHint" :style="[zoneCaption, { color: 'var(--am-shout)', fontSize: zoneFont + 'px' }]") {{ t('hud.drawARune') }}
-      span.fixed-caption.ink-text(v-if="introBeat === 0" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
+      template(v-if="introBeat === 0")
+        span.fixed-caption.ink-text(:style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.draw') }}
+        span.fixed-caption.ink-text.tri-hint(v-fit="triFont" :style="[triCaption, { color: 'var(--am-gold)' }]") {{ t('intro.triangle') }}
       span.fixed-caption.ink-text(v-else-if="introBeat === 1" :style="[zoneCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.stored') }}
       span.fixed-caption.ink-text(v-else-if="introBeat === 2" :style="[zoneBottomCaption, { color: 'var(--am-gold)', fontSize: zoneFont + 'px' }]") {{ t('intro.cast') }}
 
@@ -480,6 +504,15 @@ button
 .fixed-caption
   position: absolute
   transform: translate(-50%, -50%)
+
+// "Draw a triangle" gets the drawing box's width and `v-fit` shrinks it into
+// that: the long locales ("НАРИСУЙТЕ ТРЕУГОЛЬНИК") otherwise run over both
+// duelists' heads. The padding is room for the ink outline, which `overflow`
+// would clip.
+.tri-hint
+  overflow: hidden
+  text-align: center
+  padding: 0.2em
 
 // Landscape: the card lives in the stage layer, so one stage unit IS its unit.
 .help-slot

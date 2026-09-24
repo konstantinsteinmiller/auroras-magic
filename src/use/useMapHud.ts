@@ -40,6 +40,12 @@ export const mapHud = reactive({
   finale: false,
   /** Local 2P versus is unlocked (chapter 10's gift, C18). */
   versus: false,
+  /** The wardrobe is open to her — the tent stands on the front page, i.e.
+   *  she owns something to wear — so the chrome shows its button to it. */
+  wardrobe: false,
+  /** A leaf of the book is in the air (a drag, a corner, a tab, a self-turn):
+   *  chrome that belongs to the page steps aside until it lands. */
+  turning: false,
   /** The rank badge's width on screen (CSS px), 0 while it is not shown.
    *  Written by `MapScene` (the one value the chrome writes, see above). */
   rankW: 0

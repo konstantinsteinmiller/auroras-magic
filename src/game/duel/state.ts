@@ -72,6 +72,12 @@ export interface Shot {
    *  the spells with names of their own, and the only ones that fly with a
    *  flourish (`spellArt.SIG`). */
   sg?: string
+  /** A lingering spell (§8.35): HP a second it leaves ticking on its target
+   *  (the element already counted), for `lgT` seconds, wearing rune `lgR`'s
+   *  afterlife. Absent on every other shot. */
+  lg?: number
+  lgT?: number
+  lgR?: number
 }
 
 /** A floating HUD callout. `k` is an i18n key under `pop.`; `p` its params. */
@@ -138,6 +144,14 @@ export interface DuelState {
   eGuardHits: number
   burn: number
   eBurn: number
+  /** A LINGERING spell ticking on each side (§8.35): seconds left, HP a
+   *  second, and the rune whose afterlife it wears (the victim's telegraph). */
+  linger: number
+  eLinger: number
+  lingerRate: number
+  eLingerRate: number
+  lingerLook: number
+  eLingerLook: number
   slow: number
   eSlow: number
   castAnim: number
@@ -316,6 +330,12 @@ export const auroras_magic_state: DuelState = {
   eGuardHits: 0,
   burn: 0,
   eBurn: 0,
+  linger: 0,
+  eLinger: 0,
+  lingerRate: 0,
+  eLingerRate: 0,
+  lingerLook: 0,
+  eLingerLook: 0,
   slow: 0,
   eSlow: 0,
   castAnim: 0,

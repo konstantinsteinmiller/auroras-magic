@@ -8,8 +8,10 @@ import { armFirstLoadInterstitial, notifySplashGone } from '@/use/useFirstLoadIn
 import { isSplashScreenVisible } from '@/use/useMatch'
 
 /**
- * The splash. It covers the boot (JS parse + the arena bake in `preloadAssets`)
- * and then gets out of the way — and it is where every portal is told the game
+ * The splash. It covers the boot (the game's code booting its first scene, the
+ * arena bake and — with the art layer on — that scene's own paintings, all in
+ * `preloadAssets`; `game/artSchedule.ts` decides which) and then gets out of
+ * the way — and it is where every portal is told the game
  * finished loading, because this is the one moment that is true:
  *
  *   CrazyGames `loadingStop` · Playgama `game_ready` · GamePix `gameLoaded` ·
@@ -74,7 +76,7 @@ onMounted(() => {
     setTimeout(() => staticSplash.remove(), 500)
   }
   // Hard ceiling: the splash must never become the reason the game did not
-  // load. Ordered AFTER the loader's own cap (4 s) so it only ever catches a
+  // load. Ordered AFTER the loader's own cap (7.5 s) so it only ever catches a
   // loader that hung, never cuts a slow device's bake short.
   settleFallbackId = window.setTimeout(() => { if (!done.value) done.value = true }, 8000)
   // Not on Playgama: that archive is also the YouTube Playables submission,
@@ -88,9 +90,13 @@ onUnmounted(() => {
   if (stuckHintId !== null) clearTimeout(stuckHintId)
 })
 
+// The bar's last stretch is a 0.25 s CSS transition, and it finishes under
+// the 0.35 s fade — so the splash starts leaving almost as soon as the loader
+// says done (60 ms + 40 ms below) instead of parking a full bar on screen for
+// a quarter of a second with the game already waiting underneath it.
 watch(progress, (val) => {
   if (val < 100 || done.value) return
-  setTimeout(() => { done.value = true }, 100)
+  setTimeout(() => { done.value = true }, 60)
 }, { immediate: true })
 
 /* ── portal "finished loading" signals, one each, DCE'd per build ── */
@@ -148,7 +154,7 @@ watch(done, (isDone) => {
     signalGameReadyToYandex()
     signalGameReadyToPoki()
     notifySplashGone()
-  }, 150)
+  }, 40)
 })
 </script>
 

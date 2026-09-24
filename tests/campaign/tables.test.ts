@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CHAPTERS, CHAPTER_COUNT, NODES, NODES_PER_CHAPTER, COSMETICS, COSMETIC_SLOTS, GIFTS, LAST_BUILT_NODE, FIRST_GIFT_NODE,
-  nodeChapter, nodePosInChapter, nodeIsBoss, nodeFoe, duelSetup
+  ALTERNATIVES, isAlternative, nodeChapter, nodePosInChapter, nodeIsBoss, nodeFoe, duelSetup
 } from '@/game/campaign/tables'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
 import { NATURE } from '@/game/duel/config'
@@ -51,15 +51,14 @@ describe('the node grid (C5)', () => {
 })
 
 describe('the boss chests (§8.2, §10.13.C)', () => {
-  it('holds a keepsake on the bosses, the early node and the second shelf (§8.2, §2.4)', () => {
+  it('holds a keepsake on the bosses and the early node only (§8.2)', () => {
     // The Flower Crown moved forward to the second battle (owner,
     // 2026-09-21), so the wardrobe is not empty for a child's first five
-    // duels. Every chapter's own keepsake is still its boss's — and since
-    // rule 20's second shelf, the chapter's FOURTH node carries one too
-    // (plus the second node of chapters 2, 4, 6 and 8).
-    const second = new Set([3, 6, 8, 13, 16, 18, 23, 26, 28, 33, 36, 38, 43, 48])
+    // duels. Every chapter's own keepsake is still its boss's. The second
+    // shelf rode the chapters' fourth nodes for two days; since 2026-09-23 it
+    // is the wardrobe's rewarded unlocks, and those nodes give a tool again.
     for (let n = 0; n < NODE_COUNT; n++) {
-      const carries = n === FIRST_GIFT_NODE || second.has(n) || (nodeIsBoss(n) && nodeChapter(n) > 0)
+      const carries = n === FIRST_GIFT_NODE || (nodeIsBoss(n) && nodeChapter(n) > 0)
       expect(NODES[n]!.giftId !== null, `node ${n}`).toBe(carries)
     }
     const g = GIFTS[NODES[FIRST_GIFT_NODE]!.giftId!]!
@@ -68,10 +67,13 @@ describe('the boss chests (§8.2, §10.13.C)', () => {
     expect(COSMETICS[g.cosmeticId!]!.slot).toBe('head')
   })
 
-  it('gives every keepsake exactly once, and every slot a real choice (rule 20)', () => {
+  it('gives every STORY keepsake exactly once, never an alternative, and every slot a real choice (rule 20)', () => {
     // The wardrobe's whole promise: a slot is a CHOICE. Every slot the rig
-    // can carry offers more than one thing, every keepsake is handed over
-    // exactly once, and no chest hands out a keepsake nobody can wear.
+    // can carry offers more than one thing, the nine story keepsakes are
+    // handed over exactly once, and no chest hands out a keepsake nobody can
+    // wear. The fourteen alternatives (owner, 2026-09-23) come from ONE
+    // place only — a rewarded video in the wardrobe — so no chest may ever
+    // hold one: "he can't get the alternative items any other way".
     const given = new Map<number, number>()
     for (let n = 0; n < NODE_COUNT; n++) {
       const id = NODES[n]!.giftId
@@ -80,7 +82,13 @@ describe('the boss chests (§8.2, §10.13.C)', () => {
       if (def.kind !== 'cosmetic') continue
       given.set(def.cosmeticId!, (given.get(def.cosmeticId!) ?? 0) + 1)
     }
-    expect(given.size, 'every keepsake is given').toBe(COSMETICS.length)
+    for (const id of ALTERNATIVES) expect(given.has(id), `${COSMETICS[id]!.slug} is in a chest`).toBe(false)
+    // Every keepsake is exactly one of the two: a chest's (once) or the wardrobe's.
+    for (let id = 0; id < COSMETICS.length; id++) {
+      expect(given.has(id) !== isAlternative(id), COSMETICS[id]!.slug).toBe(true)
+    }
+    expect(given.size, 'the nine story keepsakes').toBe(9)
+    expect(ALTERNATIVES, 'the second shelf, ids 9–22').toEqual(Array.from({ length: 14 }, (_, i) => 9 + i))
     for (const [id, times] of given) expect(times, COSMETICS[id]!.slug).toBe(1)
     for (const slot of COSMETIC_SLOTS) {
       const n = COSMETICS.filter((c) => c.slot === slot).length

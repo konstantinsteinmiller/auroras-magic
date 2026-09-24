@@ -44,7 +44,7 @@ import { closeHelp, installDuelHelp, openHelp } from '@/game/duel/help'
 import { installPerfectSparkle, resetPerfectMark } from '@/game/duel/perfect'
 import { useMusic } from '@/use/useSound'
 import { isInterstitialReady, showMidgameAd } from '@/use/useAds'
-import { canShowInterstitial, markInterstitialShown } from '@/use/useAdGate'
+import { canShowInterstitial, markInterstitialShown, duelEndMoment, type DuelEndMoment } from '@/use/useAdGate'
 import { flushSaveNow } from '@/use/useSaveStatus'
 import { haptic } from '@/use/useHaptics'
 import { track } from '@/use/useAnalytics'
@@ -105,11 +105,13 @@ export const startDuel = (n: number): void => {
 
 /**
  * The between-duels break, after a win AND after a loss (F25). How often is
- * the shared clock's business: nothing in the session's first four minutes,
- * then ≥ 121 s between any two ads.
+ * the shared clock's business (`useAdGate`): nothing in the session's first
+ * four minutes of play — unless a chapter's boss was just beaten, first time
+ * or replay (`'boss'`, owner 2026-09-24) — then ≥ 160 s of play between any
+ * two ads.
  */
-const maybeShowInterstitial = async (trigger: 'win' | 'loss'): Promise<void> => {
-  if (!isInterstitialReady.value || !canShowInterstitial()) return
+const maybeShowInterstitial = async (trigger: DuelEndMoment): Promise<void> => {
+  if (!isInterstitialReady.value || !canShowInterstitial(Date.now(), trigger === 'boss')) return
   markInterstitialShown()
   track('ad_interstitial_shown', { trigger })
   try {
@@ -225,7 +227,9 @@ const onFinish = async (won: boolean): Promise<void> => {
       if (my !== gen) return
     }
     duelBeat.phase = 'toMap'
-    await maybeShowInterstitial('win')
+    // A chapter's boss beaten — replays included — is a break of its own: it
+    // may bring the session's first ad before the four-minute mark.
+    await maybeShowInterstitial(duelEndMoment(true, nodeIsBoss(n)))
     if (my !== gen) return
     // Fire and forget, after the win: lifetime duels won, tie-broken by the
     // furthest node reached.

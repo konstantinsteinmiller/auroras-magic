@@ -146,9 +146,16 @@ onUnmounted(unbind)
   // a gauge takes no page-lift, so the one `.duel-plate` gives is dropped
   box-shadow: none
 
+// The glyph box is spelled out, not left to `inset` alone: the rune is an SVG
+// with no intrinsic size, and an absolutely positioned replaced element does
+// not stretch between its insets the way a div does. 94.4 % centred is the
+// jam build's radius-17 glyph in its 60-unit slot (see above).
 .slot-glyph
   position: absolute
-  inset: 2.8%
+  left: 2.8%
+  top: 2.8%
+  width: 94.4%
+  height: 94.4%
 
 .slot-ghost
   position: absolute

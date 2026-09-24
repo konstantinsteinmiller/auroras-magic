@@ -80,7 +80,10 @@ export default {
     'tempest': 'TOPAN',
     'wildSurge': 'GELOMBANG LIAR',
     'crystalWard': 'PERISAI KRISTAL',
-    'frostLock': 'KUNCI BEKU'
+    'frostLock': 'KUNCI BEKU',
+    'wildfire': 'API LIAR',
+    'frostbite': 'GIGITAN BEKU',
+    'bramble': 'SEMAK DURI'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'GAMBAR RUNE-NYA',
+    'triangle': 'GAMBAR SEGITIGA',
     'stored': 'TERSIMPAN! HINGGA 3',
     'cast': 'SEKARANG RAPALKAN'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Jejak kuku',
     'mane': 'Surai',
     'skin': 'Bulu'
+  },
+
+  'wardrobe': {
+    'unlock': 'Buka',
+    'getIt': 'Ambil',
+    'unlockAria': 'Tonton video untuk membuka {name}',
+    'getItAria': 'Ambil {name}',
+    'noVideo': 'Video belum siap',
+    'tryOn': 'Coba {name}'
   },
 
   'place': {

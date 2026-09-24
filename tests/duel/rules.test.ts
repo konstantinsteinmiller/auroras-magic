@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   SPELLS, comboKey, resolveSpell, dominantRune, comboEnumerationIndex, comboFromIndex, COMBO_COUNT,
-  elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, NO_EASE, PH_DUEL, PH_WIN, PH_LOSE
+  elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, NO_EASE, PH_DUEL, PH_WIN, PH_LOSE, totalDamage
 } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE } from '@/game/duel/foes'
 import { earlyEase } from '@/game/campaign/easing'
@@ -75,13 +75,15 @@ describe('the spell generator (§6.2, §6.4)', () => {
   })
 
   it('never makes three runes worse than 1.5x the best pair inside them (§6.16)', () => {
+    // Counted in ALL a spell takes off: a lingering spell's hit is small on
+    // purpose and its twenty seconds of ticks are the rest of it (§8.35).
     for (let i = 90; i < COMBO_COUNT; i++) {
       const q = comboFromIndex(i)
       const sp = resolveSpell(q)
       if (![0, 1, 3, 4].includes(sp.kind) || sp.dmg <= 0) continue
       let best = 0
-      for (let j = 0; j < 3; j++) best = Math.max(best, resolveSpell(q.filter((_, k) => k !== j)).dmg)
-      expect(sp.dmg, q.join('.')).toBeGreaterThanOrEqual(best * 1.5 - 1e-9)
+      for (let j = 0; j < 3; j++) best = Math.max(best, totalDamage(resolveSpell(q.filter((_, k) => k !== j))))
+      expect(totalDamage(sp), q.join('.')).toBeGreaterThanOrEqual(best * 1.5 - 1e-9)
     }
   })
 
@@ -192,7 +194,8 @@ describe('casting and resolution', () => {
     holdFoe()
     S.eGuard = 4
     S.eGuardK = 2
-    S.queue.push(FIRE)
+    // An Ice bolt: not the pillar's weak point (Fire melts it, §8.35).
+    S.queue.push(ICE)
     cast()
     run(1)
     expect(S.ehp).toBe(S.ehpMax)

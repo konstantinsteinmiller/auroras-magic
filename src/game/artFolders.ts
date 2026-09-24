@@ -19,7 +19,10 @@
  *   gift         the wrapped gifts and the boss chest, closed. Their opening
  *                beat stays drawn (the lid, the bow, the burst).
  *   tool         the Stardust Brush and the Magic Eraser.
- *   worldUi      the wardrobe tent on the map.
+ *   worldUi      the book's own furniture on the map — the wardrobe tent, the
+ *                node badges, the bookmark ribbon — and the rewarded-ad
+ *                button's movie camera, the one DOM glyph here (`ArtIcon`,
+ *                `artIds.MOVIE_ICON`).
  *   cosmetic     keepsakes painted as stills on Aurora's rig (the crown, the
  *                pet star). The others follow the rig's own deformation and
  *                stay drawn (§9.7).

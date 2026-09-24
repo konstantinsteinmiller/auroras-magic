@@ -102,7 +102,11 @@ export default {
     'wildSurge': 'WILD SURGE',
     // The two Signature Spells (§10.13.B): hand-named, never generated.
     'crystalWard': 'CRYSTAL WARD',
-    'frostLock': 'FROST LOCK'
+    'frostLock': 'FROST LOCK',
+    // The three lingering spells (§8.35): an element, twice, and one Nature.
+    'wildfire': 'WILDFIRE',
+    'frostbite': 'FROSTBITE',
+    'bramble': 'BRAMBLE'
   },
 
   // ─── Generated spell names (story-spec §10.12) ────────────────────────────
@@ -141,6 +145,9 @@ export default {
   // ─── Onboarding — three beats, none of which block play ───────────────────
   'intro': {
     'draw': 'DRAW THE RUNE',
+    // Under beat 0's ghost trace: the shape, named, for the players the
+    // animated finger alone does not reach.
+    'triangle': 'DRAW A TRIANGLE',
     'stored': 'STORED! UP TO 3',
     'cast': 'NOW CAST IT'
   },
@@ -573,6 +580,19 @@ export default {
     'trail': 'Hoof trail',
     'mane': 'Mane',
     'skin': 'Coat'
+  },
+
+  // The dressing room's rewarded alternatives (owner, 2026-09-23): the second
+  // shelf is unlocked in the wardrobe, one video each — or free, where no video
+  // can play. `unlock` wears the movie icon in front of it; `getIt` is the free
+  // path's plain label. The `…Aria` pair and `tryOn` are read aloud.
+  'wardrobe': {
+    'unlock': 'Unlock',
+    'getIt': 'Get it',
+    'unlockAria': 'Watch a video to unlock {name}',
+    'getItAria': 'Get {name}',
+    'noVideo': 'Video not ready yet',
+    'tryOn': 'Try on {name}'
   },
 
   'place': {

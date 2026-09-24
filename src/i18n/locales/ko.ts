@@ -80,7 +80,10 @@ export default {
     'tempest': '폭풍우',
     'wildSurge': '거친 파도',
     'crystalWard': '수정 보호막',
-    'frostLock': '서리 봉인'
+    'frostLock': '서리 봉인',
+    'wildfire': '들불',
+    'frostbite': '서리 이빨',
+    'bramble': '가시덤불'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': '룬을 그리세요',
+    'triangle': '삼각형을 그리세요',
     'stored': '저장! 최대 3개',
     'cast': '이제 시전하세요'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': '발자국',
     'mane': '갈기',
     'skin': '털빛'
+  },
+
+  'wardrobe': {
+    'unlock': '잠금 해제',
+    'getIt': '받기',
+    'unlockAria': '영상을 보고 {name} 잠금 해제',
+    'getItAria': '{name} 받기',
+    'noVideo': '영상이 아직 준비되지 않았어요',
+    'tryOn': '{name} 입어 보기'
   },
 
   'place': {

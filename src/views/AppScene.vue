@@ -56,7 +56,7 @@ import { duelBeat } from '@/use/useDuelBeat'
 import { restoreHud } from '@/use/useRestoreHud'
 import { isGamePaused, acquireAppPause } from '@/use/useGamePause'
 import { acquireModalOpen } from '@/use/useModalState'
-import { registerQaAdTap, breakQaAdChain } from '@/use/useQaAdTrigger'
+import { registerQaAdTap, breakQaAdChain, breakBookmarkChain } from '@/use/useQaAdTrigger'
 import { runeGift, closeRuneGift } from '@/use/useRuneGift'
 import { signalGameplayLoaded } from '@/use/useCrazyGames'
 import { syncGameplayLifecycle, syncPokiGameplay } from '@/use/useGameplayLifecycle'
@@ -344,6 +344,9 @@ const onKeyDown = (e: KeyboardEvent): void => {
 const onQaChord = (e: PointerEvent): void => {
   if (scene() === 'duel' && e.target === canvas.value && isOnFoeHpBar(e.clientX, e.clientY)) registerQaAdTap()
   else breakQaAdChain()
+  // The bookmark's chord (twenty on the storybook's ribbon) is counted by the
+  // map itself; a press that never reaches the book breaks it here.
+  if (scene() !== 'map' || e.target !== canvas.value) breakBookmarkChain()
 }
 
 /**

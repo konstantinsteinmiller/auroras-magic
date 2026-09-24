@@ -17,14 +17,18 @@ import {
   type DuelEase, type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
-import { foeDamageScale, mercyFloor, noteAct, playerDamageScale, press, resetDirector, stepDirector } from '@/game/duel/director'
+import {
+  HASTE, foeDamageScale, hasteLevel, hasteRush, mercyFloor, noteAct, notePlayerCast, playerDamageScale, press,
+  resetDirector, stepDirector
+} from '@/game/duel/director'
 import { S, save, pop, type Shot } from '@/game/duel/state'
 import { recognise, rawScore, strokeFeatures, FROZEN_MASK } from '@/game/duel/runes'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
   impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
-  decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, BAR_CRYSTAL, BAR_FROST
+  decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, seepThrough, lingerMote, hasteSpark,
+  BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
 import { duelPageHit } from '@/game/duel/duelPage'
 import { mixRune } from '@/game/duel/spellArt'
@@ -83,6 +87,21 @@ const emit = (e: DuelEvent, won?: boolean, info?: StrokeInfo): void => {
   for (const fn of listeners) {
     try { fn(e, won, info) } catch (err) { console.warn('[duel] listener threw', err) }
   }
+}
+
+/**
+ * What happened in THIS duel that no health bar shows — for tests and tuning
+ * harnesses (story-spec §8.35's balance pass); the game itself never reads
+ * it. Zeroed by `resetDuel`.
+ */
+export const duelTally = {
+  /** Spells that found a ward's weak point and partly came through it. */
+  seep: 0,
+  /** Lingering spells that took hold (either side). */
+  lingers: 0,
+  /** HP the lingers' ticks took off the foe, and off the player. */
+  lingerToFoe: 0,
+  lingerToPlayer: 0
 }
 
 /* ------------------------------ drawing ----------------------------- */
@@ -339,6 +358,10 @@ const reflect = (s: Shot, e: boolean): void => {
   if (s.rf) return
   S.shots.push({
     ...s, x: tx - s.dir * 58, y: GY - 90, tx: e ? AX : UX, dir: -s.dir, dmg: s.b * REFLECT_K, w: 0, p: 0, ls: 0, rf: 1,
+    // A lingering spell comes back as its hit alone (§8.35): a child's own
+    // twenty seconds of embers bounced into her face is the harshest version
+    // of the lesson §6.5's half-damage ruling already softened.
+    lg: 0,
     delay: DELAY[s.k] ? 0.55 : 0, life: 0
   })
 }
@@ -409,6 +432,14 @@ const launch = (q: Rune[], e: boolean): void => {
     }
   }
 
+  // WATER WASHES A LINGER OFF (§8.35): any spell with Water in it, cast by
+  // the one it is ticking on — the answer a child can find on her own.
+  if (q.includes(WATER as Rune) && (e ? S.eLinger : S.linger) > 0) {
+    if (e) S.eLinger = 0
+    else S.linger = 0
+    heal(e ? UX : AX, GY - 110)
+  }
+
   // Love heals its caster as it is cast (§6.3): a share of her own max HP,
   // or the finisher's flat +25.
   mend(e, (sp.healPct ?? 0) * (e ? S.ehpMax : S.hpMax) + (sp.healFlat ?? 0))
@@ -460,7 +491,9 @@ const launch = (q: Rune[], e: boolean): void => {
       sp: slowPct,
       rf: 0,
       m: mix,
-      sg: artKey
+      sg: artKey,
+      // A lingering spell (§8.35) carries its ticks, the element counted.
+      ...(sp.linger ? { lg: sp.linger[0] * mul, lgT: sp.linger[1], lgR: sp.lingerLook ?? dr } : {})
     })
   }
 
@@ -491,7 +524,11 @@ export const castSide = (e: boolean): void => {
   // Casting counts as being here, not just drawing does: the AFK rule is
   // about a player who has put the phone down, and this is also the only
   // signal a programmatic player (the win-rate harness) ever sends.
-  if (!e) noteAct()
+  if (!e) {
+    noteAct()
+    // The haste's pace tally (§8.35): how many runes a second she is casting.
+    if (!S.versus) notePlayerCast(q.length)
+  }
   launch(q, e)
 }
 
@@ -512,11 +549,74 @@ export const stops = (gk: number, kind: number): boolean =>
   gk === 1 || gk === 4 ||
   (gk === 3 ? kind === 0 || kind === 1 || kind === 4 : kind === 0 || kind === 4 || (!gk && kind === 3))
 
+/* ---------------------------- weak points --------------------------- */
+/**
+ * EVERY WARD HAS A WEAK POINT (owner, 2026-09-23; story-spec §8.35): *"block
+ * spells are quite op and might need some weak points, e.g. a water spell
+ * raining from above should be able to penetrate earth wall with 50% damage
+ * or the wind shield should be able to still take 25% damage from hard
+ * projectiles like earth attacks or frost attacks."*
+ *
+ * One element per ward, each something a child already knows about the
+ * world, and each a SHARE of the spell — the ward still takes the rest:
+ *
+ *   earth wall (1)     rain soaks through soil — Water FROM ABOVE: 50 %
+ *   wind wall (0)      rock and ice are too heavy to blow aside — Earth,
+ *                      Ice: 25 %
+ *   ice pillar (2)     fire melts ice — Fire: 50 % (and the pillar is spent,
+ *                      as it is by anything it stops)
+ *   crystal ward (4)   a rock cracks crystal — Earth: 50 %, and the ward
+ *                      SHATTERS instead of bouncing it back
+ *   bubble ward (3)    none new: a heavy already falls straight onto it and
+ *                      it only ever holds two
+ *
+ * On top of what each ward never stopped (§6.8's pierce; a field creeps under
+ * wind; a heavy falls over a pillar or onto a bubble). The element that
+ * counts is the LEAD — the last rune drawn, the one the shot is drawn as and
+ * the one `elemMul` pays — so what a child sees flying is what finds the
+ * gap. "From above" is the trajectory the duel already has: a field or a
+ * heavy hangs over its target and falls (`DELAY`).
+ *
+ * What comes through is its share of the DAMAGE and nothing else — no dot,
+ * slow, lifesteal or linger: the ward still took the spell. It is a hit like
+ * any other after that: a decoy still swallows it, the mercy floor still
+ * holds, the director's scales still apply.
+ */
+export interface WeakPoint {
+  /** The ward flavour (`guardK`). */
+  ward: number
+  /** The lead elements that find it. */
+  runes: readonly number[]
+  /** Only a spell that falls from above (a field or a heavy). */
+  above?: true
+  /** The share of the spell's damage that carries through. */
+  share: number
+}
+export const WEAK_POINTS: readonly WeakPoint[] = [
+  { ward: 1, runes: [WATER], above: true, share: 0.5 },
+  { ward: 0, runes: [EARTH, ICE], share: 0.25 },
+  { ward: 2, runes: [FIRE], share: 0.5 },
+  { ward: 4, runes: [EARTH], share: 0.5 }
+]
+/** A field or a heavy hangs over its target and falls onto it (`DELAY`). */
+export const fromAbove = (kind: number): boolean => (DELAY[kind] ?? 0) > 0
+/** The share of a spell (spell `kind`, lead `rune`) a ward of flavour `gk`
+ *  that STOPS it still lets through — 0 at every ward's strong side. */
+export const seep = (gk: number, kind: number, rune: number): number => {
+  for (const w of WEAK_POINTS) {
+    if (w.ward === gk && w.runes.includes(rune) && (!w.above || fromAbove(kind))) return w.share
+  }
+  return 0
+}
+
 /** Land a resolved spell on a duelist. `e` = it hits the foe. */
-const strike = (s: Shot, e: boolean): void => {
+const strike = (shot: Shot, e: boolean): void => {
   const gk = e ? S.eGuardK : S.guardK
   const g = e ? S.eGuard : S.guard
   const tx = e ? UX : AX
+  /** What actually lands: the shot, or the share of it a weak point let by. */
+  let s = shot
+  let seeped = false
 
   if (g > 0 && s.p) {
     // Lightning goes straight through (§6.8 rule 1) — and says so, so the
@@ -524,7 +624,9 @@ const strike = (s: Shot, e: boolean): void => {
     impact(tx - s.dir * 58, GY - 90, LIGHTNING, 0.3)
     pop('pierced', '#fff176', tx, GY - 210)
   } else if (g > 0 && stops(gk, s.k)) {
-    if (gk === 4) {
+    // A ward's weak point (§8.35): the share of this spell it lets through.
+    const share = seep(gk, s.k, s.r)
+    if (gk === 4 && !share) {
       reflect(s, e)
       return
     }
@@ -532,12 +634,13 @@ const strike = (s: Shot, e: boolean): void => {
     wardHit(tx - s.dir * 58, GY - 90, guardRune(gk), 0.35)
     sfx('guard')
     shakeAdd(0.12)
-    pop('blocked', '#8ff0ff', tx, GY - 210)
-    if (gk === 2) {
-      // The pillar spends itself on one hit. Tear the shield visual down too.
+    if (!share) pop('blocked', '#8ff0ff', tx, GY - 210)
+    if (gk === 2 || gk === 4) {
+      // The pillar spends itself on one hit — and a crystal a rock found the
+      // flaw in shatters rather than bounce it. Tear the visual down too.
       if (e) S.eGuard = 0
       else S.guard = 0
-      barrier(tx, GY - 70, ICE, 0)
+      barrier(tx, GY - 70, guardRune(gk), 0)
     } else if (gk === 3) {
       // The bubble cracks on its first hit and pops on its last.
       const left = (e ? S.eGuardHits : S.guardHits) - 1
@@ -549,7 +652,14 @@ const strike = (s: Shot, e: boolean): void => {
         barrier(tx, GY - 70, WATER, 0)
       } else barrier(tx, GY - 70, WATER, e ? S.eGuard : S.guard, 1)
     }
-    return
+    if (!share) return
+    // …and a SMALLER part of it carries on through: its share of the damage,
+    // none of its riders (the ward still took the spell), seen as the same
+    // element arriving thinner past the ward.
+    duelTally.seep++
+    seepThrough(tx - s.dir * 58, tx, GY - 90, s.r, share, fromAbove(s.k))
+    s = { ...s, dmg: s.dmg * share, dot: 0, slow: 0, ls: 0, lg: 0 }
+    seeped = true
   }
 
   // A decoy swallows the WHOLE spell (§6.8 rule 3) — no HP, no rider, and a
@@ -563,8 +673,11 @@ const strike = (s: Shot, e: boolean): void => {
   const p = clamp(s.dmg / 40, 0.15, 1)
   // fireRain is FIRE-flavoured art, so it only fits a fire heavy. Non-fire
   // heavies get a full-power elemental impact.
-  if (s.k === 3 && s.r === FIRE) fireRain(tx, GY, p)
-  impact(tx, GY - 90, s.r, s.k === 3 ? 1 : p, s.m)
+  if (s.k === 3 && s.r === FIRE && !seeped) fireRain(tx, GY, p)
+  // A heavy lands at full power — except the share of one a ward let
+  // through, which lands as the smaller thing it is: stacked on the ward's
+  // own flash, a full heavy impact whited the screen out.
+  impact(tx, GY - 90, s.r, s.k === 3 && !seeped ? 1 : p, s.m)
   // …and it lands on the PAGE behind them (§8.29): Aurora's spells blow the
   // dust off it, Umbra's puff it back over.
   duelPageHit(tx, GY - 90, e, p)
@@ -590,6 +703,14 @@ const strike = (s: Shot, e: boolean): void => {
       }
     }
     if (s.k === 4) S.eForm = max(0, S.eForm - 0.5) // pushback disrupts casting
+    if (s.lg && s.lgT) {
+      // A lingering spell takes hold (§8.35): refreshed, never stacked — the
+      // clock restarts and the stronger of the two rates ticks on.
+      S.eLingerRate = S.eLinger > 0 ? max(S.eLingerRate, s.lg) : s.lg
+      S.eLinger = s.lgT
+      S.eLingerLook = s.lgR ?? s.r
+      duelTally.lingers++
+    }
     emit('hit')
   } else {
     // The director (§6.14b): the foe's damage is scaled to keep the two bars
@@ -601,6 +722,12 @@ const strike = (s: Shot, e: boolean): void => {
     // On the player a slow never touches her hand — a child's drawing is the
     // real skill gate (§6.7.7): it shaves her active guard instead, once.
     if (s.slow && S.guard > 0) S.guard *= 1 - (s.sp || SLOW_BASE)
+    if (s.lg && s.lgT) {
+      S.lingerRate = S.linger > 0 ? max(S.lingerRate, s.lg) : s.lg
+      S.linger = s.lgT
+      S.lingerLook = s.lgR ?? s.r
+      duelTally.lingers++
+    }
     emit('hurt')
   }
   // Moon's lifesteal (§6.7.9): the caster drinks a share of what landed.
@@ -608,7 +735,7 @@ const strike = (s: Shot, e: boolean): void => {
   // A weakness the player cannot SEE landing is a weakness they will not learn
   // to aim for, so the counter-hit says so in its own colour.
   pop(s.w ? 'weakHit' : 'hit', s.w ? '#7dffa8' : e ? '#ffd76a' : '#ff6a8a', tx, GY - 250, { n: s.dmg | 0 })
-  if (s.n > 1 && e) pop('combo', '#fff', tx, GY - 300, { n: s.n })
+  if (s.n > 1 && e && !seeped) pop('combo', '#fff', tx, GY - 300, { n: s.n })
 }
 
 const stepShots = (dt: number): void => {
@@ -661,8 +788,14 @@ export const foeRate = (): number => {
  * It multiplies at the point of USE rather than inside `foeRate`, so the rate
  * itself stays exactly the documented chain that `tests/duel/rules.ts` pins
  * and that the Time slow is measured against.
+ *
+ * THE HASTE (director.ts, owner 2026-09-23) is the other reason she forms
+ * faster: a player out-PACING her, not just out-scoring her. Both answer the
+ * same lead, so she forms at the chain × the LARGER of the two, never the
+ * product. The whole chain, and its one safety limit, is written out at
+ * `hasteRush`; `tests/duel/director.test.ts` pins it.
  */
-const foeRush = (): number => 1 + 1.6 * press()
+export const foeRush = (): number => max(1 + 1.6 * press(), hasteRush())
 
 /** Chapter 4's Crystal Ward is hers from node 3 (§6.10). */
 const crystalOk = (): boolean => S.usesMagic && (FOES[S.foe]!.sigs & 1) !== 0
@@ -685,6 +818,19 @@ const nextOf = (q: readonly number[], recipe: readonly Rune[]): Rune => {
   for (const x of q) left.splice(left.indexOf(x as Rune), 1)
   return left[0]!
 }
+/**
+ * Would an earth wall only HALVE what the player has loaded (§8.35)? Rain
+ * soaks through soil, so against a Water spell falling from above the foe
+ * does not throw her own hand away for a lone-Earth wall — she keeps
+ * building. The whole of her answer to the weak points: simple, and it only
+ * ever changes what she does against a spell that is already half through.
+ */
+const earthHalves = (): boolean => {
+  if (!S.queue.length) return false
+  const sp = spellOf(S.queue)
+  return seep(1, sp.kind, sp.lead) > 0
+}
+
 /** Half-way through a recipe she means to finish (Crystal Ward, Love). */
 const building = (q: readonly number[]): boolean =>
   q.length > 0 && q.length < MAX_RUNES &&
@@ -699,7 +845,8 @@ const think = (dt: number): void => {
   // casting, not even the panic dump.
   if (S.eFrozen > 0) return
   const lv = FOES[S.foe]!.aiTier
-  const rate = foeRate() * foeRush()
+  // HASTE.minForm is a readability limit, not a balance cap (director.ts).
+  const rate = min(1 / HASTE.minForm, foeRate() * foeRush())
   // Commit to the next rune BEFORE forming it, so the ghost in her slot shows
   // what is actually coming and the player has something to read.
   if (S.eRune < 0) S.eRune = chooseRune()
@@ -728,7 +875,7 @@ const think = (dt: number): void => {
   // A half-built attack in hand cannot become a wall, so she DUMPS it and
   // commits to EARTH — a lone EARTH is already a barrier, and `eRune` is the
   // ghost the player can see, so the panic is legible rather than magic.
-  if (threat && S.eGuard <= 0 && q.length && !holding && foeSpellOf(q).kind !== 2) {
+  if (threat && S.eGuard <= 0 && q.length && !holding && foeSpellOf(q).kind !== 2 && !earthHalves()) {
     q.length = 0
     S.eRune = EARTH
     S.eForm = max(S.eForm, 0.5)
@@ -791,7 +938,9 @@ const chooseRune = (): Rune => {
     (q.length > 0 || S.queue.length >= 1 || S.shots.some((s) => s.dir > 0))) return nextOf(q, CRYSTAL)
   // A lone EARTH already IS a barrier, so under a read threat it is the
   // fastest wall she can put up.
-  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH)) return EARTH
+  if (foe.aiTier >= 1 && S.queue.length >= 2 && S.eGuard <= 0 && !q.length && mayDraw(EARTH) && !earthHalves()) {
+    return EARTH
+  }
   // Answer pressure with defence — in chapter 5, maybe a decoy (§6.13) —
   // otherwise build toward damage.
   if (S.ehp < S.ehpMax * 0.3 && S.eGuard <= 0 && !q.length && rnd() < 0.45) {
@@ -819,6 +968,10 @@ const chooseRune = (): Rune => {
 }
 
 /* ------------------------------- update ----------------------------- */
+/** How often the continuous tells emit (a linger's motes, the haste's sparks). */
+const TELL_S = 0.16
+let tellT = 0
+
 const tick = (dt: number): void => {
   // Damage over time, applied smoothly rather than in visible chunks.
   if (S.burn > 0) {
@@ -835,6 +988,34 @@ const tick = (dt: number): void => {
     S.eBurn -= dt
     S.ehp = max(0, S.ehp - 4 * dt)
     S.eHurt = max(S.eHurt, 0.06)
+  }
+  // A LINGERING spell's ticks (§8.35). Through the director like every blow:
+  // the mercy floor and the AFK rule on the player, the trade's scales on
+  // both sides. No flinch — twenty seconds of twitching would read as a
+  // broken rig; the telegraph is the element's own afterlife, below.
+  if (S.linger > 0) {
+    const t = min(dt, S.linger)
+    S.linger -= dt
+    const was = S.hp
+    S.hp = max(mercyFloor(), S.hp - S.lingerRate * t * foeDamageScale())
+    duelTally.lingerToPlayer += was - S.hp
+  }
+  if (S.eLinger > 0) {
+    const t = min(dt, S.eLinger)
+    S.eLinger -= dt
+    const was = S.ehp
+    S.ehp = max(0, S.ehp - S.eLingerRate * t * playerDamageScale())
+    duelTally.lingerToFoe += was - S.ehp
+  }
+  // The continuous tells, a few times a second: a linger's afterlife on its
+  // victim, and the haste quickening at the foe's horn.
+  tellT += dt
+  if (tellT >= TELL_S) {
+    tellT -= TELL_S
+    if (S.linger > 0) lingerMote(AX, GY - 100, S.lingerLook)
+    if (S.eLinger > 0) lingerMote(UX, GY - 100, S.eLingerLook)
+    const h = hasteLevel()
+    if (h > 0.05) hasteSpark(hornX(true), HORN_Y, h)
   }
   // Heal over time (Nature's bloom), capped at the side's own max.
   if (S.regen > 0) {
@@ -907,6 +1088,7 @@ const finish = (won: boolean): void => {
   S.queue.length = 0
   S.equeue.length = 0
   S.regen = S.eRegen = 0
+  S.linger = S.eLinger = 0
   S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
   S.frozen = S.eFrozen = 0
   S.edraw = 0
@@ -1018,6 +1200,8 @@ export const resetDuel = (start?: DuelStart): void => {
   S.eWindup = 0
   S.queue.length = S.equeue.length = S.shots.length = S.pts.length = 0
   S.eForm = S.guard = S.eGuard = S.burn = S.eBurn = S.slow = S.eSlow = 0
+  S.linger = S.eLinger = S.lingerRate = S.eLingerRate = 0
+  duelTally.seep = duelTally.lingers = duelTally.lingerToFoe = duelTally.lingerToPlayer = 0
   S.guardHits = S.eGuardHits = 0
   S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
   S.frozen = S.eFrozen = S.freezeCd = S.eFreezeCd = 0

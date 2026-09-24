@@ -80,7 +80,10 @@ export default {
     'tempest': 'NAWAŁNICA',
     'wildSurge': 'DZIKA FALA',
     'crystalWard': 'KRYSZTAŁOWA TARCZA',
-    'frostLock': 'MROŹNY ZAMEK'
+    'frostLock': 'MROŹNY ZAMEK',
+    'wildfire': 'DZIKI OGIEŃ',
+    'frostbite': 'MROŹNE UKĄSZENIE',
+    'bramble': 'CIERNIE'
   },
 
   // {A} is the rune's nominative name, so the form noun joins it with a hyphen.
@@ -110,6 +113,7 @@ export default {
 
   'intro': {
     'draw': 'NARYSUJ RUNĘ',
+    'triangle': 'NARYSUJ TRÓJKĄT',
     'stored': 'ZAPISANO! MAKS. 3',
     'cast': 'TERAZ RZUĆ CZAR'
   },
@@ -496,6 +500,15 @@ export default {
     'trail': 'Ślad kopytek',
     'mane': 'Grzywa',
     'skin': 'Sierść'
+  },
+
+  'wardrobe': {
+    'unlock': 'Odblokuj',
+    'getIt': 'Weź',
+    'unlockAria': 'Obejrzyj film, aby odblokować: {name}',
+    'getItAria': 'Weź: {name}',
+    'noVideo': 'Film jeszcze nie jest gotowy',
+    'tryOn': 'Przymierz: {name}'
   },
 
   'place': {

@@ -332,7 +332,10 @@ describe.skipIf(!process.env.WINRATE)('the first ten duels, for a child under ni
     const table = rows.join(NL)
     console.info(`[winrate young, whole story]${NL}${table}`)
     if (process.env.WINRATE_OUT) appendFileSync(process.env.WINRATE_OUT, `young story:${NL}${table}${NL}`)
-  }, 300_000)
+    // The longest table in the file (~60 000 duels): on a machine running
+    // other work it measured 14 minutes for the whole file and timed out at
+    // five, with every number already written. A timeout is not a finding.
+  }, 1_200_000)
 })
 
 describe.skipIf(!process.env.WINRATE)('difficulty on the real duel (§7.2, the core child)', () => {

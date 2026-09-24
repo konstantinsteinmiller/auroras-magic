@@ -80,7 +80,10 @@ export default {
     'tempest': 'NOODWEER',
     'wildSurge': 'WILDE GOLF',
     'crystalWard': 'KRISTALSCHILD',
-    'frostLock': 'VORSTSLOT'
+    'frostLock': 'VORSTSLOT',
+    'wildfire': 'WILDVUUR',
+    'frostbite': 'VORSTBEET',
+    'bramble': 'DOORNRANK'
   },
 
   // A hyphen joins {A} to the form noun, so every rune (AARDE-ELFJE) stays legible.
@@ -110,6 +113,7 @@ export default {
 
   'intro': {
     'draw': 'TEKEN DE RUNE',
+    'triangle': 'TEKEN EEN DRIEHOEK',
     'stored': 'OPGESLAGEN! TOT 3',
     'cast': 'TOVER NU'
   },
@@ -495,6 +499,15 @@ export default {
     'trail': 'Hoefspoor',
     'mane': 'Manen',
     'skin': 'Vacht'
+  },
+
+  'wardrobe': {
+    'unlock': 'Ontgrendelen',
+    'getIt': 'Pakken',
+    'unlockAria': 'Kijk een video om {name} te ontgrendelen',
+    'getItAria': '{name} pakken',
+    'noVideo': 'Video nog niet klaar',
+    'tryOn': '{name} passen'
   },
 
   'place': {

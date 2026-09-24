@@ -19,7 +19,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CHAPTERS, NODES_PER_CHAPTER } from '@/game/campaign/tables'
 import { starsInChapter } from '@/game/campaign/stars'
-import { showChapter } from '@/game/map/map'
+import { showChapter, openTent } from '@/game/map/map'
 import { openOverlay } from '@/game/flow/scene'
 import { sfx } from '@/game/duel/audio'
 import { mapHud, rankInset } from '@/use/useMapHud'
@@ -30,6 +30,8 @@ import { twinGift } from '@/use/useDuelRewards'
 import { leaderboardEnabled, ensureBoard } from '@/use/useLeaderboard'
 import { S } from '@/game/duel/state'
 import GameIcon from '@/components/icons/GameIcon.vue'
+import ArtIcon from '@/components/icons/ArtIcon.vue'
+import { isRewardGated } from '@/use/useAdGate'
 import RankBadge from '@/components/atoms/RankBadge.vue'
 import FinaleCard from '@/components/story/FinaleCard.vue'
 import { wanderOnMapOpen } from '@/game/map/wanderer'
@@ -153,6 +155,12 @@ const book = (): void => {
   sfx('ui')
   openOverlay('spellbook')
 }
+/* The dressing room (owner, 2026-09-23: "there is no button to go to the
+ * dressing room from the storybook pages"). Its only door was the tent on the
+ * front page, a whole book away from the page she plays on. This is the same
+ * door — `openTent` is a tap on the tent, sound, dip and all — so it stands
+ * only while the tent does, and wears the tent's own painting as its mark. */
+const wardrobe = (): void => openTent()
 /* The Friendship Duo (chapter 10's gift): local 2P versus (§3.12). */
 const versus = (): void => {
   sfx('ui')
@@ -271,6 +279,10 @@ const twinStyle = computed(() => {
       @blur="twinHoldCancel"
       @contextmenu.prevent
     )
+      //- The movie icon, as on every rewarded button ("like always"): holding
+      //- this gift plays a video. Only where one plays at all.
+      span.ad-mark(v-if="isRewardGated" aria-hidden="true")
+        ArtIcon(kind="worldUi" id="movie-icon" fallback="video")
     button.daily(
       v-if="mapHud.daily"
       :style="dailyStyle"
@@ -294,6 +306,16 @@ const twinStyle = computed(() => {
         GameIcon.glyph(name="book")
       button.duel-plate.icon.versus(v-if="mapHud.versus" :aria-label="t('versus.play')" @click.stop="versus")
         GameIcon.glyph(name="squad")
+      //- Last in the row, so it never shoves another button when it comes and
+      //- goes; it fades (keeping its place) while a page is turning.
+      button.duel-plate.icon.wardrobe(
+        v-if="mapHud.wardrobe"
+        :class="{ away: mapHud.turning }"
+        :aria-label="t('album.dressTab')"
+        :tabindex="mapHud.turning ? -1 : undefined"
+        @click.stop="wardrobe"
+      )
+        ArtIcon.tent(kind="worldUi" id="wardrobe-tent" fallback="home")
 </template>
 
 <style scoped lang="sass">
@@ -429,6 +451,23 @@ button
   &:active
     transform: none
 
+// The Twin Gift's movie icon: a paper chip on the box's upper-right corner
+// (the button is centred on the box, 1.25 of its height), clear of the drawn
+// film strip on its lower-left panel and of the bow.
+.ad-mark
+  position: absolute
+  right: 6%
+  top: 16%
+  width: clamp(22px, 30%, 34px)
+  height: clamp(22px, 30%, 34px)
+  padding: 3px
+  box-sizing: border-box
+  border-radius: 50%
+  background: var(--am-paper-raised)
+  border: 2px solid var(--am-ink)
+  color: var(--am-ink)
+  pointer-events: none
+
 // The daily gift's tap target: invisible, over the gift the canvas draws.
 // It keeps the press-scale every other button has — the gift itself is what
 // the player sees move, and the two together read as one thing being pressed.
@@ -507,4 +546,17 @@ button
   .glyph
     width: 30px
     height: 30px
+  // The tent is a painting with its own air round it, not a solid glyph: at
+  // the glyphs' 30 px it reads a size smaller than the gear beside it.
+  .tent
+    width: 40px
+    height: 40px
+
+// The wardrobe steps aside while a leaf is in the air, like the chrome
+// pinned to the page; it keeps its slot so nothing in the row moves.
+.wardrobe
+  transition: opacity 0.18s ease, transform 0.08s ease-out
+  &.away
+    opacity: 0
+    pointer-events: none
 </style>

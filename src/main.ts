@@ -283,6 +283,24 @@ const bootstrap = async () => {
   // a replacement.
   reloadGameState()
 
+  // ─── The first screen's paintings, on the wire NOW ──────────────────────
+  //
+  // The save is readable from here on, and it says which screen the game will
+  // boot into (a fresh save: node 0's duel). With the art layer on, that
+  // screen's paintings start downloading alongside the rest of the boot
+  // (`App.vue`, the locale, the game chunk) instead of after it, so they are
+  // usually decoded before the scene mounts. `artSchedule` owns what they are;
+  // the splash (`useAssets`) waits for the confirmed set. Never awaited, never
+  // throws into the boot: a failure only means the paintings load when drawn.
+  void Promise.all([
+    import('@/game/artSchedule'),
+    import('@/game/campaign/state'),
+    import('@/use/useGameState'),
+    import('@/keys')
+  ]).then(([{ prefetchFirstScreen }, { readCampaign }, { getState }, { CAMPAIGN_KEY }]) => {
+    prefetchFirstScreen(readCampaign(getState<unknown>(CAMPAIGN_KEY, null)))
+  }).catch((e) => console.warn('[art] first-screen prefetch skipped', e))
+
   // ─── Background / close flush — critical for mobile webviews ───────────
   //
   // On the CrazyGames mobile app (and any other wrapper webview), force-close

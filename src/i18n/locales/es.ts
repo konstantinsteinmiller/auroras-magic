@@ -80,7 +80,10 @@ export default {
     'tempest': 'TEMPESTAD',
     'wildSurge': 'OLEADA SALVAJE',
     'crystalWard': 'ESCUDO DE CRISTAL',
-    'frostLock': 'SELLO DE ESCARCHA'
+    'frostLock': 'SELLO DE ESCARCHA',
+    'wildfire': 'FUEGO SALVAJE',
+    'frostbite': 'MORDISCO HELADO',
+    'bramble': 'ZARZA'
   },
 
   'spellForm': {
@@ -109,6 +112,7 @@ export default {
 
   'intro': {
     'draw': 'DIBUJA LA RUNA',
+    'triangle': 'DIBUJA UN TRIÁNGULO',
     'stored': '¡GUARDADA! HASTA 3',
     'cast': 'AHORA LÁNZALA'
   },
@@ -494,6 +498,15 @@ export default {
     'trail': 'Estela',
     'mane': 'Crin',
     'skin': 'Pelaje'
+  },
+
+  'wardrobe': {
+    'unlock': 'Desbloquear',
+    'getIt': 'Conseguir',
+    'unlockAria': 'Mira un vídeo para desbloquear {name}',
+    'getItAria': 'Conseguir {name}',
+    'noVideo': 'El vídeo aún no está listo',
+    'tryOn': 'Probarse {name}'
   },
 
   'place': {
