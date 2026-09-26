@@ -120,7 +120,8 @@ const ell = (g: G2D, x: number, y: number, rx: number, ry: number, a = 0): void 
 type Shape = (g: G2D) => void
 /** Silhouette first: every shape's line, then every fill over it, so a group
  *  reads as one outline with nothing drawn inside it. */
-const inked = (g: G2D, ink: string, shapes: readonly (readonly [Shape, string])[], w = REF_INK): void => {
+type Paint = string | CanvasGradient
+const inked = (g: G2D, ink: Paint, shapes: readonly (readonly [Shape, Paint])[], w = REF_INK): void => {
   g.lineJoin = g.lineCap = 'round'
   g.strokeStyle = ink
   g.lineWidth = w * 2 * INK_K
@@ -182,7 +183,7 @@ const hairLocks = (x: number, y: number, a: number, len: number, w: number, curl
     for (let j = 0; j <= 6; j++) {
       const f = j / 6
       const aa = a + (i & 1 ? 0.34 : -0.38) * i + (curl + i * 0.16) * f
-      const hw = w * (1 - i * 0.22) * (1 - f * f * 0.6) * 0.5
+      const hw = w * (1 - i * 0.22) * (1 - f * f * 0.85) * 0.5
       const nx = Math.sin(aa) * hw
       const ny = Math.cos(aa) * hw
       L.push(px - nx, py + ny)
@@ -210,7 +211,7 @@ const hairRef = (which: HairPart) => (g: G2D, p: RefPal): void => {
       c.quadraticCurveTo(pts[a * 2]!, pts[a * 2 + 1]!, (pts[a * 2]! + pts[b * 2]!) / 2, (pts[a * 2 + 1]! + pts[b * 2 + 1]!) / 2)
     }
     c.closePath()
-  }, (locks.length - 1 - k) & 1 ? p.streak : p.mane] as const))
+  }, p.mane] as const), HAIR_INK)
 }
 
 /* ---- the FULL mane and fringe (owner: "make the mane fuller like in the
@@ -219,11 +220,14 @@ const hairRef = (which: HairPart) => (g: G2D, p: RefPal): void => {
  * and soft locks down the neck to the withers, streaked. Same root, same
  * swing — only what hangs from it is bigger. ---- */
 type Lock = readonly [readonly number[], number, number, number]
-/** A tapered lock along a cubic centreline, as a closed path. */
+/** A tapered lock along a cubic centreline, as a closed path — SMOOTH, drawn
+ *  through the midpoints of its samples: a faceted outline was painted as a
+ *  faceted blade, and its square corners as a cut card (owner, 2026-09-26,
+ *  of the fringe: "looks weird"). */
 const lockPath = (g: G2D, c: readonly number[], w0: number, w1: number): void => {
   const L: number[] = []
   const R: number[] = []
-  const N = 12
+  const N = 28
   for (let i = 0; i <= N; i++) {
     const t = i / N
     const u = 1 - t
@@ -237,9 +241,12 @@ const lockPath = (g: G2D, c: readonly number[], w0: number, w1: number): void =>
     R.unshift(x + (dy / l) * w, y - (dx / l) * w)
   }
   const p = [...L, ...R]
+  const n = p.length / 2
+  const mx = (i: number): number => (p[(i % n) * 2]! + p[((i + 1) % n) * 2]!) / 2
+  const my = (i: number): number => (p[(i % n) * 2 + 1]! + p[((i + 1) % n) * 2 + 1]!) / 2
   g.beginPath()
-  g.moveTo(p[0]!, p[1]!)
-  for (let i = 2; i < p.length; i += 2) g.lineTo(p[i]!, p[i + 1]!)
+  g.moveTo(mx(n - 1), my(n - 1))
+  for (let i = 0; i < n; i++) g.quadraticCurveTo(p[i * 2]!, p[i * 2 + 1]!, mx(i), my(i))
   g.closePath()
 }
 /**
@@ -250,33 +257,36 @@ const lockPath = (g: G2D, c: readonly number[], w0: number, w1: number): void =>
  * `MANE_ROOT_H`, the poll. [x, y, r]
  */
 export const MANE_ROOT_H: readonly [number, number] = [-10, -20]
-const MANE_CURLS: readonly (readonly number[])[] = [
-  [-4, -26, 10], [6, -29, 9], [-15, -22, 11], [-24, -12, 11], [-29, 1, 10], [-28, 13, 9],
-  // the fall's curled tips, so its hem is lobes and not a slab — at the
-  // chest, as the mascot's is (owner: longer, it hung down behind the legs)
-  [-30, 25, 7], [-20, 28, 7.5], [-9, 25, 6],
-  // under the skull, which covers it: filled so the outline has no notch
-  [-12, 0, 16]
-]
+/**
+ * OVER THE BACK OF THE HEAD (owner, 2026-09-26, pointing at the logo: the
+ * hair should be "partially painted over the back of the head", not cut off
+ * by it). The mane is drawn after the head now, so it is only what lies ON
+ * TOP of it and falls from it: three wavy locks from the poll, just behind the
+ * near ear, down over the back of the skull and the neck to the chest. Nothing
+ * of it reaches the ear, the cheek or the crown — the fringe covers the crown.
+ */
+const MANE_CURLS: readonly (readonly number[])[] = [[-17, -27, 6.5]]
 const MANE_LOCKS: readonly Lock[] = [
-  [[-20, -6, -32, 6, -27, 16, -30, 24], 11.5, 2.6, 0],
-  [[-12, -10, -22, 2, -15, 16, -20, 26], 11.5, 2.6, 1],
-  [[-4, -8, -12, 6, -5, 16, -9, 23], 9, 2.2, 2]
+  // over the crown BEHIND the near ear, which is drawn back over it
+  // (`paintNearEar`) — the mascot's hair behind the ear
+  [[-1, -30, -10, -40, -22, -35, -30, -17], 10, 2.5, 3],
+  [[-15, -30, -32, -20, -37, 4, -26, 29], 10.5, 2.5, 0],
+  [[-13, -26, -25, -10, -29, 11, -16, 27], 10, 2.5, 1],
+  [[-12, -21, -19, -7, -18, 9, -8, 19], 8, 2, 2]
 ]
 /**
  * The hair pieces' references are SILHOUETTES only — the mass's outline in one
  * flat colour, no locks and no stripes drawn in. Every lock and stripe drawn
  * into a reference came back traced as it was drawn (bands, a fan of strands,
  * a rainbow hair band); with only the outline to follow, the painter fills it
- * with the hair of the model it is shown.
+ * with the hair of the model it is shown. (`taperedMass`, below the fringe.)
  */
-const hairMass = (g: G2D, p: RefPal, curls: readonly (readonly number[])[], locks: readonly Lock[]): void => {
-  inked(g, p.ink, [
-    ...curls.map((c) => [(x: G2D) => ell(x, c[0]!, c[1]!, c[2]!, c[2]! * 0.92), p.mane] as const),
-    ...locks.map(([c, w0, w1]) => [(x: G2D) => lockPath(x, c, w0 * 1.3, Math.max(7, w1 * 3.5)), p.mane] as const)
-  ])
-}
-const maneRef = (g: G2D, p: RefPal): void => hairMass(g, p, MANE_CURLS, MANE_LOCKS)
+/** The hair silhouettes' line: thin, as the logo's hair is drawn — the heavy
+ *  one came back traced round every painted hair piece. */
+const HAIR_INK = REF_INK * 0.5
+/** The mane's locks TAPER to curling tips, as the logo's do: blunt ends made
+ *  a flat hem, and a flat hem is painted as a wig. */
+const maneRef = (g: G2D, p: RefPal): void => taperedMass(g, p, MANE_CURLS, MANE_LOCKS)
 /**
  * THE FRINGE, IN TWO HALVES with the horn between them (owner, 2026-09-25,
  * of the portraits: "the horn is sticking out of the hair pieces … a part of
@@ -290,18 +300,34 @@ const maneRef = (g: G2D, p: RefPal): void => hairMass(g, p, MANE_CURLS, MANE_LOC
  * on the crown behind the horn and falls to the RIGHT, over the far ear's
  * root, to above the far eye.
  */
-const FORE_CURLS: readonly (readonly number[])[] = [[-8, -24, 6], [-1, -27, 7], [6, -24, 6.5], [12, -19, 5]]
+/*
+ * THE LOGO'S FRINGE (owner, 2026-09-26: "the forehead hair part looks weird",
+ * pointing at the logo). `hairMass` ends every lock blunt, at least 7 wide,
+ * and the fringe came back as two cards of hair with square notched ends.
+ * Now each half is a couple of broad locks TAPERING to a soft curling tip,
+ * as the logo paints them: the front half sweeps from the horn's root left
+ * and down over the forehead, its tip curling above the near brow; the back
+ * half falls from behind the horn to the right, past the far ear, to a tip
+ * beside the far brow.
+ */
+const FORE_CURLS: readonly (readonly number[])[] = [[8, -25, 6]]
 const FORE_LOCKS: readonly Lock[] = [
-  [[10, -22, 3, -30, -8, -29, -14, -17], 9, 2.4, 0],
-  [[8, -18, 1, -24, -6, -22, -9, -12], 7, 2, 1]
+  [[11, -24, 4, -32, -7, -27, -5, -14], 11, 2.5, 0],
+  [[10, -20, 5, -26, -1, -22, 2, -12], 7, 2, 1]
 ]
-const forelockRef = (g: G2D, p: RefPal): void => hairMass(g, p, FORE_CURLS, FORE_LOCKS)
-const BACK_CURLS: readonly (readonly number[])[] = [[5, -27, 6], [12, -27, 6], [18, -23, 5.5]]
+const BACK_CURLS: readonly (readonly number[])[] = [[12, -28, 5.5]]
 const BACK_LOCKS: readonly Lock[] = [
-  [[9, -28, 17, -30, 23, -24, 25, -15], 7, 2, 0],
-  [[11, -24, 17, -24, 21, -19, 22, -12], 6, 2, 1]
+  [[10, -28, 19, -32, 28, -24, 31, -8], 9, 2.5, 0],
+  [[12, -24, 18, -26, 23, -19, 25, -9], 6.5, 2, 1]
 ]
-const backlockRef = (g: G2D, p: RefPal): void => hairMass(g, p, BACK_CURLS, BACK_LOCKS)
+/** A hair mass whose locks taper to their tips (the mane's and the fringe's). */
+const taperedMass = (g: G2D, p: RefPal, curls: readonly (readonly number[])[], locks: readonly Lock[]): void => inked(g, p.ink, [
+  ...curls.map((c) => [(x: G2D) => ell(x, c[0]!, c[1]!, c[2]!, c[2]! * 0.92), p.mane] as const),
+  // a tip, never a cut end: a flat end of any width reads as scissored hair
+  ...locks.map(([c, w0, w1]) => [(x: G2D) => lockPath(x, c, w0 * 1.3, w1 * 0.25), p.mane] as const)
+], HAIR_INK)
+const forelockRef = (g: G2D, p: RefPal): void => taperedMass(g, p, FORE_CURLS, FORE_LOCKS)
+const backlockRef = (g: G2D, p: RefPal): void => taperedMass(g, p, BACK_CURLS, BACK_LOCKS)
 
 /* ---- horn: the rig's spiral cone, in head units ---- */
 const HC = 15.68
@@ -394,54 +420,105 @@ const earInner = (g: G2D, x: number, y: number, a: number, s: number, fill: stri
  * duelist, so she faces her opponent and not the camera (the one-eye profile
  * before it read as a ball). The near ear stands behind the forelock, the far
  * one peeks out past the horn. [x, y, angle, scale] for the ears; [cx, cy,
- * rx, ry] for the round skull and the soft muzzle that comes out of it at the
- * lower right.
+ * rx, ry] for the round skull, the jaw and the muzzle.
+ *
+ * A PONY'S MUZZLE, NOT A BUMP (owner, 2026-09-26, with a portrait of the face
+ * he wants: "super cute and fairy tale like"; ours was "dull"). The round
+ * skull with a small muzzle barely out of it was painted as a ball — a
+ * kitten's or a hamster's head. The muzzle now comes well out of the skull to
+ * the lower right, tipped down toward the chin, with a gentle dip at the
+ * bridge, and the jaw joins the two in one curve underneath — the shape of
+ * the owner's portrait, the mascot pair and the dialogue portraits alike.
  */
 const FAR_EAR = [19, -18, 0.42, 0.75] as const
 const NEAR_EAR = [-8, -20, -0.2, 1.1] as const
-const SKULL = [1, -1, 27, 25] as const
-const MUZZLE = [20, 11, 14.5, 11] as const
+const SKULL = [0, -2, 25.5, 24] as const
+/** [cx, cy, rx, ry, angle]: tipped down, so its front end is the chin's. */
+const MUZZLE = [23, 9, 14, 11, 0.12] as const
+/** Under it, rising from the throat to the chin. */
+const JAW = [8, 8, 17, 13] as const
+/** Where the mouth sits on the muzzle, every mood's. */
+const MOUTH = [28.1, 15.4] as const
 
 /**
  * Both eyes, the near one big, the far one narrower toward the muzzle, both
  * looking to the right (`LOOK`). [x, y, rx, ry].
  */
-const EYES: readonly (readonly [number, number, number, number])[] = [[2, -1, 7, 9.2], [20, -2, 4.6, 8.4]]
-/** How far the pupils sit toward the opponent, in eye radii. */
-const LOOK = 0.3
+// Where the painted head (2026-09-26, edited from the owner's portrait) has
+// them, measured off its sliced frame: the recolour's feature mask follows
+// these, so they must follow the painting.
+const EYES: readonly (readonly [number, number, number, number])[] = [[12, 1.2, 4.4, 4.9], [28, -0.4, 2.4, 4.6]]
+/** How far the iris sits toward the opponent, in eye radii. */
+const LOOK = 0.24
+/**
+ * The owner's portrait's eye, as a stand-in: a white showing on the side away
+ * from the opponent, a tall iris darkening toward the top, a big catch-light
+ * and a small one, and a heavy soft lash line over the top that flicks out
+ * into lashes at the OUTER corner — the near eye's left, the far eye's right.
+ * The first stand-in's eye (one flat violet disc, a thin rim) came back
+ * painted exactly as drawn.
+ */
 const openEye = (g: G2D, p: RefPal): void => {
-  for (const [x, y, rx, ry] of EYES) {
+  EYES.forEach(([x, y, rx, ry], i) => {
     ell(g, x, y, rx, ry)
-    g.fillStyle = p.eye
+    g.fillStyle = '#fffaf6'
     g.fill()
     g.save()
     ell(g, x, y, rx, ry)
     g.clip()
-    ell(g, x, y + 6, rx, ry * 0.55)
-    g.fillStyle = p.eyeLo
+    const ix = x + rx * LOOK
+    const irx = rx * 0.8
+    const iry = ry * 0.88
+    const iris = g.createLinearGradient(0, y - iry, 0, y + iry)
+    iris.addColorStop(0, '#2e1c40')
+    iris.addColorStop(0.45, p.eye)
+    iris.addColorStop(1, p.eyeLo)
+    ell(g, ix, y + ry * 0.06, irx, iry)
+    g.fillStyle = iris
     g.fill()
-    ell(g, x + rx * LOOK, y + 0.4, rx * 0.5, ry * 0.5)
+    ell(g, ix + irx * 0.06, y, irx * 0.46, iry * 0.48)
     g.fillStyle = '#261630'
     g.fill()
+    ell(g, ix, y + ry * 0.06, irx, iry)
+    g.strokeStyle = mixHex(p.eye, '#1a0f24', 0.5)
+    g.lineWidth = 0.9
+    g.stroke()
+    // a soft glow in the bottom of the iris
+    soft(g, 1)
+    ell(g, ix - irx * 0.1, y + iry * 0.55, irx * 0.6, iry * 0.28)
+    g.fillStyle = mixHex(p.eyeLo, '#ffffff', 0.35, 0.8)
+    g.fill()
+    g.filter = 'none'
     g.restore()
-    ell(g, x + rx * (LOOK + 0.25), y - ry * 0.36, rx * 0.4, ry * 0.34)
+    ell(g, ix + irx * 0.32, y - ry * 0.36, irx * 0.38, iry * 0.27)
     g.fillStyle = '#fff'
     g.fill()
-    ell(g, x - rx * 0.4, y + ry * 0.5, rx * 0.2, rx * 0.2)
+    ell(g, ix - irx * 0.36, y + ry * 0.42, irx * 0.17, irx * 0.17)
     g.fill()
+    // The lash line over the top, heavier toward the outer corner, and two
+    // lashes flicking out of that corner.
+    const outer = i === 0 ? -1 : 1
     g.strokeStyle = p.ink
-    g.lineWidth = 2.4
+    g.lineWidth = 1.8
     g.beginPath()
-    g.ellipse(x, y, rx + 0.4, ry + 0.4, 0, PI + 0.45, -0.35)
+    g.ellipse(x, y, rx + 0.2, ry + 0.2, 0, PI + 0.3, -0.3)
     g.stroke()
-  }
-  // a lash flick at each eye's outer corner
-  g.beginPath()
-  g.moveTo(-4.2, -6)
-  g.lineTo(-7, -8.6)
-  g.moveTo(24.2, -6.5)
-  g.lineTo(26, -8.8)
-  g.stroke()
+    g.lineWidth = 2.6
+    g.beginPath()
+    if (outer < 0) g.ellipse(x, y, rx + 0.3, ry + 0.3, 0, PI + 0.3, PI + 0.9)
+    else g.ellipse(x, y, rx + 0.3, ry + 0.3, 0, -0.9, -0.3)
+    g.stroke()
+    g.lineWidth = 1.5
+    g.beginPath()
+    for (const t of [0.4, 0.85]) {
+      const a = outer < 0 ? PI + t : -t
+      const px = x + (rx + 0.6) * Math.cos(a)
+      const py = y + (ry + 0.6) * Math.sin(a)
+      g.moveTo(px, py)
+      g.quadraticCurveTo(px + Math.cos(a) * 1.6 + outer, py + Math.sin(a) * 1.6 - 0.4, px + Math.cos(a) * 2.6 + outer * 2.2, py + Math.sin(a) * 2.6 - 1.4)
+    }
+    g.stroke()
+  })
 }
 /** Both eyes shut along an arc: `up` for a happy crescent, else a calm lid. */
 const shutEyes = (g: G2D, up: boolean): void => {
@@ -453,12 +530,20 @@ const shutEyes = (g: G2D, up: boolean): void => {
   }
 }
 
+/** The blushes, [x, y, rx, ry]; the nostril, [x, y]; the brow tufts,
+ *  [x, y, rx, ry, angle]. Shared with the recolour's feature mask. */
+const NEAR_BLUSH = [10.3, 8.6, 4.9, 2.5] as const
+const FAR_BLUSH = [31.7, 4.5, 1.6, 1.4] as const
+const NOSTRIL = [29.3, 9] as const
+const BROWS: readonly (readonly [number, number, number, number, number])[] = [[12, -10.3, 3, 1.2, -0.1], [28, -11.1, 2, 1, 0.2]]
+
 /** A small closed mouth, gentle and calm: neither a smile nor a pout. */
 const flatMouth = (g: G2D): void => {
+  const [mx, my] = MOUTH
   g.beginPath()
-  g.moveTo(20.5, 18.6)
-  g.quadraticCurveTo(23.5, 19.6, 26.5, 18.4)
-  g.lineWidth = 1.8
+  g.moveTo(mx - 3.4, my - 0.2)
+  g.quadraticCurveTo(mx - 0.2, my + 0.8, mx + 3, my - 0.4)
+  g.lineWidth = 1.4
   g.stroke()
 }
 
@@ -467,24 +552,29 @@ const flatMouth = (g: G2D): void => {
  *  blush — neither a smile nor a pout. */
 const faceRef = (g: G2D, p: RefPal, f: number): void => {
   g.lineJoin = g.lineCap = 'round'
+  const [mx, my] = MOUTH
   // A soft blush on both cheeks, as the intro paints it — light at rest.
-  g.globalAlpha = f === FACE.cheer ? 0.75 : 0.35
-  ell(g, -6, 10, 6.2, 3.6)
+  g.globalAlpha = f === FACE.cheer ? 0.85 : 0.55
+  soft(g, 1.8)
+  ell(g, ...NEAR_BLUSH)
   g.fillStyle = p.blush
   g.fill()
-  ell(g, 27.5, 6, 2.6, 2.2)
+  ell(g, ...FAR_BLUSH)
   g.fill()
+  g.filter = 'none'
   g.globalAlpha = 0.7
-  ell(g, 31.5, 8.5, 1.1, 1.5)
+  ell(g, NOSTRIL[0], NOSTRIL[1], 1.1, 1.8, 0.5)
   g.fillStyle = p.ink
   g.fill()
-  // The intro's two little brow marks.
-  g.globalAlpha = 0.5
-  ell(g, 1, -14, 2.8, 1.4, -0.15)
-  g.fillStyle = p.shade
-  g.fill()
-  ell(g, 20, -14, 2, 1.2, 0.2)
-  g.fill()
+  // The owner's portrait's little brow tufts.
+  g.globalAlpha = 0.45
+  g.fillStyle = mixHex(p.shade, p.blush, 0.45)
+  soft(g, 0.6)
+  for (const b of BROWS) {
+    ell(g, ...b)
+    g.fill()
+  }
+  g.filter = 'none'
   g.globalAlpha = 1
   g.strokeStyle = p.ink
   const line = (w: number): void => { g.lineWidth = w; g.stroke() }
@@ -499,8 +589,8 @@ const faceRef = (g: G2D, p: RefPal, f: number): void => {
     g.lineWidth = 2.6
     shutEyes(g, true)
     g.beginPath()
-    g.moveTo(18.5, 15.5)
-    g.quadraticCurveTo(23, 25.5, 28, 15)
+    g.moveTo(mx - 5, my - 3)
+    g.quadraticCurveTo(mx - 0.5, my + 5.5, mx + 4.5, my - 3.5)
     g.closePath()
     g.fillStyle = p.mouth
     g.fill()
@@ -513,7 +603,7 @@ const faceRef = (g: G2D, p: RefPal, f: number): void => {
       g.lineTo(x - rx * 0.7, y + 5)
       line(2.6)
     }
-    ell(g, 23.5, 18.5, 2.6, 2.2)
+    ell(g, mx, my, 2.6, 2.2)
     g.fillStyle = p.mouth
     g.fill()
     line(1.4)
@@ -532,26 +622,89 @@ const faceRef = (g: G2D, p: RefPal, f: number): void => {
       line(1.8)
     }
     g.beginPath()
-    g.arc(23.5, 21.5, 3.4, PI + 0.6, -0.6)
+    g.arc(mx, my + 2.4, 3.4, PI + 0.6, -0.6)
     line(1.8)
   }
 }
 
+/** `#rgb`/`#rrggbb` as [r, g, b]. */
+const rgbOf = (c: string): number[] => {
+  const h = c.replace('#', '')
+  const x = h.length === 3 ? h.split('').map((d) => d + d).join('') : h
+  return [0, 2, 4].map((i) => parseInt(x.slice(i, i + 2), 16))
+}
+/** `a` taken `t` of the way to `b`, with alpha `al`. */
+const mixHex = (a: string, b: string, t: number, al = 1): string => {
+  const A = rgbOf(a)
+  const B = rgbOf(b)
+  return `rgba(${A.map((v, i) => Math.round(v + (B[i]! - v) * t)).join(',')},${al})`
+}
+/** Soften what is drawn next by `u` units (the canvas is scaled per sheet). */
+const soft = (g: G2D, u: number): void => {
+  if (typeof g.getTransform !== 'function') return
+  const t = g.getTransform()
+  g.filter = `blur(${Math.max(0.3, u * Math.hypot(t.a, t.b)).toFixed(2)}px)`
+}
+
+/** The head's silhouette — skull, jaw and muzzle — for a clip or a fill. */
+const headMass: Shape = (c) => {
+  c.beginPath()
+  c.ellipse(SKULL[0], SKULL[1], SKULL[2], SKULL[3], 0, 0, TAU)
+  c.moveTo(JAW[0] + JAW[2], JAW[1])
+  c.ellipse(JAW[0], JAW[1], JAW[2], JAW[3], 0, 0, TAU)
+  c.moveTo(MUZZLE[0] + MUZZLE[2] * Math.cos(MUZZLE[4]), MUZZLE[1] + MUZZLE[2] * Math.sin(MUZZLE[4]))
+  c.ellipse(MUZZLE[0], MUZZLE[1], MUZZLE[2], MUZZLE[3], MUZZLE[4], 0, TAU)
+}
+/** The head's line is lighter than the other pieces': a heavy even ring round
+ *  a flat ball is what the first painting of it traced. */
+const HEAD_INK = REF_INK * 0.6
+
+/**
+ * A PAINTED STAND-IN (owner, 2026-09-26). Two strips in a row came back as
+ * near-exact traces of the flat stand-in — however the brief pleaded — so
+ * the stand-in itself carries the finish now: a warm key light from the top
+ * left, a soft form shadow round the jaw and down the far side, a lit muzzle,
+ * soft blushes, and a line that fades on the lit edge and darkens in the
+ * shadow. A trace of this is already soft; a painting from it softer still.
+ */
 const headRef = (g: G2D, p: RefPal, f: number): void => {
-  inked(g, p.ink, [[earPath(...FAR_EAR), p.shade]])
+  const lit = mixHex(p.coat, '#ffffff', 0.5)
+  const coat = g.createRadialGradient(-10, -16, 3, -2, -6, 50)
+  coat.addColorStop(0, lit)
+  coat.addColorStop(0.55, p.coat)
+  coat.addColorStop(1, mixHex(p.coat, p.shade, 0.75))
+  const ink = g.createLinearGradient(-24, -34, 30, 26)
+  ink.addColorStop(0, mixHex(p.ink, p.blush, 0.5))
+  ink.addColorStop(0.45, mixHex(p.ink, p.blush, 0.18))
+  ink.addColorStop(1, p.ink)
+  inked(g, ink, [[earPath(...FAR_EAR), mixHex(p.coat, p.shade, 0.6)]], HEAD_INK)
   earInner(g, ...FAR_EAR, p.earIn)
-  inked(g, p.ink, [
-    [(c) => ell(c, MUZZLE[0], MUZZLE[1], MUZZLE[2], MUZZLE[3]), p.coat],
-    [(c) => ell(c, SKULL[0], SKULL[1], SKULL[2], SKULL[3]), p.coat],
-    [earPath(...NEAR_EAR), p.coat]
-  ])
+  inked(g, ink, [
+    [(c) => ell(c, ...MUZZLE), coat],
+    [(c) => ell(c, ...JAW), coat],
+    [(c) => ell(c, ...SKULL), coat],
+    [earPath(...NEAR_EAR), coat]
+  ], HEAD_INK)
   earInner(g, ...NEAR_EAR, p.earIn)
-  shadeIn(g, (c) => {
-    c.beginPath()
-    c.ellipse(SKULL[0], SKULL[1], SKULL[2], SKULL[3], 0, 0, TAU)
-    c.moveTo(MUZZLE[0] + MUZZLE[2], MUZZLE[1])
-    c.ellipse(MUZZLE[0], MUZZLE[1], MUZZLE[2], MUZZLE[3], 0, 0, TAU)
-  }, p.shade, (c) => ell(c, -6, 28, 34, 12), 0.4)
+  g.save()
+  headMass(g)
+  g.clip()
+  // The form shadow: everything outside the lit part of the head, softened.
+  soft(g, 3.2)
+  g.beginPath()
+  g.rect(-70, -70, 150, 130)
+  g.ellipse(-1, -9, 33, 28, -0.1, 0, TAU, true)
+  g.fillStyle = mixHex(p.shade, p.blush, 0.22, 0.6)
+  g.fill()
+  // Light on the muzzle's top and on the brow.
+  soft(g, 2.4)
+  ell(g, 27, 3.5, 8, 3.6, 0.15)
+  g.fillStyle = mixHex(lit, '#ffffff', 0.3, 0.7)
+  g.fill()
+  ell(g, -6, -14, 11, 6, -0.3)
+  g.fillStyle = mixHex(lit, '#ffffff', 0.3, 0.55)
+  g.fill()
+  g.restore()
   faceRef(g, p, f)
 }
 
@@ -724,13 +877,13 @@ const faceFeatures = (g: G2D): void => {
     ell(g, x, y, rx + 2.5, ry + 2.5)
     g.fill()
   }
-  ell(g, -6, 10, 9.5, 6)
+  ell(g, NEAR_BLUSH[0], NEAR_BLUSH[1], NEAR_BLUSH[2] + 3.3, NEAR_BLUSH[3] + 2.4)
   g.fill()
-  ell(g, 27.5, 6, 4.5, 4)
+  ell(g, FAR_BLUSH[0], FAR_BLUSH[1], FAR_BLUSH[2] + 1.9, FAR_BLUSH[3] + 1.9)
   g.fill()
-  ell(g, 23.5, 19, 7.5, 5.5)
+  ell(g, MOUTH[0], MOUTH[1] + 0.5, 7.5, 5.5)
   g.fill()
-  ell(g, 31.5, 8.5, 2.8, 3.2)
+  ell(g, NOSTRIL[0], NOSTRIL[1], 2.8, 3.2)
   g.fill()
   earInner(g, NEAR_EAR[0], NEAR_EAR[1], NEAR_EAR[2], NEAR_EAR[3] * 1.25, '#000')
   earInner(g, FAR_EAR[0], FAR_EAR[1], FAR_EAR[2], FAR_EAR[3] * 1.25, '#000')
@@ -819,6 +972,31 @@ export const paintHeadHair = (g: G2D, d: Dress, which: HairPart, turn: number, f
   g.restore()
 }
 
+/**
+ * THE NEAR EAR IN FRONT OF THE HAIR (owner, 2026-09-26: "the head hair is
+ * behind the ear, but in front of the face and body"). The ear is part of the
+ * head's painting, and the mane is drawn over the head — so the head's
+ * painting is laid once more, clipped to the near ear, after the mane. The
+ * outline is the painted ear's (measured off its frame, head units), a unit
+ * outside it so its own line comes along. Its lower edge runs ACROSS the
+ * ear's base, rising toward the back: below it is skull, and a clip reaching
+ * there laid a patch of coat over the hair with a hard edge.
+ */
+const NEAR_EAR_CLIP: readonly number[] = [
+  -5.4, -46.8, 0.9, -38.5, 2.9, -30.5, 3.3, -24.3, 2.8, -18.5, -1, -17.8, -6.2, -18.7, -10.3, -20, -13.6, -21.4,
+  -13.3, -25.1, -12.2, -30, -10.9, -35, -9.3, -39.9, -6.4, -45.7
+]
+export const paintNearEar = (g: G2D, d: Dress, frame: number, flash: Flash): void => {
+  g.save()
+  g.beginPath()
+  g.moveTo(NEAR_EAR_CLIP[0]!, NEAR_EAR_CLIP[1]!)
+  for (let i = 2; i < NEAR_EAR_CLIP.length; i += 2) g.lineTo(NEAR_EAR_CLIP[i]!, NEAR_EAR_CLIP[i + 1]!)
+  g.closePath()
+  g.clip()
+  paintPart(g, d, 'head', frame, false, flash)
+  g.restore()
+}
+
 /** The rest angle a hair mass's swing is measured from. */
 export const hairRest = (which: HairPart): number => HAIR_REF[which][2]
 
@@ -847,9 +1025,11 @@ const LEG_OVERLAP = 0.35
  *  strokes 8.4 wider than the bone). */
 export const LEG_PAD = 2.6
 /** The leg's and the hoof's outline, in rig units: the painted pieces' soft
- *  line (as wide as the head's and the body's own), not the vector rig's
- *  heavy one. */
-const LEG_LINE = 1.6
+ *  line, as wide as the painted head's (owner, 2026-09-26: the body should
+ *  match the new face — its line is ~0.6 head units, ~1 rig unit), and laid
+ *  at `LEG_LINE_ALPHA` so the plum reads warm on the coat, as the head's does. */
+const LEG_LINE = 1
+const LEG_LINE_ALPHA = 0.8
 /** How much wider than the outline the painting is laid, so the painting's
  *  own edge line falls OUTSIDE the clip and only its paint shows. */
 const LEG_OVERPAINT = 3.5
@@ -1114,7 +1294,10 @@ export const paintLeg = (g: G2D, d: Dress, Q: readonly number[], hw: readonly nu
   g.lineCap = 'round'
   g.lineWidth = LEG_LINE
   g.strokeStyle = ink
+  const a0 = g.globalAlpha
+  g.globalAlpha = a0 * LEG_LINE_ALPHA
   g.stroke()
+  g.globalAlpha = a0
   g.lineCap = 'butt'
 }
 
@@ -1141,5 +1324,8 @@ export const paintHoof = (g: G2D, d: Dress, pts: readonly number[], dx: number, 
   g.lineJoin = 'round'
   g.lineWidth = LEG_LINE
   g.strokeStyle = ink
+  const a0 = g.globalAlpha
+  g.globalAlpha = a0 * LEG_LINE_ALPHA
   g.stroke()
+  g.globalAlpha = a0
 }

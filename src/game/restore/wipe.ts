@@ -8,7 +8,9 @@
  *   pots    three paint pots; tap one, or pot 1 is picked after 4 s (§8.7)
  *   paint   the paint flies to the landmark and splashes (600 ms)
  *   zoom    the camera settles and locks (400 ms, §3.2.2 step 9)
- *   wipe    the brush clears dust; a chime rings every 10 % (§8.5)
+ *   wipe    the brush clears dust; a chime rings every 10 % (§8.5); 10 s in
+ *           and past 75 %, the leftover wisps dissolve by themselves (the
+ *           invisible helper, owner 2026-09-26)
  *   freeze  ≥ 85 % and 1.5 s idle, or every cell clean → input freezes (550 ms)
  *   wave    the reveal wave rolls out from the last touch point (420 ms)
  *   admire  the sector is alive — the windmill turns, smoke curls up — and
@@ -42,7 +44,7 @@ import { hasBit, setBit, getPaintPick, setPaintPick } from '@/game/campaign/bits
 import {
   SEC_W, SEC_H, CELLS, COMPLETE_AT, createCoverage, stamp as account, stampRect, coverage01, doneCount,
   cellAt, cellCover, clearAll, packCoverage, unpackCoverage, packHalf, unpackHalf, FIRST_PASS_CLEAR, cellRect, CELL,
-  FAINT_AT, STOPPED_AT, lookAt, looksDone, finishProgress
+  GRID_W, FAINT_AT, STOPPED_AT, lookAt, looksDone, finishProgress, HELP_FROM, HELP_R, HELP_CORE, helpCells
 } from '@/game/restore/mask'
 import { Brush, brushSize } from '@/game/restore/brush'
 import { Eraser, eraserSize } from '@/game/restore/eraser'
@@ -112,6 +114,20 @@ export const T_FREEZE = 0.55
 export const T_WAVE = 0.42
 /** Coverage is checked this often, not every frame (§9.3). */
 export const T_CHECK = 0.25
+/**
+ * The invisible helper (owner, 2026-09-26; `mask.ts` has the why). This long
+ * after the child's first touch, with more than `HELP_FROM` of the sector
+ * clear, the dust still holding the finish back dissolves by itself: each
+ * coverage check picks cells holding about `HELP_BUDGET` samples of visible
+ * dust (at most `HELP_MAX` cells), and each thins away over `T_HELP_FADE`.
+ * That is ~80 samples a second — a dozen stray specks at once, or a solid
+ * cell and a bit — so a stuck child's leftover wisps are gone in a second or
+ * two, while a sector with a whole patch still showing stays mostly theirs.
+ */
+export const T_HELP_AFTER = 10
+const HELP_BUDGET = 20
+const HELP_MAX = 12
+const T_HELP_FADE = 0.6
 /** How long the restored sector plays before "continue" is offered. */
 export const T_ADMIRE = 1.2
 /** …and when it goes back to the map on its own (§3.2.2 step 13). */
@@ -207,6 +223,16 @@ let forcedReveal = false
  *  idle grace. */
 let graceNow = false
 let graceStopped = false
+/** The invisible helper: seconds of wipe since the child's first touch; each
+ *  cell's dissolve age, s (-1 = not dissolving); how many cells are
+ *  dissolving; how many it has dissolved this visit. */
+let helpClock = 0
+const helpAge = new Float32Array(CELLS).fill(-1)
+let helpBusy = 0
+let helpDone = 0
+const HELP_PICK = new Int32Array(HELP_MAX)
+/** The dissolve's own cone stamp, baked on first use and kept. */
+let helpStampCv: HTMLCanvasElement | null = null
 
 /** Last touch point, CSS px — where the tool floats to and the wave starts. */
 let touchX = 0
@@ -516,6 +542,8 @@ export const beginRestore = (n: number, done: (why: RestoreEnd) => void): void =
   reached85 = -1
   manual100 = forcedReveal = false
   graceNow = graceStopped = false
+  helpClock = helpBusy = helpDone = 0
+  helpAge.fill(-1)
   giftOpenAt = -1
   const [gx, gy] = toCss(sec.giftSpot.x, sec.giftSpot.y - 60)
   touchX = toolX = lastToolX = gx
@@ -827,6 +855,8 @@ const stepEraser = (dt: number, now: number): void => {
 
 /** The coverage ladder, the save, and the ways a wipe ends (§8.6). */
 const checkCoverage = (dt: number): void => {
+  if (touched) helpClock += dt
+  stepHelp(dt)
   checkT += dt
   if (checkT >= T_CHECK) {
     checkT = 0
@@ -857,6 +887,16 @@ const checkCoverage = (dt: number): void => {
       startReveal()
       return
     }
+    // The invisible helper picks its next few cells — only while the finish
+    // is still out of reach. Once 85 % or the look is met it stops, and the
+    // usual rule takes over: rest for the grace, or brush on.
+    if (touched && helpClock >= T_HELP_AFTER && coverage > HELP_FROM && coverage < COMPLETE_AT && !graceStopped) {
+      const n = helpCells(cov, STOPPED_AT, HELP_PICK, HELP_BUDGET, isHelping)
+      for (let k = 0; k < n; k++) {
+        helpAge[HELP_PICK[k]!] = 0
+        helpBusy++
+      }
+    }
   }
   // Auto-complete, three ways (C25 + §8.6's grace):
   //   • nothing visible is left — at once, even mid-stroke, because there is
@@ -867,6 +907,39 @@ const checkCoverage = (dt: number): void => {
   //     a child who has put it down has said they think it is done, and a haze
   //     too thin to see is not worth a dead end.
   if (graceNow || ((coverage >= COMPLETE_AT || graceStopped) && idleT >= T_IDLE_GRACE)) startReveal()
+}
+
+const isHelping = (cell: number): boolean => helpAge[cell]! >= 0
+
+/**
+ * The helper's dissolve, every frame: each picked cell's dust thins linearly
+ * to nothing over `T_HELP_FADE`. A frame's stamp strength is its share of the
+ * time LEFT, so the strengths multiply out to a straight fade and the last
+ * frame takes the rest. Painted and accounted from the same numbers, like
+ * every brush stamp, but with no dwell clock: it is not the child's brush.
+ */
+const stepHelp = (dt: number): void => {
+  if (!helpBusy || !dustCv) return
+  const t0 = performance.now()
+  helpStampCv ??= bakeStamp(HELP_CORE)
+  for (let cell = 0; cell < CELLS; cell++) {
+    const age = helpAge[cell]!
+    if (age < 0) continue
+    const left = T_HELP_FADE - age
+    const a = left <= dt ? 1 : dt / left
+    const x = ((cell % GRID_W) + 0.5) * CELL
+    const y = (((cell / GRID_W) | 0) + 0.5) * CELL
+    eraseStamp(dustCv, helpStampCv, res, x, y, HELP_R, a)
+    account(cov, x, y, HELP_R, HELP_CORE, a)
+    if (a < 1) {
+      helpAge[cell] = age + dt
+      continue
+    }
+    helpAge[cell] = -1
+    helpBusy--
+    helpDone++
+  }
+  stampMs += performance.now() - t0
 }
 
 /** One stamp of the Sunbeam's band: no dwell, one pass clears (§8.4). */
@@ -1034,10 +1107,14 @@ const finishWave = (): void => {
     coveragePct: Math.round((forcedReveal ? 100 : coverageAtReveal * 100)),
     // The show-how's own strokes are not the child's.
     strokeOrSweepCount: Math.max(0, (beam ? beam.sweeps : hand()?.strokes ?? 0) - demoStrokes),
-    manualTo100: manual100,
+    // A 100 % the helper finished off is not a completionist's.
+    manualTo100: manual100 && helpDone === 0,
     // Did §8.6's graceful finish end it — the sector looked clean before the
     // arithmetic said 85 %? How often that fires is how the floors get tuned.
     graceFinish: !manual100 && !forcedReveal && coverageAtReveal < COMPLETE_AT,
+    // How many cells the invisible helper dissolved (owner, 2026-09-26): how
+    // often it steps in, and how much, is how its 10 s / 75 % gate gets tuned.
+    helperCells: helpDone,
     rescueFound: rescueByHand
   })
   // Clean first, then colour it in (owner, 2026-09-19): the pots rise now.
@@ -1932,6 +2009,9 @@ export const qaWipe = {
     const l = lookAt(cov, STOPPED_AT)
     return { now: looksDone(lookAt(cov, FAINT_AT)), stopped: looksDone(l), clean: l.clean, chunk: l.chunk }
   },
+  /** The invisible helper: seconds since the first touch, cells dissolving
+   *  now, cells dissolved this visit. */
+  helper: (): { clock: number; busy: number; done: number } => ({ clock: helpClock, busy: helpBusy, done: helpDone }),
   phase: (): RestorePhase => phase,
   perf: restorePerf,
   /** Drop sector `n`'s progress (done bit, pick, coverage) for a replay. */

@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CELLS, CELL, SEC_W, SEC_H, SUB, GRID_W, GRID_H, DONE_AT, COMPLETE_AT, falloff, createCoverage, stamp,
   coverage01, cellCover, isCellDone, doneCount, clearCell, cellAt, packCoverage, unpackCoverage,
-  FAINT_AT, STOPPED_AT, LOOKS_CLEAN_AT, lookAt, looksDone, finishProgress, type Coverage
+  FAINT_AT, STOPPED_AT, LOOKS_CLEAN_AT, lookAt, looksDone, finishProgress, HELP_R, HELP_CORE, helpCells, type Coverage
 } from '@/game/restore/mask'
 import { seeded } from '@/game/duel/util'
 
@@ -217,5 +217,137 @@ describe('the graceful finish (§8.6, owner 2026-09-20)', () => {
     for (let i = 0; i < 100; i++) lookAt(c, STOPPED_AT)
     // 100 looks — 400 s of play at one look per 250 ms — inside a frame budget.
     expect(performance.now() - t0).toBeLessThan(120)
+  })
+})
+
+describe('the invisible helper (owner, 2026-09-26)', () => {
+  const LW = GRID_W * SUB
+  /** Set the remaining dust of samples (i, j) — lattice indices — in a box. */
+  const fill = (c: Coverage, i0: number, j0: number, w: number, h: number, v: number): void => {
+    for (let j = j0; j < j0 + h; j++) for (let i = i0; i < i0 + w; i++) c.rem[j * LW + i] = v
+  }
+  /** A sector brushed over everywhere, twice: §8.4's two first passes leave
+   *  an even 45 % × 45 % ≈ 20 % haze. */
+  const hazed = (v = 0.2): Coverage => {
+    const c = createCoverage()
+    c.rem.fill(v)
+    return c
+  }
+  const cellOf = (i: number, j: number): number => Math.floor(j / SUB) * GRID_W + Math.floor(i / SUB)
+  /** What the wipe does to one picked cell, frame by frame: the cone stamp
+   *  on its centre, each frame taking its share of the fade's time LEFT
+   *  (`T_HELP_FADE` 0.6 s), so the last frame takes the rest. */
+  const dissolve = (c: Coverage, cell: number, fps = 60): void => {
+    const x = ((cell % GRID_W) + 0.5) * CELL
+    const y = (Math.floor(cell / GRID_W) + 0.5) * CELL
+    const dt = 1 / fps
+    for (let age = 0; ; age += dt) {
+      const left = 0.6 - age
+      const a = left <= dt ? 1 : dt / left
+      stamp(c, x, y, HELP_R, HELP_CORE, a)
+      if (a >= 1) return
+    }
+  }
+  /** Run the helper at the wipe's own pace (`HELP_BUDGET` 20 samples, at most
+   *  `HELP_MAX` 12 cells, per 250 ms check) until the stopped finish is met;
+   *  returns how many checks that took. */
+  const helpUntilDone = (c: Coverage): number => {
+    const out = new Int32Array(12)
+    for (let checks = 1; checks <= 400; checks++) {
+      const n = helpCells(c, STOPPED_AT, out, 20)
+      for (let k = 0; k < n; k++) dissolve(c, out[k]!)
+      if (looksDone(lookAt(c, STOPPED_AT)) || coverage01(c) >= COMPLETE_AT) return checks
+    }
+    return Infinity
+  }
+
+  it('takes an untouched cell to its corners, under the faint floor, even at 20 fps', () => {
+    for (const fps of [60, 20]) {
+      const c = createCoverage()
+      dissolve(c, cellOf(40, 20), fps)
+      for (let j = 20; j < 24; j++) for (let i = 40; i < 44; i++) expect(c.rem[j * LW + i], `${fps} fps (${i}, ${j})`).toBeLessThan(FAINT_AT)
+    }
+  })
+
+  it('takes the least dusty cell first, and a solid patch last', () => {
+    const c = hazed()
+    fill(c, 4, 4, 2, 2, 0.4) // a faint speck
+    fill(c, 40, 20, 4, 4, 1) // an untouched cell the child can plainly see
+    fill(c, 80, 40, 4, 4, 0.5) // a light cloud
+    const out = new Int32Array(3)
+    expect(helpCells(c, STOPPED_AT, out, 99)).toBe(3)
+    expect(Array.from(out)).toEqual([cellOf(4, 4), cellOf(80, 40), cellOf(40, 20)])
+  })
+
+  it('paces by the amount of dust: many specks at once, a solid cell or two', () => {
+    const c = hazed()
+    for (let k = 0; k < 30; k++) fill(c, 2 + k * 3, 30, 1, 1, 0.5)
+    fill(c, 40, 4, 12, 4, 1)
+    const out = new Int32Array(12)
+    // The specks are the lighter cells: the whole twelve go in one check…
+    expect(helpCells(c, STOPPED_AT, out, 20)).toBe(12)
+    for (let k = 0; k < 12; k++) dissolve(c, out[k]!)
+    for (let k = 0; k < 30; k++) fill(c, 2 + k * 3, 30, 1, 1, 0.2)
+    // …while solid dust fills the same budget in two cells.
+    expect(helpCells(c, STOPPED_AT, out, 20)).toBe(2)
+  })
+
+  it('leaves dust under the floor alone, and skips cells already dissolving', () => {
+    const c = hazed()
+    fill(c, 4, 4, 2, 2, 0.4)
+    fill(c, 80, 40, 4, 4, 0.5)
+    fill(c, 60, 10, 4, 4, 0.3) // under the stopped floor: already reads as gone
+    const out = new Int32Array(3)
+    expect(helpCells(c, STOPPED_AT, out, 99)).toBe(2)
+    expect(helpCells(c, STOPPED_AT, out, 99, (cell) => cell === cellOf(4, 4))).toBe(1)
+    expect(out[0]).toBe(cellOf(80, 40))
+    // Aiming at the mid-stroke finish, the faint cell counts too.
+    expect(helpCells(c, FAINT_AT, out, 99)).toBe(3)
+  })
+
+  it('goes straight for the chunk once that is all that blocks the finish', () => {
+    const c = hazed()
+    for (let k = 0; k < 20; k++) fill(c, 2 + k * 4, 2, 1, 1, 0.5) // specks the look no longer counts
+    fill(c, 48, 24, 8, 8, 0.45) // one light 2 × 2 cell cloud
+    const look = lookAt(c, STOPPED_AT)
+    expect(look.clean).toBeGreaterThan(LOOKS_CLEAN_AT)
+    expect(looksDone(look)).toBe(false)
+    const out = new Int32Array(12)
+    const n = helpCells(c, STOPPED_AT, out, 99)
+    expect(n).toBe(4)
+    const cloud = new Set([cellOf(48, 24), cellOf(52, 24), cellOf(48, 28), cellOf(52, 28)])
+    for (let k = 0; k < n; k++) expect(cloud.has(out[k]!)).toBe(true)
+  })
+
+  it('ends the owner’s dead end — a few light clouds nobody can find — within a second', () => {
+    const c = hazed()
+    fill(c, 10, 6, 6, 6, 0.45)
+    fill(c, 70, 12, 5, 6, 0.4)
+    fill(c, 30, 40, 8, 8, 0.4)
+    // Genuinely stuck: past the helper's 75 %, short of 85 %, and the look
+    // still refuses (the biggest cloud is a chunk).
+    expect(coverage01(c)).toBeGreaterThan(0.75)
+    expect(coverage01(c)).toBeLessThan(COMPLETE_AT)
+    expect(looksDone(lookAt(c, STOPPED_AT))).toBe(false)
+    expect(helpUntilDone(c)).toBeLessThanOrEqual(4)
+  })
+
+  it('clears a scatter of stray specks in a couple of seconds', () => {
+    const c = hazed()
+    for (let k = 0; k < 400; k++) fill(c, (k * 37) % LW, (k * 11) % (GRID_H * SUB), 1, 1, 0.5)
+    expect(coverage01(c)).toBeGreaterThan(0.75)
+    expect(looksDone(lookAt(c, STOPPED_AT))).toBe(false)
+    expect(helpUntilDone(c)).toBeLessThanOrEqual(12)
+  })
+
+  it('leaves a whole patch still showing mostly to the child', () => {
+    const c = hazed(0.1)
+    // Four cells' width never brushed: past 75 %, but plainly not done.
+    fill(c, 72, 0, 16, GRID_H * SUB, 0.9)
+    expect(coverage01(c)).toBeGreaterThan(0.75)
+    const checks = helpUntilDone(c)
+    expect(checks).toBeLessThan(Infinity)
+    // Over two seconds of the helper — a child still brushing gets there first.
+    expect(checks).toBeGreaterThan(8)
   })
 })

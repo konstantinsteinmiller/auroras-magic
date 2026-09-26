@@ -1870,6 +1870,107 @@ legs":**
   layout (the painter follows it); inside it the strict colour test, outside
   it the coat's shade counts as coat.
 
+**Seventh round (owner, 2026-09-26): "the newly painted rig has a somewhat
+dull looking face", with a painted unicorn portrait he calls "super cute and
+fairy tale like" — "make the face look more like the reference".** Both head
+strips were near-exact TRACES of their stand-in: an even dark ring round a
+flat cream ball, flat disc eyes, no painted light.
+
+- **The owner's portrait is the head's image 1** (`painted/model-aurora-cute`),
+  the mascot pair image 2 (the three-quarter view and each one's colours;
+  Umbra takes image 1's drawing of a face and image 2's colours). It is keyed
+  onto magenta by a hand-traced polygon: its painted line breaks too often for
+  a flood bounded by ink. **Cut it at the jaw** — the first strip painted
+  against the bust hung a neck and a chest under every head.
+- **The stand-in is a pony's head, not a ball**: the muzzle comes well out of
+  the skull, tipped down to the chin, with a jaw joining them (`MUZZLE`, `JAW`
+  in `puppet.ts`); the eyes show a white, an iris darker at the top, and lashes
+  flicking out at the outer corner; the stand-in is shaded (key light, form
+  shadow, soft blushes, a line that fades on the lit edge), so a trace of it is
+  already soft.
+- **Calm is not blank.** The style block says "a blank, neutral or vacant face
+  is a failed drawing" and the calm panel asked for neutral: a painter told both
+  splits the difference. Panel 1 is "calm, sweet and bright-eyed" now.
+- **Capitalised panel names were lettered under the heads AGAIN** ("CALM, SWEET
+  BRIGHT-EYED", "A BLINK", "OUCH", "DIZZY" — the one uncapitalised name, the
+  cheer, was not). Every panel line starts in lower case now.
+- **"Follow its outline closely … the SAME shape" is an order to trace.** Two
+  more strips came back stroke for stroke. The dialogue portraits, painted
+  from a far cruder stand-in with no such order, are the look the owner
+  wants. The slicer fits a head's size and place by itself, so the head's brief
+  takes only the stand-in's LAYOUT (skull, ears, muzzle, where each eye sits)
+  and says to draw the head the way image 1 is drawn.
+- **Two desks share one Gemini window.** Another project's desk generating at
+  the same time breaks the download step ("the image is on screen but could not
+  be downloaded"): start a job only while the other desk's `/api/state` shows
+  no `auto.current`.
+- **Words never beat it: five head strips in a row were traces**, the last two
+  under "draw it yourself" and "this is not an edit". Gemini's image model
+  RETOUCHES the last attached image. So the head that shipped is an EDIT OF THE
+  OWNER'S PORTRAIT, outside the desk: (1) the portrait (keyed, cut at the jaw)
+  → "take away all hair and the horn, the skull small and round just behind
+  the ears' bases, both ears kept exactly where they stand, mouth closed,
+  nothing below the jaw, flat magenta"; (2) blink / cheer / ouch / dizzy as
+  edits of THAT result ("change ONLY her eyes…") — each lands within a pixel
+  of the calm head; (3) Umbra = the calm head RECOLOURED (the mascot pair as
+  colour source), her four moods edited from her own calm head, so no mood
+  drifts in colour from another (she blinks often); (4) the five heads laid
+  into the stand-in's panels with one shared transform and sliced as usual.
+  The neck stub the edit left was trimmed by hand (a lineless cut is right
+  there: the head lies over the neck piece). The stand-in's eyes, blushes,
+  nostril and mouth were then moved to where the painting has them — the
+  recolour's feature mask is drawn from them (Pearl and Echo checked). Prompts,
+  intermediate heads and the scripts (`free-job.mjs`: one polite Gemini job
+  through the desk's own driver, announcing itself on 127.0.0.1:5189 so other
+  desks wait; `compose-strip.cjs`) are in `art-sheets/puppet-head-edits/`.
+  **A desk re-roll of `duelist-*-head` would trace the stand-in again** — redo
+  it this way instead.
+- **Then (owner): "the face looks better now, only the rest of the body needs
+  to match the face art style. Also the hair is cut off by the new head …
+  instead of partially painted over the back of the head like in the
+  reference logo."** The painted mane is drawn AFTER the head now (`chars.ts`;
+  worn neck items end up under it, as under real hair), and its stand-in is
+  three tapering wavy locks from the poll over the back of the skull, clear
+  of the near ear and the face (`MANE_LOCKS`). The hair pieces' model is the
+  owner's portrait WITH its mane (`painted/model-aurora-bust`, the logo's soft
+  wavy locks) and their stand-ins' line is half as heavy (`HAIR_INK`). The
+  code-drawn leg and hoof outline is the head's weight now (`LEG_LINE` 1,
+  laid at 0.8 alpha). STILL TO PAINT when the shared Gemini account's limit
+  resets: the eight hair pieces through the desk (`run-hair.sh`) and the ten
+  body pieces as restyle EDITS of their current paintings with the new head
+  as the style sample (`run-restyle.sh`, `pb-restyle-*.txt`) — both in
+  `art-sheets/puppet-head-edits/`. Until then the old curly mane lies over the
+  head in its new place and reads fine; the torso keeps its heavy line.
+- **Owner, same afternoon:** "the forehead hair part looks weird" (logo crop),
+  "make the tail match the logo style", "the back side of the head does not
+  need a bold stroke as the hair is covering it", "the head hair is behind the
+  ear, but in front of the face and body". So: every hair stand-in's lock now
+  TAPERS to a point and is drawn smooth through its samples' midpoints
+  (`lockPath`, `taperedMass`) — `hairMass`'s blunt ends and 12 straight
+  facets had been painted as cards with notched square ends; the fringe halves
+  are the logo's two sweeps; the tail keeps the rig's own shape as one flat
+  silhouette with pointier tips, on the hair model. The head paintings' outline
+  along the back of the skull was painted out (the first 14 px of each row from
+  below the ear to the jaw take the coat just inside, `unline-back.cjs`). The
+  NEAR EAR is laid again over the mane (`paintNearEar`: the head's painting
+  clipped to the ear, traced off the painted frame a half unit outside its
+  line), so the mane can rise behind it with a crown lock — a clip that
+  reached below the ear's base laid a patch of skull over the hair.
+- **Painted the same evening** on a second Google account (the first was
+  capped until 19:59): all eight hair pieces through the desk (Umbra's mane
+  re-rolled once — the first came back as stiff pointed blades), and torso,
+  neck, leg and horn for both as restyle EDITS of their own paintings with the
+  new calm head as the style sample (`run-all.sh`). The two hoof restyles were
+  REJECTED and the old hooves kept: the edit turned the hoof into a coat-
+  coloured trapezoid (the gold cuff gone). All sixteen new webps measure
+  ≤ 0.08 % magenta. Umbra's restyled torso came back a touch warmer (mauve)
+  than her head; it reads fine in the rig, so it stays.
+- Gemini traps met on the way: an edit of an edit drifts (the second reshape
+  sliced the skull off flat and floated the ears — go back to the original);
+  a `<` in a prompt makes the prompt box refuse the message three times out of
+  three; the window was found on **Flash-Lite**, which refused attachments —
+  switch it back to Flash before blaming the job.
+
 Not done, worth a look: intro pages 1–3 still show the vector rig's Aurora
 painted into them; page 4 and the mascot are the chibi.
 

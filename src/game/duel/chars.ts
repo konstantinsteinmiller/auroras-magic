@@ -59,7 +59,7 @@ import { drawItem, type ItemSpec } from '@/game/artItem'
 import { spriteFor } from '@/game/art'
 import { RIG_ART } from '@/game/artIds'
 import { STAR_ART } from '@/game/map/kitSky'
-import { puppetDress, paintPart, paintHair, paintHeadHair, paintLeg, paintHoof, hairRest, faceOf, FACE, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
+import { puppetDress, paintPart, paintHair, paintHeadHair, paintNearEar, paintLeg, paintHoof, hairRest, faceOf, FACE, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
@@ -1258,18 +1258,10 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // mane down the back of the neck, rooted at the poll, behind the head
   const ma = 2.6 - 0.25 * rear + 0.7 * nod // lying, it falls back along the neck
   const hrot = 0.28 * rear + sag * 0.3 + nod * 0.12 + br * 0.02
-  if (PAINT) {
-    // The chibi's mane is the intro's: a cloud framing the head and falling
-    // down behind the neck, so it hangs from the HEAD — in head space, turned
-    // with it and swinging about the poll. Lying, the fall swings back to
-    // rest along the neck instead of hanging through the ground.
-    g.save()
-    g.translate(hx, hy)
-    g.rotate(hrot * 0.8)
-    g.scale(HK, HK)
-    paintHeadHair(g, PAINT, 'mane', swing(2.1) * 0.3 + nod * 0.6, PF)
-    g.restore()
-  } else hair(hx - 21, hy - 4, ma, 46, 27, 2.1, -0.5, 3)
+  // The painted mane is drawn OVER the head, below (owner, 2026-09-26: "the
+  // hair is cut off by the new head … instead of partially painted over the
+  // back of the head like in the reference logo").
+  if (!PAINT) hair(hx - 21, hy - 4, ma, 46, 27, 2.1, -0.5, 3)
   if (anc && st.afterMane) {
     g.save()
     st.afterMane(g, anc)
@@ -1298,6 +1290,17 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
             : bl > 0.5 ? FACE.blink
               : FACE.neutral
     paintPart(g, PAINT, 'head', fr, false, PF)
+    // The mane lies OVER the back of the head, as the logo paints it: locks
+    // from the poll down the back of the skull and the neck, behind the near
+    // ear and clear of the face. It hangs from the head, turned a little less
+    // than it and swinging about the poll; lying, it swings back along the
+    // neck. (Anything worn at the neck is under it now, as under real hair.)
+    g.save()
+    g.rotate(-hrot * 0.2)
+    paintHeadHair(g, PAINT, 'mane', swing(2.1) * 0.3 + nod * 0.6, PF)
+    g.restore()
+    // ...and the near ear stands in front of it, as on the mascot.
+    paintNearEar(g, PAINT, fr, PF)
     // The fringe in two halves with the horn standing between them: the back
     // half over the far ear and behind the horn, the front half over its root.
     paintHair(g, PAINT, 'backlock', 12, -26, swing(2.6) * 0.12, PF)

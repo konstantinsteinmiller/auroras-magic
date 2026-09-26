@@ -5335,7 +5335,7 @@ report that a session ended some OTHER way.
 | `reward_claim` | `{sectorId, kind: 'bloom'}` | `GameScene.vue`'s Twin Gift handler, on a successful press-and-hold claim | **updated (D3)** — payload changed from the coin-era `{kind: 'double'|'consolation', coins}` shape; the Twin Gift now pays exactly one permanent cosmetic bloom per sector (50 max, ever), offered on the map right after a sector's reveal, win-only, gated by the existing 1.2s press-and-hold gate and 6-per-5-min `canOfferReward` limiter — there is no loss-side offer |
 | `ad_interstitial_shown` | `{trigger: 'win'|'loss', sinceLastMs, sessionElapsedMs}` | `GameScene.vue` `maybeShowInterstitial()`, right after `markInterstitialShown()` | **new** — this is what turns §7.8's computed 28/hour into a measured number, and is the metric D8 needs if the owner ever revisits the session cap |
 | `wipe_start` | `{sectorId, chapter, isBoss, tool, sectorAreaRvu2}` | new wipe module (`src/game/restore/`, per M16 — not yet built) | new — supporting event, not part of M7's canonical pair; kept for `coverage85AtMs`'s baseline. Field renamed `sectorAreaRvu2` (was `sectorAreaPx2`) to match §7.5's RVU convention (R-5) |
-| **`wipe_complete`** | `{sectorId, chapter, isBoss, tool, durationMs, coverage85AtMs, coveragePct, strokeOrSweepCount, manualTo100, graceFinish, rescueFound}` | same new module (`src/game/restore/`) | **canonical (M7)** — supersedes this chapter's Round-2 draft (which lacked the last three fields) and §8.13's separately-defined `restore_wipe` (retired alias, folded in here). `coverage85AtMs`: ms from wipe start to first crossing 85% (checks C25's 1.5s idle grace and this chapter's 15s/12s targets and the Sunbeam's three-shot contract). `coveragePct`: final coverage at completion (usually ≥85%, may be 100 if `manualTo100`). `manualTo100`: true if the player kept wiping past the 85% auto-complete pop to full coverage (a completionist signal, §8's to interpret). `graceFinish`: true if §8.6's graceful finish (owner, 2026-09-20) ended the wipe — the sector LOOKED clean before the arithmetic reached 85 %, so `coveragePct` may read below 85. `rescueFound`: true if §8's rescue-assist for a coarse-grid-missed spot ever triggered during this wipe (inherited from §8.13's definition; §8 owns the mechanic, this chapter only owns the event's existence and firing point). **Also the event R-5 relies on**, segmented by viewport class, to check whether real wipe durations track the reference-scale targets |
+| **`wipe_complete`** | `{sectorId, chapter, isBoss, tool, durationMs, coverage85AtMs, coveragePct, strokeOrSweepCount, manualTo100, graceFinish, helperCells, rescueFound}` | same new module (`src/game/restore/`) | **canonical (M7)** — supersedes this chapter's Round-2 draft (which lacked the last three fields) and §8.13's separately-defined `restore_wipe` (retired alias, folded in here). `coverage85AtMs`: ms from wipe start to first crossing 85% (checks C25's 1.5s idle grace and this chapter's 15s/12s targets and the Sunbeam's three-shot contract). `coveragePct`: final coverage at completion (usually ≥85%, may be 100 if `manualTo100`). `manualTo100`: true if the player kept wiping past the 85% auto-complete pop to full coverage (a completionist signal, §8's to interpret). `graceFinish`: true if §8.6's graceful finish (owner, 2026-09-20) ended the wipe — the sector LOOKED clean before the arithmetic reached 85 %, so `coveragePct` may read below 85. `helperCells`: how many 48 SU cells §8.6's invisible helper (owner, 2026-09-26) dissolved; 0 when it never stepped in, and `manualTo100` is only true at 0. `rescueFound`: true if §8's rescue-assist for a coarse-grid-missed spot ever triggered during this wipe (inherited from §8.13's definition; §8 owns the mechanic, this chapter only owns the event's existence and firing point). **Also the event R-5 relies on**, segmented by viewport class, to check whether real wipe durations track the reference-scale targets |
 | `wipe_interrupted` | `{sectorId, pctAtInterrupt, reason}` | same new module (`src/game/restore/`) — fires instead of `wipe_complete` when the restore view is left before 85% coverage (e.g. the player backs out to the map, or a platform pause/interruption per `useGamePause` ends the session there) | **new (R-14)** — `reason` is a small enum (`'left' | 'platformPause' | 'other'`); this is what tells §7.5/§8 whether the 15s/12s targets and the Sunbeam's three-shot contract are being abandoned rather than just measured slow, which `wipe_complete.durationMs` alone can't distinguish |
 
 **Explicitly out of this chapter's lane** (belongs to whichever chapter owns the
@@ -5555,6 +5555,35 @@ Speed response and sparkle density are specified per tool in §8.4. This section
 > - `wipe_complete` carries **`graceFinish`** (§12.4): the finish came from the
 >   look rather than from 85 %. How often it fires is how the two floors get
 >   tuned.
+
+> **The INVISIBLE HELPER (owner, 2026-09-26).** One dead end survived the
+> graceful finish: a few small, light clouds of dust on a background they
+> barely show against. They keep the look from passing, the arithmetic sits
+> under 85 %, and the child sees an empty picture with nothing to aim at. So:
+>
+> - **When:** **10 s** after the child's first touch in this visit, with
+>   coverage **over 75 %**, and only while neither finish is met (coverage
+>   under 85 % and the look not clean). The moment either is met the helper
+>   stops, and the rule above takes over unchanged: rest out the 1.5 s grace,
+>   or brush on.
+> - **What:** the remaining dust dissolves by itself, one 48 SU cell at a
+>   time. No tool, no sound, no sparkle. Each cell thins linearly to nothing
+>   over **0.6 s** under a cone-shaped stamp (no flat core, so it leaves no
+>   round hole in a haze), accounted in the coverage model like every brush
+>   stamp.
+> - **Which first:** cells holding dust above the stopped floor (32 %), the
+>   **least dusty first**, so stray specks and thin wisps go before a patch
+>   the child can plainly see. Once only a chunk blocks the look, the helper
+>   goes to that chunk's window.
+> - **How fast:** each 250 ms check takes cells holding ~**20 samples** of
+>   visible dust (at most 12 cells), about 80 samples a second: a dozen specks
+>   at once, a solid cell or two. A stuck child's leftover clouds are gone in
+>   about a second. A sector with a whole patch still showing stays mostly
+>   the child's to finish.
+> - `wipe_complete` carries **`helperCells`** (§7.13): how many cells the
+>   helper dissolved. How often it steps in, and how much, is how the 10 s /
+>   75 % gate gets tuned. `manualTo100` is now false whenever the helper
+>   dissolved anything.
 
 ### §8.7 Colour-me pots
 

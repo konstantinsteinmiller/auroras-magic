@@ -1534,12 +1534,20 @@ const PUPPET_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
   aurora: ['painted/portrait-aurora.png', 'painted/model-aurora-body.png'],
   umbra: ['painted/model-umbra-faces.png', 'painted/model-umbra-body.png']
 }
-/** The HEAD's models: the mascot pair (owner: the face should look like it)
- *  — the two of them facing each other, each head three-quarters with both
- *  eyes on the other — then her faces in their moods. */
+/** The HEAD's models. Image 1 is the face the owner picked (2026-09-26: our
+ *  painted head was "dull", this one "super cute and fairy tale like") —
+ *  a painted unicorn bust, keyed onto magenta offline (`model-aurora-cute`;
+ *  its sky and rainbow would come along with it otherwise). Image 2 is the
+ *  mascot pair, for the view — three-quarters, both eyes on the other — and
+ *  for each one's colours. Umbra takes image 1's DRAWING of a face and
+ *  image 2's colours.
+ *  THE SHIPPED HEADS DID NOT COME FROM THIS BRIEF: five desk strips in a row
+ *  came back as traces of the stand-in, so both heads were made as edits of
+ *  the portrait itself (art-roadmap.md, "Seventh round"). A desk re-roll of
+ *  a head will trace again — redo it that way. */
 const PUPPET_HEAD_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
-  aurora: ['painted/brand-mascot.png', 'painted/portrait-aurora.png'],
-  umbra: ['painted/brand-mascot.png', 'painted/model-umbra-body.png']
+  aurora: ['painted/model-aurora-cute.png', 'painted/brand-mascot.png'],
+  umbra: ['painted/model-aurora-cute.png', 'painted/brand-mascot.png']
 }
 /** Her hair pieces' models: the mascot's mane, seen from the side, then the
  *  owner's target crop of the intro's last page (2026-09-25) — "should be
@@ -1547,20 +1555,28 @@ const PUPPET_HEAD_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
  *  `model-umbra-faces` is the older, hooded shadow-Umbra, and her first
  *  fringe came back its pale plume. */
 const PUPPET_HAIR_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
-  aurora: ['painted/model-aurora-body.png', 'painted/model-aurora-target.png'],
-  umbra: ['painted/brand-mascot.png', 'painted/model-umbra-body.png']
+  // Owner, 2026-09-26: the body should match the new face, and the mane lie
+  // over the back of the head "like in the reference logo" — so the hair is
+  // the logo's now: the owner's portrait with its mane (`model-aurora-bust`),
+  // soft wavy locks with a thin line, where the intro's was a curly cloud.
+  aurora: ['painted/model-aurora-bust.png', 'painted/brand-mascot.png'],
+  umbra: ['painted/model-aurora-bust.png', 'painted/brand-mascot.png']
 }
 /** What each model is, as the prompt names it. */
 const PUPPET_MODEL_SAYS: Readonly<Record<string, (name: string) => string>> = {
+  'painted/model-aurora-bust.png': (n) => `${n === 'Aurora' ? 'Aurora' : "a unicorn painted exactly as Umbra's hair should be — in Aurora's colours, which are NOT Umbra's: take only how the hair is drawn and painted, and Umbra's colours from image 2"} as the storybook's logo paints her — THE HAIR TO MATCH: big, soft, WAVY locks that sweep and overlap, each lock ONE soft colour, painted with gentle light down its length and tapering to a soft curling tip; a thin, soft, warm line that thins and breaks — never a heavy dark outline, never a puffy cloud of round curls`,
+  'painted/model-aurora-cute.png': (n) => `${n === 'Aurora' ? "Aurora's face exactly as it should be painted" : "a unicorn's face painted exactly as Umbra's should be — in Aurora's colouring (cream, gold, pastel), which is NOT Umbra's: take only the drawing and the painting of the face from it, and Umbra's colours from image 2"} — THE FACE TO MATCH: the big, glossy, SHINING eyes (a tall iris that darkens toward the top and glows lighter at the bottom, one big white catch-light and a small one, a little white showing on the side away from where she looks, a soft dark lash line over the top that flicks out into two or three lashes at the outer corner); a little soft tuft of a brow over each eye; the soft rounded pony muzzle coming out to the lower right with its small curved nostril; the warm, soft painted light and shade on the cheek, under the jaw and down the muzzle; a soft warm line that thins and breaks. She laughs there with her mouth open — the moods here are this sheet's own — and her mane and horn are separate pieces, not part of this one`,
   'painted/portrait-aurora.png': (n) => `${n}'s face in several moods — her painted dialogue portraits`,
   'painted/model-aurora-target.png': (n) => `${n} as the storybook's intro paints her — THE LOOK TO MATCH: her round chibi head, her short soft muzzle and rosy cheeks, her big glossy eyes, her soft wavy pastel-striped mane (she laughs there and turns her face to us; the moods and the view here are this sheet's own)`,
   'painted/model-aurora-body.png': (n) => `${n} herself, whole and painted — the same chibi as the intro, her head turned to the side`,
   'painted/model-umbra-faces.png': (n) => `${n}'s face in several moods`,
   'painted/model-umbra-body.png': (n) => `${n} herself, whole and painted`,
-  'painted/brand-mascot.png': (n) => `Aurora (left) and Umbra (right) as the storybook's mascot paints them, facing each other — THE FACE TO MATCH, ${n === 'Aurora' ? 'hers on the left' : 'hers on the right (mirrored: this piece faces RIGHT)'}: the round head turned three-quarters toward us, BOTH big glossy eyes showing and both LOOKING AT THE OTHER ONE, a soft rounded muzzle with a little nostril, big upright pony ears, the forelock swept over the brow. They smile there; the moods here are this sheet's own`
+  'painted/brand-mascot.png': (n) => `Aurora (left) and Umbra (right) as the storybook's mascot paints them, facing each other — THE VIEW TO MATCH, and her colours, ${n === 'Aurora' ? 'hers on the left' : 'hers on the right (mirrored: this piece faces RIGHT)'}: the round head turned three-quarters toward us, BOTH big glossy eyes showing and both LOOKING AT THE OTHER ONE, a soft rounded muzzle with a little nostril, big upright pony ears, the forelock swept over the brow. They smile there; the moods here are this sheet's own`
 }
 const PUPPET_COLOUR: Readonly<Record<PuppetWho, string>> = {
-  aurora: 'Aurora: a warm, very pale cream coat; a soft butter-GOLD mane and tail with pink, mint and lilac streaks (gold is the main colour — an all-pastel mane is the wrong character); a golden spiral horn; gold hooves; a big violet eye; pink inside the ears.',
+  // The logo's hair (owner, 2026-09-26): gold AND pastel locks, each lock one
+  // colour. Gold still has to be there — two early returns dropped it.
+  aurora: 'Aurora: a warm, very pale cream coat; a mane and tail of soft butter-GOLD and pastel locks — gold, pink, lilac, mint and sky, each lock one colour, as the logo paints them (never without the gold); a golden spiral horn; gold hooves; a big violet eye; pink inside the ears.',
   umbra: 'Umbra: a soft, deep night-VIOLET coat you can read the shading in — never black, never grey; a lilac mane and tail with pale neon-cyan streaks; a violet spiral horn; violet hooves; a warm violet eye with white catch-lights; lilac inside the ears.'
 }
 /** The five faces, as the head strip's panels (`puppet.FACE`). */
@@ -1570,17 +1586,21 @@ const PUPPET_FACES: readonly string[] = [
   // smile (Aurora) and a half-lidded, blushing smirk (Umbra).
   // Owner, 2026-09-25 (fifth round): the face of the mascot pair — three
   // quarters, both eyes, both on the opponent.
-  'Panel 1 — CALM, GENTLE AND NEUTRAL, the face she wears through the whole duel — the mascot\'s face with the smile taken out: both eyes OPEN, big, glossy and friendly, each with its catch-lights and lashes, both LOOKING TO THE RIGHT at her opponent; the brows relaxed; a small CLOSED mouth, calm — no grin, no open mouth, no pout; a light blush. Sweet and attentive, NOT excited, NOT sleepy or half-lidded, NOT flirty, NO heavy blush.',
-  'Panel 2 — A BLINK: the same calm face with both eyes gently CLOSED, each lid a soft curved line with its lashes. The same small closed mouth.',
-  'Panel 3 — CHEERING (only ever shown when she WINS): both eyes squeezed shut in happy upturned arcs, the mouth open in a laugh, the cheeks flushed — the intro\'s face.',
-  'Panel 4 — OUCH (she has just been bumped): both eyes screwed shut like little ">" chevrons, the brows scrunched, a small round open mouth. Cartoon-cute: never crying, never really hurt.',
-  'Panel 5 — DIZZY (knocked over): a swirly spiral for each eye, a small wobbly mouth. Silly and cute, never sad or scary.'
+  // Owner, 2026-09-26: that calm face came back "dull" — the style block also
+  // tells the painter "a blank, neutral or vacant face is a failed drawing",
+  // and a painter told both splits the difference. Calm is bright-eyed now.
+  // No panel is NAMED in capitals: the first strip painted against this list
+  // lettered every capitalised name under its head ("A BLINK", "OUCH"...).
+  'Panel 1, the face she wears through the whole duel: calm, sweet and bright-eyed — image 1\'s face with its laugh closed. Both eyes OPEN, big, glossy and SHINING exactly as image 1 paints them — the tall iris, the big catch-light, the little white at the side, the lashes flicking out at the outer corner — both LOOKING TO THE RIGHT at her opponent; the little brow tufts relaxed; the mouth a short, soft, closed line, level or lifted a hair at the corner — relaxed and content, never a grin, never a pout or a frown; a soft blush. Calm is not blank: the life is in the eyes — attentive, gentle, alive, the sweetest face in the book at rest. Never grinning or excited, never sleepy or half-lidded, never flirty, no heavy blush.',
+  'Panel 2, a blink: the same calm face with both eyes gently closed, each lid a soft curved line with its lashes. The same short, soft, closed mouth.',
+  'Panel 3, only ever shown when she wins: both eyes squeezed shut in happy upturned arcs, the mouth open in a laugh, the cheeks flushed — image 1\'s laugh.',
+  'Panel 4, when she has just been bumped: both eyes screwed shut like little ">" chevrons, the brows scrunched, a small round open mouth. Cartoon-cute: never crying, never really hurt.',
+  'Panel 5, when she is knocked over: a swirly spiral for each eye, a small wobbly mouth. Silly and cute, never sad or scary.'
 ]
 
 const PUPPET_INFO: readonly PuppetInfo[] = PUPPET_WHO.flatMap((who): PuppetInfo[] => {
   const n = PUPPET_NAME[who]
   const gold = who === 'aurora' ? 'gold' : 'violet'
-  const locks = who === 'aurora' ? 'gold with pastel streaks' : 'lilac with neon-cyan streaks'
   return [
     {
       who, part: 'torso', piece: `${n}'s BODY`,
@@ -1596,8 +1616,8 @@ const PUPPET_INFO: readonly PuppetInfo[] = PUPPET_WHO.flatMap((who): PuppetInfo[
     },
     {
       who, part: 'head', piece: `${n}'s HEAD`,
-      blurb: `${n}'s HEAD on its own, facing RIGHT and turned three-quarters toward us exactly as the mascot pair's heads are (image 1), on the shape the reference draws: a big, ROUND head and a soft, rounded muzzle that comes out of it at the lower right with a little nostril — never a horse's long face — BOTH EYES, the near one big, the far one narrower toward the muzzle, both LOOKING TO THE RIGHT at her opponent, rosy cheeks, two little brow marks, and BOTH HER EARS standing up on top: two big pony ears — upright leaf shapes with a gently pointed tip, never round like a bear's or pointed like a cat's — the near one on the left of the crown, the far one smaller, peeking out on the right. ${who === 'aurora' ? 'Pink' : 'Lilac'} inside the ears. In five moods. WITHOUT HER MANE, HER FORELOCK AND HER HORN: those are separate pieces the game lays over this one, so between and behind the ears the head is smooth, bare coat — and that is right. THE EARS ARE NOT HAIR: they stay on this piece.`,
-      not: 'no mane, no forelock, no locks of hair, no horn, no neck, no body — but BOTH EARS'
+      blurb: `${n}'s HEAD on its own, facing RIGHT and turned three-quarters toward us exactly as image 1's face and the mascot pair's heads are (image 2), on the shape the reference draws: a big ROUND skull and a soft, rounded PONY MUZZLE that comes well out of it to the lower right — a gentle dip at the bridge, a small curved nostril, a round little chin, like image 1's — never a horse's long face, and never a round ball with a button nose, BOTH EYES, the near one big, the far one narrower toward the muzzle, both LOOKING TO THE RIGHT at her opponent, rosy cheeks, two little brow marks, and BOTH HER EARS standing up on top: two big pony ears — upright leaf shapes with a gently pointed tip, never round like a bear's or pointed like a cat's — the near one on the left of the crown, the far one smaller, peeking out on the right. ${who === 'aurora' ? 'Pink' : 'Lilac'} inside the ears. In five moods. WITHOUT HER MANE, HER FORELOCK AND HER HORN: those are separate pieces the game lays over this one, so between and behind the ears the head is smooth, bare coat — and that is right. THE EARS ARE NOT HAIR: they stay on this piece.`,
+      not: 'no mane, no forelock, no locks of hair, no horn, NO NECK, no body — but BOTH EARS. The head ends at its jaw and chin, all the way round, exactly where the reference\'s outline does'
     },
     {
       who, part: 'horn', piece: `${n}'s HORN`,
@@ -1610,7 +1630,7 @@ const PUPPET_INFO: readonly PuppetInfo[] = PUPPET_WHO.flatMap((who): PuppetInfo[
       // portraits' horn "is sticking out of the hair pieces"). Its FRONT half
       // sweeps LEFT — the first painted fringe swept right, the wrong way.
       who, part: 'forelock', piece: `the FRONT HALF of ${n}'s FRINGE`,
-      blurb: `The FRONT HALF of ${n}'s fringe on its own: a soft, fluffy tuft that sits over the root of her horn and sweeps FORWARD and to the LEFT, down over the near side of her brow — its locks start at the RIGHT, where the horn stands, and fall to the LEFT, ending in soft curls at its LEFT end — a few soft round ${who === 'aurora' ? 'curls' : 'waves'} and two soft wavy locks, each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) down its length' : 'the same clear LILAC as her mane with one pale neon-cyan streak down its length — never white or grey, never thin or wispy'}, like the fringe falling over the forehead in images 1 and 2. The size and the shape the reference draws — just the hair, floating.`,
+      blurb: `The FRONT HALF of ${n}'s fringe on its own, as image 1's fringe is painted: one broad, soft, WAVY lock that starts at the RIGHT, at the root of her horn, arches up and sweeps FORWARD and to the LEFT, falling over the near side of her forehead to a soft curling tip at its LEFT end, and a smaller lock tucked under it ending just above her near brow — each lock ${who === 'aurora' ? 'one soft pastel colour, pink and lilac, as image 1 paints them' : 'the same clear LILAC as her mane with a pale neon-cyan streak — never white or grey, never thin or wispy'}. The size and the shape the reference draws — just the hair, floating. Rounded and flowing, never a wedge, never a cut edge.`,
       hidden: 'Her horn stands up out of its right-hand side and the back half of her fringe lies behind the horn — paint only this tuft, and leave the horn out of it.',
       // Both first forelocks came back as a picture of hair in a FRAME — a
       // slab with a thick border round it.
@@ -1618,20 +1638,20 @@ const PUPPET_INFO: readonly PuppetInfo[] = PUPPET_WHO.flatMap((who): PuppetInfo[
     },
     {
       who, part: 'backlock', piece: `the BACK HALF of ${n}'s FRINGE`,
-      blurb: `The BACK HALF of ${n}'s fringe on its own — the part that lies BEHIND her horn: a few soft round ${who === 'aurora' ? 'curls' : 'waves'} on her crown and two soft wavy locks that fall from them to the RIGHT and down, over the root of her far ear, ending above her far eye, each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) down its length' : 'the same clear LILAC as her mane with one pale neon-cyan streak down its length — never white or grey, never thin or wispy'}, like the hair behind the horn in images 1 and 2. The size and the shape the reference draws — just the hair, floating.`,
+      blurb: `The BACK HALF of ${n}'s fringe on its own — the part that lies BEHIND her horn, as image 1's is painted: one broad, soft, WAVY lock that starts on her crown at the LEFT, behind the horn, and falls to the RIGHT and down, over the root of her far ear, to a soft curling tip beside her far brow, and a smaller lock inside it — each lock ${who === 'aurora' ? 'one soft pastel colour, mint and sky, as image 1 paints them' : 'the same clear LILAC as her mane with a pale neon-cyan streak — never white or grey, never thin or wispy'}. The size and the shape the reference draws — just the hair, floating. Rounded and flowing, never a wedge, never a cut edge.`,
       hidden: 'Her horn stands in front of its left-hand part, and the front half of her fringe over the horn\'s root — paint it whole all the same, as hair.',
       not: 'no head, no face, no ears, no horn — and no frame, card, slab or border round it: loose hair, soft at every edge'
     },
     {
       who, part: 'mane', piece: `${n}'s MANE`,
-      blurb: `${n}'s MANE on its own — FULL and fluffy, the intro's mane seen from the side: a crown of soft, round ${who === 'aurora' ? 'curls' : 'waves'} over the top and round the back of her head, and soft WAVY locks tumbling from it down behind her neck, each ending in a soft curl and each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) running down its own length' : 'lilac with a pale cyan or white stripe running down its own length'}, the way the silhouette lays them — exactly the kind of mane images 1 and 2 show. Real, soft, painted hair — the fullest, fluffiest piece of her. Never chunky blocks, never straight flat bands, never a hem cut off square like a wig.`,
-      hidden: 'Her round head sits over its right-hand part in play, so what the silhouette fills there is hidden — paint it as hair all the same.',
+      blurb: `${n}'s MANE on its own — the hair that lies OVER the back of her head and falls down her neck, as image 1's does: three big, soft, WAVY locks that start together at the top right (her poll, just behind her ear), sweep back and down over the back of her head and fall to her chest, each tapering to a soft curling tip, the way the silhouette lays them. ${who === 'aurora' ? 'The locks are butter-gold and soft pastel — pink, lilac, mint, sky — each lock one colour, as image 1 paints them' : 'The locks are soft lilac with pale neon-cyan streaks, as Umbra\'s hair is in image 2'}. Real, soft, painted hair with a thin, soft line. Never a puffy cloud of round curls, never chunky blocks, never straight flat bands, never a hem cut off square like a wig.`,
+      hidden: 'It lies OVER the back of her head and her neck in play, so every part of it shows — paint all of it as hair.',
       // Aurora's first painted a whole little unicorn bust into it.
       not: 'IT IS NOT A UNICORN — no head, no face, no eye, no ears, no horn, no neck, no body, no legs: just the hair, like a wig with nobody in it. If the head or horn of a unicorn appears anywhere in it, it is wrong'
     },
     {
       who, part: 'tail', piece: `${n}'s TAIL`,
-      blurb: `${n}'s TAIL on its own: the few big, soft locks of ${locks} that spring from the root at the RIGHT end and sweep back and down to the left, splayed a little from one another, the way the reference lays them. Real, soft, painted hair in the finish of her models.`,
+      blurb: `${n}'s TAIL on its own, in the hair of image 1: a few big, soft, WAVY locks that spring from the root at the RIGHT end and sweep back and down to the left, splayed a little from one another and each tapering to a soft curling tip, the way the silhouette lays them — each lock ${who === 'aurora' ? 'one soft colour, butter-gold and pastel (pink, lilac, mint, sky)' : 'soft lilac with a pale neon-cyan streak'}. Real, soft, painted hair with a thin, soft line — never a puffy cloud, never blunt ends.`,
       hidden: 'Its root, at the right end, tucks under her rump in play.',
       not: 'no body, no legs, no rump — just the tail, a soft plume of hair with nobody attached to it'
     },
@@ -1666,7 +1686,7 @@ const puppetSheet = (i: PuppetInfo): ItemSheet => {
     colour: PUPPET_COLOUR[i.who],
     noun: head ? 'head' : 'piece',
     character: head,
-    also: head ? PUPPET_HEAD_MODELS[i.who] : i.part === 'mane' || i.part === 'forelock' || i.part === 'backlock' ? PUPPET_HAIR_MODELS[i.who] : PUPPET_MODELS[i.who],
+    also: head ? PUPPET_HEAD_MODELS[i.who] : i.part === 'mane' || i.part === 'forelock' || i.part === 'backlock' || i.part === 'tail' ? PUPPET_HAIR_MODELS[i.who] : PUPPET_MODELS[i.who],
     keep: [i.piece, i.hidden ?? '', i.not].join('\u0000'),
     file: id,
     target: artTarget(kind, id)
@@ -1685,7 +1705,7 @@ export const puppetPrompt = (s: ItemSheet, fit?: Fit): string => {
   const { w, h } = itemSheetSize(s.frames)
   return [
     many
-      ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS: ${piece.toUpperCase()} ${s.frames} TIMES, ONE MOOD IN EACH, ON A FLAT MAGENTA GROUND.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings side by side, left to right, each in its own equal share of the width, on the same layout as the last attached image.\n· Exactly ${s.frames} panels, one row. The game cuts the picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT IT, so keep each head the size the reference draws it, space them evenly, keep a WIDE band of plain magenta between every neighbouring pair, and DO NOT DRAW THE DIVISIONS — no lines, boxes, frames or guides, in any colour.\n· NO WORDS ANYWHERE: do not write the moods' names — or any label, caption or number — under, over or beside the heads. The panel list below tells YOU what to paint; it is not text to letter onto the picture, and a word painted there ends up in the game.`
+      ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS: ${piece.toUpperCase()} ${s.frames} TIMES, ONE MOOD IN EACH, ON A FLAT MAGENTA GROUND.\nPAINT A NEW PICTURE — THIS IS NOT AN EDIT. Do not retouch, trace or colour in the last attached image: it is a layout diagram, drawn by a computer, of where the ${s.frames} heads go and how big they are. Paint every head fresh, by hand, the way image 1 is painted.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings side by side, left to right, each in its own equal share of the width, on the same layout as the last attached image.\n· Exactly ${s.frames} panels, one row. The game cuts the picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT IT, so keep each head the size the reference draws it, space them evenly, keep a WIDE band of plain magenta between every neighbouring pair, and DO NOT DRAW THE DIVISIONS — no lines, boxes, frames or guides, in any colour.\n· NO WORDS ANYWHERE: do not write the moods' names — or any label, caption or number — under, over or beside the heads. The panel list below tells YOU what to paint; it is not text to letter onto the picture, and a word painted there ends up in the game.`
       : `WHAT COMES BACK IS ONE PIECE OF A PAPER PUPPET — ${piece.toUpperCase()} AND NOTHING ELSE — ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding only that piece, in the middle, at the size the last attached image draws it.`,
     '',
     `THE ATTACHED IMAGES, in order: ${(s.also ?? []).map((f, i) => `${i ? 'Image' : 'image'} ${i + 1} is ${PUPPET_MODEL_SAYS[f]?.(name) ?? name}.`).join(' ')} The LAST image is the reference: the piece to paint, and its exact shape.`,
@@ -1695,11 +1715,21 @@ export const puppetPrompt = (s: ItemSheet, fit?: Fit): string => {
     `· This picture is ONLY ${piece}: ${not}. A whole unicorn, or any second piece of her, is the wrong answer however lovely it is.`,
     '',
     'THE SHAPE COMES FROM THE LAST IMAGE; THE LOOK COMES FROM IMAGES 1 AND 2.',
-    hair
-      ? '· THE LAST IMAGE IS ONLY A SILHOUETTE: the outline of the whole mass of hair, in one flat colour. Keep its overall outline, its size and where its root is. EVERYTHING INSIDE IT IS YOURS TO PAINT, and it is image 2\'s hair: soft, fluffy curls on top and soft WAVY locks that overlap and flow, each striped down its length in the pastel colours, painted with gentle light and shade. Do not paint the silhouette as one flat shape, as a fan of thin strands, as bands, or as a hair band.'
+    // THE HEAD TAKES ONLY THE STAND-IN'S LAYOUT (2026-09-26). Two head strips
+    // in a row came back as stroke-for-stroke traces of the stand-in, and
+    // "follow its outline closely … the SAME shape" is exactly an order to
+    // trace. The dialogue portraits, painted from a far cruder stand-in with
+    // no such order, came back as the look the owner wants. The slicer fits
+    // a head's size and place onto the reference by itself; the pieces laid
+    // over it need only its layout.
+    many
+      ? '· ITS SIZE, ITS PLACE AND ITS LAYOUT COME FROM THE LAST IMAGE — and nothing else: the head\'s size in its panel, the round skull, the two ears where they stand, the muzzle coming out to the lower right, each eye where it sits. That layout is all the game needs; the mane, the fringe and the horn are laid over the ears\' roots and the back of the skull. Within it, DRAW THE HEAD YOURSELF, the way image 1 is drawn — its line, its eyes, its muzzle, its painted light — and do not trace the stand-in\'s outline or copy its features.'
+      : hair
+      ? '· THE LAST IMAGE IS ONLY A SILHOUETTE: the outline of the whole mass of hair, in one flat colour. Keep its overall outline, its size and where its root is. EVERYTHING INSIDE IT IS YOURS TO PAINT, and it is image 1\'s hair: big, soft WAVY locks that overlap and flow, each one soft colour, painted with gentle light down its length, with a thin soft line. Do not paint the silhouette as one flat shape, as a puffy cloud of round curls, as a fan of thin strands, as bands, or as a hair band — and do not copy its heavy outline.'
       : '· ITS SHAPE, ITS SIZE AND ITS PLACE COME FROM THE LAST IMAGE. Follow its outline closely: the game lays the other pieces over this one exactly where the reference\'s edges are, so a piece that grows, shrinks, tilts or changes shape leaves a gap or a lump at every join.',
     `· Images 1 and 2 show ${name} whole, in other poses and from other angles. Take from them only the LOOK: the colours, the soft painted finish, the soft plum line, ${many ? 'the huge glossy eye with its catch-lights and lashes, the cute little muzzle' : 'the fluffy softness of the hair and the warm light on the coat'} — as if this piece had been painted by the same hand. The SHAPE is the reference's, and it is already her chibi shape, drawn for the duel.`,
     '· The last image is a flat computer stand-in: take its SHAPE from it and nothing else — not its flat colours, not its hard line.',
+    ...(many ? ['· ITS FACE IS A STAND-IN TOO: its eyes, blushes, brows and mouth mark only WHERE each feature goes and how big it is. Paint them the way image 1 paints them — image 1\'s eyes, big and shining, not the stand-in\'s. The last three paintings of this sheet TRACED the stand-in — its ring of a line, its ball of a head, its cartoon eyes — and were thrown away as dull.'] : []),
     ...(hidden ? [`· ${hidden}`] : []),
     `· It faces RIGHT, exactly as the reference does — the game mirrors ${name} itself, so a piece painted facing the other way is backwards in every duel.`,
     '',
@@ -1712,10 +1742,10 @@ export const puppetPrompt = (s: ItemSheet, fit?: Fit): string => {
     `WHAT IT IS: ${s.blurb}`,
     '',
     ...(many ? ['READ THE PANELS:', ...s.panels.map((p) => `· ${p}`), ''] : []),
-    `COLOUR IDENTITY (keep the hues; the exact shades are images 1 and 2's): ${s.colour}`,
+    `COLOUR IDENTITY (keep the hues; the exact shades are ${many && who === 'umbra' ? "image 2's — image 1 is Aurora's colouring, not hers" : "images 1 and 2's"}): ${s.colour}`,
     '',
     many
-      ? `THE VIEW: the head faces RIGHT and is turned three-quarters toward us, exactly as the mascot pair's heads are (image 1) and as the reference draws it: the muzzle to the lower right, BOTH eyes showing — the near one bigger — and BOTH LOOKING TO THE RIGHT, at the opponent ${name} is duelling, never out at us.`
+      ? `THE VIEW: the head faces RIGHT and is turned three-quarters toward us, exactly as image 1's face and the mascot pair's heads are (image 2) and as the reference draws it: the muzzle to the lower right, BOTH eyes showing — the near one bigger — and BOTH LOOKING TO THE RIGHT, at the opponent ${name} is duelling, never out at us.`
       : 'THE VIEW: flat and square-on from the side, exactly as the reference shows it. No three-quarter view, no perspective, no tilt.',
     '',
     s.character ? withCharacter(STYLE_ITEM) : STYLE_ITEM,
@@ -1730,18 +1760,26 @@ export const puppetPrompt = (s: ItemSheet, fit?: Fit): string => {
       ? `· COUNT THE HEADS left to right: exactly ${s.frames}, one row, evenly spaced, the same size and the same shape in every panel — only the face changes. And NO LETTERS: nothing written under or beside any head.`
       : `· ONE piece: ${piece}. Nothing else of ${name} anywhere in the picture — if there is an eye, a face, a leg or a hoof in it${s.id.endsWith('-hoof') ? " (other than this one hoof)" : ''}, it is wrong.`,
     ...(hair ? [
-      "· It is HAIR: soft, rounded locks with the same fluffy, painted finish as images 1 and 2 — no hard dark band or sticker rim round it, no stiff blades.",
+      "· It is HAIR: soft, wavy locks with image 1's painted finish and its THIN, soft line — no heavy dark outline, no sticker rim round it, no stiff blades, no puffy cloud.",
       '· COUNT THE EARS in it: ZERO. No ear, no horn, no eye, no face anywhere in the hair — where her head will sit over it, at the top right, it is still only hair.',
       // Umbra's first front fringe painted her forehead's coat into a gap in
       // the middle of it: a dark hole in the hair on every foe that wears it.
       '· Every bit inside its outline is HAIR: no patch of skin, coat or forehead showing through it, no dark hole or gap between the locks — the game lays it over her head, and whatever it paints there is what shows.'
     ] : []),
-    '· Hold it beside the reference: the SAME shape, the same size, in the same place — not the pose or the angle of images 1 and 2.',
-    '· Hold it beside images 1 and 2: the same colours and the same painted finish.',
+    many
+      ? '· Hold it beside the reference: the same size and place, the ears where its ears are, the muzzle where its muzzle is — and NOT a copy of its lines. If yours laid over the stand-in would match it stroke for stroke — the same even ring, the same flat eyes — you traced it: paint it again from image 1.'
+      : '· Hold it beside the reference: the SAME shape, the same size, in the same place — not the pose or the angle of images 1 and 2.',
+    many && who === 'umbra'
+      ? '· Hold it beside images 1 and 2: image 1\'s painted finish and face, image 2\'s colours — Umbra\'s violet coat, never Aurora\'s cream.'
+      : '· Hold it beside images 1 and 2: the same colours and the same painted finish.',
+    ...(many ? ['· Put panel 1 beside image 1\'s face: the same big shining eyes with their lashes and catch-lights, the same soft painted light and shade on the cheek, the jaw and the muzzle, the same soft warm line that thins and breaks. If it looks like a flat sticker of a ball with a face drawn on, it is wrong.'] : []),
     ...(many ? [
       '· COUNT THE EARS: TWO on every head — the near one upright, the far one peeking out behind it — each a pony ear with a soft point. A head with no ears, or with round bear ears, is unusable.',
       '· COUNT THE EYES: TWO per head, the near one bigger, and in panel 1 both pupils sit toward the RIGHT side of the eye — she looks at her opponent. Eyes looking out at us are wrong.',
       '· NO HAIR and NO HORN on any head: between and behind the ears is smooth coat. Count the horns in the whole picture: zero.',
+      // The first strip painted against the bust (`model-aurora-cute`) hung
+      // a neck and a chest under every head.
+      '· COUNT THE NECKS: zero. Under each head\'s jaw is magenta — no neck, no throat, no chest, no bust cut off at the bottom. The neck is a separate piece the game lays under this one.',
       '· Panel 1 is CALM: both eyes open and looking right, the mouth small and closed — no grin, no open mouth, no heavy blush, no half-closed eyelid. Cover the other four: it must read as sweet and quietly neutral.'
     ] : []),
     '· Nothing under it or around it: no shadow, no glow, no smudge on the magenta — and NO WHITE OR PALE BORDER round its outline (that is the sticker look): the magenta meets the plum line directly.',
