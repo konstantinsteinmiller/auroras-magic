@@ -35,7 +35,14 @@ export default {
     'pearl': 'パール',
     'echo': 'エコー',
     'nova': 'ノヴァ',
-    'shadow': 'かげ'
+    'marina': 'マリーナ',
+    'misty': 'ミスティ',
+    'opal': 'オパール',
+    'lila': 'リラ',
+    'rosie': 'ロージー',
+    'sunny': 'サニー',
+    'neva': 'ネヴァ',
+    'stella': 'ステラ'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'ルーンの守り手',
       'umbra': 'ほこりの姫',
-      'shadow': 'ウンブラのかげ',
+      'friend': 'ウンブラのともだち',
       'guardian': '{place}の守護者'
     },
     'aria': '{hero} 対 {foe}。まもなく対戦が始まります。'

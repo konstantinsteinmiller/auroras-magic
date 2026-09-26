@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'SCHADUW'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -486,7 +493,7 @@ export default {
     'epithet': {
       'aurora': 'Hoedster van de Runen',
       'umbra': 'De Stofprinses',
-      'shadow': 'Umbra’s Schaduw',
+      'friend': 'Umbra’s Vriendin',
       'guardian': 'Bewaakster van {place}'
     },
     'aria': '{hero} tegen {foe}. Het duel begint zo.'

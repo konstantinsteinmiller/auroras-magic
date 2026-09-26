@@ -130,7 +130,7 @@ describe('the elemental graph (§6.6)', () => {
 })
 
 describe('the foe roster (§6.10–§6.12)', () => {
-  it('holds a shadow clone and a Guardian per chapter, by position, then the two Umbras', () => {
+  it('holds a standard foe and a Guardian per chapter, by position, then the two Umbras', () => {
     expect(FOES.length).toBe(22)
     expect(FOES[20]).toMatchObject({ slug: 'umbra', hpMax: 100, element: -1, boss: false })
     // Node 0's Umbra (owner, 2026-09-24): chapter 1's shadow's rules.
@@ -138,8 +138,15 @@ describe('the foe roster (§6.10–§6.12)', () => {
     for (let c = 0; c < 10; c++) {
       expect(FOES[shadowOf(c)]!.boss).toBe(false)
       expect(FOES[guardianOf(c)]!.boss).toBe(true)
-      expect(FOES[shadowOf(c)]!.slug).toBe('shadow')
     }
+    // The standard foes (owner, 2026-09-26): Umbra in chapters 1 and 10, and
+    // between them her friends — Umbra's model, each with her own name.
+    expect(FOES[shadowOf(0)]!.slug).toBe('umbra')
+    expect(FOES[shadowOf(9)]!.slug).toBe('umbra')
+    const friends = [1, 2, 3, 4, 5, 6, 7, 8].map((c) => FOES[shadowOf(c)]!)
+    for (const f of friends) expect(f.model).toBe('umbra')
+    expect(new Set(friends.map((f) => f.slug)).size).toBe(8)
+    for (const f of friends) expect(['umbra', 'shadow']).not.toContain(f.slug)
     expect(FOES[guardianOf(0)]!.slug).toBe('briar')
     expect(FOES[guardianOf(9)]!.slug).toBe('umbra')
   })

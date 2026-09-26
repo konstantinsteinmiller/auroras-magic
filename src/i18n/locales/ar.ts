@@ -35,7 +35,14 @@ export default {
     'pearl': 'بيرل',
     'echo': 'إيكو',
     'nova': 'نوفا',
-    'shadow': 'الظل'
+    'marina': 'مارينا',
+    'misty': 'ميستي',
+    'opal': 'أوبال',
+    'lila': 'ليلا',
+    'rosie': 'روزي',
+    'sunny': 'صني',
+    'neva': 'نيفا',
+    'stella': 'ستيلا'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'حارسة الرموز',
       'umbra': 'أميرة الغبار',
-      'shadow': 'ظل أومبرا',
+      'friend': 'صديقة أومبرا',
       'guardian': 'حارسة {place}'
     },
     'aria': '{hero} في مواجهة {foe}. تبدأ المبارزة بعد قليل.'

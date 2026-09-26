@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'CÁI BÓNG'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'Người Giữ Rune',
       'umbra': 'Công Chúa Bụi',
-      'shadow': 'Bóng Của Umbra',
+      'friend': 'Bạn Của Umbra',
       'guardian': 'Người Bảo Vệ {place}'
     },
     'aria': '{hero} đối đầu {foe}. Trận đấu sắp bắt đầu.'

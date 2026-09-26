@@ -71,6 +71,8 @@ import {
 } from '@/game/preview/previewHud'
 import { SEAM_LAND, SEAM_PORT } from '@/game/preview/previewArt'
 import { warmPuppet } from '@/game/duel/puppet'
+import { warmFrames } from '@/game/duel/frameRig'
+import { frameLookOf } from '@/game/duel/chars'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 
 /* ─────────────────────────────── the timeline ──────────────────────────── */
@@ -227,7 +229,7 @@ export const campaignSpec = (n: number, runesUnlocked: number): PreviewSpec => {
   const ch = nodeChapter(n)
   // Umbra is Umbra wherever she stands — node 0 and the Festival's boss; a
   // chapter's Guardian is named for her place; everyone else is a shadow.
-  const epithet = def.slug === 'umbra' ? 'preview.epithet.umbra' : def.boss ? 'preview.epithet.guardian' : 'preview.epithet.shadow'
+  const epithet = def.slug === 'umbra' ? 'preview.epithet.umbra' : def.boss ? 'preview.epithet.guardian' : 'preview.epithet.friend'
   const chips: PreviewChip[] = []
   if (def.element >= 0) chips.push({ kind: 'weak', rune: def.element })
   if (setup.usesMagic && def.magic >= 0) chips.push({ kind: 'magic', rune: def.magic })
@@ -588,6 +590,8 @@ export const warmDuelists = (n: number): void => {
 const warmDuelistsOf = (foe: number): void => {
   warmPuppet({ ...equippedHooks() }, -1, 0)
   warmPuppet({ foe }, 1, foe)
+  // an Umbra's-friend's strip is Umbra's recoloured: baked here, not on stage
+  warmFrames(frameLookOf({ foe }, 1))
 }
 
 /**

@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'GÖLGE'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -488,7 +495,7 @@ export default {
     'epithet': {
       'aurora': 'Rünlerin Koruyucusu',
       'umbra': 'Toz Prensesi',
-      'shadow': "Umbra'nın Gölgesi",
+      'friend': "Umbra'nın Arkadaşı",
       'guardian': '{place} Koruyucusu'
     },
     'aria': '{hero} - {foe} düellosu birazdan başlıyor.'

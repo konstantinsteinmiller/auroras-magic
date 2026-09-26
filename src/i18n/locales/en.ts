@@ -45,12 +45,20 @@ export default {
     'glace': 'GLACE',
     'terra': 'TERRA',
     'prism': 'PRISM',
-    // The story's Guardians (story-spec §10.3) and the chapter's shadow clone.
+    // The story's Guardians (story-spec §10.3), and Umbra's friends — each
+    // chapter's standard foe: Umbra's model with the chapter's hair colour.
     'briar': 'BRIAR',
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'SHADOW'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   // ─── The runes (read aloud on the glyph-only slots; `{A}` in spell names) ──
@@ -590,7 +598,7 @@ export default {
     'epithet': {
       'aurora': 'Keeper of the Runes',
       'umbra': 'The Dust Princess',
-      'shadow': 'Umbra’s Shadow',
+      'friend': 'Umbra’s Friend',
       'guardian': 'Guardian of {place}'
     },
     'aria': '{hero} versus {foe}. The duel begins in a moment.'

@@ -35,7 +35,14 @@ export default {
     'pearl': 'เพิร์ล',
     'echo': 'เอคโค่',
     'nova': 'โนวา',
-    'shadow': 'เงา'
+    'marina': 'มารีน่า',
+    'misty': 'มิสตี้',
+    'opal': 'โอปอล',
+    'lila': 'ลีลา',
+    'rosie': 'โรซี่',
+    'sunny': 'ซันนี่',
+    'neva': 'เนวา',
+    'stella': 'สเตลล่า'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'ผู้ดูแลรูน',
       'umbra': 'เจ้าหญิงฝุ่น',
-      'shadow': 'เงาของอัมบร้า',
+      'friend': 'เพื่อนของอัมบร้า',
       'guardian': 'ผู้พิทักษ์แห่ง{place}'
     },
     'aria': '{hero} ปะทะ {foe} การดวลจะเริ่มในอีกสักครู่'

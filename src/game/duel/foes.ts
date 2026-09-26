@@ -3,10 +3,14 @@
  * §10.3). Rules as data, on the DUEL side: `sim.ts` reads a `FoeDef`, never a
  * campaign node (§4.8.1's boundary). `campaign/tables.ts` maps nodes to these.
  *
- * Standard nodes are Umbra's shadow clones, one tint per chapter
- * (`duelist.shadow`, one HP-bar label everywhere). Bosses are the nine
- * Guardians and, at 10-5, Umbra herself. Every foe is the same rig, recoloured
- * — zero new topology (§9.14).
+ * Standard nodes are Umbra herself (chapters 1 and 10) and, in chapters 2–9,
+ * UMBRA'S FRIENDS: her model with the chapter's hair colour and a name of her
+ * own (owner, 2026-09-26: "not cool to fight shadows of Umbra — better to
+ * fight Umbra, and variants of Umbra's model with different hair colours and
+ * other names"; they replaced the per-chapter shadow clones). Bosses are the
+ * nine Guardians and, at 10-5, Umbra herself. Every foe is the same rig,
+ * recoloured — zero new topology (§9.14); Umbra and her friends are Umbra's
+ * painted poses, a friend's hair recoloured (`frameRig.ts`).
  *
  * `element` is the weakness element: it is real from a chapter's first node,
  * so the counter is learnable before the fancy spell shows up. `magic` is the
@@ -36,8 +40,11 @@ export interface FoeDef {
   sigs: number
   pal: FoePalette
   /** A softer face (`chars.ts`): no glow round the eye and a sleepy, rounded
-   *  lid instead of the half-lidded glare. Chapter 1's shadow only. */
+   *  lid instead of the half-lidded glare. Chapter 1's Umbra only. */
   gentle?: boolean
+  /** Umbra's model with this foe's hair (`pal[3]` mane, `pal[4]` streak):
+   *  drawn as Umbra's painted poses, hair recoloured. */
+  model?: 'umbra'
 }
 
 /**
@@ -69,7 +76,7 @@ const SIGS: readonly number[] = [0, 0, 0, 0b01, 0, 0, 0, 0, 0, 0]
 /** Umbra's own look: matte black coat, violet rim, neon cyan streaks. */
 const UMBRA: FoePalette = ['#213', '#102', '#74c', '#84d', '#7ff', '#a5f', '#539', '#7ff', '#b7f', '#639']
 
-/** A shadow clone in a chapter's tint: Umbra's coat, the chapter's mane and glow. */
+/** One of Umbra's friends: Umbra's coat, the chapter's mane and glow. */
 const shade = (mane: string, streak: string, glow: string): FoePalette =>
   ['#213', '#102', glow, mane, streak, streak, '#539', streak, glow, '#639']
 
@@ -118,6 +125,7 @@ const CH: readonly (readonly [number, number])[] = [
   [-1, -1] // 10 Friendship Festival — Umbra, exempt
 ]
 
+/** Each chapter's standard foe's hair [mane, streak, glow] (the friends'). */
 const SHADOW_TINT: readonly (readonly [string, string, string])[] = [
   ['#a08ff0', '#ece6ff', '#c9b6ff'], // moonlit lilac (was mossy green) — see MOONLIT
   ['#2f8fb0', '#8ff0ff', '#4fc8ff'],
@@ -145,14 +153,22 @@ const GUARDIAN: readonly (readonly [string, FoePalette])[] = [
   ['umbra', UMBRA]
 ]
 
+/** Umbra's friends, chapters 2–9 (`duelist.<slug>`). */
+const FRIENDS: readonly string[] = ['marina', 'misty', 'opal', 'lila', 'rosie', 'sunny', 'neva', 'stella']
+
 const roster: FoeDef[] = []
 for (let c = 0; c < 10; c++) {
   const [element, magic] = CH[c]!
   const [mane, streak, glow] = SHADOW_TINT[c]!
+  // Chapter 1: Umbra herself, softened (the playtest's moonlit colours and
+  // gentle face wherever her painted poses are not drawn). Chapter 10: Umbra,
+  // in her own festival. Between: one of her friends.
+  const umbra = c === 0 || c === 9
   roster.push({
-    slug: 'shadow', element, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
+    slug: umbra ? 'umbra' : FRIENDS[c - 1]!, element, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
     pal: c === 9 ? UMBRA : c === 0 ? MOONLIT : shade(mane, streak, glow),
-    ...(c === 0 ? { gentle: true } : {})
+    ...(c === 0 ? { gentle: true } : {}),
+    ...(umbra ? {} : { model: 'umbra' as const })
   })
 }
 for (let c = 0; c < 10; c++) {
@@ -175,26 +191,26 @@ roster.push({
  * prologue now plays in front of node 0: Aurora says hello, and Umbra floats in
  * and blows dust over the meadow. The duel that follows is Aurora answering
  * HER, so the foe on the island is Umbra, by name and by look. It is the same
- * Umbra the prologue and her portraits show. A shadow clone there would
- * leave the fight with no place in the story.
+ * Umbra the prologue and her portraits show.
  *
- * Only her name and her look are Umbra's. The RULES are chapter 1's shadow's,
- * copied from it, so the first duel plays exactly as it was tuned. She keeps
- * the `gentle` face from the playtest softening: no glow round the eye, no
- * glare. Nodes 1–3 still fight the moonlit shadow.
+ * Her RULES are chapter 1's standard foe's, copied from it, so the first duel
+ * plays exactly as it was tuned. She keeps the `gentle` face from the
+ * playtest softening: no glow round the eye, no glare.
  */
 roster.push({ ...roster[0]!, slug: 'umbra', pal: UMBRA, gentle: true })
 
 /**
- * The roster: index `c` (0..9) is chapter c's shadow clone, index `10 + c` is
+ * The roster: index `c` (0..9) is chapter c's standard foe, index `10 + c` is
  * its Guardian, index 20 the versus Umbra, index 21 Umbra in the first duel.
  * Position is the id — never reordered.
  */
 export const FOES: readonly FoeDef[] = roster
 /** Player 2's duelist in local versus. */
 export const VERSUS_FOE = 20
-/** Node 0's foe: Umbra, with chapter 1's shadow's rules (`campaign/tables.ts`). */
+/** Node 0's foe: Umbra, with chapter 1's standard foe's rules (`campaign/tables.ts`). */
 export const FIRST_UMBRA = 21
+/** Chapter `chapter`'s standard foe: Umbra or one of her friends (the name is
+ *  the shadow clones' it replaced). */
 export const shadowOf = (chapter: number): number => chapter
 export const guardianOf = (chapter: number): number => 10 + chapter
 

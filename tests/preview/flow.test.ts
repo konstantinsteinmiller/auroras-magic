@@ -58,7 +58,7 @@ describe('startDuel', () => {
     expect(S.flow.scene).toBe('preview')
     expect(S.flow.node).toBe(3)
     expect(previewHud.live).toBe(true)
-    expect(previewHud.foe.name).toBe('duelist.shadow')
+    expect(previewHud.foe.name).toBe('duelist.umbra')
     expect(vi.mocked(track).mock.calls.some(([e]) => e === 'duel_start')).toBe(false)
     // The music started from the top as the preview appeared.
     expect(resetAudio).toHaveBeenCalledTimes(1)

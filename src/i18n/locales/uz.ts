@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'SOYA'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'Runalar Qo‘riqchisi',
       'umbra': 'Chang Malikasi',
-      'shadow': 'Umbraning Soyasi',
+      'friend': 'Umbraning Dugonasi',
       'guardian': '{place} — Qo‘riqchi'
     },
     'aria': '{hero} va {foe} bellashuvi tez orada boshlanadi.'

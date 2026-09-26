@@ -35,7 +35,14 @@ export default {
     'pearl': '펄',
     'echo': '에코',
     'nova': '노바',
-    'shadow': '그림자'
+    'marina': '마리나',
+    'misty': '미스티',
+    'opal': '오팔',
+    'lila': '릴라',
+    'rosie': '로지',
+    'sunny': '써니',
+    'neva': '네바',
+    'stella': '스텔라'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': '룬의 지킴이',
       'umbra': '먼지 공주',
-      'shadow': '움브라의 그림자',
+      'friend': '움브라의 친구',
       'guardian': '{place}의 수호자'
     },
     'aria': '{hero} 대 {foe}. 대결이 곧 시작됩니다.'

@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'BAYANGAN'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'Penjaga Rune',
       'umbra': 'Putri Debu',
-      'shadow': 'Bayangan Umbra',
+      'friend': 'Teman Umbra',
       'guardian': 'Pelindung {place}'
     },
     'aria': '{hero} melawan {foe}. Duel akan segera dimulai.'

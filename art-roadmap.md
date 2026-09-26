@@ -2095,6 +2095,152 @@ painting, deformed, matches itself.
   crop (Gemini "same picture, full resolution"); cosmetics' anchors against the
   new proportions; a weak-phone pass.
 
+## 2026-09-26 — the painted poses (`duel/frameRig.ts`) — replaces the mesh
+
+Owner: "the bodies are still a bit imperfectly cut out … the hair has some
+strokes perpendicular to the hair border stroke. When Aurora is going into the
+front legs up cast animation, there are a few imperfections … Can you let the
+animation states be painted by Gemini? So a rig is not necessary and the
+animation is flawless, use the mascot Aurora as a reference."
+
+A rig — pieces, or one painting cut into layers and skinned — always leaves a
+seam somewhere. Now every duel state is its own WHOLE painting of the mascot's
+Aurora, one strip `images/rig/aurora-frames.webp` (8 × 640 px, 186 kB):
+idle (the mascot itself), blink, cast1 (front hooves lifting), cast2 (reared,
+forelegs up), win (cast2 with a laugh), hurt, tired (low HP), down (knocked
+out). `chars.ts` still runs the rig for the pose scalars and every anchor
+(`MASCOT` proportions, fitted to the idle painting) but draws nothing of it:
+`frameFor` picks the painting, `drawPose` lays it in the rig's STANDING frame
+(the painting paints its own rear) with an 80 ms cross-fade on a change;
+breathing (a 1.2 % swell about the ground), the win hop, the recoil, the hit
+flash (a tinted copy of the strip, built on the first hit) and the contact
+shadow stay code. The forming rune gathers at each painting's own horn tip
+(`frameHornTip`, brought into the head's space).
+
+How the frames were made (scratchpad → `art-sheets/aurora-poses/`):
+- The mascot's Aurora on a larger magenta square (room to rear), and each pose
+  asked of Gemini as "repaint this exact unicorn in a new pose — same
+  character, same hand, same size", always from that one painting (never an
+  edit of an edit), except blink (from idle) and win (from cast2), which are
+  face-only edits. 8 generations, all kept first time.
+- **Gemini keeps the framing**: a return is its input scaled to its own width
+  — the blink edit's hoof and horn land exactly there, the posed frames' horns
+  agree within 3 %. So every frame takes ONE scale with no measuring (a horn
+  measured by colour leaked into the gold of the mane), and is registered on
+  its hind hoof at the ground line, which the standing and rearing poses keep
+  planted.
+- Keyed off the magenta (`mesh/key.cjs`); paint islands not attached to her
+  (the hurt pose's motion marks) dropped.
+- The harness draws each state twice, 0.2 s apart: drawn once it shows the
+  first frame of the cross-fade, i.e. the previous pose — which looked like a
+  wrong mapping.
+
+Falls back to the painted puppet for a skin, a mane palette or a portrait's
+emote (`st.face`). The skinned mesh (`meshRig.ts`) was dormant — never switched
+on — and was deleted on the owner's word (2026-09-27), with its painting
+`images/rig/mesh-aurora.webp`; git history has both.
+
+**Second pass (owner): "fix the cosmetics positions for the painted poses …
+add 2 additional frames in between each current state, so the animation is
+fluid … for all transitions. Once that looks good, do the umbra character too."**
+
+- **In-betweens as CHAINS of small edits.** Asking Gemini for "the frame one
+  third of the way from image 1 to image 2" returned image 2 unchanged (twice).
+  What works is a text-only edit of ONE frame: "the next frame of a smooth
+  animation, so the change is small: …". Each chain walks from a key pose by
+  such edits (`frames/tw/step.sh`, `chains.sh`). Traps: a chain drifts in colour
+  after ~4 edits (the knocked-out end lost half its gold) — every frame's paint
+  is matched (mean and spread per channel) to the standing pose, and a faded end
+  is swapped for the original key; Gemini overshoots a "halfway" pose straight
+  to the end of the movement (the halfway cast frame came back as the rear, and
+  so did its backward twin) — the cast has one bigger step, one hoof up → rear;
+  one bridge edit came back with two unicorns in it.
+- **One framing, no detection.** Every edit keeps its input's framing and every
+  chain starts from the placed standing pose, so all frames share one frame of
+  reference. Gemini lets a chain GROW (~9–11 % over the cast and hit chains):
+  each frame is scaled back about the planted hind hoof by how much its head
+  registered bigger than the mascot's (`normalize3.cjs`; a face-only edit takes
+  its base pose's correction — a changed face reads as a changed head size).
+  Detecting the hoof by colour caught the golden tail tip on the ground.
+- **The animation walks the chains** (`frameRig.stepPose`): from the frame on
+  screen to the one the pose wants, along the graph of chains, ≤ 22 fps and at
+  most 0.3 s a change; the cast follows `rear` along its chain. 22 frames:
+  standing, blink ×3, cast ×6, win ×3, hit ×3, knocked out ×3, tired ×3.
+- **Cosmetics follow the painting**: the rig keeps its REST geometry in FRAMES
+  mode and each frame carries matrices (rig at rest → that painting) for the
+  head, the body and both near hooves, found by registering the mascot's head,
+  rump, chest and hooves onto each frame (NCC, similarity, coarse-to-fine,
+  worker pool). Head items draw in the head's matrix, neck/back items in the
+  body's, trails/companions from the mapped stage anchors, the knocked-out stars
+  over the painted head. The MASCOT head was refitted to the mascot's own face
+  (eye, horn tip, nostril, chin): the fit carried over from the mesh was 15 units
+  off. The body's matrix keeps scale 1 and leans on the rump when a lying chest
+  hides under the head.
+- **One atlas per character** (`images/rig/aurora-frames.webp`, tight crops
+  shelf-packed, 1.6 px per rig unit, 367 kB after the compressor, 16.7 MB
+  decoded), loaded through `spriteFor('rig', …)`; a duel preloads Aurora's atlas
+  and the ONE piece set its foe wears (`artSchedule.duelists`) — Aurora's pieces
+  only with a skin or a mane colour.
+- Umbra: her mascot half mirrored to face right, repainted calm (the mascot's
+  half-lidded blushing smirk is the "aroused" face the owner ruled out), keyed
+  with her darker outline (`KEY_INK`), same chains. Guardians still wear
+  recoloured piece sets.
+
+**Third pass (owner): "not cool to fight shadows of Umbra — better to fight
+Umbra, and variants of Umbra's model with different hair colours and other
+names. Then finish the outstanding animations work." — and: "if the intro needs
+to be repainted now with the new Aurora and Umbra rig, do it, otherwise not,
+same for the VS screen."**
+
+- **Umbra's strip** (`images/rig/umbra-frames.webp`, 23 frames, 299 kB after the
+  compressor, 10.5 MB decoded): the same chains as Aurora's. Her frames share
+  HER base painting's framing (the mascot 17 % larger than Aurora's), so each
+  raw return is first brought onto Aurora's framing (`umbra/prep.cjs`, hind
+  hoof to the same point) and normalised with the same tool. "mid" came back as
+  cast1 again (Gemini's halfway overshoot) and is left out.
+- **Three keying traps, all Umbra's.** (1) Some returns came back on a darker
+  magenta; the keyer read the flat ground as 10–20 % ink — a faint box round the
+  frame. Clear ground is flattened to one colour first. (2) Her plum coat lies
+  almost ON the line from magenta to her ink, so on those darker grounds the
+  flood ran into her body and "un-mixed" it grey-green; her frames key with a
+  tighter tolerance (`KEY_RES` 24, Aurora keeps 40). (3) A return's outermost
+  row can be a light JPEG seam: painted over before anything else.
+- **The seam line was in Aurora's strip too**: every in-between carried a faint
+  550 px line ~17 rig units under her hooves, inside the atlas crops (hidden by
+  the island, but there). The atlas builder now drops every paint island that is
+  tiny (< 40 px) or thin (≤ 8 px) before cropping — Aurora's strip went from
+  3877 × 1131 to 3848 × 736 (16.7 → 10.8 MB decoded).
+- **Size along a chain**: registering a flinching, falling or rearing head
+  against the MASCOT's calm face scored 0.56–0.68 and gave drifts that jumped
+  12 % between neighbours (the fall frames were enlarged). Measured instead
+  head-to-head against the previous frame of the chain (`chainreg.cjs`) and
+  cross-checked on the HORN — rigid, visible in every pose (`hornscale.cjs`,
+  ncc 0.93–0.99 where the head failed). Aurora's new d3 (sitting back on her
+  haunches between the buckle and lying down) is in her fall chain.
+- **Umbra's friends** (chapters 2–9, `foes.ts` `model: 'umbra'`, named Marina,
+  Misty, Opal, Lila, Rosie, Sunny, Neva, Stella in every locale) draw as Umbra's
+  strip with their hair recoloured: `images/rig/umbra-hair.webp` (24 kB,
+  lossless, green = hair) is made offline from the atlas — light lilac/cyan
+  paint in connected masses, so a catch-light or a horn highlight stays out — and
+  `frameRig.recolour` re-inks each hair pixel with the friend's mane (`pal[3]`)
+  or, where it leans cyan, streak (`pal[4]`), keeping the painting's light by its
+  lightness against her hair's mid-tone (`FRAME_DATA.umbra.hair`). Baked once per
+  friend, ahead of the VS screen (`preview.warmDuelists` → `warmFrames`).
+- **The VS screen needed no repaint**: it draws the duelists live, so it shows
+  the painted poses already (checked in the app, Aurora vs Marina).
+- **The intro did**: pages 1–3 still showed the old stick-legged Aurora and the
+  old chibi Umbra. Asked to "repaint the unicorn like the model", Gemini painted
+  her twice the placeholder's height — over the windmill the game animates. What
+  worked, per page (scratchpad `intro/`): (1) Gemini ERASES the old unicorns
+  ("paint the path behind her … change nothing else"); (2) the keyed mascot art
+  is pasted at the placeholder's footprint (hooves y ≈ 704, horn tip where the
+  magic starts; page 3's horn glow lands on the new tip); (3) a small Gemini edit
+  changes only the face (happy / worried + Umbra's giggle / determined) and seats
+  her with a shadow; (4) only the character's box of each return is pasted back
+  onto the original page, colour-matched and feathered, so the meadow stays the
+  painting the intro was tuned on. Page 4 already had the chibi mascot look and
+  was kept. Same sizes as before after the compressor (29/24/23 kB).
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

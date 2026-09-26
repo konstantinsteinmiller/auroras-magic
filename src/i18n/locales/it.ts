@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'OMBRA'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'Custode delle Rune',
       'umbra': 'La Principessa della Polvere',
-      'shadow': 'L’Ombra di Umbra',
+      'friend': 'L’Amica di Umbra',
       'guardian': 'Guardiana di {place}'
     },
     'aria': '{hero} contro {foe}. Il duello inizia tra un momento.'

@@ -10,6 +10,8 @@
 //   • nothing past the chapter after her frontier is ever asked for;
 //   • a returning save holds for the screen it boots into.
 
+import { FRAME_DATA } from '@/game/duel/frameData'
+import { frameArtId } from '@/game/duel/frameRig'
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   planFor, bootScreenOf, aheadChapterFor, chapterLimit, recordSector, duelWants, facesOf, cleaningWants, winWants,
@@ -136,9 +138,14 @@ describe('back mid-first-duel: the splash holds for the first DUEL', () => {
     // The page the duel is fought on, chapter 1's island, the duelists' rig.
     expect(hold).toContain(`sector/${sectorArtId(0)}`)
     expect(hold).toContain(`island/${islandArtId(0)}`)
-    // Both painted duelists, every piece: the puppet stands in only once a
-    // whole set has decoded, so a set held in part is a set not shown.
-    for (const set of Object.values(PUPPET_ART)) for (const r of Object.values(set)) expect(hold).toContain(`${r.kind}/${r.id}`)
+    // Both painted duelists, whole: Aurora as her painted poses (one atlas,
+    // `duel/frameRig.ts`), Umbra as her poses once she has them, else every
+    // piece of her set (the puppet stands in only once a whole set has
+    // decoded, so a set held in part is a set not shown).
+    if (FRAME_DATA.aurora) expect(hold).toContain(`rig/${frameArtId('aurora')}`)
+    else for (const r of Object.values(PUPPET_ART.aurora)) expect(hold).toContain(`${r.kind}/${r.id}`)
+    if (FRAME_DATA.umbra) expect(hold).toContain(`rig/${frameArtId('umbra')}`)
+    else for (const r of Object.values(PUPPET_ART.umbra)) expect(hold).toContain(`${r.kind}/${r.id}`)
     // The runes: her two (the HUD's, and the preview's row), and the foe's
     // weakness on the preview's chip — not the twelve.
     const runes = [...new Set(all.filter((k) => k.startsWith('rune/')))]

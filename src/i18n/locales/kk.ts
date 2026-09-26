@@ -35,7 +35,14 @@ export default {
     'pearl': 'ПЕРЛ',
     'echo': 'ЭХО',
     'nova': 'НОВА',
-    'shadow': 'КӨЛЕҢКЕ'
+    'marina': 'МАРИНА',
+    'misty': 'МИСТИ',
+    'opal': 'ОПАЛ',
+    'lila': 'ЛИЛА',
+    'rosie': 'РОЗИ',
+    'sunny': 'САННИ',
+    'neva': 'НЕВА',
+    'stella': 'СТЕЛЛА'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'Руналар Қорғаушысы',
       'umbra': 'Шаң Ханшайымы',
-      'shadow': 'Умбраның Көлеңкесі',
+      'friend': 'Умбраның Досы',
       'guardian': '{place} — Қорғаушы'
     },
     'aria': '{hero} мен {foe} жекпе-жегі жақында басталады.'

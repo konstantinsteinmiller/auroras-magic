@@ -114,9 +114,11 @@ describe('what it shows', () => {
     expect(s.foeSide.boss).toBe(true)
     expect(s.foeSide.chips.map((c) => c.kind)).toEqual(['weak', 'magic'])
     expect(s.pos).toBe(4)
-    // A shadow before her chapter's magic is in play: the weakness alone.
+    // Chapter 1's standard foe (Umbra) before her chapter's magic is in play: the weakness alone.
     expect(campaignSpec(1, STARTING_RUNES).foeSide.chips.map((c) => c.kind)).toEqual(['weak'])
-    expect(campaignSpec(1, STARTING_RUNES).foeSide.epithet).toBe('preview.epithet.shadow')
+    expect(campaignSpec(1, STARTING_RUNES).foeSide.epithet).toBe('preview.epithet.umbra')
+    // One of Umbra's friends (chapter 2's standard foe): "Umbra's friend".
+    expect(campaignSpec(5, STARTING_RUNES).foeSide.epithet).toBe('preview.epithet.friend')
   })
 
   it('versus: player 1 and player 2, the same runes each, no chips', () => {

@@ -35,7 +35,14 @@ export default {
     'pearl': 'PEARL',
     'echo': 'ECHO',
     'nova': 'NOVA',
-    'shadow': 'CIEŃ'
+    'marina': 'MARINA',
+    'misty': 'MISTY',
+    'opal': 'OPAL',
+    'lila': 'LILA',
+    'rosie': 'ROSIE',
+    'sunny': 'SUNNY',
+    'neva': 'NEVA',
+    'stella': 'STELLA'
   },
 
   'rune': {
@@ -487,7 +494,7 @@ export default {
     'epithet': {
       'aurora': 'Strażniczka Run',
       'umbra': 'Pyłowa Księżniczka',
-      'shadow': 'Cień Umbry',
+      'friend': 'Przyjaciółka Umbry',
       'guardian': '{place} — Strażniczka'
     },
     'aria': '{hero} kontra {foe}. Pojedynek zaraz się zacznie.'

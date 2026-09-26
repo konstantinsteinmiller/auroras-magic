@@ -35,7 +35,14 @@ export default {
     'pearl': '珀尔',
     'echo': '艾可',
     'nova': '诺娃',
-    'shadow': '影子'
+    'marina': '玛丽娜',
+    'misty': '米丝蒂',
+    'opal': '欧珀',
+    'lila': '莉拉',
+    'rosie': '罗茜',
+    'sunny': '桑妮',
+    'neva': '妮娃',
+    'stella': '丝黛拉'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': '符文守护者',
       'umbra': '尘埃公主',
-      'shadow': '安布拉的影子',
+      'friend': '安布拉的朋友',
       'guardian': '{place}的守护者'
     },
     'aria': '{hero} 对战 {foe}。对决马上开始。'

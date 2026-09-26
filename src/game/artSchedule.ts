@@ -50,6 +50,8 @@
  * whatever still waits), and the drawing stands in until it lands — exactly
  * as with the art layer off.
  */
+import { FRAME_DATA, type FrameWho } from '@/game/duel/frameData'
+import { frameArtId, hairArtId } from '@/game/duel/frameRig'
 import { watch } from 'vue'
 import {
   artOverridesEnabled, artSettled, holdBack, preloadArtOverrides, recordArtWants, type ArtWant, type FetchPriority
@@ -61,7 +63,7 @@ import {
 } from '@/game/artIds'
 import {
   nodeChapter, nodePosInChapter, nodeIsBoss, toolOf, runeForNode, duelSetup, STARTING_RUNES, LAST_BUILT_NODE,
-  COSMETICS, COSMETIC_SLOTS, NODES, GIFTS, CHAPTERS, ALTERNATIVES
+  COSMETICS, COSMETIC_SLOTS, NODES, GIFTS, CHAPTERS, ALTERNATIVES, nodeFoe
 } from '@/game/campaign/tables'
 import { nextDuelNode, pendingSectorNode, type CampaignState } from '@/game/campaign/state'
 import { hasBit } from '@/game/campaign/bitset'
@@ -116,7 +118,45 @@ const CLOTH: ArtWant = ['page', 'cover-cloth']
 // and every foe wears one of the two. The neutral `RIG_ART` parts are the
 // vector rig's, drawn only while a set is missing, so they are left to load
 // on demand (`spriteFor` is lazy) instead of holding a screen.
-const RIG: ArtWant[] = Object.values(PUPPET_ART).flatMap((set) => Object.values(set)).map((a): ArtWant => [a.kind, a.id])
+const puppetSet = (who: keyof typeof PUPPET_ART): ArtWant[] => Object.values(PUPPET_ART[who]).map((a): ArtWant => [a.kind, a.id])
+// the painted poses (`duel/frameRig.ts`): whole paintings per duel state
+const atlas = (who: FrameWho): ArtWant => ['rig', frameArtId(who)]
+const RIG: ArtWant[] = [
+  ...puppetSet('aurora'),
+  ...puppetSet('umbra'),
+  ...(Object.keys(FRAME_DATA) as FrameWho[]).map(atlas),
+  ...(Object.keys(FRAME_DATA) as FrameWho[]).filter((w) => FRAME_DATA[w]?.hair).map((w): ArtWant => ['rig', hairArtId(w)])
+]
+/** Relative luminance of a `#rgb`/`#rrggbb` (`puppet.lum`), 0..1. */
+const lumOf = (c: string): number => {
+  const h = c.replace('#', '')
+  const x = h.length === 3 ? h.split('').map((d) => d + d).join('') : h
+  const n = parseInt(x, 16)
+  return Number.isFinite(n) ? (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 : 0.5
+}
+/**
+ * What a duel at node `n` draws of its two duelists: Aurora's painted poses
+ * (her painted pieces too while she wears a skin or a mane colour, which the
+ * poses do not carry), and the foe's — Umbra's poses, or the piece set every
+ * other foe wears recoloured (`puppet.puppetDress`). A versus duel (no node)
+ * takes everything.
+ */
+const duelists = (n: number, save: ScheduleSave): ArtWant[] => {
+  if (n < 0) return RIG
+  const out: ArtWant[] = []
+  const dressed = (['mane', 'skin'] as const).some((slot) => (save.giftsEquipped[COSMETIC_SLOTS.indexOf(slot)] ?? -1) >= 0)
+  if (FRAME_DATA.aurora) out.push(atlas('aurora'))
+  if (!FRAME_DATA.aurora || dressed) out.push(...puppetSet('aurora'))
+  const foe = FOES[nodeFoe(n)]
+  const umbraModel = !!foe && (foe.slug === 'umbra' || foe.model === 'umbra')
+  if (umbraModel && FRAME_DATA.umbra) {
+    out.push(atlas('umbra'))
+    // a friend: Umbra's strip recoloured through her hair mask (`frameRig.ts`)
+    if (foe.model === 'umbra' && FRAME_DATA.umbra.hair) out.push(['rig', hairArtId('umbra')])
+  }
+  else out.push(...puppetSet(!foe || umbraModel || lumOf(foe.pal[0]) <= 0.55 ? 'umbra' : 'aurora'))
+  return out
+}
 const BADGE: ArtWant = [BADGE_ART.kind, BADGE_ART.id]
 const BOOKMARK: ArtWant = [BOOKMARK_ART.kind, BOOKMARK_ART.id]
 const item = (a: { kind: ArtWant[0]; id: string }): ArtWant => [a.kind, a.id]
@@ -213,7 +253,7 @@ const giftOf = (n: number): ArtWant =>
 export const duelWants = (n: number, save: ScheduleSave, env: ScheduleEnv): ArtWant[] => [
   ['sector', sectorArtId(n)],
   ['island', islandArtId(nodeChapter(n))],
-  ...RIG,
+  ...duelists(n, save),
   // On screen from the duel's first frame to its last (`HpBar.vue`).
   item(HP_FRAMES.aurora),
   item(HP_FRAMES.foe),

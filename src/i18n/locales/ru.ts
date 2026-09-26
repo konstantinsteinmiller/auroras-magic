@@ -35,7 +35,14 @@ export default {
     'pearl': 'ПЕРЛ',
     'echo': 'ЭХО',
     'nova': 'НОВА',
-    'shadow': 'ТЕНЬ'
+    'marina': 'МАРИНА',
+    'misty': 'МИСТИ',
+    'opal': 'ОПАЛ',
+    'lila': 'ЛИЛА',
+    'rosie': 'РОЗИ',
+    'sunny': 'САННИ',
+    'neva': 'НЕВА',
+    'stella': 'СТЕЛЛА'
   },
 
   'rune': {
@@ -487,7 +494,7 @@ export default {
     'epithet': {
       'aurora': 'Хранительница Рун',
       'umbra': 'Пыльная Принцесса',
-      'shadow': 'Тень Умбры',
+      'friend': 'Подруга Умбры',
       'guardian': '{place} — Хранительница'
     },
     'aria': '{hero} против {foe}. Дуэль начнётся через мгновение.'

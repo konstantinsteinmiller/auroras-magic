@@ -177,11 +177,12 @@ describe('chapter 1\'s softened foe', () => {
       expect(FOES[guardianOf(c)]!.gentle, `guardian ${c}`).toBeFalsy()
     }
     expect(FOES[guardianOf(0)]!.gentle).toBeFalsy()
-    // Chapter 2's shadow still wears Umbra's black coat.
+    // Chapter 2's standard foe (one of Umbra's friends) wears Umbra's black coat.
     expect(FOES[shadowOf(1)]!.pal[0]).toBe('#213')
-    // A recolour only: the rules of chapter 1's shadow are untouched.
+    // A recolour only: the rules of chapter 1's standard foe are untouched —
+    // she is Umbra now (owner, 2026-09-26), not a shadow clone.
     const f = FOES[shadowOf(0)]!
-    expect([f.slug, f.hpMax, f.aiTier, f.boss]).toEqual(['shadow', 100, 0, false])
+    expect([f.slug, f.hpMax, f.aiTier, f.boss]).toEqual(['umbra', 100, 0, false])
   })
 })
 

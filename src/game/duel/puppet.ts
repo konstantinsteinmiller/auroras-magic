@@ -791,7 +791,7 @@ onArtChanged((c) => {
 export const warmPuppet = (st: PoseState, side: number, sFoe: number): void => {
   const foe = side > 0 ? FOES[st.foe ?? sFoe] : undefined
   const pal = (st.skin ?? (foe ? foe.pal : undefined)) as FoePalette | undefined
-  const who: PuppetWho = !foe ? 'aurora' : foe.slug === 'umbra' || foe.slug === 'shadow' ? 'umbra' : lum(foe.pal[0]) > 0.55 ? 'aurora' : 'umbra'
+  const who: PuppetWho = !foe ? 'aurora' : foe.slug === 'umbra' || foe.model === 'umbra' ? 'umbra' : lum(foe.pal[0]) > 0.55 ? 'aurora' : 'umbra'
   if (!puppetReady(who)) return
   warmLook(who, lookFor(who, pal ?? null, st.mane === 'rainbow' ? null : st.mane ?? null, '', 0))
 }
@@ -819,7 +819,7 @@ export const puppetDress = (st: PoseState, side: number, sFoe: number, t: number
   const pal = (st.skin ?? (foe ? foe.pal : undefined)) as FoePalette | undefined
   let who: PuppetWho
   if (!foe) who = 'aurora'
-  else if (foe.slug === 'umbra' || foe.slug === 'shadow') who = 'umbra'
+  else if (foe.slug === 'umbra' || foe.model === 'umbra') who = 'umbra'
   else who = lum(foe.pal[0]) > 0.55 ? 'aurora' : 'umbra'
   if (!puppetReady(who)) return null
   const prism = foe && foe.slug === 'prism' ? rainbow(Math.round(t * 0.14 * PRISM_STEPS) / PRISM_STEPS, 80) : ''

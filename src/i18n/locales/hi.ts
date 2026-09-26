@@ -35,7 +35,14 @@ export default {
     'pearl': 'पर्ल',
     'echo': 'इको',
     'nova': 'नोवा',
-    'shadow': 'परछाईं'
+    'marina': 'मरीना',
+    'misty': 'मिस्टी',
+    'opal': 'ओपल',
+    'lila': 'लीला',
+    'rosie': 'रोज़ी',
+    'sunny': 'सनी',
+    'neva': 'नेवा',
+    'stella': 'स्टेला'
   },
 
   'rune': {
@@ -485,7 +492,7 @@ export default {
     'epithet': {
       'aurora': 'रून की रक्षिका',
       'umbra': 'धूल की राजकुमारी',
-      'shadow': 'अम्ब्रा की परछाईं',
+      'friend': 'अम्ब्रा की सहेली',
       'guardian': '{place} की संरक्षिका'
     },
     'aria': '{hero} बनाम {foe}। मुक़ाबला अभी शुरू होगा।'
