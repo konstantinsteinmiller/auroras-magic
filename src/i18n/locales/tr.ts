@@ -480,6 +480,20 @@ export default {
     'castKey2': '[Enter] Büyü yap'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'RÜNLERİN',
+    'weakTo': 'ZAAFI',
+    'magic': 'BÜYÜ',
+    'epithet': {
+      'aurora': 'Rünlerin Koruyucusu',
+      'umbra': 'Toz Prensesi',
+      'shadow': "Umbra'nın Gölgesi",
+      'guardian': '{place} Koruyucusu'
+    },
+    'aria': '{hero} - {foe} düellosu birazdan başlıyor.'
+  },
+
   'gift': {
     'flowerCrown': 'Çiçek Tacı',
     'seashellNecklace': 'Deniz Kabuğu Kolyesi',

@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] ร่ายเวท'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'รูนของคุณ',
+    'weakTo': 'จุดอ่อน',
+    'magic': 'เวทมนตร์',
+    'epithet': {
+      'aurora': 'ผู้ดูแลรูน',
+      'umbra': 'เจ้าหญิงฝุ่น',
+      'shadow': 'เงาของอัมบร้า',
+      'guardian': 'ผู้พิทักษ์แห่ง{place}'
+    },
+    'aria': '{hero} ปะทะ {foe} การดวลจะเริ่มในอีกสักครู่'
+  },
+
   'gift': {
     'flowerCrown': 'มงกุฎดอกไม้',
     'seashellNecklace': 'สร้อยคอเปลือกหอย',

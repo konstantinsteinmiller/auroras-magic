@@ -111,7 +111,9 @@ const full = () => page.evaluate(() => {
 await full()
 
 // ── duel: the finale boss, both sides casting ──
-await page.evaluate(() => window.__gotoNode(49))
+// (Every duel opens with its VS preview; this measures the duel, so the
+// preview hands over at once.)
+await page.evaluate(() => { window.__gotoNode(49); window.__preview?.finish() })
 await page.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 20000 })
 await page.waitForTimeout(3000)
 let tick = 0
@@ -155,7 +157,7 @@ await page.evaluate(() => { window.__flow.goto('map', 49) })
 await page.waitForTimeout(800)
 await page.evaluate(() => { window.__versus.open() })
 await page.waitForFunction(() => window.__flow.state().scene === 'versusSetup' && !window.__flow.fading(), null, { timeout: 10000 })
-await page.evaluate(() => window.__versus.start())
+await page.evaluate(() => { window.__versus.start(); window.__preview?.finish() })
 await page.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 10000 }).catch(() => {})
 await page.waitForTimeout(3500)
 tick = 0

@@ -22,6 +22,23 @@
  * duelist is player 2 (no AI). No campaign side-effects, no duel counted;
  * the result is both players' together (§2.2 rule 21); the interstitial
  * clock is checked once per match; then back to the ready screen.
+ *
+ * EVERY DUEL IS ANNOUNCED (owner, 2026-09-25). `startDuel` and
+ * `startVersus` no longer open the arena: they play the five-second VS
+ * preview (`game/preview/preview.ts`, scene `preview`) and hand it the duel's
+ * real start as its `then`. So there is exactly one door into a duel and it
+ * goes through the preview — a map tap, a dialogue's end, the prologue's
+ * hand-off, a retry, versus, and the QA jumps alike.
+ *
+ * WHERE THE DUEL IS SET UP: at the hand-off, all of it. The preview needs
+ * nothing of the next duel but its names and its runes (read off the tables
+ * and the save), so `resetDuel`, the theme, the duel page, the help ghost, the
+ * lesson's and the director's clocks, the HUD mirrors and `duel_start` all
+ * run in `beginDuel` — nothing of the fight exists to tick under the fanfare.
+ * The MUSIC is the exception: it starts from the top as the preview appears
+ * (`resetAudio` first, so the fanfare's cues never sound over a mood the
+ * last duel left minor), the fanfare ducks it, and it carries straight on
+ * into the fight — `beginDuel` never resets it again.
  */
 import { S } from '@/game/duel/state'
 import { PH_DUEL } from '@/game/duel/config'
@@ -39,7 +56,7 @@ import { armRuneGuide } from '@/game/duel/lesson'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
-import { dipTo } from '@/game/flow/transition'
+import { dipTo, DIP_PUSH } from '@/game/flow/transition'
 import { setArenaGift } from '@/game/restore/gift'
 import { beginDuelPage, resetDuelPage, stashDuelClearing } from '@/game/duel/duelPage'
 import { resetHudMirrors } from '@/use/useDuelHud'
@@ -55,6 +72,7 @@ import { reportRun } from '@/use/useLeaderboard'
 import { duelBeat } from '@/use/useDuelBeat'
 import { sectorOf } from '@/game/map/sectors'
 import { versusHud } from '@/use/useVersus'
+import { beginPreview, campaignSpec, versusSpec } from '@/game/preview/preview'
 
 /** The flourish / sting: an ad must never cut either off mid-note. */
 export const AD_BEAT_MS = 1400
@@ -70,8 +88,35 @@ let replay = false
 /** Bumps on every duel start, so a stale result beat can tell it lost the race. */
 let gen = 0
 
-/** The duel of node `n` begins now (dialogue, if any, already played). */
-export const startDuel = (n: number): void => {
+/**
+ * What every preview does to the flow first: the last duel's beats lose their
+ * race (a result beat still awaiting a wait or an ad checks `gen`), nothing
+ * can ask for a second retry, and the music starts from the top.
+ */
+const enterPreview = (): void => {
+  gen++
+  duelBeat.phase = 'idle'
+  S.resultUp = false
+  resetAudio()
+  startBattleMusic()
+}
+
+/**
+ * Node `n`'s duel is chosen (its dialogue, if any, already played): its VS
+ * preview plays, and then the duel begins. `onBegin` runs the moment it does,
+ * after the arena is up — node 0's opener is raised there (`nodes.ts`),
+ * because it is chrome over the arena and must not exist before one.
+ */
+export const startDuel = (n: number, onBegin?: () => void): void => {
+  enterPreview()
+  beginPreview(campaignSpec(n, S.campaign.runesUnlocked), () => {
+    beginDuel(n)
+    onBegin?.()
+  })
+}
+
+/** The duel of node `n` begins now — the preview has handed over. */
+const beginDuel = (n: number): void => {
   const setup = duelSetup(n)
   replay = isReplay(n)
   resetFx()
@@ -93,7 +138,9 @@ export const startDuel = (n: number): void => {
   S.theme = nodeChapter(n)
   // …and the duel is fought over that sector's own page (§8.29).
   beginDuelPage(n)
-  resetAudio()
+  // (No `resetAudio` here: the music started from the top under the preview
+  // and plays on into the fight; resetting it now would darken the mood in
+  // the middle of the exit's bright sting.)
   resetHudMirrors()
   resetPerfectMark()
   // Visible help after two losses (retention item 8). Called for EVERY duel,
@@ -161,10 +208,15 @@ export const openVersus = (): void => {
   }, 0.4)
 }
 
-/** Both players ready: the match begins. */
+/** Both players ready: the match's VS preview, then the match. */
 export const startVersus = (): void => {
+  enterPreview()
+  beginPreview(versusSpec(S.campaign.runesUnlocked), beginVersus)
+}
+
+/** The match begins now — the preview has handed over. */
+const beginVersus = (): void => {
   prepVersus()
-  resetAudio()
   duelBeat.phase = 'fight'
   duelBeat.node = -1
   gen++
@@ -277,12 +329,18 @@ export const finishThanks = (): void => {
   r?.()
 }
 
-/** Loss beat → Retry: the same node, straight back in, dialogue not replayed. */
+/**
+ * Loss beat → Retry: the same node again, dialogue not replayed — through its
+ * VS preview like every duel, so the page turns to it. The beat is let go at
+ * once, so a second press during the turn cannot queue a second retry.
+ */
 export const retry = (): void => {
   if (duelBeat.phase !== 'loss') return
   sfx('ui')
   S.resultUp = false
-  startDuel(S.flow.node)
+  duelBeat.phase = 'idle'
+  const n = S.flow.node
+  dipTo(() => startDuel(n), DIP_PUSH)
 }
 
 /** Loss beat → Map (or a replay's end): page-turn to the idle map. */

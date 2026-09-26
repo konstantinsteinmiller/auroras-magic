@@ -102,12 +102,36 @@ let ambNext = 0
 /** The ambience sits well under everything else. */
 const AMB_MIX = 0.55
 
+/**
+ * The music's DUCK (`duckMusic`): the factor the music bus dips to, and the
+ * AudioContext time it lets go. The release is a point on the AUDIO clock,
+ * not a timer, so it freezes with everything else under an ad or a hidden
+ * tab (the context is suspended; so is the preview that asked for the duck)
+ * and needs no frame to run to happen.
+ */
+let duckK = 1
+let duckEnd = 0
+/** Dip fast enough to clear the fanfare's first beat; swell back slowly. */
+const DUCK_IN = 0.05
+const DUCK_OUT = 0.3
+
 /** THE ONLY WRITER of the bus gains — setTargetAtTime, always. */
 const level = (): void => {
   if (!A || !sfxBus || !musBus || !ambBus) return
   const t = now()
   sfxBus.gain.setTargetAtTime(VOL * cl(sfxLevel, 0, 1), t, 0.03)
-  musBus.gain.setTargetAtTime(VOL * cl(musLevel, 0, 1), t, 0.03)
+  // The music, ducked or not. Under a duck its RECOVERY is written into the
+  // param's own timeline at `duckEnd`, so no later frame, pause or ad path
+  // can leave it stuck low. `cancelScheduledValues` first, because every
+  // call re-derives the whole future: a recovery scheduled by an earlier
+  // call, at an earlier volume, must not fire over this one.
+  const m = VOL * cl(musLevel, 0, 1)
+  const mg = musBus.gain
+  mg.cancelScheduledValues(t)
+  if (duckEnd > t) {
+    mg.setTargetAtTime(m * duckK, t, DUCK_IN)
+    mg.setTargetAtTime(m, duckEnd, DUCK_OUT)
+  } else mg.setTargetAtTime(m, t, 0.03)
   // A slow time constant: the biome breathes in and out as the map pans.
   ambBus.gain.setTargetAtTime(VOL * AMB_MIX * cl(sfxLevel, 0, 1) * cl(ambLevel, 0, 1), t, 0.4)
 }
@@ -211,6 +235,59 @@ const V = (
   }
 }
 
+/* -------------------------------------------------------------- booking */
+/**
+ * A LONG cue's later voices, booked instead of built. `V()` counts a voice
+ * the moment it is SCHEDULED, so a two-second cue would hold its whole
+ * voice count from its first frame — against MAXV, and against the piano
+ * that yields above 26 — although only a fraction of it ever sounds at
+ * once. `VL()` takes the same arguments: a voice starting within `BOOK_LEAD`
+ * is built at once, a later one is built by `tickAudio` just before its
+ * start, on the audio clock, in booking order (so the cue's own priority
+ * order still decides what a crowded moment drops).
+ *
+ * A booking lives only as long as the moment it belongs to. If the world
+ * stopped in between — a mute, an ad or a hidden tab suspends the context
+ * while wall time runs on — or its start has already gone by, it is dropped
+ * rather than sounding late: a fanfare's tail must never surface after an
+ * unmute, minutes into a duel. Nothing is ever booked while audio is held.
+ */
+const BOOK_LEAD = 0.15
+const BOOK_MAX = 64
+interface Booking { t: number; t0: number; w0: number; v: VoiceArgs }
+const booked: Booking[] = []
+const wall = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000
+
+const VL = (
+  w: number, f0: number, f1?: number, d?: number, g?: number, q?: number, dl?: number, a?: number
+): void => {
+  const lag = cl(dl, 0, 30)
+  if (lag <= BOOK_LEAD) return V(w, f0, f1, d, g, q, lag, a)
+  if (!A || isAudioSuspended() || booked.length >= BOOK_MAX) return
+  const t0 = now()
+  booked.push({ t: t0 + lag, t0, w0: wall(), v: [w, f0, f1, d, g, q, 0, a] })
+}
+
+/** Build every booking now due (see `VL`). Called by `tickAudio`. */
+const flushBooked = (): void => {
+  if (!booked.length) return
+  const t = now()
+  const w = wall()
+  let j = 0
+  for (let i = 0; i < booked.length; i++) {
+    const b = booked[i]!
+    if (b.t > t + BOOK_LEAD) {
+      booked[j++] = b
+      continue
+    }
+    const stalled = w - b.w0 - (t - b.t0) > 0.25
+    if (stalled || b.t < t - 0.02) continue
+    const v = b.v
+    V(v[0], v[1], v[2], v[3], v[4], v[5], Math.max(0, b.t - t), v[7])
+  }
+  booked.length = j
+}
+
 /* ----------------------------------------------------------------- cues */
 /**
  * Scale degrees for the one-shot cues, in the same key as the music so nothing
@@ -219,6 +296,23 @@ const V = (
  */
 const DEG = [0, 3, 7, 10, 12, 15]
 const nf = (i: number): number => hz(12 + DEG[i % 6]! + (i & 1 ? cb : 0))
+
+/** Seconds into `duelCall` of its impact — the VS emblem's slam in the
+ *  preview's timeline (`pt` 0.90). The two are one moment; move both. */
+const CALL_HIT = 0.9
+/**
+ * How far the music dips under the duel announcement: 0.15 x its level
+ * (-16.5 dB), deeper than `duckMusic`'s default 0.25 — the fanfare is THE
+ * moment and its glissando and bells live in the piano's register. The cue
+ * applies it itself for its own ~2 s; a caller's longer `duckMusic(secs,
+ * DUEL_CALL_DUCK)` holds the same depth to its own release (the deepest dip
+ * and the latest release win), and a plain `duckMusic(secs)` extends the
+ * release without shallowing the dip.
+ */
+export const DUEL_CALL_DUCK = 0.15
+const CALL_S = 2
+/** The glissando into the hit: F#5 up A lydian to G#6, semitones over A1. */
+const GLISS = [45, 47, 48, 50, 52, 54, 55, 57, 59]
 
 /**
  * The four runes, layer A (0..3) over layer B (4..7), so a player can name
@@ -261,6 +355,11 @@ export type Cue =
   | 'neigh' | 'sigh' | 'giggle'
   // the storybook's own sound (§8.28): a page turning
   | 'page'
+  // the VS preview before every duel (duel-preview contract): the fanfare
+  // that announces the duel, the three countdown ticks under the emblem and
+  // the go that rides the exit flash — timed to the preview's own clock, so
+  // the brass lands on the emblem's slam and the go on the flash
+  | 'duelCall' | 'vsTick' | 'vsGo'
 
 /**
  * The forge's sound over `secs` (story-spec §8.37): a soft pluck per rune as
@@ -575,6 +674,105 @@ const CUES: Record<Cue, (v?: number) => void> = {
     for (let i = 0; i < 4; i++) V(TRI, nf(i * 2) * 4, 0, 0.6, 0.08, 6, i * 0.08)
     V(SIN, nf(0) * 2, nf(0) * 2, 1.2, 0.08, 1, 0.1, 0.2)
     V(NOISE, 2000, 8000, 0.9, 0.04, 1, 0.05, 0.3)
+  },
+
+  /* ── THE VS PREVIEW (duel-preview contract). */
+
+  /* THE DUEL ANNOUNCEMENT, fired on the preview's first frame: a fairy-tale
+     herald, a spell being cast more than a trumpet call. The curtain opens
+     on a glint and an airy swell over a soft drum rumble; a celesta
+     glissando runs up A lydian into the hit over a glass-harmonica swell,
+     under a light herald "ta-ta-ta" on the fifth; and EXACTLY at `CALL_HIT`
+     — the frame the VS emblem slams — the "TAAA": warm brass on the tonic
+     over a SPELL chord (the added ninth B, a lydian D# glinting on top) and
+     a soft thump. Then the wand: a bell on the high tonic, chorused by a
+     twin a few cents sharp, echoing away three times while bell pairs fall
+     down the chord. Forced into A major like `win` (and the piano follows
+     for the few seconds of the preview; the duel's own `setMood` takes it
+     back). Its loudness lives in the band a phone speaker plays — the
+     glissando, the bells, the glass — not in the thump, so it stands out
+     without pumping the limiter. It ducks the music itself
+     (`DUEL_CALL_DUCK`). 37 voices, but booked (`VL`): only the
+     voices about to sound exist, a couple of dozen at the hit; each group
+     is in priority order, so a crowded moment drops glitter first. */
+  duelCall: () => {
+    mood = mS = cb = 1
+    if (!isAudioSuspended()) duckMusic(CALL_S, DUEL_CALL_DUCK)
+    // Every attack here is exponential, silent for its first half: start
+    // the hit 5 ms early so it SOUNDS on the emblem's frame.
+    const T = CALL_HIT - 0.005
+    const a5 = nf(0) * 8
+    const a6 = a5 * 2
+    // The TAAA: a short bright voice for the tongue over a darker, long one
+    // for the body — a filter envelope the one voice builder cannot do.
+    VL(SAW, a5, 0, 0.3, 0.09, 4, T, 0.006)
+    VL(SAW, a5, 0, 1.1, 0.09, 2.3, T, 0.008)
+    // The spell chord under it: C#5 in the brass, A3 a warm horn-like
+    // triangle, the added ninth B5 as a glass bell, the lydian D#7 on top.
+    VL(SAW, nf(1) * 4, 0, 1, 0.065, 2.2, T, 0.008)
+    VL(TRI, nf(4), 0, 1.1, 0.06, 4, T, 0.008)
+    VL(TRI, hz(50), 0, 1, 0.065, 6, T + 0.004)
+    VL(SIN, hz(66), 0, 0.8, 0.025, 1, T + 0.006)
+    // The wand: the high tonic and its twin 8 cents sharp, chorusing — then
+    // three echoes of it, each softer: the reverb the synth does not have.
+    VL(TRI, a6, 0, 0.7, 0.05, 6, T + 0.015)
+    VL(SIN, a6 * 1.0045, 0, 0.7, 0.04, 1, T + 0.02)
+    for (let i = 1; i <= 3; i++) VL(TRI, a6, 0, 0.45, 0.05 * 0.6 ** i, 6, T + 0.015 + i * 0.12)
+    // The celesta glissando, F#5 up A lydian to G#6 — the leading tone the
+    // wand's A resolves — quickening into the hit, over the glass swell.
+    for (let i = 0; i < 9; i++) {
+      VL(TRI, hz(GLISS[i]!), 0, 0.3, 0.045 + i * 0.0025, 5, 0.45 + 0.41 * (i / 8) ** 0.8, 0.003)
+    }
+    // The glass swell: pure tones on A4 and a slightly sharp E5 — pitches no
+    // voice of the hit carries, so the two never cancel or pile up by phase.
+    VL(SIN, nf(0) * 4, 0, 1.4, 0.05, 1, 0.35, 0.55)
+    VL(SIN, nf(2) * 4 * 1.003, 0, 1.4, 0.038, 1, 0.35, 0.55)
+    // "ta-ta-ta": a light herald on the fifth, on the pulse the TAAA ends.
+    for (let i = 0; i < 3; i++) VL(SAW, nf(2) * 4, 0, 0.25, 0.09 + i * 0.008, 3, T - 0.36 + i * 0.12, 0.008)
+    // The slam's soft thump: a triangle, so a phone still hears a drum.
+    VL(TRI, 120, 45, 0.5, 0.06, 3, T, 0.004)
+    // The cascade after the wand: bell pairs falling down the chord.
+    VL(TRI, nf(2) * 8, 0, 0.6, 0.035, 6, T + 0.2)
+    VL(SIN, nf(2) * 8 * 1.004, 0, 0.6, 0.028, 1, T + 0.205)
+    VL(TRI, nf(1) * 8, 0, 0.6, 0.032, 6, T + 0.36)
+    VL(SIN, nf(1) * 8 * 1.004, 0, 0.6, 0.025, 1, T + 0.365)
+    VL(SIN, a5, 0, 0.6, 0.03, 1, T + 0.54)
+    // The curtain: the seam's glint, the airy swell the halves sweep in on,
+    // two more glints and the soft rumble of a drum roll under them.
+    VL(TRI, nf(2) * 8, 0, 0.35, 0.04, 6)
+    VL(NOISE, 700, 5600, 0.6, 0.07, 1, 0, 0.25)
+    VL(TRI, nf(0) * 16, 0, 0.3, 0.03, 6, 0.1)
+    VL(TRI, nf(1) * 16, 0, 0.3, 0.025, 6, 0.24)
+    VL(NOISE, 260, 520, 0.75, 0.6, 1, 0, 0.38)
+    // A soft cymbal shimmer on the slam.
+    VL(NOISE, 7000, 3000, 1, 0.025, 1, T)
+  },
+
+  /* One countdown star lighting under the emblem. v = 0..2: C#5, E5, G#5
+     (after `duelCall` has turned the bed major) — one step of the cues'
+     scale a tick, climbing toward the tonic the go lands on, and on that
+     scale so it can never clash with the bed. A soft music-box pluck and
+     its octave, each tick a little brighter. */
+  vsTick: (v) => {
+    const i = cl((v ?? 0) | 0, 0, 2)
+    const f = nf(1 + i) * 4
+    V(TRI, f, 0, 0.26, 0.1 + i * 0.012, 5)
+    V(SIN, f * 2, 0, 0.22, 0.035, 1, 0.004)
+  },
+
+  /* The duel begins: the stars burst into a bright upward rush, and the
+     chime — the whole A major chord, the tonic the ticks climbed toward —
+     lands as the exit flash starts to rise (0.1 s later), rung out in 0.6 s:
+     gone as the first duel frame comes up. */
+  vsGo: () => {
+    const a5 = nf(0) * 8
+    V(TRI, a5, 0, 0.5, 0.12, 6, 0.1)
+    V(TRI, nf(4), 0, 0.45, 0.07, 4, 0.1)
+    V(SIN, nf(1) * 8, 0, 0.45, 0.04, 1, 0.105)
+    V(SIN, nf(2) * 8, 0, 0.45, 0.035, 1, 0.11)
+    V(SIN, a5 * 2, 0, 0.4, 0.03, 1, 0.12)
+    V(NOISE, 900, 7000, 0.3, 0.06, 1, 0, 0.1)
+    V(TRI, nf(0) * 4, a5 * 2, 0.14, 0.05, 3)
   }
 }
 
@@ -743,6 +941,29 @@ export const setAudioLevels = (sound: number, music: number): void => {
   level()
 }
 
+/**
+ * Duck the music under a big moment (the VS preview's fanfare): the music
+ * bus dips to `depth` x its level for `secs` of AUDIO time, then swells back
+ * by itself. It is only a factor `level()` reads, so the player's volume,
+ * the mute and the ad paths keep their one writer; an ad (the context
+ * suspended) just pauses the duck with everything else. Overlapping ducks:
+ * the deepest dip and the latest release win. `secs <= 0` lets go now.
+ * A no-op before the audio graph exists — nothing is playing to duck.
+ */
+export const duckMusic = (secs: number, depth = 0.25): void => {
+  if (!A) return
+  const t = now()
+  const s = cl(secs, 0, 30)
+  if (!s) duckEnd = 0
+  else {
+    const live = duckEnd > t
+    const k = cl(depth, 0, 1)
+    duckK = live ? Math.min(duckK, k) : k
+    duckEnd = Math.max(live ? duckEnd : 0, t + s)
+  }
+  level()
+}
+
 /* ------------------------------------------------------------- ambience */
 /**
  * A restored biome's loop (story-spec §8.8 beat 1): no sustained oscillator,
@@ -851,6 +1072,8 @@ export const tickAudio = (dt: number): void => {
   if (!A) return
   dt = cl(dt, 0, 0.1)
   mS += (mood - mS) * dt * 3 // dt is capped, so this can never overshoot
+  // A long cue's booked voices, built just before they sound (`VL`).
+  if (!isAudioSuspended() && A.state === 'running') flushBooked()
   // The ambience keeps its own light clock, independent of the music.
   if (ambBiome >= 0 && ambLevel > 0 && !isAudioSuspended() && A.state === 'running') {
     const t0 = now()

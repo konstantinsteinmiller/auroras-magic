@@ -14,6 +14,17 @@
  * menu (settings, spellbook), an ad, a hidden tab, a portal pause,
  * or no touch yet (`isPokiGameplayLive`). Each is memoised on its own.
  *
+ * THE VS PREVIEW (scene `preview`, five seconds in front of every duel) falls
+ * out of the same two rules with nothing special-cased. The narrow bracket
+ * is a duel being FOUGHT or a sector being wiped, and the preview is neither
+ * — nothing to draw, nothing to lose — so on CrazyGames and Playgama it stays
+ * shut and opens on the hand-off, when `beginDuel` switches the scene to
+ * `duel` with the fight's phase already live: one start, never a stop→start
+ * pair.
+ * Poki's bracket spans the storybook, and the preview is a page of it: live
+ * there, like the dialogue and the picture book, closed only by the usual
+ * menu / ad / hidden-tab / no-touch-yet reasons.
+ *
  * The platform-side inputs (an ad, a hidden tab, a portal pause, a modal) are
  * refs owned by platform modules that must not import game code; they are
  * observed here with SYNCHRONOUS watchers on the raw refs, which run the same

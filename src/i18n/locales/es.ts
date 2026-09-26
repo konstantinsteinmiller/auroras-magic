@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Intro] Lanzar'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'TUS RUNAS',
+    'weakTo': 'DÉBIL CONTRA',
+    'magic': 'MAGIA',
+    'epithet': {
+      'aurora': 'Guardiana de las Runas',
+      'umbra': 'La Princesa del Polvo',
+      'shadow': 'La Sombra de Umbra',
+      'guardian': 'Guardiana de {place}'
+    },
+    'aria': '{hero} contra {foe}. El duelo comienza en un momento.'
+  },
+
   'gift': {
     'flowerCrown': 'Corona de flores',
     'seashellNecklace': 'Collar de conchas',

@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Tung phép'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'PHÙ VĂN CỦA BẠN',
+    'weakTo': 'ĐIỂM YẾU',
+    'magic': 'PHÉP THUẬT',
+    'epithet': {
+      'aurora': 'Người Giữ Rune',
+      'umbra': 'Công Chúa Bụi',
+      'shadow': 'Bóng Của Umbra',
+      'guardian': 'Người Bảo Vệ {place}'
+    },
+    'aria': '{hero} đối đầu {foe}. Trận đấu sắp bắt đầu.'
+  },
+
   'gift': {
     'flowerCrown': 'Vương Miện Hoa',
     'seashellNecklace': 'Vòng Cổ Vỏ Sò',

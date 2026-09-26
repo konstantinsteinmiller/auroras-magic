@@ -227,6 +227,9 @@ const DUEL_SETUP = `(async () => {
   c.giftsEquipped = [0, 1, 2, 8, 3, 5, 6]
   window.__S.wins = 60
   window.__gotoNode(49)
+  // Every duel opens with its five-second VS preview now; this measures the
+  // DUEL, so the preview hands over at once.
+  window.__preview?.finish()
   if (!await wait(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), 60000)) return 'no duel'
   // Arm it the way a player would, or the foe holds her first rune forever.
   window.__arm?.()

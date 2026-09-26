@@ -32,7 +32,7 @@ const inGame: PokiLiveInputs = {
 
 describe('isPokiGameplayLive', () => {
   it('is live in every scene of the book — only the boot is not', () => {
-    const scenes = ['boot', 'intro', 'map', 'dialogue', 'duel', 'unbox', 'wipe', 'wardrobe', 'versusSetup'] as const
+    const scenes = ['boot', 'intro', 'map', 'dialogue', 'preview', 'duel', 'unbox', 'wipe', 'wardrobe', 'versusSetup'] as const
     for (const scene of scenes) expect(isPokiGameplayLive({ ...inGame, scene }), scene).toBe(scene !== 'boot')
   })
 
@@ -91,7 +91,8 @@ describe('Poki\'s bracket through the story', () => {
     b.S.resultUp = true
     b.reconcileGameplayBracket()
     b.S.resultUp = false
-    for (const sc of ['map', 'intro', 'unbox', 'wipe', 'map', 'wardrobe', 'map', 'dialogue'] as const) {
+    // …and the next duel's VS preview is a page of the book too.
+    for (const sc of ['map', 'intro', 'unbox', 'wipe', 'map', 'wardrobe', 'map', 'dialogue', 'preview'] as const) {
       b.gotoScene(sc, 0)
       expect(b.pokiBracketLive(), sc).toBe(true)
     }

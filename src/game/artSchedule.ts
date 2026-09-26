@@ -55,7 +55,7 @@ import {
   artOverridesEnabled, artSettled, holdBack, preloadArtOverrides, recordArtWants, type ArtWant, type FetchPriority
 } from '@/game/art'
 import {
-  sectorArtId, islandArtId, pageArtId, frontPageArtId, runeArtId, RUNE_SLUGS, RIG_ART, ITEM_ART, STORY_PANELS,
+  sectorArtId, islandArtId, pageArtId, frontPageArtId, runeArtId, RUNE_SLUGS, PUPPET_ART, ITEM_ART, STORY_PANELS,
   storyPanelId, portraitSetOf, portraitArtId, wardrobeArtId, WARDROBE_RUG, KEEPSAKE_ICON_SLUGS, keepsakeArtId, MOVIE_ICON, HP_FRAMES,
   PROP_ART, KEEPSAKE_WORN_ART
 } from '@/game/artIds'
@@ -67,6 +67,7 @@ import { nextDuelNode, pendingSectorNode, type CampaignState } from '@/game/camp
 import { hasBit } from '@/game/campaign/bitset'
 import { dialogueFor, thanksLines, OPENING_NODE, type Bubble } from '@/game/story/story'
 import { FOES } from '@/game/duel/foes'
+import { PREVIEW_DOM_ART, VS_BACKDROP_KIND, VS_PODIUM_KIND, VS_PODIUM_IDS, vsBackdropArtId } from '@/game/preview/previewArt'
 import { BADGE_ART } from '@/game/map/badge'
 import { CHROME_ART, pictoSetArtId, pictoSlot } from '@/game/artIds'
 import { BOOKMARK_ART } from '@/game/flow/pageTurn'
@@ -110,7 +111,12 @@ export type SectorRec = readonly [number, 'rest' | 'alive']
 /* ───────────────────────────── what screens draw ────────────────────────── */
 
 const CLOTH: ArtWant = ['page', 'cover-cloth']
-const RIG: ArtWant[] = Object.values(RIG_ART).map((a): ArtWant => [a.kind, a.id])
+// The painted duelists (`duel/puppet.ts`): both sets, whole, wherever a
+// duelist is drawn — the puppet only stands in once a WHOLE set has decoded,
+// and every foe wears one of the two. The neutral `RIG_ART` parts are the
+// vector rig's, drawn only while a set is missing, so they are left to load
+// on demand (`spriteFor` is lazy) instead of holding a screen.
+const RIG: ArtWant[] = Object.values(PUPPET_ART).flatMap((set) => Object.values(set)).map((a): ArtWant => [a.kind, a.id])
 const BADGE: ArtWant = [BADGE_ART.kind, BADGE_ART.id]
 const BOOKMARK: ArtWant = [BOOKMARK_ART.kind, BOOKMARK_ART.id]
 const item = (a: { kind: ArtWant[0]; id: string }): ArtWant => [a.kind, a.id]
@@ -251,6 +257,41 @@ export const duelFxWants = (n: number, save: ScheduleSave): ArtWant[] => {
     // dialogue happened to fetch that set (paint-outstanding §0.2).
     ['worldUi', pictoSetArtId(0)]
   ]
+}
+
+/**
+ * The VS PREVIEW in front of node `n`'s duel — every duel has one, so it
+ * travels with every duel's plan (local versus: `n` < 0). Its backdrop (this
+ * orientation's; both without `env`), the two podiums, the DOM's ribbons and
+ * emblem (and the crown, for a boss), and every rune icon it shows: her
+ * drawable runes, and the foe's weakness and magic chips.
+ */
+export const previewWants = (n: number, save: ScheduleSave, env?: ScheduleEnv): ArtWant[] => {
+  const runes = new Set<number>()
+  const mine = save.runesUnlocked | STARTING_RUNES
+  for (let k = 0; k < RUNE_SLUGS.length; k++) if ((mine >> k) & 1) runes.add(k)
+  let boss = false
+  if (n >= 0) {
+    const setup = duelSetup(n)
+    const def = FOES[setup.foe]!
+    boss = def.boss
+    if (def.element >= 0) runes.add(def.element)
+    if (setup.usesMagic && def.magic >= 0) runes.add(def.magic)
+  }
+  const backdrops = env ? [env.portrait] : [false, true]
+  return [
+    ...backdrops.map((portrait): ArtWant => [VS_BACKDROP_KIND, vsBackdropArtId(portrait)]),
+    [VS_PODIUM_KIND, VS_PODIUM_IDS.dawn],
+    [VS_PODIUM_KIND, VS_PODIUM_IDS.night],
+    ...PREVIEW_DOM_ART.filter(([, id]) => boss || id !== 'vs-crown'),
+    ...[...runes].sort((a, b) => a - b).map((k): ArtWant => ['rune', runeArtId(k)])
+  ]
+}
+
+/** `list` without anything `already` holds (a plan never asks twice). */
+const without = (list: readonly ArtWant[], already: readonly ArtWant[]): ArtWant[] => {
+  const had = new Set(already.map(([k, i]) => `${k}/${i}`))
+  return list.filter(([k, i]) => !had.has(`${k}/${i}`))
 }
 
 /** The WIN: the gift that drops on the island — the one that then waits on
@@ -463,9 +504,12 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
     p.record.soon.push([k, 'rest'])
   }
 
-  if (screen.mode === 'versus' || (screen.scene === 'duel' && n < 0) || screen.scene === 'versusSetup') {
+  if (screen.mode === 'versus' || ((screen.scene === 'duel' || screen.scene === 'preview') && n < 0) || screen.scene === 'versusSetup') {
     // Local 2P: the Festival's island and the two duelists; no page.
     p.hold.push(['island', islandArtId(9)], ...RIG, item(HP_FRAMES.aurora), item(HP_FRAMES.foe))
+    // The match's VS preview: on screen now, or right after the ready screen.
+    if (screen.scene === 'versusSetup') p.next.push(...previewWants(-1, save, env))
+    else p.hold.push(...previewWants(-1, save, env))
     // The "turn me sideways" phone is up at once on a phone held upright; the
     // winner's trophy only at the end.
     if (env.portrait) p.hold.push(item(CHROME_ART.phone))
@@ -475,8 +519,11 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
   }
 
   switch (screen.scene) {
+    // The VS preview plans exactly what its duel plans: the duel's hold
+    // already carries the preview, which stands in front of every duel.
+    case 'preview':
     case 'duel': {
-      p.hold.push(...duelWants(n, save, env))
+      p.hold.push(...previewWants(n, save, env), ...duelWants(n, save, env))
       // A practice duel on a RESTORED page draws its props alive over it
       // (`duelPage.drawLiveProps`, B19); a dusty page has them at rest.
       p.record.hold.push([n, hasBit(save.sectorsDone, n) ? 'alive' : 'rest'])
@@ -505,7 +552,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
     case 'dialogue': {
       p.hold.push(...dialogueWants(n, save, env))
       p.record.hold.push(...[0, 1, 2, 3, 4].map((i): SectorRec => [nodeChapter(n) * 5 + i, 'rest']))
-      p.next.push(...duelWants(n, save, env), ...duelFxWants(n, save), ...winWants(n, save))
+      p.next.push(...previewWants(n, save, env), ...duelWants(n, save, env), ...duelFxWants(n, save), ...winWants(n, save))
       p.record.next.push([n, 'rest'])
       p.soon.push(...cleaningWants(n))
       p.record.soon.push([n, 'alive'])
@@ -533,7 +580,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
         p.next.push(...cleaningWants(pend))
         p.record.next.push([pend, 'alive'])
       } else if (next >= 0) {
-        p.next.push(...dialogueWants(next, save, env), ...duelWants(next, save, env))
+        p.next.push(...dialogueWants(next, save, env), ...previewWants(next, save, env), ...duelWants(next, save, env))
         p.record.next.push([next, 'rest'])
       }
       // The tent stands on the front page, one turn away.
@@ -547,9 +594,12 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
         // The prologue, in front of node 0: its two pages hold, and the duel
         // it turns into (with everything that duel puts NEXT) comes right
         // behind them, as that duel's own plan, planned as seen.
-        p.hold.push(...prologueWants())
+        // …and node 0's VS PREVIEW holds with them (owner, 2026-09-25): the
+        // prologue hands over to it in five seconds, and a first-time player
+        // must meet the fanfare painted, not drawn and then popping in.
+        p.hold.push(...prologueWants(), ...previewWants(OPENING_NODE, save, env))
         const duel = planFor({ scene: 'duel', node: OPENING_NODE }, { ...save, prologueSeen: true }, env)
-        p.next.push(...duel.hold, ...duel.next)
+        p.next.push(...without([...duel.hold, ...duel.next], p.hold))
         p.record.next.push(...duel.record.hold, ...duel.record.next)
         p.soon.push(...duel.soon)
         p.record.soon.push(...duel.record.soon)
@@ -576,7 +626,7 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
       p.next.push(...pageWants(nodeChapter(n), save, env))
       const next = upNext(save)
       if (next >= 0 && next !== n) {
-        p.soon.push(...dialogueWants(next, save, env), ...duelWants(next, save, env))
+        p.soon.push(...dialogueWants(next, save, env), ...previewWants(next, save, env), ...duelWants(next, save, env))
         p.record.soon.push([next, 'rest'])
         ahead(next)
       }

@@ -11,10 +11,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   promptDocs, SECTOR_SHEETS, ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, STORY_SHEETS,
-  PAGE_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS, WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS,
+  PAGE_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS, PUPPET_SHEETS, WARDROBE_SHEETS, WARDROBE_ITEM_SHEETS,
   BRAND_LOGO_SHEET, BRAND_MASCOT_SHEET,
   manifestTargets, NEUTRAL_HEX, sheetRows
 } from '@/game/artSheet'
+import { PREVIEW_SHEETS, PREVIEW_BACKDROP_SHEETS } from '@/game/artSheet'
 import { ART_FOLDERS, artTarget } from '@/game/artFolders'
 import { ITEM_ART, SECTOR_SLUGS, sectorArtId, sectorNodeOf, RUNE_SLUGS, runeArtId } from '@/game/artIds'
 import { SECTORS } from '@/game/map/sectors'
@@ -49,13 +50,13 @@ describe('the art manifest', () => {
 
   it('never lets two drawables share a file or a reference', () => {
     const keyed = [
-      ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS,
-      ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET
+      ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...PUPPET_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS,
+      ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET, ...PREVIEW_SHEETS
     ]
     const targets = [
       ...SECTOR_SHEETS.flatMap((s) => [s.target, s.thumb]), ...STORY_SHEETS.map((s) => s.target),
       ...PAGE_SHEETS.map((s) => s.target), ...WARDROBE_SHEETS.map((s) => s.target),
-      BRAND_LOGO_SHEET.target, ...keyed.map((s) => s.target)
+      BRAND_LOGO_SHEET.target, ...keyed.map((s) => s.target), ...PREVIEW_BACKDROP_SHEETS.map((s) => s.target)
     ]
     expect(new Set(targets).size).toBe(targets.length)
     expect(manifestTargets().size).toBe(targets.length)
@@ -98,12 +99,18 @@ describe('the prompt documents', () => {
       // The duelists' barrel, neck, head, ear and horn (§9.7). The legs stayed
       // drawn: a painted capsule per bone reads as a jointed doll.
       'PROMPTS-RIG.md': 5,
+      // The painted duelists (2026-09-25): the rig's nine pieces each for
+      // Aurora and Umbra, in full colour — every other foe wears one of the two.
+      'PROMPTS-PUPPET.md': 20,
       // The cloth, the front page (both ways) and two per chapter.
       'PROMPTS-PAGES.md': 23,
       // The tent's room both ways, and the rug.
       'PROMPTS-WARDROBE.md': 3,
       // The mark and the mascot (art-style.md §11).
-      'PROMPTS-BRAND.md': 2
+      'PROMPTS-BRAND.md': 2,
+      // The duel's VS preview (2026-09-25): the backdrop both ways, the two
+      // podiums, the two name ribbons, the medallion and the crown.
+      'PROMPTS-PREVIEW.md': 8
     }
     expect(Object.keys(docs).sort()).toEqual(Object.keys(want).sort())
     for (const [name, text] of Object.entries(docs)) {
@@ -135,7 +142,9 @@ describe('the prompt documents', () => {
     // …and the wardrobe pass's 17 (13 worn stills, 4 shelf badges).
     // …and the map & UI pass's 11 world-UI sheets.
     // …and the sectors pass's 16 props.
-    expect(jobs).toHaveLength(212 + 7 + 7 + 17 + 11 + 16)
+    // …and the painted duelists' 20 pieces.
+    // …and the VS preview's 8.
+    expect(jobs).toHaveLength(212 + 7 + 7 + 17 + 11 + 16 + 20 + 8)
     const rows = sheetRows()
     const byRef = new Map(jobs.map((j) => [j.refName, j]))
     for (const r of rows) {

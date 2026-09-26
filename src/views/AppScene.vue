@@ -11,8 +11,9 @@
  *
  * Each frame dispatches on `S.flow.scene`: the duel steps its fixed-timestep
  * sim and draws the arena; the gift, pots and wipe step and draw the restore
- * view; the map and the dialogue draw the map. The per-scene `.vue` files
- * are DOM chrome only — none owns a canvas or a RAF.
+ * view; the map and the dialogue draw the map; the VS preview in front of
+ * every duel runs its five-second clock and draws its two halves. The
+ * per-scene `.vue` files are DOM chrome only — none owns a canvas or a RAF.
  *
  * Platform duties that belong to the whole app live here too: the first
  * trusted gesture arms the session (Poki's rule: nothing "plays" before a
@@ -88,6 +89,12 @@ import { twinGift, offerTwinGift, withdrawTwinGift } from '@/use/useDuelRewards'
 import { refreshBook } from '@/use/useBook'
 import { twinHoldStart, twinHoldCancel, stepTwin, __twinState } from '@/game/map/twinGift'
 import { setBit } from '@/game/campaign/bitset'
+// The VS preview (every duel's five seconds of fanfare) is part of the scene
+// closure, never lazy: the first duel of a fresh save comes up fast.
+import { updatePreview, previewFrame, previewResize, skipPreview, previewQa } from '@/game/preview/preview'
+import { drawPreview, releasePreviewCanvas } from '@/game/preview/previewDraw'
+import { previewHud } from '@/game/preview/previewHud'
+import DuelPreview from '@/components/preview/DuelPreview.vue'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 let g: CanvasRenderingContext2D | null = null
@@ -116,6 +123,8 @@ const resize = (): void => {
   mapResize(w, h)
   wardrobeResize()
   if (S.flow.scene === 'intro') introResize()
+  // The preview lays itself out again (a turn of the phone mid-fanfare).
+  previewResize()
 }
 const onOrientation = (): void => { window.setTimeout(resize, 250) }
 
@@ -162,6 +171,10 @@ const onPointerDown = (e: PointerEvent): void => {
   if (blocked()) return
   try { canvas.value?.setPointerCapture(e.pointerId) } catch { /* not capturable */ }
   const sc = scene()
+  // The VS preview draws nothing and strokes nothing: a press there is a skip
+  // (`onAnyPress`, which sees presses on its DOM too), never the start of a
+  // rune in the duel it announces.
+  if (sc === 'preview') return
   if (sc === 'duel') {
     if (S.phase !== PH_DUEL) return
     // RIGHT-CLICK CASTS (owner, 2026-09-21). On a mouse the hand that draws
@@ -301,6 +314,16 @@ const onKeyDown = (e: KeyboardEvent): void => {
     return
   }
   const sc = scene()
+  if (sc === 'preview') {
+    // Space / Enter skip a later preview to its exit. Nothing else does
+    // anything here — no spellbook (`?`), no cast — so no key can open a
+    // menu over the fanfare or reach the duel before it begins.
+    if (k === ' ' || k === 'Enter') {
+      e.preventDefault()
+      if (!fading()) skipPreview()
+    }
+    return
+  }
   if (sc === 'duel' && S.versus) {
     // Local versus on one keyboard: Space casts for player 1, Enter for 2.
     if ((k === ' ' || k === 'Enter') && S.phase === PH_DUEL) {
@@ -361,6 +384,10 @@ const onQaChord = (e: PointerEvent): void => {
 const onAnyPress = (e: PointerEvent): void => {
   wake(e)
   onQaChord(e)
+  // A tap ANYWHERE skips a later VS preview (from 1 s in; never the session's
+  // first) — on the canvas or on the preview's own DOM, which is why it is
+  // caught here, in the capture phase, and not on the canvas.
+  if (scene() === 'preview' && e.isTrusted && !blocked()) skipPreview()
 }
 
 /* ─────────────────────────────── the Twin Gift ─────────────────────────── */
@@ -376,6 +403,9 @@ watch(() => flowHud.scene, (sc) => {
   // The opener belongs to the duel it was laid over, and to no other scene:
   // leaving takes whatever is left of it with us.
   if (sc !== 'duel') closeOpening()
+  // The preview's baked backdrop is a full-screen canvas: it goes the moment
+  // the preview is no longer drawn (its flash is DOM, and fades on its own).
+  if (sc !== 'preview') releasePreviewCanvas()
 })
 
 /* ─────────────────────────── global overlays ─────────────────────────── */
@@ -429,6 +459,9 @@ const frame = (now: number): void => {
   syncOverlayLock()
   const paused = isGamePaused.value
   const sc = scene()
+  // The preview's chrome, every frame: its pause mirror, and its exit flash
+  // fading off the duel's first frames (a fade is never frozen, like a turn).
+  previewFrame(dt, paused)
   if (!paused) {
     S.dt = dt
     S.t += dt
@@ -445,7 +478,8 @@ const frame = (now: number): void => {
           acc -= STEP
         }
       }
-    } else if (sc === 'unbox' || sc === 'wipe') updateRestore(dt, now)
+    } else if (sc === 'preview') updatePreview(raw) // the REAL frame time: a stutter must not stretch a show of fixed length (preview.ts STEP_CAP)
+    else if (sc === 'unbox' || sc === 'wipe') updateRestore(dt, now)
     else if (sc === 'map' || sc === 'dialogue') updateMap(dt)
     else if (sc === 'wardrobe') updateWardrobe(dt)
     else if (sc === 'intro') updateIntro(dt)
@@ -468,6 +502,7 @@ const frame = (now: number): void => {
   stepTransition(dt)
   if (g) {
     if (sc === 'duel' || sc === 'versusSetup') render(g)
+    else if (sc === 'preview') drawPreview(g)
     else if (sc === 'unbox' || sc === 'wipe') drawRestore(g)
     else if (sc === 'map' || sc === 'dialogue') drawMap(g)
     else if (sc === 'wardrobe') drawWardrobe(g)
@@ -612,6 +647,11 @@ onMounted(() => {
       openOverlay
     }
     w.__versus = { open: openVersus, start: startVersus, state: () => ({ ...versusHud, versus: S.versus }) }
+    /** The VS preview in front of every duel: `hold(pt?)` freezes its clock
+     *  (running up to `pt` first) for a screenshot, `release()`, `skip()`,
+     *  `finish()` (straight into the duel, no flash), `state()`. A harness
+     *  that wants the DUEL calls `finish()` after `__gotoNode` / `__flow.duel`. */
+    w.__preview = previewQa
     w.__castSide = castSide
     /** The spell forge (story-spec §8.37): who is forging, how far (0..1) and
      *  which spell — so a harness can `__hold()` and screenshot mid-forge. */
@@ -765,6 +805,10 @@ onUnmounted(() => {
     template(v-if="flowHud.scene === 'unbox' || flowHud.scene === 'wipe'")
       UnboxScene(v-if="flowHud.scene === 'unbox'" @open="openGiftFromUi" @pick="pickPot")
       WipeScene(@back="leaveRestore" @continue="continueRestore")
+    //- The VS preview's DOM (names, powers, the VS emblem, the stars) — and,
+    //- after the hand-off, its cream-gold flash fading over the duel's first
+    //- frames, above the duel's own chrome. Menus still stack above it.
+    DuelPreview(v-if="flowHud.scene === 'preview' || previewHud.flash > 0")
     SpellBook(v-if="overlayOpen === 'spellbook'" @close="closeOverlay")
     OptionsModal(:is-open="overlayOpen === 'options'" @close="closeOverlay")
     //- A chest has just given a new rune (§8.30): the reveal, and how to draw it.

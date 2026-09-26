@@ -480,6 +480,20 @@ export default {
     'castKey2': '[Entrée] Lancer'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'VOS RUNES',
+    'weakTo': 'FAIBLE CONTRE',
+    'magic': 'MAGIE',
+    'epithet': {
+      'aurora': 'Gardienne des Runes',
+      'umbra': 'La Princesse de Poussière',
+      'shadow': 'L’Ombre d’Umbra',
+      'guardian': 'Gardienne de {place}'
+    },
+    'aria': '{hero} contre {foe}. Le duel commence dans un instant.'
+  },
+
   'gift': {
     'flowerCrown': 'Couronne de fleurs',
     'seashellNecklace': 'Collier de coquillages',

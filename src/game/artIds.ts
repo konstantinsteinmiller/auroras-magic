@@ -284,6 +284,36 @@ export const RIG_ART = {
 export type RigPart = keyof typeof RIG_ART
 
 /**
+ * THE PAINTED DUELISTS (owner, 2026-09-25). The neutral part set above could
+ * only SHADE the vector rig — its ink, its drawn face and its stiff hair
+ * blades stayed the jam build's — so the duel's Aurora never looked like the
+ * painted one on the intro's pages and in her portraits.
+ *
+ * `duel/puppet.ts` paints the SAME rig: `chars.ts` keeps every bone, angle and
+ * anchor, and each shape it used to fill is a painting instead, in FULL
+ * COLOUR per character with its own soft line — ten pieces for Aurora and
+ * ten for Umbra: the torso, the neck, the head (a strip of five faces, so
+ * the face is painted too), the horn, the fringe in two halves (`backlock`
+ * behind the horn, `forelock` in front of it), the mane, the tail, one leg
+ * (bent along the rig's bones as it is drawn) and one hoof. Every other
+ * foe wears one of the two sets recoloured (`duel/puppetBake.ts`).
+ *
+ * `chars.drawUnicorn` paints a duelist only when every sheet of her set has
+ * decoded; anything short of that draws the vector rig exactly as before, so
+ * a missing painting can never leave half a unicorn.
+ *
+ * (A first attempt, a chibi cut-out on the mascot's proportions under the
+ * ids `puppet-*`, was turned down by the owner and retired the same night.)
+ */
+export const PUPPET_WHO = ['aurora', 'umbra'] as const
+export type PuppetWho = typeof PUPPET_WHO[number]
+export const PUPPET_PARTS = ['torso', 'neck', 'head', 'backlock', 'horn', 'forelock', 'mane', 'tail', 'leg', 'hoof'] as const
+export type PuppetPart = typeof PUPPET_PARTS[number]
+export const puppetArtId = (who: PuppetWho, part: PuppetPart): string => `duelist-${who}-${part}`
+export const PUPPET_ART: Readonly<Record<PuppetWho, Readonly<Record<PuppetPart, { kind: 'rig'; id: string }>>>> =
+  Object.fromEntries(PUPPET_WHO.map((w) => [w, Object.fromEntries(PUPPET_PARTS.map((p) => [p, { kind: 'rig' as const, id: puppetArtId(w, p) }]))])) as never
+
+/**
  * The intro's painted panels (§8.26): one per picture-book page. The last two
  * beats (the colour back, then Play) share the fourth — the same restored
  * meadow — so the page does not jump between them.
@@ -520,6 +550,38 @@ export const pictoSlot = (name: string): { set: number; panel: number } | null =
   }
   return null
 }
+
+/**
+ * THE DUEL'S VS PREVIEW (story-spec §9.11; `game/preview/*`,
+ * `components/preview/*`): the five-second intro before every duel. Eight
+ * paintings, in three kinds that already exist:
+ *
+ *   worldUi  the DOM's four marks — the two NAME RIBBONS, laid on as a CSS
+ *            9-slice whose plain middle stretches with the name
+ *            (`ribbonFrame.ts`), the VS MEDALLION the translated "VS" is
+ *            printed over, and a Guardian's CROWN (`vsMarks.ts`)
+ *   page     the BACKDROP — the hero's dawn and the foe's friendly night
+ *            split by a seam of light, full-bleed and opaque, one picture per
+ *            orientation (`previewArt.paintPreviewBackdrop`)
+ *   island   the two cloud PODIUMS the duelists stand on, keyed
+ *            (`previewArt.PODIUM_ART`) — an island's role and seating rule
+ *
+ * The ids are the ones the preview already asks for (`RIBBON_IDS`,
+ * `MARK_IDS`, `vsBackdropArtId`, `VS_PODIUM_IDS`), and
+ * `tests/meta/artPreview.test.ts` holds the two lists to each other.
+ */
+export const VS_PREVIEW_ART = {
+  ribbonAurora: { kind: 'worldUi', id: 'vs-ribbon-aurora' },
+  ribbonFoe: { kind: 'worldUi', id: 'vs-ribbon-foe' },
+  emblem: { kind: 'worldUi', id: 'vs-emblem' },
+  crown: { kind: 'worldUi', id: 'vs-crown' },
+  backdropLand: { kind: 'page', id: 'vs-backdrop-land' },
+  backdropPort: { kind: 'page', id: 'vs-backdrop-port' },
+  podiumDawn: { kind: 'island', id: 'vs-podium-dawn' },
+  podiumNight: { kind: 'island', id: 'vs-podium-night' }
+} as const
+
+export type VsPreviewPiece = keyof typeof VS_PREVIEW_ART
 
 /* ──────────────────────────────────── the brand pair (art-style.md §11) ── */
 

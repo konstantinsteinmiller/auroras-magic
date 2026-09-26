@@ -648,10 +648,24 @@ const STEPS = [
     }
   },
   {
+    // The VS preview in front of every duel: two names on ribbons, the
+    // epithets ("Guardian of {place}" is the long one), the rune caption and
+    // the chips, the chapter banner. Frozen at 3 s, when every piece is up.
+    id: 'duel-preview',
+    need: '.duel-preview',
+    go: async (p) => {
+      await p.evaluate(() => window.__gotoNode(4))
+      await p.waitForFunction(() => window.__flow.state().scene === 'preview' && !window.__flow.fading(), null, { timeout: 15000 })
+      await p.evaluate(() => window.__preview.hold(3.0))
+      await p.waitForFunction(() => window.__preview.state().held, null, { timeout: 15000 })
+    }
+  },
+  {
     id: 'duel',
     need: '.duel-hud',
     go: async (p) => {
-      await p.evaluate(() => window.__gotoNode(0))
+      // Straight through the preview to the duel it announces.
+      await p.evaluate(() => { window.__gotoNode(0); window.__preview?.finish() })
       await p.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 15000 })
       // A loaded CAST button, so the live caption (a spell's name) is measured
       // rather than the idle one.
@@ -671,7 +685,7 @@ const STEPS = [
     // Back in a live duel first: the LEAVE DUEL row only exists there, and it
     // is the longest sentence the modal ever has to hold.
     go: async (p) => {
-      await p.evaluate(() => window.__gotoNode(0))
+      await p.evaluate(() => { window.__gotoNode(0); window.__preview?.finish() })
       await p.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 15000 })
       await p.evaluate(() => window.__flow.openOverlay('options'))
     }
@@ -777,7 +791,7 @@ const STEPS = [
     id: 'versus-duel',
     need: '.duel-hud',
     go: async (p) => {
-      await p.evaluate(() => window.__versus.start())
+      await p.evaluate(() => { window.__versus.start(); window.__preview?.finish() })
       await p.waitForFunction(() => window.__flow.state().scene === 'duel', null, { timeout: 15000 }).catch(() => {})
       await p.evaluate(() => { window.__S.queue = [0, 5]; window.__S.equeue = [1, 4] })
     }
@@ -814,7 +828,7 @@ const STEPS = [
         window.__campaign.state().lossStreaks = { 0: 2 }
         window.__S.intro = 0
       })
-      await p.evaluate(() => window.__gotoNode(0))
+      await p.evaluate(() => { window.__gotoNode(0); window.__preview?.finish() })
       await p.waitForFunction(() => window.__flow.state().scene === 'duel' && !window.__flow.fading(), null, { timeout: 15000 })
       // The note leaves after eleven DUEL seconds or the first rune landed
       // (`helpNoteUp`), and getting here spends some of them. Winding the

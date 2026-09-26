@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Rapal'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'RUNE KAMU',
+    'weakTo': 'KELEMAHAN',
+    'magic': 'SIHIR',
+    'epithet': {
+      'aurora': 'Penjaga Rune',
+      'umbra': 'Putri Debu',
+      'shadow': 'Bayangan Umbra',
+      'guardian': 'Pelindung {place}'
+    },
+    'aria': '{hero} melawan {foe}. Duel akan segera dimulai.'
+  },
+
   'gift': {
     'flowerCrown': 'Mahkota Bunga',
     'seashellNecklace': 'Kalung Kerang',

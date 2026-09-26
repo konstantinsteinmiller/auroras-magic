@@ -20,6 +20,9 @@
  * it arrives on. The prologue plays once (`prologueSeen`). A player who closes
  * the tab mid-duel comes back straight into the duel.
  *
+ * (Every duel, this one included, opens with its five-second VS preview —
+ * `game/preview/preview.ts` — so "straight into the duel" means through it.)
+ *
  * The REST of the book, the LESSON, still plays once between the first win
  * and the first CLEANING (`openGift`). It is the part that says what the
  * sponge is for (owner, 2026-09-23). `introSeen` is unchanged, so a returning
@@ -39,6 +42,7 @@ import { dialogueFor, openingLines, OPENING_NODE } from '@/game/story/story'
 import { gotoScene } from '@/game/flow/scene'
 import { dipTo, fading, DIP_PUSH } from '@/game/flow/transition'
 import { startDuel } from '@/game/flow/duelFlow'
+import { warmDuelists } from '@/game/preview/preview'
 import { openSector } from '@/game/flow/restoreFlow'
 import { focusMap } from '@/game/map/map'
 import { beginIntro, type IntroPart } from '@/game/story/intro'
@@ -146,6 +150,9 @@ export const nodePlayable = (n: number): boolean => {
 }
 
 const enterDialogue = (n: number): void => {
+  // Her duelists bake in idle slices while the prologue or the dialogue plays,
+  // so the VS preview that follows starts on its first frame (§8.38).
+  warmDuelists(n)
   // NODE 0 IS PLAYED, NOT READ (retention item 2). It is the node a stranger
   // meets and the one every portal grades conversion on, so its opener is
   // printed over the arena (see `openOnArena`) and the duel is drawable from
@@ -169,7 +176,8 @@ const enterDialogue = (n: number): void => {
 /* ───────────────────── node 0: the opening, over the arena ───────────── */
 
 /**
- * Straight into the duel, with the opener laid over it.
+ * Straight into the duel (through its VS preview, like every duel), with the
+ * opener laid over it.
  *
  * The bubbles are chrome, not a scene: they take no taps (the canvas
  * underneath keeps every one of them), they pause nothing, they turn
@@ -177,16 +185,25 @@ const enterDialogue = (n: number): void => {
  * them exactly as she does through the onboarding beats. So the player may
  * start drawing the instant the first one appears — that stroke ends the
  * sequence wherever it has reached — or ignore the whole thing.
+ *
+ * RAISED WHEN THE DUEL BEGINS, not when it is chosen: the opener belongs to
+ * the arena, the app folds it away whenever the scene is anything but the
+ * duel (`AppScene`'s scene watch), and five seconds of preview stand between
+ * the two now. So it goes up in `startDuel`'s `onBegin`, after the arena is.
  */
 const openOnArena = (n: number): void => {
-  // Recorded as met the moment it is RAISED, not when it is put away: most
+  // Recorded as met the moment it is CHOSEN, not when it is put away: most
   // players will never see the last beat, because they will be drawing by
   // then, and a sequence nobody is waiting on has no other moment to record.
   // It is printed again on a second visit — it costs a player who came back
   // mid-node nothing, because it never stood in their way the first time.
   markDialogueSeen(n)
+  startDuel(n, raiseOpening)
+}
+
+/** Node 0's opener over the arena, the moment its duel begins. */
+const raiseOpening = (): void => {
   openingHud.live = openingLines().length > 0
-  startDuel(n)
 }
 
 /**
@@ -212,6 +229,7 @@ export const playNode = (n: number): void => {
     return
   }
   if (!nodePlayable(n)) return
+  warmDuelists(n)
   if (isReplay(n)) {
     // A finished node played again — what there is to do after the finale,
     // and the number item 4's replay goals will be judged against.

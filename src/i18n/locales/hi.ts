@@ -477,6 +477,20 @@ export default {
     'castKey2': '[एंटर] जादू करें'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'आपके रून',
+    'weakTo': 'कमज़ोर बिंदु',
+    'magic': 'जादू',
+    'epithet': {
+      'aurora': 'रून की रक्षिका',
+      'umbra': 'धूल की राजकुमारी',
+      'shadow': 'अम्ब्रा की परछाईं',
+      'guardian': '{place} की संरक्षिका'
+    },
+    'aria': '{hero} बनाम {foe}। मुक़ाबला अभी शुरू होगा।'
+  },
+
   'gift': {
     'flowerCrown': 'फूलों का ताज',
     'seashellNecklace': 'सीपियों का हार',

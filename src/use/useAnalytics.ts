@@ -12,6 +12,7 @@
 //   duel_start    a duel opened                        { nodeId, foe, … }
 //   duel_end      a duel ended                         { foe, won, durationMs }
 //   duel_abandon  the player left a duel mid-fight     { nodeId, wasReplay }
+//   duel_preview  the VS preview handed over to a duel { nodeId, mode, skipped, shownMs }
 //   reward_claim  the Twin Gift paid a bloom (D3)      { sectorId, kind: 'bloom' }
 //   recognition_attempt  one finished rune stroke       { success, rune, ec, turn, margin, sample }
 //                 (story-spec §5.16 / §7.13; see `trackRecognition` for its sampling)
@@ -76,6 +77,9 @@ export type AnalyticsEvent =
   // Local 2P versus (§6.19, S5): one start and one end per match.
   | 'versus_start'
   | 'versus_end'
+  // The VS preview in front of every duel (`game/preview/preview.ts`), once,
+  // at its hand-off: was it skipped, and how long was it actually watched.
+  | 'duel_preview'
   | 'first_rune'
   | 'reward_claim'
   | 'recognition_attempt'

@@ -9,7 +9,9 @@
 //     straight into the first duel — against Umbra — with the opener printed
 //     over the arena, all three beats of it, turning themselves over (owner,
 //     2026-09-23, 2026-09-24). The prologue plays once; a player who comes
-//     back mid-duel goes straight into the duel;
+//     back mid-duel goes straight into the duel. (Every duel now opens with
+//     its VS preview, 2026-09-25: the opener goes up when the duel itself
+//     begins, never over the preview in front of it);
 //   • only node 0. Every other node keeps its full dialogue scene — the
 //     branch is the whole risk here, because an arena opener quietly applied
 //     to node 7 would put the story on a clock nobody asked for;
@@ -92,6 +94,17 @@ const bookEnds = (skipped = false, beat = 4): void => {
 /** Which part of the book the last `beginIntro` played. */
 const lastPart = (): unknown => vi.mocked(beginIntro).mock.calls.at(-1)![1]
 
+/**
+ * The duel's VS preview hands over: `startDuel` plays the five-second
+ * preview first and begins the duel after it (`duelFlow.ts`), running the
+ * caller's `onBegin` then — which is where node 0's opener goes up. The
+ * preview itself is `tests/preview/*`'s business; here it simply finishes.
+ */
+const duelBegins = (): void => {
+  const onBegin = vi.mocked(startDuel).mock.calls.at(-1)![1]
+  onBegin?.()
+}
+
 describe('the opening lines', () => {
   beforeEach(freshSave)
 
@@ -123,7 +136,11 @@ describe('a cold boot', () => {
   it('turns straight into node 0\'s duel when it ends, with the line over the arena', () => {
     bootScene()
     bookEnds(false, 1)
-    expect(startDuel).toHaveBeenCalledWith(0)
+    expect(startDuel).toHaveBeenCalledWith(0, expect.any(Function))
+    // Not over the VS preview in front of the duel: the opener is the
+    // arena's chrome, raised the moment the duel itself begins.
+    expect(openingHud.live).toBe(false)
+    duelBegins()
     expect(openingHud.live).toBe(true)
     // No dialogue scene stood in front of it.
     expect(S.flow.scene).not.toBe('dialogue')
@@ -135,7 +152,7 @@ describe('a cold boot', () => {
   it('…and just the same when it is skipped', () => {
     bootScene()
     bookEnds(true, 0)
-    expect(startDuel).toHaveBeenCalledWith(0)
+    expect(startDuel).toHaveBeenCalledWith(0, expect.any(Function))
     expect(S.campaign.prologueSeen).toBe(true)
   })
 
@@ -143,7 +160,8 @@ describe('a cold boot', () => {
     S.campaign.prologueSeen = true
     bootScene()
     expect(beginIntro).not.toHaveBeenCalled()
-    expect(startDuel).toHaveBeenCalledWith(0)
+    expect(startDuel).toHaveBeenCalledWith(0, expect.any(Function))
+    duelBegins()
     expect(openingHud.live).toBe(true)
   })
 
@@ -156,6 +174,7 @@ describe('a cold boot', () => {
   it('folds away on demand, and never leaks into the next node', () => {
     bootScene()
     bookEnds()
+    duelBegins()
     expect(openingHud.live).toBe(true)
     closeOpening()
     expect(openingHud.live).toBe(false)

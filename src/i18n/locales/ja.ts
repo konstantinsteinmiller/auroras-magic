@@ -477,6 +477,20 @@ export default {
     'castKey2': '[エンター] 発動'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': '自分のルーン',
+    'weakTo': '弱点',
+    'magic': '魔法',
+    'epithet': {
+      'aurora': 'ルーンの守り手',
+      'umbra': 'ほこりの姫',
+      'shadow': 'ウンブラのかげ',
+      'guardian': '{place}の守護者'
+    },
+    'aria': '{hero} 対 {foe}。まもなく対戦が始まります。'
+  },
+
   'gift': {
     'flowerCrown': '花のかんむり',
     'seashellNecklace': '貝がらのネックレス',

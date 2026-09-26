@@ -479,6 +479,20 @@ export default {
     'castKey2': '[Enter] Колдовать'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'ВАШИ РУНЫ',
+    'weakTo': 'СЛАБОСТЬ К',
+    'magic': 'МАГИЯ',
+    'epithet': {
+      'aurora': 'Хранительница Рун',
+      'umbra': 'Пыльная Принцесса',
+      'shadow': 'Тень Умбры',
+      'guardian': '{place} — Хранительница'
+    },
+    'aria': '{hero} против {foe}. Дуэль начнётся через мгновение.'
+  },
+
   'gift': {
     'flowerCrown': 'Цветочная корона',
     'seashellNecklace': 'Ожерелье из ракушек',

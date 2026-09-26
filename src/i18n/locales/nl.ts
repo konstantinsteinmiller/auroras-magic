@@ -478,6 +478,20 @@ export default {
     'castKey2': '[Enter] Toveren'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'JOUW RUNEN',
+    'weakTo': 'ZWAK TEGEN',
+    'magic': 'MAGIE',
+    'epithet': {
+      'aurora': 'Hoedster van de Runen',
+      'umbra': 'De Stofprinses',
+      'shadow': 'Umbra’s Schaduw',
+      'guardian': 'Bewaakster van {place}'
+    },
+    'aria': '{hero} tegen {foe}. Het duel begint zo.'
+  },
+
   'gift': {
     'flowerCrown': 'Bloemenkroon',
     'seashellNecklace': 'Schelpenketting',

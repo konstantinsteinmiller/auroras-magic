@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Сиқырлау'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'РУНАЛАРЫҢЫЗ',
+    'weakTo': 'ӘЛСІЗ ЖАҒЫ',
+    'magic': 'СИҚЫР',
+    'epithet': {
+      'aurora': 'Руналар Қорғаушысы',
+      'umbra': 'Шаң Ханшайымы',
+      'shadow': 'Умбраның Көлеңкесі',
+      'guardian': '{place} — Қорғаушы'
+    },
+    'aria': '{hero} мен {foe} жекпе-жегі жақында басталады.'
+  },
+
   'gift': {
     'flowerCrown': 'Гүл тәжі',
     'seashellNecklace': 'Бақалшақ алқасы',

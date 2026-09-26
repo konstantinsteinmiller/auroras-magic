@@ -43,7 +43,7 @@ import { pokiGameplayStart, pokiGameplayStop } from '@/utils/pokiPlugin'
 // purpose: a platform-contract module must not drag the simulation into
 // anything that imports it.
 export type LiveScene =
-  | 'boot' | 'intro' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe' | 'wardrobe' | 'versusSetup'
+  | 'boot' | 'intro' | 'map' | 'dialogue' | 'preview' | 'duel' | 'unbox' | 'wipe' | 'wardrobe' | 'versusSetup'
 
 export interface GameplayLiveInputs {
   /** Which scene the one canvas is showing (story-spec §4.1.1). */
@@ -93,7 +93,9 @@ export const isGameplayLive = (i: GameplayLiveInputs): boolean =>
   // Two scenes are play: a duel while it is being fought, and a wipe — the
   // player is working the brush, and the wipe's own ~1–2 s reveal tail stays
   // inside the same span rather than flickering the bracket (§11.2). The gift,
-  // the pots and the restored sector at rest are not play.
+  // the pots and the restored sector at rest are not play — and nor is the
+  // VS preview in front of a duel (`preview`): five seconds of fanfare with
+  // nothing to draw, so the narrow bracket opens when the duel does.
   ((i.scene === 'duel' && i.duelPhaseIsLive) || i.scene === 'wipe')
   && !i.showResult
   && !i.anyModalOpen

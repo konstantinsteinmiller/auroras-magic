@@ -26,6 +26,11 @@ import {
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
 import { ALL_ITEM_SHEETS, layoutOf, measureFit, renderBrandSheet, renderItemSheet, renderKeySheet, renderPageSheet, renderSectorSheet, renderStorySheet, renderWardrobeSheet } from '@/game/artDraw'
+import { PREVIEW_BACKDROP_SHEETS } from '@/game/artSheet'
+
+/** Every opaque `page` sheet: the book's pages, and the duel's VS preview
+ *  backdrop (a sky, not a page — same kind, same ground rule). */
+const PAGES: readonly PageSheet[] = [...PAGE_SHEETS, ...PREVIEW_BACKDROP_SHEETS]
 
 const busy = ref(false)
 const status = ref('idle')
@@ -154,7 +159,7 @@ const exportAll = async (): Promise<void> => {
       }
       sheets.push(storyEntry(s))
     }
-    for (const s of PAGE_SHEETS) {
+    for (const s of PAGES) {
       if (wanted(s.file)) {
         status.value = `page ${++n}: ${s.file}`
         await save(`${s.file}.png`, { dataUrl: renderPageSheet(s).toDataURL('image/png') })
@@ -205,7 +210,7 @@ onMounted(() => {
   // Previews: every sector small, every item and rune at half size.
   sectorPreviews.value = SECTOR_SHEETS.map((s) => renderSectorSheet(s))
   storyPreviews.value = STORY_SHEETS.map((s) => renderStorySheet(s))
-  pagePreviews.value = PAGE_SHEETS.map((s) => renderPageSheet(s))
+  pagePreviews.value = PAGES.map((s) => renderPageSheet(s))
   wardrobePreviews.value = WARDROBE_SHEETS.map((s) => renderWardrobeSheet(s))
   itemPreviews.value = ALL_ITEM_SHEETS.map((s) => renderItemSheet(s))
   brandPreview.value = renderBrandSheet(BRAND_LOGO_SHEET)
@@ -233,9 +238,9 @@ const mount = (cv: HTMLCanvasElement) => (el: unknown): void => {
       figure(v-for="(s, i) in STORY_SHEETS" :key="s.file")
         .cv(:ref="storyPreviews[i] ? mount(storyPreviews[i]) : undefined")
         figcaption Intro {{ s.panel }} {{ s.title }} · models: {{ s.also.join(', ') }}
-    h2 Chapter pages ({{ PAGE_SHEETS.length }}) — opaque, furniture behind the beat cards
+    h2 Pages ({{ PAGES.length }}) — opaque: the book's pages, furniture behind the beat cards, and the VS preview's backdrop
     .grid.sectors
-      figure(v-for="(s, i) in PAGE_SHEETS" :key="s.file")
+      figure(v-for="(s, i) in PAGES" :key="s.file")
         .cv(:ref="pagePreviews[i] ? mount(pagePreviews[i]) : undefined")
         figcaption {{ s.title }} · {{ s.w }} × {{ s.h }}
     h2 The wardrobe's room ({{ WARDROBE_SHEETS.length }}) — opaque, one per orientation, the floor line where the renderer cuts it

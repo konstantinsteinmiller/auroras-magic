@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Sehrlash'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'RUNALARINGIZ',
+    'weakTo': 'ZAIF TOMONI',
+    'magic': 'SEHR',
+    'epithet': {
+      'aurora': 'Runalar Qo‘riqchisi',
+      'umbra': 'Chang Malikasi',
+      'shadow': 'Umbraning Soyasi',
+      'guardian': '{place} — Qo‘riqchi'
+    },
+    'aria': '{hero} va {foe} bellashuvi tez orada boshlanadi.'
+  },
+
   'gift': {
     'flowerCrown': 'Gul toji',
     'seashellNecklace': 'Chig‘anoqli marjon',

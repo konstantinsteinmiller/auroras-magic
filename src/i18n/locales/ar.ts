@@ -477,6 +477,20 @@ export default {
     'castKey2': '[إدخال] إلقاء'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'رموزك',
+    'weakTo': 'نقطة الضعف',
+    'magic': 'سحر',
+    'epithet': {
+      'aurora': 'حارسة الرموز',
+      'umbra': 'أميرة الغبار',
+      'shadow': 'ظل أومبرا',
+      'guardian': 'حارسة {place}'
+    },
+    'aria': '{hero} في مواجهة {foe}. تبدأ المبارزة بعد قليل.'
+  },
+
   'gift': {
     'flowerCrown': 'تاج الزهور',
     'seashellNecklace': 'قلادة الأصداف',

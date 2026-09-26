@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Zaubern'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'DEINE RUNEN',
+    'weakTo': 'SCHWACH GEGEN',
+    'magic': 'MAGIE',
+    'epithet': {
+      'aurora': 'Hüterin der Runen',
+      'umbra': 'Die Staubprinzessin',
+      'shadow': 'Umbras Schatten',
+      'guardian': 'Wächterin von {place}'
+    },
+    'aria': '{hero} gegen {foe}. Das Duell beginnt gleich.'
+  },
+
   'gift': {
     'flowerCrown': 'Blumenkranz',
     'seashellNecklace': 'Muschelkette',

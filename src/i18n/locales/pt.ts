@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Enter] Lançar'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'SUAS RUNAS',
+    'weakTo': 'FRACA CONTRA',
+    'magic': 'MAGIA',
+    'epithet': {
+      'aurora': 'Guardiã das Runas',
+      'umbra': 'A Princesa da Poeira',
+      'shadow': 'A Sombra de Umbra',
+      'guardian': 'Guardiã de {place}'
+    },
+    'aria': '{hero} contra {foe}. O duelo começa em instantes.'
+  },
+
   'gift': {
     'flowerCrown': 'Coroa de flores',
     'seashellNecklace': 'Colar de conchas',

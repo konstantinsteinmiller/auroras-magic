@@ -30,6 +30,7 @@ import { equippedHooks, equippedKey } from '@/game/cosmetics/rig-cosmetics'
 import { COSMETIC_SLOTS } from '@/game/campaign/tables'
 import { onArtChanged, spriteFor } from '@/game/art'
 import { drawItem, type ItemSpec } from '@/game/artItem'
+import { refInk } from '@/game/map/kit'
 import { PORTRAIT_SETS, portraitArtId, portraitSetOf, type PortraitEmote } from '@/game/artIds'
 import type { Emote, SpeakerId } from '@/game/story/story'
 
@@ -180,9 +181,11 @@ type G = CanvasRenderingContext2D
 type Stroke = (w: number) => void
 const TAU = Math.PI * 2
 
-/** A stroker in the plum ink. */
+/** A stroker in the plum ink — thinned with the kit's line on a creature's
+ *  reference sheet (`kit.setRefInk`), so the painter is shown a guide, not
+ *  a contour to trace. */
 const pen = (g: G): Stroke => (w) => {
-  g.lineWidth = w
+  g.lineWidth = w * refInk()
   g.strokeStyle = INK
   g.stroke()
 }

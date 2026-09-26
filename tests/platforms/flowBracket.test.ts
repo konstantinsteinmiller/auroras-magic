@@ -45,6 +45,21 @@ describe('the FSM bracket', () => {
     expect(b.bracketLive()).toBe(true)
   })
 
+  it('is shut through the VS preview, and opens once, at the hand-off to the duel', async () => {
+    const b = await boot()
+    b.arm()
+    b.gotoScene('map', 0)
+    b.calls.length = 0
+    // The preview: five seconds of fanfare, nothing to draw — not play, even
+    // with the last duel's phase still reading "live" behind it.
+    b.S.phase = b.PH_DUEL
+    b.gotoScene('preview', 0)
+    expect(b.bracketLive()).toBe(false)
+    b.gotoScene('duel', 0)
+    expect(b.bracketLive()).toBe(true)
+    expect(b.calls).toEqual([true])
+  })
+
   it('closes under an overlay and reopens when it closes', async () => {
     const b = await boot()
     b.S.phase = b.PH_DUEL

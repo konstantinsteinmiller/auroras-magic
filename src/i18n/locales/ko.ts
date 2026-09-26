@@ -477,6 +477,20 @@ export default {
     'castKey2': '[엔터] 시전'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': '내 룬',
+    'weakTo': '약점',
+    'magic': '마법',
+    'epithet': {
+      'aurora': '룬의 지킴이',
+      'umbra': '먼지 공주',
+      'shadow': '움브라의 그림자',
+      'guardian': '{place}의 수호자'
+    },
+    'aria': '{hero} 대 {foe}. 대결이 곧 시작됩니다.'
+  },
+
   'gift': {
     'flowerCrown': '꽃왕관',
     'seashellNecklace': '조개껍데기 목걸이',

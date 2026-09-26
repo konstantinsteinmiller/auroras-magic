@@ -479,6 +479,20 @@ export default {
     'castKey2': '[Enter] Чаклувати'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'ВАШІ РУНИ',
+    'weakTo': 'СЛАБКІСТЬ ДО',
+    'magic': 'МАГІЯ',
+    'epithet': {
+      'aurora': 'Хранителька Рун',
+      'umbra': 'Пилова Принцеса',
+      'shadow': 'Тінь Умбри',
+      'guardian': '{place} — Хранителька'
+    },
+    'aria': '{hero} проти {foe}. Дуель почнеться за мить.'
+  },
+
   'gift': {
     'flowerCrown': 'Квіткова корона',
     'seashellNecklace': 'Намисто з мушель',

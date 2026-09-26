@@ -575,6 +575,27 @@ export default {
     'castKey2': '[Enter] Cast'
   },
 
+  // The duel VS preview (§8.36-ish): shown for 5 s before every duel. The two
+  // duelists face each other with their names on ribbons; the epithet is a
+  // small line under the name. `yourRunes` captions the row of every rune the
+  // player can draw; the chips say which rune the opponent is weak to and
+  // which chapter magic she casts. `{place}` is a translated chapter name
+  // (`chapter.c1..c10`, e.g. "Whispering Woods"). `aria` is read by screen
+  // readers; `{hero}` and `{foe}` are the translated duelist names.
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'YOUR RUNES',
+    'weakTo': 'WEAK TO',
+    'magic': 'MAGIC',
+    'epithet': {
+      'aurora': 'Keeper of the Runes',
+      'umbra': 'The Dust Princess',
+      'shadow': 'Umbra’s Shadow',
+      'guardian': 'Guardian of {place}'
+    },
+    'aria': '{hero} versus {foe}. The duel begins in a moment.'
+  },
+
   // Wardrobe keepsakes, one per chapter's boss chest (§10.13.C).
   'gift': {
     'flowerCrown': 'Flower Crown',

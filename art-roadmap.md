@@ -1689,6 +1689,217 @@ into one cream band at the 256 px cut (a third roll was not spent — the
 margin is 9–25 px in play); the snowball's and the scarf's lines still close
 round them.
 
+## 2026-09-25 — the painted duelists
+
+Owner: the duel rig "is so much different from the painted Aurora and the same
+for Umbra" — paint every sub-part on its own.
+
+**First attempt, turned down:** a chibi cut-out puppet on `brand-mascot`'s
+proportions (7 full-colour pieces each, ids `puppet-*`). Owner: "reroll the
+parts until they have a similar SHAPE as the current drawn rigs, but with the
+art style and cuteness of the Aurora portraits and the intro" — and "the battle
+rigs should not have an aroused or happy emotion, but a neutral one" (the
+chibi's resting faces were a big smile and a half-lidded blushing smirk).
+Retired the same night; its paintings sit in `painted/replaced/*.chibi-retired.jpg`.
+
+**What shipped:** the drawn rig itself, painted (`duel/puppet.ts`,
+`artIds.PUPPET_ART`, ids `duelist-<who>-<part>`). `chars.ts` keeps every bone,
+angle and anchor; in `PAINT` mode each shape it used to fill is a full-colour
+painting instead — nine per character: torso (+ chest tuft), neck (stretched
+along `nk`), head (5-face strip: CALM neutral, blink, cheer on a win, ouch on a
+hit, dizzy on a fall), horn, forelock, mane, tail, ONE leg and ONE hoof. The leg
+is painted straight and BENT along the rig's four-bone chain at draw time: cut
+into 20 slices, each laid where its share of the leg falls on the chain, turned
+to the chain's direction read over a ±9-unit window (so a knee is a curve) and
+widened to the rig's taper plus its heavy outline. Hair swings rigidly about
+its root with the rig's wave. References are drawn from the rig's own geometry
+(`TQ_REF` is pinned equal to `chars.TQ`), and every reference sheet now renders
+under `withoutArt`. 18 sheets, ~125 kB.
+
+Every other character is a recolour of one of the two sets (`puppetBake.ts`):
+shadows keep Umbra's coat; Guardians take Aurora's set (light coats) or
+Umbra's; skins and mane swatches recolour Aurora. Umbra's paintings come back
+darker than her model, so her coat and horn are lifted by per-channel gain.
+
+Paid for (~50 generations over both attempts):
+
+- **A head told "no hair" comes back BALD — no ears.** Name the ears as the
+  head's, as pony ears ("never round like a bear's"), and count them.
+- **Hair drawn as smooth bands is TRACED as bands**; hair pieces take only the
+  reference's size/place/outline and paint real locks inside it. Smooth the
+  reference locks through their midpoints — a faceted blade is traced as one.
+- **A mane-shaped blob is painted as a whole pony or a unicorn bust.** "It is
+  not a unicorn — just the hair, like a wig with nobody in it."
+- **A single-wedge forelock comes back as a framed card of hair.** Two locks
+  read as a tuft; "no frame, card, slab or border round it".
+- **No white sticker rim**, said in the checks.
+- **Ink must be the same weight on every sheet**: a small piece is drawn big on
+  its panel, so its reference line is scaled back by its own unit.
+- **A crop of a scene as a model drags the scene along**: use the keyed mascot.
+- **A flat hue over a dark JPEG→WebP slice shows its blocks**; recolour by
+  per-channel gain whenever no channel moves more than ~2×, and floor the
+  highlight ramp of the flat transfer.
+- **The hit flash is baked into a copy of each piece**, not laid over it: the
+  bent leg's overlapping slices doubled an overlay into stripes.
+
+Cost: both duelists ~1.1 ms/frame against the vector rig's ~0.7 (headless,
+desktop) — the leg's slices are 160 small blits a frame; transforms are set
+directly rather than pushed and popped.
+
+**Creature dialogue portraits** (same night): the nine creature strips were
+painted from an evenly inked badge and read as flat stickers. Their references
+now thin the line like the creature family's (`artDraw.creaturePortrait`) and
+their prompts carry `CREATURE_NOT_A_STICKER`. Eight re-rolled and kept softer;
+Puff came back twice with a painted white disc under it (and once with a horn)
+and keeps its original.
+
+**Second round (owner: "make the mane fuller like in the portraits", "the
+hoofs and legs seem broken", "the face needs to look more like in the intro but
+with a more neutral emotion"):**
+
+- **Legs and hooves are one outline each now.** The sliced painting carried its
+  own line, and every slice's piece of it turned differently — a stepped,
+  doubled, broken edge. The outline is now ONE path (the bone chain offset by
+  its taper, rounded at the joints and both ends) stroked once in soft plum; the
+  painting is laid along the bones WIDER than that path and clipped to it, so
+  only its paint shows. The hoof is the drawn hoof's quad, filled with its
+  painting the same way. No new paintings needed.
+- **The face is turned toward us, both eyes**, like the intro and the portraits,
+  on the rig's own head outline; the intro's face (cropped tight from its last
+  page, `model-aurora-face`) is the head's second model and the brief takes its
+  laugh out. Resting face: both eyes open, small closed mouth, light blush.
+- **The mane is the portraits' cloud**: a crown of curls framing the head and
+  WAVY locks down the neck that taper to curling tips. Straight bands with a
+  flat end came back as a wig with a square-cut hem; tip curls drawn as circles
+  came back as fingertips. The fringe is a tuft of curls with streaks.
+
+**Third round (owner, via the VS-preview session): "a lot of the rig looks ok,
+I like the tail, but the hair and the face don't look great — should be more
+like this"** (a crop of the intro's last page, `painted/model-aurora-target`):
+
+- **The head is the intro's chibi head**: a round skull and a SHORT soft muzzle
+  barely out of it (`SKULL`/`MUZZLE` in `puppet.ts`) where the rig's is a long
+  horse profile; rosy cheeks, both eyes, calm. Head units and the horn's root
+  are unchanged, so head-slot cosmetics still sit on it.
+- **Hair references are SILHOUETTES** (`hairMass`): the mass's outline in one
+  flat colour, nothing drawn inside. Every lock or stripe drawn into a hair
+  reference came back traced as drawn — bands, a fan of thin strands, a
+  rainbow hair band. With only the outline, the painter fills it with the
+  model's hair: soft wavy locks striped in pastel, curls on the crown.
+- The owner's target crop is the head's and the hair pieces' second model.
+
+**Fourth round (owner): "I want the painted rig look somewhat like [the intro's
+last page], but it should still allow for the forelegs rising up animation on
+spell release … the face should have the cute chibi look, but not have the
+happy emotion by default … since Aurora is shown from the side view, only one
+eye should be in the face":**
+
+- **The painted rig takes the chibi's PROPORTIONS on the drawn rig's bones.**
+  `chars.ts` now reads its geometry from a profile (`RigGeo`): `JAM`, the
+  drawn rig's numbers, unchanged, and `CHIBI` for the painted one — a head
+  1.55× the rig's, a small round body low on short, chubby legs, a short thick
+  neck. The pose code is the same code: the forelegs still fold and rise on a
+  cast (the rig rears about the same hip), and she still lies down on the
+  island, hooves on the ground (pinned in `puppet.test.ts` with `__chibiRig`).
+- **The head is in PROFILE with ONE eye**, looking at her opponent; the
+  brief says the far eye is hidden and the checks count one eye. The dialogue
+  strip (faces looking out at us) is off the head's models; the intro crop and
+  the mascot's side-turned head are on.
+- **The mane hangs from the HEAD** (drawn in head space, swinging about the
+  poll): the intro's cloud round the back of the skull and a fall of curl-tipped
+  locks behind the neck; lying, it swings back along the neck instead of hanging
+  through the ground. No chest tuft on the chibi's body.
+- Re-painted: head, mane, torso, forelock × 2. Tail, legs, hooves, neck and
+  horn are reused — they are laid along the bones and scale with them.
+- **The chibi's legs are stubs, and the jam leg's drawing did not survive the
+  change of girth**: a line round the top drew each leg as a tube stuck on the
+  belly, the round end cap poked out under the sole as a loop, the line was
+  twice the paintings' weight, and the cast's tight fold turned into a Z with
+  the painting's own edge line showing inside the knee. Now the line runs down
+  the SIDES only (from a top half-width below the root), the leg ends flat
+  under a hoof as wide as the leg (the intro's gold cuff), the slices are cut
+  from INSIDE the painting's line, the coat is laid under them for the gaps a
+  bend fans open, and the cast raises a paw — upper arm forward, forearm hanging
+  — instead of folding the leg flat.
+
+**Fifth round (owner): "reroll umbra's fringe and soften the win pose legs. The
+hair is clipping behind the legs, the legs have bad border cutouts, the hair is
+swinging too much. The face looks weird"** — pointing at the intro, the
+portraits and the mascot pair (`brand-mascot`):
+
+- **The head is the mascot pair's again: three-quarters, BOTH eyes, both
+  looking at the opponent.** The one-eye profile read as a ball. The pair is the
+  head's first model; the ears are tall pony leaves (short wide ones read as a
+  kitten's), the muzzle comes further out of the skull.
+- **A near leg joins the body as ONE silhouette**, as a drawing's does: its
+  line starts where each side leaves the body, and the body's own painting is
+  laid back over the leg's top, less a 2.5-unit band that paints over the
+  body's line. That top is drawn straight after the body (`LEG_TOP`), so the
+  mane lying on the back and anything worn are never painted over; the rest
+  of the leg (`LEG_REST`) is drawn in front as before. The re-lay is grown
+  1.5 units past the leg, or its soft edge stays as a seam.
+- **The mane's fall ends at the chest** (it hung down behind the legs), and a
+  painted hair piece swings a fraction of the drawn locks' wave — mane 0.3,
+  tail 0.55, fringe 0.15: a painting turns as one rigid block.
+- **The win is a two-paw prance** (the cast's paw raise, curled a little
+  less), not both forelegs flung straight out.
+- Umbra's hair models are the mascot pair and her mascot: `model-umbra-faces` is
+  the older hooded shadow-Umbra, and her fringe came back its pale plume.
+- Aurora's first fifth-round head strip came back with each mood's NAME
+  lettered under it, and the slice carried the words into the duel; her mane
+  came back with a pony ear in it. Both prompts now say so in their checks.
+
+**Sixth round (owner): the fringe "is just put over the horn and does not look
+good", and "the body has a significantly brighter color and does not match the
+legs":**
+
+- **The fringe is two pieces with the horn between them**, as the portraits
+  paint it: `backlock` (a new tenth piece) behind the horn, over the far ear's
+  root, falling to the right; `forelock` over the horn's root, sweeping LEFT
+  over the near brow — the first painted fringe swept right, the wrong way.
+- **The coat pieces are carried onto the BODY's coat before anything else**
+  (`puppetBake`'s `COAT_OF_BODY`: leg, neck): the body re-painted brighter than
+  the legs. A per-channel gain onto the body's measured coat colour.
+- **A gain only for a change of LIGHT**, not of hue: Umbra's violet set gained
+  onto Briar's bark turned her painting's lilac highlights hot orange. Across
+  a hue the recolour is the light-only transfer.
+- **A recoloured head keeps its FEATURES by where they are, not by colour**:
+  the three-quarter head's painted shade is the blush's own peach, so the
+  colour test left a peach patch on every recoloured head. `puppet.ts` draws a
+  mask of the eyes, blushes, mouth, nostril and inner ears off the reference's
+  layout (the painter follows it); inside it the strict colour test, outside
+  it the coat's shade counts as coat.
+
+Not done, worth a look: intro pages 1–3 still show the vector rig's Aurora
+painted into them; page 4 and the mascot are the chibi.
+
+### 2026-09-25 — the VS preview family (`preview`, PROMPTS-PREVIEW.md)
+
+The five-second VS screen before every duel (story-spec §8.38) got eight
+sheets, all painted the same night: 13 generations, 71 kB, ~55 kB of it in a
+fresh save's splash hold. `vs-ribbon-aurora` / `-foe`, `vs-emblem`,
+`vs-crown` (`worldUi`, DOM); `vs-backdrop-land` / `-port` (`page`);
+`vs-podium-dawn` / `-night` (`island`). Paid for, each with a return:
+
+- **A name in capitals in the brief is lettered into the picture.** The first
+  portrait backdrop came back with "THE FRIENDLY NIGHT" and "AURORA'S DAWN"
+  written across the sky — the brief had named its two halves that way. Name a
+  region by what it looks like, never by a title.
+- **A backdrop that is STRETCHED to the screen may hold nothing round.** The
+  preview lays its painting over the whole viewport (the seam must stay where
+  the layout puts it), up to ~25 % off its aspect on phones, so the moon moved
+  out of the painting and is drawn live (`paintPreviewMoon`); the painting is
+  soft sky, clouds and tiny stars only.
+- **Clouds and cloud pedestals: take the line off the REFERENCE**, not just
+  out of the words — the podiums came back as outlined shiny balls on a dish
+  until the reference lost its outline and per-puff highlights (the
+  interior-ink lesson again).
+- **A DOM 9-slice ribbon paints a plain middle, so the CSS keeps the detail
+  that must not stretch** — the running stitch is drawn over the painting.
+- The medallion is the one `ItemSheet.exact` outside the brand pair (384 px):
+  the screen's centrepiece, 160–215 device px per radius, which the 256 px cap
+  would have upscaled 1.4–1.9×.
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

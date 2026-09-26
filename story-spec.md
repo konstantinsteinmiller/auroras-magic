@@ -7942,6 +7942,125 @@ player far ahead, none with her behind or at the floor, decided once per
 spell). `tests/duel/forged.ts` `pressFoe()` puts a test where she walls every
 blow, so a test of her rules is not a test of the dice.
 
+### §8.38 Owner request, 2026-09-25 — the VS preview before every duel
+
+*"A Brawl Stars like Duel Partners Preview screen, where each part of the
+teams is facing each other and the name of the characters is shown above the
+characters … fancy and beautiful animations introducing the names and the
+powers of the duel participants … all the runes that are already available for
+drawing … cute and cozy ribbons … glitter or sparkles and a fanfare … should
+last exactly 5 seconds, after that the duel starts. Plays before each duel
+(needs to load early for first-time players)."*
+
+**Where it sits.** `startDuel(n)` (and `startVersus()`) no longer lands in the
+duel: it enters a new scene, `preview` (`flow/scene.ts`), and the old body runs
+as `beginDuel` / `beginVersus` at the hand-off — nothing of the next duel ticks
+during the preview. Every entry goes through it: a map tap, a dialogue's end,
+the prologue's hand-off into node 0, a replay, a RETRY (which used to cut
+straight back in; it now turns a page into a fresh preview), and local versus.
+Node 0's opener is raised by `startDuel(n, onBegin)` AFTER the scene is
+`duel`, never over the preview.
+
+**The clock — five seconds ON SCREEN (owner's stopwatch, 2026-09-25).** The
+owner timed the first version at 8 s for a session's first preview and 6 s
+after. It counted its five seconds only from after the page turn, then held a
+blank page (up to 1.2 s) for the duelists' paintings, advanced by the frame
+loop's step clamped at 0.25 s (so every stutter made it LONGER), and handed
+over at 5.0 s, after which the duel's own start-up frame froze the cream flash
+before the duel showed. Now `pt` runs from the very first frame the preview is
+on screen (the first frame of the turn into it), nothing waits, the clock takes
+the REAL frame time (`STEP_CAP` = 1 s, for a tab back from the background),
+and the duel is handed over at `HANDOFF_AT` = 4.85 s, so its start-up frame
+(~0.1–0.15 s) runs under the full flash inside the five seconds. A pause (ad,
+hidden tab, menu) still freezes it. Measured on the built bundle, the dev
+server and with software compositing: 4.95–5.08 s from the VS screen's first
+frame to the duel's, the flash clear by 5.1–5.3 s — fresh boot, a session's
+first preview and later ones alike (`tests/preview/timeline.test.ts` pins
+the hand-off at 30/60/144 Hz, ragged frames, a stutter and a background
+gap). Beats: halves sweep in 0–0.4 and the
+announcement (`sfx('duelCall')`, music ducked to `DUEL_CALL_DUCK`); Aurora and
+the foe slide onto their podiums (land 0.55 / 0.65); the name ribbons unfurl
+0.50 / 0.60; the VS medallion LANDS at 0.90 on the fanfare's hit, with a
+shockwave, glitter and a micro-shake; epithets and powers 1.10–1.9; a
+show-off prance each (2.3 / 2.9; half the duel's cast rear, `SHOW_REAR`, so
+the painted chibi's horn stays under her name ribbon); three countdown stars 2.8 / 3.5 / 4.2
+(`vsTick`); `vsGo` 4.45; the exit bloom and a cream-gold flash 4.55–4.85 (full
+at the hand-off), which fades over the duel's first 0.25 s.
+
+**What it shows.** Left, Aurora (her wardrobe on), "Keeper of the Runes", and
+EVERY rune she can draw in this duel (`drawableMask`). Right, the foe by name,
+her epithet (a Guardian of the chapter's place, Umbra's Shadow, the Dust
+Princess), a crown on a Guardian's ribbon, and two chips: WEAK TO her weakness
+rune, and MAGIC her chapter magic when this node lets her use it. Top, the
+chapter's name with five pips (the boss pip a crown). Versus: Player 1 /
+Player 2, both rune rows. All copy is `preview.*` in the 21 locales.
+
+**Skip (an addition the owner did not ask for; one constant, `SKIP_FROM`).**
+Never on the session's FIRST preview; on any later one a tap / Space / Enter
+after 1.0 s jumps to the exit (0.45 s). Players meet it before every duel
+and every retry — a 5 s screen seen a hundred times must be skippable.
+Reported as `duel_preview { nodeId, mode, skipped, shownMs }`.
+
+**Two layers, one layout.** `computePreviewLayout` (landscape: hero left, seam
+tilted; portrait: foe top-right, hero bottom-left) is the only source of
+positions; the canvas (`previewDraw.ts`: baked backdrop, rays on tier ≥ 1,
+podiums, the two rigs via `drawUnicorn`, a pooled Float32Array particle system
+budgeted 24 / 64 / 110 by `S.q`, 16 under reduced motion) and the DOM
+(`components/preview/*`: ribbons as a 9-slice, the medallion, powers, banner,
+stars, skip glyph, flash — transform/opacity animations off beat classes,
+paused with the game) both read it through `previewHud`
+(`game/preview/previewHud.ts`). `tests/preview/layout.test.ts` proves nothing
+overlaps at 1280×720, 914×411, 390×844, 768×1024 and 1920×1080.
+
+**Loading.** `artSchedule.previewWants` holds in the SPLASH for a fresh save
+(the prologue's hold — the preview follows it within seconds), in every duel's
+hold, and in the plans one step ahead of a duel (dialogue, map, cleaning). The
+code is in the AppScene chunk, never lazy.
+
+**The duelists are baked before the show (`warmDuelists`, `warmStep`).** A
+painted duelist's look is baked the first time it is drawn (`puppetBake.ts`),
+and on a first-time player's first duel those bakes landed in the ENTRANCE —
+hitches under the fanfare's build-up. The looks are now baked AHEAD, in idle
+slices: `preview.warmDuelists(n)` calls the duel rig's `warmPuppet` wherever
+the next duel is known before its turn (`nodes.ts` `enterDialogue` — the
+prologue and a dialogue — and `playNode`), `puppetBake.ts` bakes a set's own
+look when its last sheet decodes, and the canvas draws each rig once onto a
+4 px scratch surface in the frames before they enter (the bakes are keyed by
+look, never by size). An interim version made the show WAIT for all of this
+(up to 1.2 s on a blank page); it was time on screen, so it is gone. Measured
+on a fresh boot: the turn's stall ≤ 67 ms (was ~500), no entrance frame over
+50 ms.
+
+**Measured (2026-09-25, built bundle, headless Chrome).** The fresh boot plays
+prologue → preview → duel with no console error; `pt` tracks real time
+exactly (beats within a frame). With software compositing (`--disable-gpu`)
+the entrance has no frame over 50 ms (the one-time bakes are done ahead); the
+exit runs at ~20 fps under the rising flash, and the duel's own start (its
+page bake, the HUD's mount, one frame of ~0.1–0.35 s depending on the GPU
+path) runs under the full flash from the hand-off at 4.85 s.
+(Headless Chrome's default GPU path is SwiftShader: its GPU-process tasks of
+80–180 ms are the rig's, not the game's — the renderer's main thread never
+exceeded 39 ms in the trace.) Weak-phone proxy (914×411 @ 1.75, touch, no
+GPU): 48 vs 40 fps preview vs duel unthrottled; ~10–11 vs 10.5–13 fps at CPU
+×4, where both are raster-bound (the preview 80 % outside JS; the DOM layer
+~10 %, the rigs 13 %).
+
+**QA seam.** `window.__preview` (with `__AM_QA__`): `hold(pt?)` runs to a `pt`
+and freezes (canvas and DOM), `release()`, `skip()`, `finish()` (straight into
+the duel, no flash — what `portal-qa`, `perf-*` and the locale-fit audit call),
+`state()`.
+
+**Painted art (2026-09-25, PROMPTS-PREVIEW.md, 13 generations, 71 kB).** Eight
+sheets, all painted: `vs-ribbon-aurora`, `vs-ribbon-foe` (DOM 9-slice, plain
+stretchable middle; the running stitch stays CSS over the painting),
+`vs-emblem` (wordless — the DOM prints the translated "VS"; the one
+`ItemSheet.exact` here, 384 px, as the screen's centrepiece), `vs-crown`
+(`worldUi`); `vs-backdrop-land` / `-port` (`page`, soft sky only — it is
+STRETCHED to the screen, up to ~25 % on phones, so the moon is drawn live over
+it at a uniform scale, `paintPreviewMoon`); `vs-podium-dawn` / `-night`
+(`island`, seated by their flat top). Every one has a drawn fallback, so the
+preview is complete with the art layer off.
+
 
 ## §9 Rendering, assets & performance
 

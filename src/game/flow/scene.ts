@@ -13,8 +13,13 @@ import { flowHud } from '@/use/useFlow'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
 import { track } from '@/use/useAnalytics'
 
+/**
+ * `preview` is the five-second VS preview in front of every duel
+ * (`game/preview/preview.ts`): its node and mode are the duel's own, so the
+ * art schedule and the chrome already know which duel it announces.
+ */
 export type SceneId =
-  | 'boot' | 'intro' | 'map' | 'dialogue' | 'duel' | 'unbox' | 'wipe'
+  | 'boot' | 'intro' | 'map' | 'dialogue' | 'preview' | 'duel' | 'unbox' | 'wipe'
   | 'wardrobe' | 'versusSetup'
 
 /** Modal overlays: they stack on whatever scene is current. */

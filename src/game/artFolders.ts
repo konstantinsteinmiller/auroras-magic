@@ -30,7 +30,9 @@
  *                frames and the dialogue's paper leaf, laid on as stretched
  *                `border-image`s (`HpBar.vue`, `DialogueBubbles.vue`), the
  *                dialogue pictograms in four sets (`Picto.vue`) and the small
- *                marks in `artIds.CHROME_ART`.
+ *                marks in `artIds.CHROME_ART`. And the duel's VS preview's
+ *                DOM marks (`artIds.VS_PREVIEW_ART`): the two name ribbons,
+ *                a 9-slice like the HP frames, the VS medallion and the crown.
  *   cosmetic     keepsakes painted as stills on Aurora's rig (the crown, the
  *                pet star). The others follow the rig's own deformation and
  *                stay drawn (§9.7).
@@ -48,9 +50,13 @@
  *                stretched between them mangles its own doodles. Only a BUILT
  *                chapter's page is painted; a sleeping one keeps the drawn
  *                lilac version, which is a different picture, not a tint.
+ *                Also the duel's VS preview BACKDROP, one per orientation — a
+ *                full-bleed sky stretched to the screen, so nothing round in it.
  *   island       a duel arena's floating island, one per chapter theme
  *                (§8.27): the rock, its rim and its grass; the tufts, the
- *                mood tint and the clouds stay drawn.
+ *                mood tint and the clouds stay drawn. Also the VS preview's
+ *                two cloud PODIUMS — what a duelist stands on, anchored by
+ *                its flat top the same way.
  *   wardrobe     the Wardrobe Kiosk's own scenery (§3.5.4): the inside of the
  *                dressing-up tent, full-bleed and one picture per orientation
  *                like a book page, plus the round rug Aurora stands on. The
@@ -86,6 +92,9 @@
  *                rig assembles them exactly as it assembled the vector
  *                shapes. Its INK, its FACE, its MANE and TAIL and its hit
  *                flash all stay drawn; `artIds.RIG_ART` says why of each.
+ *                Also the PAINTED DUELISTS (`artIds.PUPPET_ART`): seven
+ *                full-colour cut-out pieces each for Aurora and Umbra, which
+ *                `duel/puppet.ts` assembles in place of the vector rig.
  *   brand        the game's own MARK and MASCOT (art-style.md §11): the square emblem
  *                the splash, the PWA icons and the favicon are cut from, and
  *                the wide keyed picture of Aurora and Umbra looking at each

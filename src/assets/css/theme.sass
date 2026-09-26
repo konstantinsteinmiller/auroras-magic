@@ -210,6 +210,58 @@
   --am-ease-pop: cubic-bezier(0.2, 1.4, 0.4, 1)
   --am-ease-page: cubic-bezier(0.18, 0.89, 0.32, 1.28)
 
+  // ── The duel VS preview (`components/preview/*`) ────────────────────────
+  // The five seconds before every duel: two satin name ribbons, the VS
+  // medallion, the countdown stars, the exit flash. Its drawn marks are SVG
+  // built from these tokens at run time (`previewParts.readPalette`), so this
+  // block is still the only place their colours are decided.
+  //
+  // Aurora's ribbon: warm rose satin with gold selvedge (the gold is
+  // --am-gold*). Band face, its foot, the satin sheen along the top, the tail
+  // that hangs behind (deeper, it is in shadow) and the fold where the ribbon
+  // turns under (the deepest). DECORATION: her name is .ink-text over it —
+  // white inside a plum outline, 14.05:1 at the glyph edge.
+  --am-vs-rose: #FFA3CB
+  --am-vs-rose-foot: #F584B5
+  --am-vs-rose-lite: #FFD6E8
+  --am-vs-rose-tail: #E86FA3
+  --am-vs-rose-fold: #B9467E
+  // the running stitch along her ribbon, just inside the gold
+  --am-vs-rose-stitch: #FFF3DA
+  // The foe's ribbon: the friendly night — indigo-lilac satin with the HP
+  // frame's moonlit-silver selvedge (--am-moon-silver*). Dreamy, never grim.
+  --am-vs-night: #7C6DD0
+  --am-vs-night-foot: #5E50B0
+  --am-vs-night-lite: #B3A6F0
+  --am-vs-night-tail: #4E4399
+  --am-vs-night-fold: #2E2766
+  --am-vs-night-stitch: #E4E7FA
+  // The chapter banner is a paper ribbon (--am-paper / --am-parchment); only
+  // its fold needs a shade the page tokens do not have.
+  --am-vs-paper-fold: #C4AA7E
+  // The soft light behind each ribbon. The foe's is normally her OWN glow
+  // colour (previewHud.foe.tint); these are what shows when a side has none.
+  --am-vs-hero-glow: #FFB8D9
+  --am-vs-foe-glow: #C9B6FF
+  // The VS medallion's cream-pink enamel and the shade along its foot. The
+  // rim is --am-gold*, the two crossed horns --am-magic-1 / --am-magic-2.
+  --am-vs-enamel: #FFE8F1
+  --am-vs-enamel-shade: #F8C8DC
+  // The fill of the chunky "VS" (in a plum outline, like every shout).
+  --am-vs-letter: #FFD76A
+  // The rosy gem on a Guardian's crown.
+  --am-vs-gem: #FF7FB6
+  // A countdown star not yet lit: a pale ghost of paper in its plum line.
+  --am-vs-star-off: rgba(253, 246, 231, 0.55)
+  // The glint that crosses a ribbon as it lands.
+  --am-vs-shine: rgba(255, 253, 246, 0.8)
+  // The soft plum drop baked under a drawn ribbon, crown or medallion (a
+  // box-shadow would follow the element's box, not the swallow-tails).
+  --am-vs-drop: rgba(58, 35, 64, 0.3)
+  // The exit flash: warm cream at the heart, gold toward the edges.
+  --am-vs-flash-core: #FFF8E4
+  --am-vs-flash-edge: #FFE2A0
+
 // A player who asks for less motion gets it from the tokens too, so a component
 // that only reads --am-dur-* is compliant without a second rule.
 //

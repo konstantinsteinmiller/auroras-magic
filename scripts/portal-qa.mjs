@@ -609,7 +609,12 @@ try {
     // dialogue, no picture book. The 19 s intro (§8.26) has moved to the
     // first gift opened, in front of the first cleaning, so asserting
     // `scene === 'intro'` here is asserting the boot order that was removed.
-    for (let i = 0; i < 40 && await ev('window.__campaignPhase()') !== 'duel'; i++) await sleep(250)
+    // (…through its five-second VS preview, which a harness hands over at
+    // once: the checks below are about the duel it announces.)
+    for (let i = 0; i < 40 && await ev('window.__campaignPhase()') !== 'duel'; i++) {
+      await ev('(() => { if (window.__campaignPhase() === "preview" && window.__preview) window.__preview.finish() })()')
+      await sleep(250)
+    }
     check('a fresh save opens on the DUEL, not a cutscene (§8.26)',
       await ev('window.__campaignPhase()') === 'duel', `scene=${await ev('window.__campaignPhase()')}`)
     check("node 0's opener is chrome over the arena", await ev('window.__flow.opening()') === true)
@@ -659,6 +664,9 @@ try {
   const phase = () => ev('window.__campaignPhase()')
   const waitScene = async (sc, ms = 8000) => {
     for (let i = 0; i < ms / 100; i++) {
+      // Every duel opens with its VS preview: waiting for the DUEL means
+      // handing the preview over (`__preview.finish()`), not five seconds.
+      if (sc === 'duel' && await phase() === 'preview') await ev('window.__preview && window.__preview.finish()')
       if (await phase() === sc && !(await ev('window.__flow.fading()'))) return true
       await sleep(100)
     }

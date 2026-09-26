@@ -477,6 +477,20 @@ export default {
     'castKey2': '[Invio] Lancia'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'LE TUE RUNE',
+    'weakTo': 'DEBOLE CONTRO',
+    'magic': 'MAGIA',
+    'epithet': {
+      'aurora': 'Custode delle Rune',
+      'umbra': 'La Principessa della Polvere',
+      'shadow': 'L’Ombra di Umbra',
+      'guardian': 'Guardiana di {place}'
+    },
+    'aria': '{hero} contro {foe}. Il duello inizia tra un momento.'
+  },
+
   'gift': {
     'flowerCrown': 'Corona di fiori',
     'seashellNecklace': 'Collana di conchiglie',

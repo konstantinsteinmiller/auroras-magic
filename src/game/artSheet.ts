@@ -43,10 +43,12 @@ import {
   STORY_PANELS, storyPanelId, PORTRAIT_SETS, portraitArtId, ISLAND_SLUGS, islandArtId,
   KEEPSAKE_ICON_SLUGS, keepsakeArtId, pageArtId, frontPageArtId, PROP_ART,
   wardrobeArtId, WARDROBE_FLOOR, WARDROBE_RUG, BRAND_LOGO, BRAND_MASCOT,
-  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, HP_FRAMES, type PortraitEmote, type PropName, type CreatureName, type RigPart
+  BRAND_LOGO_SIDE, BRAND_MASCOT_H, CREATURE_ART, RIG_ART, MOVIE_ICON, HP_FRAMES, type PortraitEmote, type PropName, type CreatureName, type RigPart,
+  PUPPET_ART, PUPPET_WHO, type PuppetWho, type PuppetPart
 } from '@/game/artIds'
 import { ACTIVE_STYLE } from '@/game/artStyle'
 import { CHROME_ART, PICTO_SETS, pictoSetArtId, type ChromeName } from '@/game/artIds'
+import { VS_PREVIEW_ART, type VsPreviewPiece } from '@/game/artIds'
 
 /** The art style every prompt is written in (`artStyle.ts`, art-style.md §0).
  *  Stamped on the sheet index, and by the slicer on every painting it cuts. */
@@ -230,7 +232,7 @@ export const SECTOR_SHEETS: readonly SectorSheet[] = SECTOR_SLUGS.map((_, n) => 
 /* ───────────────────────────────────────────────────── items and runes ── */
 
 export interface ItemSheet {
-  name: ItemName | `rune:${number}` | `portrait:${string}` | `island:${number}` | `keepsake:${string}` | `worldUi:${string}` | `prop:${PropName}` | `creature:${CreatureName}` | `rig:${RigPart}` | `wardrobe:${string}` | `brand:${string}`
+  name: ItemName | `rune:${number}` | `portrait:${string}` | `island:${number}` | `keepsake:${string}` | `worldUi:${string}` | `prop:${PropName}` | `creature:${CreatureName}` | `rig:${RigPart}` | `puppet:${string}` | `preview:${string}` | `wardrobe:${string}` | `brand:${string}`
   kind: ArtKind
   id: string
   title: string
@@ -1487,6 +1489,268 @@ export const RIG_SHEETS: readonly ItemSheet[] = [
     'from above and in front, and it is faintly translucent: the lit side glows a little and the ridges read as soft turns of the spiral, not as drawn lines.',
     { noun: 'horn' })
 ]
+
+/**
+ * THE PAINTED DUELISTS (`artIds.PUPPET_ART`, `duel/puppet.ts`; owner,
+ * 2026-09-25). Nine pieces per character of the duel rig itself — its own
+ * torso, neck, head, horn, forelock, mane, tail, a leg and a hoof, each
+ * reference drawn from the rig's own geometry — painted in FULL COLOUR in the
+ * look of that character's painted models: her dialogue portrait strip (the
+ * face, the eyes, the mane, the finish) and her painted body (the mascot's,
+ * the same chibi the intro's last page paints — cropped clean on magenta, as a
+ * crop of the page drags its meadow along). Unlike the neutral
+ * `RIG_SHEETS` these carry their own soft line: each piece is a whole visible
+ * thing, laid over the others.
+ *
+ * The first set (a chibi cut-out, `puppet-*`) was turned down for its SHAPE,
+ * so the order of authority is spelled out: the SHAPE is the reference's —
+ * the game's rig, which the owner wants kept — and the LOOK is the models'.
+ * The models' own chibi bodies were the thing NOT to copy — until the fourth
+ * round, below.
+ *
+ * What the prompt has to win, in the order a painter gets it wrong (the
+ * first set's paid-for lessons): one piece, not the whole unicorn; a head
+ * told "no hair" comes back bald AND earless; hair drawn as bands is traced as
+ * bands; a mane blob is painted as a whole pony; a white sticker rim.
+ *
+ * The fourth round (owner, 2026-09-25: "I want the painted rig look somewhat
+ * like [the intro's last page] … the face should have the cute chibi look …
+ * only one eye should be in the face") takes the chibi's PROPORTIONS after
+ * all — `chars.CHIBI`, the drawn rig's own bones and cast pose on a big round
+ * head and a small round body — so the reference is the chibi now.
+ *
+ * The fifth (owner, pointing at the intro, the portraits and the mascot pair:
+ * "the face looks weird, not like in these") turns the head back to the
+ * three-quarter view every painted Aurora has — the MASCOT PAIR's
+ * (`brand-mascot`), where each looks at the other with both eyes. That keeps
+ * what the one-eye profile was for: she looks at her opponent, not at us.
+ */
+interface PuppetInfo { who: PuppetWho; part: PuppetPart; piece: string; blurb: string; hidden?: string; not: string }
+
+const PUPPET_NAME: Readonly<Record<PuppetWho, string>> = { aurora: 'Aurora', umbra: 'Umbra' }
+/** Image 1: her faces (the dialogue strip, facing right). Image 2: her whole
+ *  painted body, facing right. Both cropped or mirrored offline. */
+const PUPPET_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
+  aurora: ['painted/portrait-aurora.png', 'painted/model-aurora-body.png'],
+  umbra: ['painted/model-umbra-faces.png', 'painted/model-umbra-body.png']
+}
+/** The HEAD's models: the mascot pair (owner: the face should look like it)
+ *  — the two of them facing each other, each head three-quarters with both
+ *  eyes on the other — then her faces in their moods. */
+const PUPPET_HEAD_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
+  aurora: ['painted/brand-mascot.png', 'painted/portrait-aurora.png'],
+  umbra: ['painted/brand-mascot.png', 'painted/model-umbra-body.png']
+}
+/** Her hair pieces' models: the mascot's mane, seen from the side, then the
+ *  owner's target crop of the intro's last page (2026-09-25) — "should be
+ *  more like this". Umbra's are the mascot pair and her own mascot:
+ *  `model-umbra-faces` is the older, hooded shadow-Umbra, and her first
+ *  fringe came back its pale plume. */
+const PUPPET_HAIR_MODELS: Readonly<Record<PuppetWho, readonly string[]>> = {
+  aurora: ['painted/model-aurora-body.png', 'painted/model-aurora-target.png'],
+  umbra: ['painted/brand-mascot.png', 'painted/model-umbra-body.png']
+}
+/** What each model is, as the prompt names it. */
+const PUPPET_MODEL_SAYS: Readonly<Record<string, (name: string) => string>> = {
+  'painted/portrait-aurora.png': (n) => `${n}'s face in several moods — her painted dialogue portraits`,
+  'painted/model-aurora-target.png': (n) => `${n} as the storybook's intro paints her — THE LOOK TO MATCH: her round chibi head, her short soft muzzle and rosy cheeks, her big glossy eyes, her soft wavy pastel-striped mane (she laughs there and turns her face to us; the moods and the view here are this sheet's own)`,
+  'painted/model-aurora-body.png': (n) => `${n} herself, whole and painted — the same chibi as the intro, her head turned to the side`,
+  'painted/model-umbra-faces.png': (n) => `${n}'s face in several moods`,
+  'painted/model-umbra-body.png': (n) => `${n} herself, whole and painted`,
+  'painted/brand-mascot.png': (n) => `Aurora (left) and Umbra (right) as the storybook's mascot paints them, facing each other — THE FACE TO MATCH, ${n === 'Aurora' ? 'hers on the left' : 'hers on the right (mirrored: this piece faces RIGHT)'}: the round head turned three-quarters toward us, BOTH big glossy eyes showing and both LOOKING AT THE OTHER ONE, a soft rounded muzzle with a little nostril, big upright pony ears, the forelock swept over the brow. They smile there; the moods here are this sheet's own`
+}
+const PUPPET_COLOUR: Readonly<Record<PuppetWho, string>> = {
+  aurora: 'Aurora: a warm, very pale cream coat; a soft butter-GOLD mane and tail with pink, mint and lilac streaks (gold is the main colour — an all-pastel mane is the wrong character); a golden spiral horn; gold hooves; a big violet eye; pink inside the ears.',
+  umbra: 'Umbra: a soft, deep night-VIOLET coat you can read the shading in — never black, never grey; a lilac mane and tail with pale neon-cyan streaks; a violet spiral horn; violet hooves; a warm violet eye with white catch-lights; lilac inside the ears.'
+}
+/** The five faces, as the head strip's panels (`puppet.FACE`). */
+const PUPPET_FACES: readonly string[] = [
+  // Owner, 2026-09-25: "the battle rigs should not have an aroused or happy
+  // emotion, but a neutral one" — the first set's resting faces were a big
+  // smile (Aurora) and a half-lidded, blushing smirk (Umbra).
+  // Owner, 2026-09-25 (fifth round): the face of the mascot pair — three
+  // quarters, both eyes, both on the opponent.
+  'Panel 1 — CALM, GENTLE AND NEUTRAL, the face she wears through the whole duel — the mascot\'s face with the smile taken out: both eyes OPEN, big, glossy and friendly, each with its catch-lights and lashes, both LOOKING TO THE RIGHT at her opponent; the brows relaxed; a small CLOSED mouth, calm — no grin, no open mouth, no pout; a light blush. Sweet and attentive, NOT excited, NOT sleepy or half-lidded, NOT flirty, NO heavy blush.',
+  'Panel 2 — A BLINK: the same calm face with both eyes gently CLOSED, each lid a soft curved line with its lashes. The same small closed mouth.',
+  'Panel 3 — CHEERING (only ever shown when she WINS): both eyes squeezed shut in happy upturned arcs, the mouth open in a laugh, the cheeks flushed — the intro\'s face.',
+  'Panel 4 — OUCH (she has just been bumped): both eyes screwed shut like little ">" chevrons, the brows scrunched, a small round open mouth. Cartoon-cute: never crying, never really hurt.',
+  'Panel 5 — DIZZY (knocked over): a swirly spiral for each eye, a small wobbly mouth. Silly and cute, never sad or scary.'
+]
+
+const PUPPET_INFO: readonly PuppetInfo[] = PUPPET_WHO.flatMap((who): PuppetInfo[] => {
+  const n = PUPPET_NAME[who]
+  const gold = who === 'aurora' ? 'gold' : 'violet'
+  const locks = who === 'aurora' ? 'gold with pastel streaks' : 'lilac with neon-cyan streaks'
+  return [
+    {
+      who, part: 'torso', piece: `${n}'s BODY`,
+      blurb: `${n}'s BODY on its own, seen from the side facing RIGHT, exactly the shape the reference draws: the small, round, soft body of a chibi — a plump barrel with a round haunch behind (left) and a round chest in front (right), like the body under the intro's big head.`,
+      hidden: 'Her neck, her legs and her tail are laid over and under its edges in play — paint the body whole and clean.',
+      not: 'no head, no neck, no legs, no tail, no mane, no hair on it'
+    },
+    {
+      who, part: 'neck', piece: `${n}'s NECK`,
+      blurb: `${n}'s NECK on its own, lying on its side: a smooth, softly tapered tube, THICK at the LEFT end where it grows out of her chest and slimmer at the RIGHT end where her head sits, both ends rounded. Plain coat.`,
+      hidden: 'Her chest covers its left end and her head its right end in play; her mane lies along its top. Paint it whole, as plain coat.',
+      not: 'no head, no body, no mane or hair on it — the mane is a separate piece'
+    },
+    {
+      who, part: 'head', piece: `${n}'s HEAD`,
+      blurb: `${n}'s HEAD on its own, facing RIGHT and turned three-quarters toward us exactly as the mascot pair's heads are (image 1), on the shape the reference draws: a big, ROUND head and a soft, rounded muzzle that comes out of it at the lower right with a little nostril — never a horse's long face — BOTH EYES, the near one big, the far one narrower toward the muzzle, both LOOKING TO THE RIGHT at her opponent, rosy cheeks, two little brow marks, and BOTH HER EARS standing up on top: two big pony ears — upright leaf shapes with a gently pointed tip, never round like a bear's or pointed like a cat's — the near one on the left of the crown, the far one smaller, peeking out on the right. ${who === 'aurora' ? 'Pink' : 'Lilac'} inside the ears. In five moods. WITHOUT HER MANE, HER FORELOCK AND HER HORN: those are separate pieces the game lays over this one, so between and behind the ears the head is smooth, bare coat — and that is right. THE EARS ARE NOT HAIR: they stay on this piece.`,
+      not: 'no mane, no forelock, no locks of hair, no horn, no neck, no body — but BOTH EARS'
+    },
+    {
+      who, part: 'horn', piece: `${n}'s HORN`,
+      blurb: `${n}'s HORN on its own: her ${who === 'aurora' ? 'golden' : 'violet'} spiral horn, pointing up and a little to the right, exactly the shape the reference draws, with soft spiral turns — rounded at the tip, never sharp enough to read as a weapon.`,
+      hidden: 'Its base sits in her fringe in play: the back half of the fringe behind it, the front half over its root.',
+      not: 'no head, no hair, no glow, no sparkles'
+    },
+    {
+      // The fringe is two pieces with the horn between them (owner: the
+      // portraits' horn "is sticking out of the hair pieces"). Its FRONT half
+      // sweeps LEFT — the first painted fringe swept right, the wrong way.
+      who, part: 'forelock', piece: `the FRONT HALF of ${n}'s FRINGE`,
+      blurb: `The FRONT HALF of ${n}'s fringe on its own: a soft, fluffy tuft that sits over the root of her horn and sweeps FORWARD and to the LEFT, down over the near side of her brow — its locks start at the RIGHT, where the horn stands, and fall to the LEFT, ending in soft curls at its LEFT end — a few soft round ${who === 'aurora' ? 'curls' : 'waves'} and two soft wavy locks, each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) down its length' : 'the same clear LILAC as her mane with one pale neon-cyan streak down its length — never white or grey, never thin or wispy'}, like the fringe falling over the forehead in images 1 and 2. The size and the shape the reference draws — just the hair, floating.`,
+      hidden: 'Her horn stands up out of its right-hand side and the back half of her fringe lies behind the horn — paint only this tuft, and leave the horn out of it.',
+      // Both first forelocks came back as a picture of hair in a FRAME — a
+      // slab with a thick border round it.
+      not: 'no head, no face, no ears, no horn — and no frame, card, slab or border round it: loose hair, soft at every edge'
+    },
+    {
+      who, part: 'backlock', piece: `the BACK HALF of ${n}'s FRINGE`,
+      blurb: `The BACK HALF of ${n}'s fringe on its own — the part that lies BEHIND her horn: a few soft round ${who === 'aurora' ? 'curls' : 'waves'} on her crown and two soft wavy locks that fall from them to the RIGHT and down, over the root of her far ear, ending above her far eye, each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) down its length' : 'the same clear LILAC as her mane with one pale neon-cyan streak down its length — never white or grey, never thin or wispy'}, like the hair behind the horn in images 1 and 2. The size and the shape the reference draws — just the hair, floating.`,
+      hidden: 'Her horn stands in front of its left-hand part, and the front half of her fringe over the horn\'s root — paint it whole all the same, as hair.',
+      not: 'no head, no face, no ears, no horn — and no frame, card, slab or border round it: loose hair, soft at every edge'
+    },
+    {
+      who, part: 'mane', piece: `${n}'s MANE`,
+      blurb: `${n}'s MANE on its own — FULL and fluffy, the intro's mane seen from the side: a crown of soft, round ${who === 'aurora' ? 'curls' : 'waves'} over the top and round the back of her head, and soft WAVY locks tumbling from it down behind her neck, each ending in a soft curl and each ${who === 'aurora' ? 'gold with a pastel stripe (pink, mint, lilac or sky) running down its own length' : 'lilac with a pale cyan or white stripe running down its own length'}, the way the silhouette lays them — exactly the kind of mane images 1 and 2 show. Real, soft, painted hair — the fullest, fluffiest piece of her. Never chunky blocks, never straight flat bands, never a hem cut off square like a wig.`,
+      hidden: 'Her round head sits over its right-hand part in play, so what the silhouette fills there is hidden — paint it as hair all the same.',
+      // Aurora's first painted a whole little unicorn bust into it.
+      not: 'IT IS NOT A UNICORN — no head, no face, no eye, no ears, no horn, no neck, no body, no legs: just the hair, like a wig with nobody in it. If the head or horn of a unicorn appears anywhere in it, it is wrong'
+    },
+    {
+      who, part: 'tail', piece: `${n}'s TAIL`,
+      blurb: `${n}'s TAIL on its own: the few big, soft locks of ${locks} that spring from the root at the RIGHT end and sweep back and down to the left, splayed a little from one another, the way the reference lays them. Real, soft, painted hair in the finish of her models.`,
+      hidden: 'Its root, at the right end, tucks under her rump in play.',
+      not: 'no body, no legs, no rump — just the tail, a soft plume of hair with nobody attached to it'
+    },
+    {
+      who, part: 'leg', piece: `ONE of ${n}'s LEGS`,
+      blurb: `ONE of ${n}'s legs on its own, pulled out STRAIGHT and standing upright: a soft, rounded leg, thick and rounded off at the TOP where it meets her body, tapering smoothly down to a slim ankle at the BOTTOM, rounded off there too. No knee, no joint drawn — the game bends it itself. No hoof: the hoof is a separate piece.`,
+      hidden: 'The game bends this painting along the leg\'s bones, so paint it perfectly straight and upright, the same shape as the reference, with the light and shadow running down its whole length.',
+      not: 'no hoof, no body, no second leg, no hair'
+    },
+    {
+      who, part: 'hoof', piece: `ONE of ${n}'s HOOVES`,
+      blurb: `ONE of ${n}'s little hooves on its own: a small, rounded ${gold} hoof, its top (where the leg goes in) narrower than its flat sole — the shape the reference draws.`,
+      hidden: 'The leg\'s ankle sits on its top in play.',
+      not: 'no leg, no body, no second hoof'
+    }
+  ]
+})
+
+/** `keep` carries the piece's three phrases to `puppetPrompt`, NUL-joined. */
+const puppetSheet = (i: PuppetInfo): ItemSheet => {
+  const { kind, id } = PUPPET_ART[i.who][i.part]
+  const head = i.part === 'head'
+  return {
+    name: `puppet:${i.who}-${i.part}` as const,
+    kind,
+    id,
+    title: `${PUPPET_NAME[i.who]} — ${i.part}`,
+    frames: head ? 5 : 1,
+    anchor: 'centre' as const,
+    panels: head ? [...PUPPET_FACES, 'Only the FACE changes: the eye, the brow, the mouth and the blush. The head\'s shape, its size, its ears and its place in the panel are IDENTICAL in all five.'] : [],
+    blurb: i.blurb,
+    colour: PUPPET_COLOUR[i.who],
+    noun: head ? 'head' : 'piece',
+    character: head,
+    also: head ? PUPPET_HEAD_MODELS[i.who] : i.part === 'mane' || i.part === 'forelock' || i.part === 'backlock' ? PUPPET_HAIR_MODELS[i.who] : PUPPET_MODELS[i.who],
+    keep: [i.piece, i.hidden ?? '', i.not].join('\u0000'),
+    file: id,
+    target: artTarget(kind, id)
+  }
+}
+
+export const PUPPET_SHEETS: readonly ItemSheet[] = PUPPET_INFO.map(puppetSheet)
+
+/** The prompt for one piece of a painted duelist (`PUPPET_SHEETS`). */
+export const puppetPrompt = (s: ItemSheet, fit?: Fit): string => {
+  const [piece, hidden, not] = (s.keep ?? '').split('\u0000') as [string, string, string]
+  const who = String(s.name).split(':')[1]!.split('-')[0] as PuppetWho
+  const name = PUPPET_NAME[who]
+  const many = s.frames > 1
+  const hair = /-(mane|tail|forelock|backlock)$/.test(s.id)
+  const { w, h } = itemSheetSize(s.frames)
+  return [
+    many
+      ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS: ${piece.toUpperCase()} ${s.frames} TIMES, ONE MOOD IN EACH, ON A FLAT MAGENTA GROUND.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings side by side, left to right, each in its own equal share of the width, on the same layout as the last attached image.\n· Exactly ${s.frames} panels, one row. The game cuts the picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT IT, so keep each head the size the reference draws it, space them evenly, keep a WIDE band of plain magenta between every neighbouring pair, and DO NOT DRAW THE DIVISIONS — no lines, boxes, frames or guides, in any colour.\n· NO WORDS ANYWHERE: do not write the moods' names — or any label, caption or number — under, over or beside the heads. The panel list below tells YOU what to paint; it is not text to letter onto the picture, and a word painted there ends up in the game.`
+      : `WHAT COMES BACK IS ONE PIECE OF A PAPER PUPPET — ${piece.toUpperCase()} AND NOTHING ELSE — ON A FLAT MAGENTA GROUND.\nOne square image, 1:1, holding only that piece, in the middle, at the size the last attached image draws it.`,
+    '',
+    `THE ATTACHED IMAGES, in order: ${(s.also ?? []).map((f, i) => `${i ? 'Image' : 'image'} ${i + 1} is ${PUPPET_MODEL_SAYS[f]?.(name) ?? name}.`).join(' ')} The LAST image is the reference: the piece to paint, and its exact shape.`,
+    '',
+    `YOU ARE PAINTING ONE PIECE OF ${name.toUpperCase()}, NOT ALL OF HER.`,
+    `· The game builds ${name} for her duels out of separately painted pieces laid over one another like a paper cut-out puppet — her body, neck, head, horn, the two halves of her fringe (one behind the horn, one in front of it), mane, tail, a leg and a hoof — on a skeleton of its own, and moves every piece on its own.`,
+    `· This picture is ONLY ${piece}: ${not}. A whole unicorn, or any second piece of her, is the wrong answer however lovely it is.`,
+    '',
+    'THE SHAPE COMES FROM THE LAST IMAGE; THE LOOK COMES FROM IMAGES 1 AND 2.',
+    hair
+      ? '· THE LAST IMAGE IS ONLY A SILHOUETTE: the outline of the whole mass of hair, in one flat colour. Keep its overall outline, its size and where its root is. EVERYTHING INSIDE IT IS YOURS TO PAINT, and it is image 2\'s hair: soft, fluffy curls on top and soft WAVY locks that overlap and flow, each striped down its length in the pastel colours, painted with gentle light and shade. Do not paint the silhouette as one flat shape, as a fan of thin strands, as bands, or as a hair band.'
+      : '· ITS SHAPE, ITS SIZE AND ITS PLACE COME FROM THE LAST IMAGE. Follow its outline closely: the game lays the other pieces over this one exactly where the reference\'s edges are, so a piece that grows, shrinks, tilts or changes shape leaves a gap or a lump at every join.',
+    `· Images 1 and 2 show ${name} whole, in other poses and from other angles. Take from them only the LOOK: the colours, the soft painted finish, the soft plum line, ${many ? 'the huge glossy eye with its catch-lights and lashes, the cute little muzzle' : 'the fluffy softness of the hair and the warm light on the coat'} — as if this piece had been painted by the same hand. The SHAPE is the reference's, and it is already her chibi shape, drawn for the duel.`,
+    '· The last image is a flat computer stand-in: take its SHAPE from it and nothing else — not its flat colours, not its hard line.',
+    ...(hidden ? [`· ${hidden}`] : []),
+    `· It faces RIGHT, exactly as the reference does — the game mirrors ${name} itself, so a piece painted facing the other way is backwards in every duel.`,
+    '',
+    'WHAT IT IS NOT:',
+    `· Only this piece. No other part of ${name}, no second character, no ground, no scenery.`,
+    '· No magic, no sparkles, no stars, no motion lines, no text, letters or numbers.',
+    '',
+    INK_AND_SHADING,
+    '',
+    `WHAT IT IS: ${s.blurb}`,
+    '',
+    ...(many ? ['READ THE PANELS:', ...s.panels.map((p) => `· ${p}`), ''] : []),
+    `COLOUR IDENTITY (keep the hues; the exact shades are images 1 and 2's): ${s.colour}`,
+    '',
+    many
+      ? `THE VIEW: the head faces RIGHT and is turned three-quarters toward us, exactly as the mascot pair's heads are (image 1) and as the reference draws it: the muzzle to the lower right, BOTH eyes showing — the near one bigger — and BOTH LOOKING TO THE RIGHT, at the opponent ${name} is duelling, never out at us.`
+      : 'THE VIEW: flat and square-on from the side, exactly as the reference shows it. No three-quarter view, no perspective, no tilt.',
+    '',
+    s.character ? withCharacter(STYLE_ITEM) : STYLE_ITEM,
+    '· THE LINE: a soft brush line in warm deep plum round the OUTSIDE of the piece, as on images 1 and 2 — swelling where it turns from the light, thinning to nothing along a lit edge. Nothing inside the piece is outlined: a lock of hair against another lock is a change of paint, never a drawn stroke.',
+    '',
+    sizeClause(s, fit),
+    '',
+    magentaFor(undefined),
+    '',
+    'BEFORE YOU CALL IT FINISHED, count and check:',
+    many
+      ? `· COUNT THE HEADS left to right: exactly ${s.frames}, one row, evenly spaced, the same size and the same shape in every panel — only the face changes. And NO LETTERS: nothing written under or beside any head.`
+      : `· ONE piece: ${piece}. Nothing else of ${name} anywhere in the picture — if there is an eye, a face, a leg or a hoof in it${s.id.endsWith('-hoof') ? " (other than this one hoof)" : ''}, it is wrong.`,
+    ...(hair ? [
+      "· It is HAIR: soft, rounded locks with the same fluffy, painted finish as images 1 and 2 — no hard dark band or sticker rim round it, no stiff blades.",
+      '· COUNT THE EARS in it: ZERO. No ear, no horn, no eye, no face anywhere in the hair — where her head will sit over it, at the top right, it is still only hair.',
+      // Umbra's first front fringe painted her forehead's coat into a gap in
+      // the middle of it: a dark hole in the hair on every foe that wears it.
+      '· Every bit inside its outline is HAIR: no patch of skin, coat or forehead showing through it, no dark hole or gap between the locks — the game lays it over her head, and whatever it paints there is what shows.'
+    ] : []),
+    '· Hold it beside the reference: the SAME shape, the same size, in the same place — not the pose or the angle of images 1 and 2.',
+    '· Hold it beside images 1 and 2: the same colours and the same painted finish.',
+    ...(many ? [
+      '· COUNT THE EARS: TWO on every head — the near one upright, the far one peeking out behind it — each a pony ear with a soft point. A head with no ears, or with round bear ears, is unusable.',
+      '· COUNT THE EYES: TWO per head, the near one bigger, and in panel 1 both pupils sit toward the RIGHT side of the eye — she looks at her opponent. Eyes looking out at us are wrong.',
+      '· NO HAIR and NO HORN on any head: between and behind the ears is smooth coat. Count the horns in the whole picture: zero.',
+      '· Panel 1 is CALM: both eyes open and looking right, the mouth small and closed — no grin, no open mouth, no heavy blush, no half-closed eyelid. Cover the other four: it must read as sweet and quietly neutral.'
+    ] : []),
+    '· Nothing under it or around it: no shadow, no glow, no smudge on the magenta — and NO WHITE OR PALE BORDER round its outline (that is the sticker look): the magenta meets the plum line directly.',
+    ...STYLE_CHECKS.slice(0, 3),
+    '· Every pixel that is not the piece is flat, vivid #FF00FF — hold it against a pure magenta swatch, not against your memory of one.',
+    '',
+    `OUTPUT: one image, ${many ? '16:9 landscape' : '1:1 square'} (the reference is ${w} x ${h} pixels), PNG — not JPEG. If your tool has an aspect-ratio control, set it to ${many ? '16:9' : '1:1'}. No labels, captions, numbers or watermarks.`
+  ].join('\n')
+}
 
 export const CREATURE_SHEETS: readonly ItemSheet[] = [
   creature('snowHare', 'Snow-hare (Twilight Tundra)', 3,
@@ -3640,7 +3904,8 @@ export const ISLAND_SHEETS: readonly ItemSheet[] = ISLAND_SLUGS.map((_, c) => {
 export const PAGE_REF_LONG = 1152
 
 export interface PageSheet {
-  /** -1 the front page, -2 the cloth the book lies on, else the chapter. */
+  /** -1 the front page, -2 the cloth the book lies on, -3 the duel's VS
+   *  preview backdrop (`PREVIEW_BACKDROP_SHEETS`), else the chapter. */
   chapter: number
   portrait: boolean
   id: string
@@ -3933,6 +4198,266 @@ export const BRAND_MASCOT_SHEET: ItemSheet = {
   target: artTarget(BRAND_MASCOT.kind, BRAND_MASCOT.id)
 }
 
+/* ─────────────────────────────── the duel's VS preview (§9.11) ── */
+
+/**
+ * THE DUEL'S VS PREVIEW (`artIds.VS_PREVIEW_ART`; `game/preview/*`,
+ * `components/preview/*`): the five-second intro before every duel. Eight
+ * sheets, one prompt document (`PROMPTS-PREVIEW.md`), in kinds that exist:
+ *
+ *   • the BACKDROP, both orientations — a full-bleed SKY, the page family's
+ *     ground rule (`PREVIEW_BACKDROP_SHEETS`, `vsBackdropPrompt`);
+ *   • the two cloud PODIUMS — keyed, stood ON: an island's anchor and its
+ *     stage-top rule, and a cloud's no-line rule;
+ *   • the two NAME RIBBONS — DOM chrome the game STRETCHES, the HP frames'
+ *     way (`ribbonFrame.ribbonSlices`): everything on the two ends, a plain
+ *     band between, said in `keep`, in the checks and in the reference;
+ *   • the VS MEDALLION — wordless, the translated "VS" is DOM type set over
+ *     its calm middle; and a Guardian's CROWN.
+ *
+ * What is NOT painted, because the preview draws it over these every frame
+ * (`previewDraw.ts`): the duelists, the rays, the glitter, the seam's flash
+ * and bloom, each duelist's own glow, the podiums' halos — and the MOON,
+ * which is round, where the backdrop is stretched to the screen
+ * (`previewArt.paintPreviewMoon`). The names and the "VS" are live text.
+ */
+const previewItem = (piece: VsPreviewPiece, sheet: Omit<ItemSheet, 'name' | 'kind' | 'id' | 'file' | 'target' | 'panels' | 'frames'>): ItemSheet => {
+  const { kind, id } = VS_PREVIEW_ART[piece]
+  return { name: `preview:${id}`, kind, id, frames: 1, panels: [], file: id, target: artTarget(kind, id), ...sheet }
+}
+
+/**
+ * A duelist's cloud PODIUM (`previewArt.PODIUM_ART`). One unicorn stands in
+ * the middle of its flat top, so it is briefed as an island is — the top is
+ * the highest and widest thing in the picture, and a dome sinks her into it —
+ * and anchored by that top. A CLOUD HAS NO LINE: its reference is drawn
+ * without the drawing's plum rim, the puffs' white lips or the top's deeper
+ * rim (`drawPodium(…, ref)`) — the first rolls (2026-09-25) came back ringed
+ * in a line, as a row of shiny balls under a dish. The halo under it is the
+ * game's, drawn live.
+ */
+const vsPodiumSheet = (night: boolean): ItemSheet => previewItem(night ? 'podiumNight' : 'podiumDawn', {
+  title: night ? 'VS preview — the night\'s cloud podium (every foe)' : 'VS preview — Aurora\'s cloud podium',
+  anchor: 'top',
+  noun: 'cloud podium',
+  canvas: { w: 1536, h: 864 },
+  blurb: `A plump CLOUD PODIUM, seen from the side and a little from above: a FLAT, LEVEL TOP — a wide, flat oval of pale cloud — and under it a soft, puffy underside of cloud lumps bulging down in a gentle curve, the middle ones lowest. ${night
+    ? 'Tucked into the puffs, five little four-pointed silver twinkles and one small pale cream crescent moon.'
+    : 'Along the FRONT edge of the flat top runs a thin mint-green vine with a few small leaves, and on it five little flowers, white and candy pink, each with a gold middle; three small gold five-pointed stars are tucked into the puffs below.'}`,
+  colour: night
+    ? 'The friendly night: a soft lilac cloud — lavender, never grey and never dark — a pale lavender-white on the flat top where the light lands, deepening softly to a violet-lilac along the underside of the puffs. Moon-silver twinkles and a pale cream crescent. Soft and dreamy, never spooky, and paler and quieter than whoever stands on it.'
+    // The first two dawn rolls came back ringed in a line where the night's
+    // came back clean: pink on magenta is the pair a painter separates with
+    // an outline. A peachy rose stands out from the ground by its colour.
+    : 'Aurora\'s dawn: a soft peachy-pink cloud — a pale cream-peach on the flat top where the light lands, deepening softly to a warm coral rose along the underside of the puffs, with a warm glow of light on the top of each puff. A warm, peachy pink that stands out from the magenta ground by its colour alone — never a purple-pink or a magenta-pink. Butter-gold stars with a honey shade, white and candy-pink flowers with gold middles, soft mint leaves. Sweet and soft, and paler and quieter than whoever stands on it.',
+  not: [
+    `Draw ONLY the cloud podium and what the reference tucks into it (${night ? 'the twinkles and the crescent' : 'the vine, the flowers and the stars'}). No unicorn, no character, no creature, no rainbow, no sky, no other clouds, no ground, and no pillar or stand under it.`,
+    'No text, letters or numbers.'
+  ],
+  keep: [
+    'KEEP THE TOP — it is a STAGE: a unicorn stands in the middle of it, so it must be FLAT AND LEVEL — a wide, flat oval of cloud seen a little from above, at exactly the height and the width the reference draws it.',
+    '· NOTHING RISES ABOVE IT: no puff, no dome, no mound, no heap, and no flower, star or sparkle standing on the top or peeking up behind it. The BACK EDGE OF THE FLAT TOP IS THE HIGHEST POINT IN THE PICTURE, and the flat top is the WIDEST part of the podium — the puffs hang below it and never bulge out further than its edge.',
+    '· A DOME IS NOT A PODIUM. If the top swells up in the middle she sinks into the cloud, and if anything stands on it she floats beside it — either way the picture cannot be used.',
+    `· ${night ? 'The twinkles and the crescent stay where the reference tucks them: in the puffs, below the flat top, never on it.' : 'The vine and its flowers run along the FRONT edge of the flat top, as the reference has them, and the stars sit in the puffs below — never up on the top.'}`,
+    'THE FLAT TOP IS ONE SOFT OVAL OF PALE CLOUD — not a dish, a plate, a tray or a bowl: no raised rim or lip round it, no band of darker colour along its edge. Its front edge rounds softly down into the puffs below.',
+    // The first rolls (2026-09-25): a dish of pink or lilac balls, ringed in a
+    // thin dark line. Named, each with the substitute for the habit.
+    'THE PUFFS ARE CLOUD, NOT BALLS — the first painting of this made every lump a shiny sphere, like a row of pearls or cream puffs, each with a glossy highlight. A cloud lump is soft fluff: it catches the light on its top and melts into shade underneath, with no glossy spot, no hard sphere shading, and no gap or hard edge between one lump and the next.',
+    'A CLOUD HAS NO LINE. Clouds have no edge in life: the podium is held by its own soft light and shade meeting the magenta, with NO outline round the puffs, round the top or between one puff and the next — where one lump meets another, the paint changes. The first painting ran a thin dark line all the way round the podium; there must be none, not dark, not thin, not coloured. A line round a cloud is the one thing that turns it into a cartoon sticker.',
+    `· ${night ? 'The twinkles and the crescent carry' : 'The flowers, the leaves and the stars carry'} no line either, only their own colour and a soft shade.`,
+    '· NO GLOW, NO HALO AND NO SHADOW under or around it: the game lays its own soft glow under the podium, and anything painted onto the magenta ships as a pink stain stuck to it for ever.',
+    '· It is still a hand-painted storybook cloud, plump and soft, not a flat vector shape: the paint varies gently across every puff.'
+  ].join('\n'),
+  view: 'THE VIEW: from the side, with the flat top seen a little from above as a wide oval, exactly as the reference shows it. No tilt, no view from below, no view from straight above.',
+  checks: [
+    '· Lay a ruler along the back edge of the flat top: it is level, and nothing anywhere in the picture stands higher.',
+    '· The flat top is the widest part: nothing below it bulges out further.',
+    '· Follow the whole edge of the podium with your eye — the top, every puff: there is NO line drawn round any of it. The cloud meets the magenta as paint.',
+    '· No lump is a shiny ball: no glossy highlight spots, no bead or pearl look. And the top is a soft flat oval of cloud, not a dish with a rim.',
+    night
+      ? '· Count them: five little silver twinkles and one small crescent, all in the puffs.'
+      : '· Count them: five little flowers on the vine along the front of the top, three gold stars in the puffs.',
+    '· Look at the magenta directly UNDER the podium: the same flat magenta as the four corners of the sheet. No shadow, no glow.'
+  ]
+})
+
+/**
+ * A duelist's NAME RIBBON (`ribbonFrame.RIBBON_ART`), laid on as a CSS 9-slice
+ * whose middle stretches with the name — "Aurora", or a Guardian's name in
+ * Russian three times the length. The HP frames' three ways of saying PLAIN:
+ * `keep`, a "cover the ends" check, and the reference's short plain band. The
+ * slices fall `SLICE_AIR` past each ornament on plain satin; the brief keeps
+ * the ornament its reference size, since one painted bigger is cut in two.
+ *
+ * No stitching: the drawn ribbon's running stitch is CSS, drawn at one dash
+ * length however far the band is stretched — a painted one would stretch.
+ */
+const vsRibbonSheet = (side: 'aurora' | 'foe'): ItemSheet => {
+  const aurora = side === 'aurora'
+  const orn = aurora ? 'star' : 'crescent moon'
+  const metal = aurora ? 'gold' : 'silver'
+  return previewItem(aurora ? 'ribbonAurora' : 'ribbonFoe', {
+    title: aurora ? 'VS preview — Aurora\'s name ribbon' : 'VS preview — the night\'s name ribbon (every foe)',
+    anchor: 'centre',
+    noun: 'ribbon',
+    canvas: { w: 1536, h: 864 },
+    blurb: aurora
+      ? 'A storybook RIBBON BANNER, lying flat and level: a long, straight BAND of rose-pink satin, edged along its top and along its foot by a narrow band of butter gold; a small, plump gold five-pointed STAR on each END of the band, halfway up it; and behind each end of the band a forked SWALLOW-TAIL of deeper rose satin, edged in gold, hanging a little lower than the band, with a small dark rose FOLD showing under the band\'s end where the ribbon turns under into its tail. It is Aurora\'s ribbon — the sunny heroine\'s.'
+      : 'A storybook RIBBON BANNER, lying flat and level: a long, straight BAND of soft violet satin — a blue-lilac periwinkle — edged along its top and along its foot by a narrow band of moonlit silver; a small silver CRESCENT MOON on each END of the band, halfway up it, with a tiny four-pointed twinkle beside it; and behind each end of the band a forked SWALLOW-TAIL of deeper indigo satin, edged in silver, hanging a little lower than the band, with a small deep-indigo FOLD showing under the band\'s end where the ribbon turns under into its tail. It is the ribbon of the friend Aurora duels — the calm, dreamy NIGHT to her sunny day.',
+    colour: aurora
+      ? 'Rose-pink satin: a soft, pale sheen just under the gold edging along the top, the rose a little deeper toward the band\'s foot, and a deeper, warmer rose on the tails, darkest in the folds. Butter-gold edging — pale gold where the light lands along its top, a honey gold along its foot. Butter-gold stars with a creamy highlight. Sunny, soft and friendly.'
+      : 'Soft violet satin, a blue-lilac — never black and never grey: a pale lilac sheen just under the silver edging along the top, a little deeper toward the band\'s foot, and a deeper indigo on the tails, darkest in the folds. Moonlit silver-lavender edging, pale where the light lands. Silver crescents with a pale glint. Cool, soft and quiet, like a starry sky at bedtime.',
+    not: [
+      `Draw ONLY the ribbon the reference shows: the band, its two ${orn}s, the two forked tails and their folds. No bow, no knot, no rosette, no medal, no extra ribbon or streamer, no flowers, no sparkles round it, no characters, no ground.`,
+      'NO TEXT OF ANY KIND: no name, no word, no letters, no initials, no numbers anywhere on it — the band is blank satin. The game writes the duelist\'s name across the middle of the band itself, in the player\'s own language, and a painted one would sit underneath it.',
+      'NOT a button, a badge or a plate: no card, panel or shape behind the ribbon. The magenta touches its outline all the way round.',
+      aurora
+        ? 'The stars HAVE NO FACE — no eyes, no smile, no cheeks. They are ornaments, not characters.'
+        : 'The moons HAVE NO FACE — no eyes, no mouth, no cheeks. They are ornaments, not characters.',
+      ...(aurora ? [] : ['IT IS THE FRIENDLY NIGHT, NOT A THREAT: every edge soft, every tip rounded, nothing sharp and nothing spooky.'])
+    ],
+    keep: [
+      'THE MIDDLE OF THE BAND IS PLAIN SATIN, THE SAME ALL THE WAY ALONG — the one rule the game cannot work without.',
+      `· The game fits this ribbon to every duelist's name, short or long, in any language, by STRETCHING ONLY THE MIDDLE OF THE BAND, the stretch between the two ${orn}s, sometimes to three or four times its length in the reference. The two ends — the ${orn}s, the band's cut ends, the folds and the forked tails — keep their size. So from just past one ${orn} to just before the other, the band is ONE PLAIN SATIN STRIP: the same colour, the same soft sheen under the top edging and the same ${metal} edging along its top and its foot, at every point along it.`,
+      '· Nothing on that stretch — no stitching, no dashes, no dots, no pattern, no crease, no wrinkle, no fold, no highlight spot, no sparkle and no change of colour. Anything there is pulled out with it into a long smear.',
+      '· THE BAND IS STRAIGHT AND LEVEL: its top edge and its foot run level and parallel from one end of the band to the other, the band the same height all the way along — drawn by hand, but never waving, curling, twisting, bulging or tapering. The game cuts the band into pieces and stretches the middle one, so the pieces only meet if it is the same height everywhere. This is the one place a straight edge is right; everything else keeps its hand-drawn irregularity.',
+      '· EACH END OF THE BAND IS CUT SQUARE: a straight up-and-down edge where the satin turns under into its tail, with the small dark fold showing below it — exactly as the reference draws it.',
+      `· Each ${orn} sits where the reference puts it — halfway up the band's end, the same size, with a little plain satin between it and the stretch. A bigger ${orn}, or one moved in toward the middle, is cut in two and stretched with the band.`,
+      '· The name is written over the middle in big white letters with a dark outline, so the satin there is a calm, even colour for it to read on.',
+      'IT IS CUT CLOTH, SO ITS EDGE IS CLEAN: a soft plum brush line holds the outside of the ribbon — a little heavier along the undersides of the band and the tails, lighter along the lit top edge, and the SAME weight all along the middle stretch. Inside the ribbon nothing is outlined: the edging meets the satin as a change of paint.',
+      `HOW BIG IT IS IN PLAY — the band is about 35 to 140 pixels tall, over the duelist's head, on a painted sky. So it is a bold, clean ribbon first — clear satin, clear edging, clear ${orn}s — with no fine weave or texture, which only turns to mush at that size.`,
+      NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the ribbon'),
+      STILL_PAINTED
+    ].join('\n'),
+    view: 'THE VIEW: flat, level and square-on, exactly as the reference shows it — a ribbon laid out flat and seen from straight in front. No perspective, no tilt, no wave, no twist, no curl, and nothing blowing in the wind.',
+    checks: [
+      `· Cover both ends with your hands — the ${orn}s, the band's ends and the tails — and look at what is left: one plain satin strip with ${metal} edging along its top and its foot, the same from one end to the other. Paint out any stitch, pattern, crease, spot or change of colour you find there.`,
+      '· Lay a ruler along the band\'s top edge and along its foot: both straight and level, the band the same height all the way along.',
+      `· Count them: one band, two ${orn}s (one on each end${aurora ? '' : ', each with its tiny twinkle'}), two forked tails, two folds — nothing else.`,
+      '· NOT ONE LETTER anywhere: the band is blank satin from end to end.',
+      '· Look at the magenta directly UNDER the ribbon and its tails: the same flat magenta as the four corners of the sheet. No shadow, no glow.'
+    ]
+  })
+}
+
+/**
+ * THE VS MEDALLION (`vsMarks.VS_MARK_ART.emblem`): WORDLESS — the DOM prints
+ * the translated "VS" over it (`VsEmblem.vue`) — with a calm middle for those
+ * letters. Its two crossed horns run right under them in the drawing, so the
+ * brief keeps them soft pastel inlay with nothing dark or bright where they
+ * cross; a smaller X would be a change to `emblemParts` (the box is the rim's).
+ *
+ * `exact`: the second DOM-sized file after the brand pair (`ItemSheet.exact`).
+ * The DOM lays it at a radius of a tenth of the preview's unit — about 160
+ * device px on a 2x laptop and 215 on a 4K screen at 1.5x — and slams it in
+ * from 2.6 times that. The 256 px cap gives it 112 px per radius, a 1.4–1.9x
+ * upscale on the screen's centrepiece; 384 gives 167, and the free app's
+ * 1:1 return holds about 730 px of it, so nothing is upsampled.
+ */
+const VS_EMBLEM_SHEET: ItemSheet = previewItem('emblem', {
+  title: 'VS preview — the VS medallion',
+  anchor: 'centre',
+  noun: 'medallion',
+  exact: 384,
+  blurb: 'A round storybook MEDALLION, flat and facing you: a scalloped rim of warm gold with fourteen soft, rounded points all the way round, a small cream pearl set in the rim toward each point, a narrow deeper-gold ring just inside the rim, and a round face of pale cream-pink ENAMEL in the middle, with a soft glossy light across its top left. On the enamel lie two small unicorn HORNS crossed like an X — a blossom-pink one rising from the lower left to the upper right, over a lilac one rising from the lower right to the upper left — each a slender spiral cone with a round base and a soft, rounded tip. Two little four-pointed twinkles catch the rim, one at the top right and one at the bottom left.',
+  colour: 'Warm butter-gold rim — pale where the light lands at the top left, a deeper honey gold on the inner ring and toward the lower right. Cream pearls. Pale cream-pink enamel, lightest where the light lands. One blossom-pink horn and one soft lilac horn: Aurora\'s colour and the night\'s, crossed. Pale cream twinkles.',
+  not: [
+    'Draw ONLY the medallion the reference shows: the rim, its pearls, the enamel, the two crossed horns and the two twinkles. No ribbons hanging from it, no laurel, no wings, no banner, no crown, no characters, no ground.',
+    'NO TEXT OF ANY KIND: no "VS", no V, no S, no letters, words, numbers, runes or symbols anywhere on it.',
+    'NOTHING HAS A FACE — not the medallion, not the horns: no eyes, no mouth, no cheeks.',
+    'NOT a button or a coin lying on a card: nothing behind it. The magenta touches its rim all the way round.'
+  ],
+  keep: [
+    'THE MIDDLE BELONGS TO THE GAME\'S LETTERS — keep it calm, and keep it WORDLESS.',
+    '· The game prints "VS" across the middle of the enamel itself, in big gold letters with a thick dark outline, in every player\'s own language. So paint NO letters, words, numbers or symbols anywhere: a painted "VS" ends up underneath the game\'s.',
+    '· The enamel stays a soft, light, even cream-pink in the middle. The two horns lie FLAT on it, painted softly into the enamel in their pastel pink and lilac — no dark line round them, no dark grooves, and no bright glint or sparkle where they cross in the very middle. Their spiral turns are soft painted bands, not drawn lines.',
+    '· The twinkles stay on the rim, where the reference puts them — never on the enamel.',
+    'HOW BIG IT IS IN PLAY — the centrepiece of the screen, between the two duelists: about 80 to 220 pixels across, and it slams down from nearly three times that size as the duel is announced. So it is a bold, clean medallion at a glance — the gold rim, the pearls, the pale enamel — painted crisply enough to hold up when it is big.',
+    NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the medallion'),
+    STILL_PAINTED
+  ].join('\n'),
+  view: 'THE VIEW: flat and square-on — a round face looking straight at you, exactly as the reference shows it. No perspective, no tilt, no edge or thickness seen from the side.',
+  checks: [
+    '· NOT ONE LETTER, digit or symbol anywhere — look again at the middle of the enamel, between the horns.',
+    '· It is round: as wide as it is tall, with the rim\'s fourteen soft points all the way round and a pearl toward each.',
+    '· Two crossed horns, soft and pastel, and nothing dark or bright where they cross in the middle.',
+    '· Two twinkles, both on the rim: top right and bottom left.',
+    NOTHING_ROUND
+  ]
+})
+
+/** A Guardian's CROWN, perched on her ribbon (`vsMarks.VS_MARK_ART.crown`).
+ *  The banner's pips draw the same crown small, and stay drawn. */
+const VS_CROWN_SHEET: ItemSheet = previewItem('crown', {
+  title: 'VS preview — a Guardian\'s crown',
+  anchor: 'centre',
+  noun: 'crown',
+  blurb: 'A small storybook CROWN in warm gold, standing upright: a band along its foot and, rising from it, three soft points — a tall one in the middle and one leaning out a little at each side — each tipped with a round cream pearl. On the band, a small rosy-pink gem shaped like a soft, rounded diamond in the middle, between two small round lilac gems; a soft glossy light on the middle point.',
+  colour: 'Warm butter gold, pale where the light lands at the top left and a deeper honey gold on the band. Cream pearls. A rosy-pink gem in the middle and two soft lilac gems, each with a small glint.',
+  not: [
+    'Draw ONLY the crown. No head, hair or cushion under it, no ribbon, no sparkles round it, no ground.',
+    'IT HAS NO FACE, and no letters or numbers anywhere on it.'
+  ],
+  keep: [
+    'HOW BIG IT IS IN PLAY — about 40 to 120 pixels across, perched on top of a duelist\'s name ribbon (rose-pink or soft violet satin) for a chapter\'s Guardian; the game tips it a little to one side itself. So it is a bold, plump, simple shape first — strong gold, one soft highlight, one honey shade, the pearls and the gems — with no fine engraving, which only turns to mush at that size.',
+    '· A friendly, round storybook crown: the points soft and rounded, never sharp, grand or scary.',
+    NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the crown'),
+    STILL_PAINTED
+  ].join('\n'),
+  facing: 'It stands UPRIGHT, points up, exactly as the reference does — the game tips it itself.',
+  checks: [
+    '· One crown: a band, three soft points with a pearl on each, one rosy gem between two lilac gems — nothing else.',
+    NOTHING_ROUND
+  ]
+})
+
+/** The preview's six keyed sheets, in `PROMPTS-PREVIEW.md`'s order. */
+export const PREVIEW_SHEETS: readonly ItemSheet[] = [
+  vsPodiumSheet(false),
+  vsPodiumSheet(true),
+  vsRibbonSheet('aurora'),
+  vsRibbonSheet('foe'),
+  VS_EMBLEM_SHEET,
+  VS_CROWN_SHEET
+]
+
+/** The long edge of a backdrop reference (`previewArt.VS_BACKDROP_REF_LONG`;
+ *  a test holds the two together): a true 16:9 and 9:16, the wardrobe's
+ *  reasoning — the aspects a painter can be asked for by name. */
+export const PREVIEW_BACKDROP_LONG = 1152
+
+/**
+ * Where each backdrop's SEAM meets the picture's edges, in percent — from
+ * `previewArt.SEAM_LAND` / `SEAM_PORT`, which the layout, the live seam light
+ * and the halves' sweep-in all use (`tests/meta/artPreview.test.ts`
+ * recomputes these). Landscape: the top edge, then the bottom, across.
+ * Portrait: the left edge, then the right, down.
+ */
+const VS_SEAM = { land: [56, 44], port: [42, 62] } as const
+
+/**
+ * The VS preview's BACKDROP, one picture per orientation (`chapter: -3`;
+ * `previewArt.paintPreviewBackdrop`, its reference with `ref`). The page
+ * family's ground — opaque, no magenta — and its own brief
+ * (`vsBackdropPrompt`), because it is a sky and not a sheet of paper.
+ */
+export const PREVIEW_BACKDROP_SHEETS: readonly PageSheet[] = [false, true].map((portrait) => {
+  const { kind, id } = VS_PREVIEW_ART[portrait ? 'backdropPort' : 'backdropLand']
+  const short = Math.round((PREVIEW_BACKDROP_LONG * 9) / 16)
+  return {
+    chapter: -3,
+    portrait,
+    id,
+    title: `VS preview — backdrop (${portrait ? 'portrait' : 'landscape'})`,
+    mood: 'Aurora\'s warm dawn and the foe\'s friendly night',
+    motifs: '',
+    w: portrait ? short : PREVIEW_BACKDROP_LONG,
+    h: portrait ? PREVIEW_BACKDROP_LONG : short,
+    file: id,
+    target: artTarget(kind, id)
+  }
+})
+
 /** Every file a painting can land in — the catalogue `art:status` checks. */
 export const manifestTargets = (): Map<string, { kind: ArtKind; id: string }> => {
   const out = new Map<string, { kind: ArtKind; id: string }>()
@@ -3944,7 +4469,9 @@ export const manifestTargets = (): Map<string, { kind: ArtKind; id: string }> =>
   for (const s of PAGE_SHEETS) out.set(s.target, { kind: 'page', id: s.id })
   for (const s of WARDROBE_SHEETS) out.set(s.target, { kind: 'wardrobe', id: s.id })
   out.set(BRAND_LOGO_SHEET.target, { kind: 'brand', id: BRAND_LOGO_SHEET.id })
-  for (const s of [...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET]) {
+  for (const s of PREVIEW_BACKDROP_SHEETS) out.set(s.target, { kind: 'page', id: s.id })
+  for (const s of PREVIEW_SHEETS) out.set(s.target, { kind: s.kind, id: s.id })
+  for (const s of [...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...PUPPET_SHEETS, ...WARDROBE_ITEM_SHEETS, ...KEEPSAKE_SHEETS, ...RUNE_SHEETS, ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET]) {
     out.set(s.target, { kind: s.kind, id: s.id })
   }
   return out
@@ -4361,7 +4888,10 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   if (many) lines.push('READ THE PANELS:', ...s.panels.map((p, i) => `· ${grid ? p.replace(/^Panel (\d+):/, `Panel $1 (${cellName(i, rows, cols)}):`) : p}`), '')
   lines.push(REFERENCE_CLAUSE, '')
   if (s.also?.length) lines.push(finishRefsClause(s.also.length), '')
-  if (s.kind === 'creature') lines.push(CREATURE_NOT_A_STICKER, '')
+  // A creature's dialogue strip is the same animal and the same trap: the
+  // first strips came back as flat, evenly inked stickers (2026-09-25).
+  const creature = s.kind === 'creature' || (s.kind === 'portrait' && PORTRAIT_SETS.some((p) => p.creature && `portrait:${p.who}` === s.name))
+  if (creature) lines.push(CREATURE_NOT_A_STICKER, '')
   // …and an object whose painting came back as a trace (`ItemSheet.refInk`).
   else if (s.refInk !== undefined && s.refInk < 1) lines.push(OBJECT_NOT_A_STICKER, '')
   lines.push(`COLOUR IDENTITY (keep the hues; the exact shades are yours): ${s.colour}`, '')
@@ -4593,8 +5123,100 @@ export const coverPrompt = (s: PageSheet): string => [
   `OUTPUT: one image, 1:1 square (for example ${s.w} x ${s.h} pixels), PNG. If your tool has an aspect-ratio control, set it to 1:1. No labels, captions, numbers or watermarks.`
 ].join('\n')
 
+/**
+ * The duel's VS preview BACKDROP (`PREVIEW_BACKDROP_SHEETS`): the hero's dawn
+ * and the foe's friendly night, split by a seam of light.
+ *
+ * A full-bleed SKY, so the page family's ground rule — no magenta, it IS the
+ * background — but not a page's restraint brief: nothing is printed on it.
+ * What it must not carry is written from what the preview draws over it every
+ * frame (`previewDraw.ts`): the duelists and their podiums, each one's own
+ * glow, the rays, the seam's flash, the glitter, the chrome — and anything
+ * ROUND. The game stretches this painting to the screen (a quarter out on a
+ * phone either way), so the moon is drawn live over it and the sun is only
+ * its glow (`previewArt`'s header); the reference already leaves them out.
+ *
+ * THE SEAM IS A CONTRACT: the layout sets the medallion on it and the halves
+ * sweep in clipped along the DRAWN line (`halfPath`), so a painted seam
+ * anywhere else puts the night on the dawn's side for the whole sweep. The
+ * brief gives it as where it meets the edges (`VS_SEAM`).
+ *
+ * NO STYLE ANCHOR. The sectors attach the approved paint swatch; this does
+ * not. The swatch is four patches of a daylight MEADOW — a pale sky, a hazy
+ * hill, grass, a path with flowers — and an all-sky dawn-and-night picture has
+ * nothing in it to match and three things to steal. The page family attaches
+ * none either.
+ */
+export const vsBackdropPrompt = (s: PageSheet): string => {
+  const P = s.portrait
+  const [dawnSide, nightSide] = P ? ['BOTTOM', 'TOP'] : ['LEFT', 'RIGHT']
+  const moonCorner = P ? 'top-left' : 'top-right'
+  const [a, b] = P ? VS_SEAM.port : VS_SEAM.land
+  const seam = P
+    ? `it enters at the LEFT edge ${a}% of the way down and leaves at the RIGHT edge ${b}% of the way down, sloping gently down to the right`
+    : `it enters at the TOP edge ${a}% of the way across and leaves at the BOTTOM edge ${b}% of the way across, leaning a little to the right as it rises`
+  return [
+    `WHAT COMES BACK IS ONE ${P ? 'TALL PORTRAIT' : 'WIDE LANDSCAPE'} PICTURE — a storybook sky split in two, repainted from the attached reference.`,
+    `One ${P ? 'portrait' : 'landscape'} image, about ${s.w} x ${s.h} pixels (${P ? '9:16' : '16:9'}), filling the frame edge to edge.`,
+    '',
+    'WHAT IT IS NOT — the game draws all of this over your picture, and anything painted in ends up doubled:',
+    '· NO characters: no unicorns, no people, no animals, no creatures. Two unicorns stand on this picture, one in each half, and the game draws them.',
+    '· NO ground of any kind: no land, no hills, no water, no horizon, no platforms, no islands. It is ONLY SKY — sky, clouds and light. The clouds along the bottom are clouds in the sky, not ground.',
+    `· NOTHING ROUND OR SOLID IN THE SKY: no moon, no sun disc, no planet, no bubbles or discs of light. The game stretches this picture to fit every shape of screen, which turns anything round into an oval, so it draws the moon itself, over your sky, and the sun is only a glow. Leave the night's ${moonCorner} corner, where the moon goes, as plain deep sky.`,
+    '· NO medallion, badge, emblem, ribbon, banner, frame or card.',
+    // The first portrait (2026-09-25) lettered its two halves' names into the
+    // sky — the brief had set them in capitals, which read as captions.
+    '· NO TEXT OF ANY KIND — no words, no titles, no labels, no names, no letters or numbers anywhere, not even to say which half is which. The game writes the duelists\' names and a big "VS" over this picture itself, in the player\'s own language, and anything lettered in the sky ends up underneath them.',
+    '· NO rays, beams, spotlights or bursts, and no coloured glow beyond the dawn\'s own soft light — the game lays a light behind each unicorn itself, in her own colour.',
+    '· No petals, leaves, butterflies, birds or confetti, and no sparkles beyond the tiny ones the reference already has — the game throws its own glitter over this.',
+    '',
+    INK_AND_SHADING,
+    '',
+    'THE REFERENCE IS A DIAGRAM, NOT A STYLE. It is a flat computer drawing: smooth computer gradients, and clouds that are blurred rows of bumps. That is how the game sketches a plan. YOUR PICTURE IS NOT MADE THAT WAY: paint a sky.',
+    '· NOTHING IN THIS PICTURE HAS AN OUTLINE. Sky, clouds, light and stars have no edge in life: where two colours meet, the colour changes, and that IS the edge.',
+    // The first landscape return (2026-09-25) kept every rule but this one: a
+    // plum line along the top of each cloud bank, tracing its bumps — though
+    // the reference inked none. Named, with the substitute for the habit.
+    '· THE CLOUDS ARE PAINTED, NOT DRAWN — the one thing the first painting of this sky got wrong. It ran a dark line along the top of every cloud bank, tracing each bump like a cartoon, though the reference draws none. A cloud has NO line at all — not a dark one, not a thin one, not a coloured one. Its top is its LIGHTEST part: warm light catching soft fluff and melting into the sky. Its underside is a soft shade. Where one cloud lies in front of another, the front one is lighter, and that change of light is the only edge.',
+    '· Every cloud bank is soft, irregular heaps of fluff of different sizes, no two alike — never a row of equal bumps, and never a scalloped border.',
+    '',
+    `WHAT IT IS: the backdrop of a storybook duel between two friends — one sky, split in two by one straight seam of warm light. ${P ? 'Below' : 'Left of'} the seam is a dawn sky, the heroine's side: rose pink warming through peach into butter gold toward the bottom, a big, soft glow of warm golden light ${P ? 'low on its left' : 'on its left, halfway down'} — only light, with no disc in it — and a sea of rosy and creamy clouds along the bottom. ${P ? 'Above' : 'Right of'} the seam is a friendly night sky, her friend's side: deep indigo softening into violet toward its foot, sprinkled with tiny stars and a few little four-pointed twinkles, with a bank of soft lilac clouds along its foot. Where the two meet, a soft band of warm golden light runs straight along the seam, with a few tiny sparkles scattered in it. The sky deepens gently toward the four corners.`,
+    '',
+    REFERENCE_CLAUSE,
+    '',
+    'YOU ARE PAINTING THIS SKY BY HAND, NOT TIDYING UP THE REFERENCE.',
+    '· You are copying its LAYOUT and REPAINTING everything else: soft gouache-and-watercolour skies with gentle variation in them, clouds with warm light on their tops and soft shade underneath, light that glows.',
+    '· KEEP THE REFERENCE\'S COLOURS. The dawn stays warm and bright — rose, peach and gold; the night stays deep but friendly — indigo and violet, dreamy, never black and never spooky. A pale, washed-out version of the reference is exactly as wrong as a flat one.',
+    '· THE TEST: put your picture beside the reference. If someone could mistake yours for the reference with softer edges, it is not finished.',
+    '',
+    'KEEP THE LAYOUT — the game lays the whole duel over this picture by where things are in it:',
+    `· THE SEAM IS A CONTRACT. It is ONE STRAIGHT LINE of light, exactly where the reference draws it: ${seam}. Dawn on one side of it, night on the other, and the warm light running along it — a band of light, not a string of lights, a cord, a garland or a chain of sparkles, and no cloud crossing it. Not curved, not wavy, not moved, and not blurred into a gradual blend: the game slides the two halves in along that exact line and sets a medallion on it, so a seam anywhere else splits the picture in the wrong place.`,
+    '· The dawn\'s glow and the clouds stay where the reference puts them; the tiny stars and twinkles stay tiny.',
+    '· Do not zoom, crop or re-frame. Open sky in the reference stays open sky.',
+    '',
+    'KEEP IT SOFT AND QUIET. Two unicorns on cloud podiums, their name ribbons, a medallion on the middle of the seam and rows of little icons are all drawn over this, so it is a gentle, glowing backdrop: no busy detail and no hard, bright spot anywhere to compete with them.',
+    '',
+    STYLE_SCENE,
+    '',
+    'IT FILLS THE IMAGE, edge to edge, corner to corner. There is NO background behind it and NO magenta anywhere in this one: it is itself the backdrop the whole duel preview is drawn on.',
+    '· No frame, no border, no card, no rounded corners, no letterboxing, no white margin. The sky simply deepens a little toward the four corners, softly, as the reference\'s does.',
+    '',
+    'BEFORE YOU CALL IT FINISHED, check:',
+    `· One ${P ? 'portrait picture, 9:16' : 'landscape picture, 16:9'}: the whole sky, framed like the reference.`,
+    `· The seam: one straight line, meeting the edges exactly where the reference's does — dawn on the ${dawnSide.toLowerCase()}, night on the ${nightSide.toLowerCase()}.`,
+    `· Nothing round and nothing solid anywhere in the sky — no moon, no sun disc — and the night's ${moonCorner} corner is plain sky.`,
+    '· No characters, no podiums, no ground, no frame, no medallion.',
+    '· NOT ONE LETTER, word or label anywhere — look again along the seam and in the middle of each half.',
+    '· Look along the top of every cloud bank: is there a line tracing its bumps — dark, thin or coloured? There must not be. If there is, paint that edge again as soft light.',
+    '· The night is deep indigo and violet, never black; the dawn is rose, peach and gold.',
+    ...STYLE_CHECKS,
+    '',
+    `OUTPUT: one image, ${P ? 'tall portrait (for example 768 x 1365 pixels), 9:16' : 'wide landscape (for example 1365 x 768 pixels), 16:9'}, PNG. If your tool has an aspect-ratio control, set it to ${P ? '9:16' : '16:9'}. No labels, captions, numbers or watermarks.`
+  ].join('\n')
+}
+
 export const pagePrompt = (s: PageSheet): string =>
-  s.chapter === -2 ? coverPrompt(s) : s.chapter < 0 ? frontPagePrompt(s) : [
+  s.chapter === -3 ? vsBackdropPrompt(s) : s.chapter === -2 ? coverPrompt(s) : s.chapter < 0 ? frontPagePrompt(s) : [
   `WHAT COMES BACK IS ONE ${s.portrait ? 'TALL PORTRAIT' : 'WIDE LANDSCAPE'} PICTURE — a sheet of paper from a storybook, seen flat. Not a scene, not a landscape, not an illustration with a subject.`,
   `One ${s.portrait ? 'portrait' : 'landscape'} image, about ${s.w} x ${s.h} pixels, filling the frame edge to edge.`,
   '',
@@ -4923,6 +5545,12 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
     '',
     ...RIG_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
   ].join('\n\n') + '\n',
+  'PROMPTS-PUPPET.md': [
+    DOC_HEAD('The painted duelists'),
+    'Seven pieces of a paper cut-out puppet per character, painted in FULL COLOUR from her models, which are attached BEFORE the reference in the order the heading lists them. The models are cropped offline: `model-aurora-body` and `model-umbra-body` are the mascot\'s two unicorns, each facing right; `model-umbra-faces` is her portrait strip, mirrored.',
+    '',
+    ...PUPPET_SHEETS.map((s) => block(s.title, s.file, s.target, puppetPrompt(s, fits?.[s.file]), s.also ?? []))
+  ].join('\n\n') + '\n',
   'PROMPTS-RUNES.md': [
     DOC_HEAD('Runes'),
     ...RUNE_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
@@ -4964,10 +5592,17 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
     'Each page is painted from its character models — the painted portrait strips in `painted/` — attached BEFORE the reference, in the order the heading lists them. Paint `PROMPTS-PORTRAITS.md`\'s Aurora and Umbra first.',
     '',
     ...STORY_SHEETS.map((s) => block(`Intro ${s.panel} · ${s.title}`, s.file, s.target, storyPrompt(s), s.also))
+  ].join('\n\n') + '\n',
+  'PROMPTS-PREVIEW.md': [
+    DOC_HEAD('The duel\'s VS preview'),
+    'The five-second intro before every duel: the two-halved sky it is played on (full-bleed, like a book page), and — keyed on magenta like any item — the cloud podium each duelist stands on, her name ribbon, the VS medallion and a Guardian\'s crown. The duelists, the rays, the glitter, the seam\'s flash, each duelist\'s own glow and the MOON are drawn over these by the game, and the names and the "VS" are live text in the player\'s own language. The ribbons are stretched to the name, so their middles must come back plain.',
+    '',
+    ...PREVIEW_BACKDROP_SHEETS.map((s) => block(s.title, s.file, s.target, vsBackdropPrompt(s))),
+    ...PREVIEW_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
   ].join('\n\n') + '\n'
 })
 
-export type SheetFamily = 'sector' | 'story' | 'page' | 'wardrobe' | 'item' | 'prop' | 'creature' | 'rig' | 'rune' | 'portrait' | 'island' | 'brand'
+export type SheetFamily = 'sector' | 'story' | 'page' | 'wardrobe' | 'item' | 'prop' | 'creature' | 'rig' | 'puppet' | 'rune' | 'portrait' | 'island' | 'brand' | 'preview'
 
 /** Every reference the bench exports, in export order. */
 export const sheetRows = (): { file: string; family: SheetFamily; title: string; target: string }[] => [
@@ -4980,9 +5615,12 @@ export const sheetRows = (): { file: string; family: SheetFamily; title: string;
   ...PROP_SHEETS.map((s) => ({ file: s.file, family: 'prop' as const, title: s.title, target: s.target })),
   ...CREATURE_SHEETS.map((s) => ({ file: s.file, family: 'creature' as const, title: s.title, target: s.target })),
   ...RIG_SHEETS.map((s) => ({ file: s.file, family: 'rig' as const, title: s.title, target: s.target })),
+  ...PUPPET_SHEETS.map((s) => ({ file: s.file, family: 'puppet' as const, title: s.title, target: s.target })),
   ...RUNE_SHEETS.map((s) => ({ file: s.file, family: 'rune' as const, title: s.title, target: s.target })),
   ...PORTRAIT_SHEETS.map((s) => ({ file: s.file, family: 'portrait' as const, title: s.title, target: s.target })),
   ...ISLAND_SHEETS.map((s) => ({ file: s.file, family: 'island' as const, title: s.title, target: s.target })),
+  ...PREVIEW_BACKDROP_SHEETS.map((s) => ({ file: s.file, family: 'preview' as const, title: s.title, target: s.target })),
+  ...PREVIEW_SHEETS.map((s) => ({ file: s.file, family: 'preview' as const, title: s.title, target: s.target })),
   { file: BRAND_LOGO_SHEET.file, family: 'brand' as const, title: BRAND_LOGO_SHEET.title, target: BRAND_LOGO_SHEET.target },
   { file: BRAND_MASCOT_SHEET.file, family: 'brand' as const, title: BRAND_MASCOT_SHEET.title, target: BRAND_MASCOT_SHEET.target }
 ]

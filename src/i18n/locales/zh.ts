@@ -477,6 +477,20 @@ export default {
     'castKey2': '[回车] 施法'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': '你的符文',
+    'weakTo': '弱点',
+    'magic': '魔法',
+    'epithet': {
+      'aurora': '符文守护者',
+      'umbra': '尘埃公主',
+      'shadow': '安布拉的影子',
+      'guardian': '{place}的守护者'
+    },
+    'aria': '{hero} 对战 {foe}。对决马上开始。'
+  },
+
   'gift': {
     'flowerCrown': '花冠',
     'seashellNecklace': '贝壳项链',

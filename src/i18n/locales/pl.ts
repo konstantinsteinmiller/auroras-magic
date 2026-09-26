@@ -479,6 +479,20 @@ export default {
     'castKey2': '[Enter] Czaruj'
   },
 
+  'preview': {
+    'vs': 'VS',
+    'yourRunes': 'TWOJE RUNY',
+    'weakTo': 'SŁABOŚĆ NA',
+    'magic': 'MAGIA',
+    'epithet': {
+      'aurora': 'Strażniczka Run',
+      'umbra': 'Pyłowa Księżniczka',
+      'shadow': 'Cień Umbry',
+      'guardian': '{place} — Strażniczka'
+    },
+    'aria': '{hero} kontra {foe}. Pojedynek zaraz się zacznie.'
+  },
+
   'gift': {
     'flowerCrown': 'Kwiatowa korona',
     'seashellNecklace': 'Naszyjnik z muszelek',

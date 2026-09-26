@@ -13,15 +13,15 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   planFor, bootScreenOf, aheadChapterFor, chapterLimit, recordSector, duelWants, facesOf, cleaningWants, winWants,
-  type ScheduleSave, type ScheduleEnv, type Screen
+  previewWants, type ScheduleSave, type ScheduleEnv, type Screen
 } from '@/game/artSchedule'
 import { firstArtWants } from '@/game/artPreload'
 import { artProbeCount, setArtOverrides, type ArtWant } from '@/game/art'
 import { defaultCampaign, type CampaignState } from '@/game/campaign/state'
 import { setBit } from '@/game/campaign/bitset'
-import { LAST_BUILT_NODE, nodeChapter, STARTING_RUNES } from '@/game/campaign/tables'
+import { LAST_BUILT_NODE, nodeChapter, STARTING_RUNES, duelSetup } from '@/game/campaign/tables'
 import {
-  sectorArtId, sectorNodeOf, islandArtId, pageArtId, RUNE_SLUGS, runeArtId, RIG_ART, STORY_PANELS, storyPanelId,
+  sectorArtId, sectorNodeOf, islandArtId, pageArtId, RUNE_SLUGS, runeArtId, PUPPET_ART, STORY_PANELS, storyPanelId,
   CHAPTER_SLUGS
 } from '@/game/artIds'
 import { dialogueFor, OPENING_NODE } from '@/game/story/story'
@@ -45,7 +45,12 @@ const keys = (w: readonly ArtWant[]): string[] => w.map(([k, i]) => `${k}/${i}`)
 /** The chapter a chapter-bound painting belongs to, or −1 for the rest. */
 const chapterOfWant = ([kind, id]: ArtWant): number => {
   if (kind === 'sector' || kind === 'sectorThumb') return nodeChapter(sectorNodeOf(id))
-  if (kind === 'island') return Number(/^island-(\d+)-/.exec(id)![1]) - 1
+  // A chapter's island is `island-<n>-<slug>`; the VS preview's podiums
+  // (`vs-podium-*`) stand in every chapter.
+  if (kind === 'island') {
+    const m = /^island-(\d+)-/.exec(id)
+    return m ? Number(m[1]) - 1 : -1
+  }
   if (kind === 'page' && /^page-\d+-/.test(id)) return Number(/^page-(\d+)-/.exec(id)![1]) - 1
   return -1
 }
@@ -71,14 +76,30 @@ describe('a fresh save: the splash holds for the PROLOGUE (owner, 2026-09-24)', 
     expect(hold).toContain(`sector/${sectorArtId(0)}`)
     // No sponge, no glove: those are the lesson's, at the first gift.
     expect(hold).not.toContain('tool/stardust-sponge')
-    for (const k of hold) expect(k).not.toMatch(/^(sectorThumb|wardrobe|gift|tool|rune)\//)
+    // The one thing past the prologue that holds too: node 0's VS PREVIEW,
+    // which the prologue hands over to in five seconds (owner, 2026-09-25) —
+    // its backdrop, podiums, ribbons and emblem, and the runes it shows. The
+    // duel itself does not hold.
+    const preview = keys(previewWants(OPENING_NODE, fresh, LAND))
+    for (const k of preview) expect(hold).toContain(k)
+    expect(hold).toContain('page/vs-backdrop-land')
+    expect(hold).not.toContain('page/vs-backdrop-port')
+    expect(hold).not.toContain(`island/${islandArtId(0)}`)
+    for (const k of hold) {
+      if (preview.includes(k)) continue
+      expect(k).not.toMatch(/^(sectorThumb|wardrobe|gift|tool|rune)\//)
+    }
   })
 
   it('puts node 0\'s duel right behind it, then the win, the front page and the lesson', () => {
     const plan = planFor(bootScreenOf(fresh), fresh, LAND)
     const next = keys(plan.next)
+    const hold = keys(plan.hold)
     const duelHold = keys(planFor({ scene: 'duel', node: OPENING_NODE }, { ...fresh, prologueSeen: true }, LAND).hold)
-    for (const k of duelHold) expect(next).toContain(k)
+    // All of it is on the wire by then: the preview's part already held,
+    // the rest NEXT — and nothing asked for twice.
+    for (const k of duelHold) expect([...hold, ...next]).toContain(k)
+    for (const k of next) expect(hold).not.toContain(k)
     const at = (k: string): number => next.indexOf(k)
     expect(at(`island/${islandArtId(0)}`)).toBeLessThan(at('page/page-front-land'))
     expect(at('page/page-front-land')).toBeLessThan(at(`story/${storyPanelId(2)}`))
@@ -96,16 +117,34 @@ describe('back mid-first-duel: the splash holds for the first DUEL', () => {
     expect(bootScreenOf(fresh)).toEqual({ scene: 'duel', node: OPENING_NODE })
   })
 
-  it('holds the duel\'s own paintings, and only those', () => {
-    const hold = keys(firstArtWants(fresh, LAND))
+  it('holds the duel\'s own paintings, and only those — behind its VS preview\'s', () => {
+    const all = keys(firstArtWants(fresh, LAND))
+    // Every duel opens with its VS preview, so the preview's paintings hold
+    // first: this orientation's backdrop, the podiums, the DOM's ribbons and
+    // emblem (no crown: Umbra is not a boss here), her runes and the foe's
+    // weakness chip.
+    const preview = keys(previewWants(OPENING_NODE, fresh, LAND))
+    for (const k of preview) expect(all).toContain(k)
+    expect(preview).toContain('page/vs-backdrop-land')
+    expect(preview).toContain('island/vs-podium-dawn')
+    expect(preview).toContain('island/vs-podium-night')
+    expect(preview).toContain('worldUi/vs-emblem')
+    expect(preview).not.toContain('worldUi/vs-crown')
+    for (const k of preview) expect(k).toMatch(/^(page\/vs-|island\/vs-|worldUi\/vs-|rune\/)/)
+    // The rest is the duel's own.
+    const hold = all.filter((k) => !preview.includes(k))
     // The page the duel is fought on, chapter 1's island, the duelists' rig.
     expect(hold).toContain(`sector/${sectorArtId(0)}`)
     expect(hold).toContain(`island/${islandArtId(0)}`)
-    for (const r of Object.values(RIG_ART)) expect(hold).toContain(`${r.kind}/${r.id}`)
-    // The HUD's runes: her two, not the twelve.
-    const runes = hold.filter((k) => k.startsWith('rune/'))
+    // Both painted duelists, every piece: the puppet stands in only once a
+    // whole set has decoded, so a set held in part is a set not shown.
+    for (const set of Object.values(PUPPET_ART)) for (const r of Object.values(set)) expect(hold).toContain(`${r.kind}/${r.id}`)
+    // The runes: her two (the HUD's, and the preview's row), and the foe's
+    // weakness on the preview's chip — not the twelve.
+    const runes = [...new Set(all.filter((k) => k.startsWith('rune/')))]
     const hers = RUNE_SLUGS.map((_, k) => k).filter((k) => (STARTING_RUNES >> k) & 1)
-    expect(runes.sort()).toEqual(hers.map((k) => `rune/${runeArtId(k)}`).sort())
+    const weak = duelSetup(OPENING_NODE).def.element
+    expect(runes.sort()).toEqual([...new Set([...hers, weak])].map((k) => `rune/${runeArtId(k)}`).sort())
     // The opener printed over the arena: exactly its speakers' faces.
     const faces = [...new Set(keys(facesOf(dialogueFor(OPENING_NODE), fresh)))]
     expect(faces.length).toBeGreaterThan(0)
@@ -128,7 +167,10 @@ describe('back mid-first-duel: the splash holds for the first DUEL', () => {
       expect(k).not.toMatch(/^worldUi\/(?!hp-frame-|dialogue-leaf$|picto-set-)/)
       expect(k).not.toMatch(/^page\/page-/)
     }
-    expect(new Set(hold).size).toBeLessThanOrEqual(16)
+    // 16 until the duelists were painted whole (2026-09-25): their five
+    // neutral parts became two painted sets of nine — the two characters
+    // the whole first screen is about.
+    expect(new Set(hold).size).toBeLessThanOrEqual(29)
   })
 
   it('holds the cloth only when the duel\'s letterbox actually shows it', () => {
@@ -340,5 +382,53 @@ describe('the cleaning plans what the restore draws (2026-09-24 restore pass)', 
     const win = keys(winWants(4, saveAt(3)))
     expect(win).toContain('gift/boss-chest')
     expect(win).not.toContain('gift/standard-gift')
+  })
+})
+
+describe('the VS preview in front of every duel (2026-09-25)', () => {
+  it('plans exactly what its duel plans — the duel\'s hold already carries it', () => {
+    for (const n of [0, 3, 4, 12, 24]) {
+      const save = saveAt(n - 1)
+      for (const env of [LAND, PORT]) {
+        expect(planFor({ scene: 'preview', node: n }, save, env)).toEqual(planFor({ scene: 'duel', node: n }, save, env))
+        const hold = keys(planFor({ scene: 'duel', node: n }, save, env).hold)
+        for (const k of keys(previewWants(n, save, env))) expect(hold, `node ${n}`).toContain(k)
+      }
+    }
+  })
+
+  it('holds this orientation\'s backdrop only, and a boss\'s crown only for a boss', () => {
+    const save = saveAt(3)
+    const boss = keys(previewWants(4, save, PORT))
+    expect(boss).toContain('page/vs-backdrop-port')
+    expect(boss).not.toContain('page/vs-backdrop-land')
+    expect(boss).toContain('worldUi/vs-crown')
+    expect(keys(previewWants(3, saveAt(2), PORT))).not.toContain('worldUi/vs-crown')
+  })
+
+  it('shows her runes, and the foe\'s weakness and magic chips once her magic is in play', () => {
+    // Chapter 2 (Bubble Bay): weak to Water, casting Water from node pos 2.
+    const save = saveAt(6)
+    const runes = (n: number): string[] => keys(previewWants(n, save, LAND)).filter((k) => k.startsWith('rune/'))
+    expect(runes(5)).toContain(`rune/${runeArtId(5)}`)
+    for (const k of RUNE_SLUGS.map((_, i) => i).filter((i) => ((save.runesUnlocked | STARTING_RUNES) >> i) & 1)) {
+      expect(runes(7)).toContain(`rune/${runeArtId(k)}`)
+    }
+  })
+
+  it('travels with the duel wherever the duel is planned ahead', () => {
+    const save = saveAt(1)
+    const pv = keys(previewWants(2, save, LAND))
+    const dialogueNext = keys(planFor({ scene: 'dialogue', node: 2 }, save, LAND).next)
+    for (const k of pv) expect(dialogueNext).toContain(k)
+    const mapNext = keys(planFor({ scene: 'map', node: -1 }, save, LAND).next)
+    for (const k of pv) expect(mapNext).toContain(k)
+  })
+
+  it('and with a versus match: after the ready screen, then held by the match', () => {
+    const save = saveAt(LAST_BUILT_NODE)
+    const pv = keys(previewWants(-1, save, LAND))
+    expect(keys(planFor({ scene: 'versusSetup', node: -1 }, save, LAND).next)).toEqual(expect.arrayContaining(pv))
+    expect(keys(planFor({ scene: 'preview', node: -1, mode: 'versus' }, save, LAND).hold)).toEqual(expect.arrayContaining(pv))
   })
 })

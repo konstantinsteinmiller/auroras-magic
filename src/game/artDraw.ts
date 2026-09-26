@@ -11,11 +11,11 @@
  * the `RuneGlyph` 100-unit box.
  */
 import {
-  ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS,
+  ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS, PUPPET_SHEETS,
   WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, sheetCols, SECTOR_REF,
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
-import { MOVIE_ICON, HP_FRAMES, type ItemName, type PropName, type CreatureName, type RigPart } from '@/game/artIds'
+import { MOVIE_ICON, HP_FRAMES, PORTRAIT_SETS, type ItemName, type PropName, type CreatureName, type RigPart, type PuppetWho, type PuppetPart } from '@/game/artIds'
 import { HP_FRAME_ART } from '@/game/duel/hpFrame'
 import { itemBox, type ItemSpec } from '@/game/artItem'
 import type { ArtBox } from '@/game/artBox'
@@ -38,6 +38,8 @@ import { CALF_ART, FALLEN_STAR_ART, PLANET_ART } from '@/game/map/kitSummit'
 import { PORTRAIT_ART } from '@/game/story/portrait'
 import { islandArt } from '@/game/duel/arena'
 import { BARREL_ART, NECK_ART, HEAD_ART, EAR_ART, HORN_ART } from '@/game/duel/chars'
+import { PUPPET_SPECS } from '@/game/duel/puppet'
+import { withoutArt } from '@/game/art'
 import { WARD_ART } from '@/game/duel/fx'
 import { FROST_LOCK_ICE_ART } from '@/game/duel/stageArt'
 import { KEEPSAKE_ART } from '@/game/cosmetics/icons'
@@ -73,6 +75,11 @@ import { pageDecorBake } from '@/game/map/pageDecor'
 import { PAGE_WASH, paintFrontPage, paintCloth } from '@/game/map/map'
 import { RUG_ART, paintWardrobeRoom } from '@/game/cosmetics/wardrobe'
 import { MASCOT_ART, paintLogoMark } from '@/game/brand'
+import { PREVIEW_SHEETS } from '@/game/artSheet'
+import { VS_PREVIEW_ART } from '@/game/artIds'
+import { PODIUM_ART, paintPreviewBackdrop } from '@/game/preview/previewArt'
+import { RIBBON_ART } from '@/components/preview/ribbonFrame'
+import { VS_MARK_ART } from '@/components/preview/vsMarks'
 
 type G2D = CanvasRenderingContext2D
 
@@ -320,6 +327,22 @@ const WORLD_UI_SPECS: Readonly<Record<string, ItemSpec>> = {
   ...Object.fromEntries(PICTO_SET_ART.map((s) => [s.id, s]))
 }
 
+/**
+ * The duel's VS preview (`artSheet.PREVIEW_SHEETS`), by id: the podiums from
+ * `previewArt` (their spec takes px per `PODIUM_UNIT`, and draws the painter's
+ * reference: `drawPodium`'s `ref`), the ribbons and the marks from the DOM's own part lists
+ * (`ribbonFrame`, `vsMarks`) — which read their colours from the `--am-*`
+ * tokens at draw time, so the bench renders them inside the app.
+ */
+const PREVIEW_SPECS: Readonly<Record<string, ItemSpec>> = {
+  [VS_PREVIEW_ART.podiumDawn.id]: PODIUM_ART.dawn,
+  [VS_PREVIEW_ART.podiumNight.id]: PODIUM_ART.night,
+  [VS_PREVIEW_ART.ribbonAurora.id]: RIBBON_ART.aurora,
+  [VS_PREVIEW_ART.ribbonFoe.id]: RIBBON_ART.foe,
+  [VS_PREVIEW_ART.emblem.id]: VS_MARK_ART.emblem,
+  [VS_PREVIEW_ART.crown.id]: VS_MARK_ART.crown
+}
+
 /** `RuneGlyph.vue`'s box: 100 units around a glyph of radius 30, in units of R. */
 const RUNE_BOX: ArtBox = { x: -50 / 30, y: -50 / 30, w: 100 / 30, h: 100 / 30 }
 
@@ -337,6 +360,11 @@ export const specOf = (sheet: ItemSheet): ItemSpec => {
   if (family === 'prop') return PROP_SPECS[key as PropName]!
   if (family === 'creature') return CREATURE_SPECS[key as CreatureName]!
   if (family === 'rig') return RIG_SPECS[key as RigPart]!
+  if (family === 'puppet') {
+    const [who, part] = key!.split('-') as [PuppetWho, PuppetPart]
+    return PUPPET_SPECS[who][part]
+  }
+  if (family === 'preview') return PREVIEW_SPECS[key!]!
   if (family === 'wardrobe') return RUG_ART
   if (family === 'brand') return MASCOT_ART
   return ITEM_SPECS[sheet.name as ItemName]
@@ -414,6 +442,10 @@ const drawPanel = (g: G2D, sheet: ItemSheet, L: Layout, f: number): void => {
  */
 const CREATURE_REF_INK = 0.4
 
+/** A chapter creature's dialogue portrait strip (not a unicorn's). */
+const creaturePortrait = (sheet: ItemSheet): boolean =>
+  sheet.kind === 'portrait' && !!PORTRAIT_SETS.find((p) => p.creature && `portrait:${p.who}` === sheet.name)
+
 /**
  * Every stroke made on reference canvas `g` at `k` × its width — for a
  * drawing that strokes its own lines rather than the kit's `ink`. The canvas
@@ -440,9 +472,11 @@ export const renderItemSheet = (sheet: ItemSheet, ground: string | null = '#ff00
   }
   // Around the panels only, and always put back — the game draws through the
   // very same `ink`, and a leaked scale would thin every sector on the map.
-  // Any sheet whose painting came back as a trace says so itself
-  // (`ItemSheet.refInk`); a creature keeps its family's thinning.
-  const refInk = sheet.refInk ?? (sheet.kind === 'creature' ? CREATURE_REF_INK : 1)
+  // The creatures' dialogue strips too (2026-09-25): painted from an evenly
+  // inked badge they came back as flat stickers, the look this family's
+  // thinned reference was made to stop. Any other sheet whose painting came
+  // back as a trace says so itself (`ItemSheet.refInk`).
+  const refInk = sheet.refInk ?? (sheet.kind === 'creature' || creaturePortrait(sheet) ? CREATURE_REF_INK : 1)
   // Props and the pictogram sets thin through the kit's `ink`, which is how
   // their references were cut (2026-09-25). A gift, a chest, a phone or a
   // shelf badge strokes its OWN lines and never meets `ink` — for those every
@@ -451,7 +485,11 @@ export const renderItemSheet = (sheet: ItemSheet, ground: string | null = '#ff00
   if (refInk !== 1 && !ownLines) setRefInk(refInk)
   if (ownLines) thinStrokes(g, refInk)
   try {
-    for (let f = 0; f < L.frames; f++) drawPanel(g, sheet, L, f)
+    // A REFERENCE IS THE DRAWING, whatever the art layer holds: a portrait's
+    // or the mascot's rig must not be drawn through its own paintings (the
+    // painted puppet would otherwise stand in the mascot's reference) —
+    // `itemBox` measures the same way.
+    withoutArt(() => { for (let f = 0; f < L.frames; f++) drawPanel(g, sheet, L, f) })
   } finally {
     setRefInk(1)
   }
@@ -602,6 +640,14 @@ export const renderStorySheet = (s: StorySheet): HTMLCanvasElement => renderIntr
  * runtime, so whatever ends up beneath one is simply never seen.
  */
 export const renderPageSheet = (s: PageSheet): HTMLCanvasElement => {
+  // The VS preview's BACKDROP: its own painter, with `ref` — only what
+  // survives being stretched to the screen (no moon, no sun disc, no bokeh,
+  // no grain: `previewArt`'s header).
+  if (s.chapter === -3) {
+    const [cv, g] = canvasOf(s.w, s.h)
+    paintPreviewBackdrop(g, s.w, s.h, s.portrait, true)
+    return cv
+  }
   // The CLOTH is a surface: the same gradient the map lays behind the book.
   if (s.chapter === -2) {
     const [cv, g] = canvasOf(s.w, s.h)
@@ -654,6 +700,6 @@ export const renderBrandSheet = (s: BrandSheet): HTMLCanvasElement => {
 }
 
 export const ALL_ITEM_SHEETS: readonly ItemSheet[] = [
-  ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...WARDROBE_ITEM_SHEETS, ...RUNE_SHEETS,
-  ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, BRAND_MASCOT_SHEET
+  ...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS, ...PROP_SHEETS, ...CREATURE_SHEETS, ...RIG_SHEETS, ...PUPPET_SHEETS, ...WARDROBE_ITEM_SHEETS, ...RUNE_SHEETS,
+  ...PORTRAIT_SHEETS, ...ISLAND_SHEETS, ...PREVIEW_SHEETS, BRAND_MASCOT_SHEET
 ]
