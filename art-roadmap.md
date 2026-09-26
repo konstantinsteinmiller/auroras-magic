@@ -2001,6 +2001,100 @@ fresh save's splash hold. `vs-ribbon-aurora` / `-foe`, `vs-emblem`,
   the screen's centrepiece, 160–215 device px per radius, which the 256 px cap
   would have upscaled 1.4–1.9×.
 
+## 2026-09-26 — the skinned duelist (`duel/meshRig.ts`)
+
+Owner, after the seventh round: "the overall result is still not acceptable.
+Take the Aurora from the mascot and do a rig on top of it with vertex weight
+paints … like a 3d model in Blender would be rigged and weight painted, that
+should kill inconsistencies". Pieces painted one by one never matched; ONE
+painting, deformed, matches itself.
+
+- **The painting** is the brand mascot's Aurora, cropped (480 px) and keyed off
+  its magenta (`images/rig/mesh-aurora.webp`, 29 kB). The key unmixes each rim
+  pixel between the ground and the plum outline, and floods only through
+  pixels ON that line — pink hair is magenta-ish too, and a plain "is it
+  magenta" flood ate the mane.
+- **Four layers** cut by hand-traced regions (`DEFS.aurora.regions`): back
+  (far legs, tail), body, head (head, ears, horn, whole mane), front (near
+  legs). The body layer's hidden parts are FILLED (onion-peel from the visible
+  coat, then blurred) and its covered outline drawn (`hidden`), so a lifted
+  leg or a turned head uncovers coat, never a ghost of the part. Limb tops fade
+  out inside the body (`FADE`), so a turned root shows no cut edge.
+- **The bones are the duel rig's own.** `chars.ts` poses as always on a
+  profile measured off the painting (`MASCOT`: 2.36 painting px per unit; the
+  painter put the far legs FORWARD of the near ones, so the far hind has its own
+  hip, `hipFarDX`) and hands each bone over (`setBone`) instead of drawing: body,
+  head, mane, tail ×2, and all four segments + tip of every leg. The rest pose
+  is captured from the same code (`setRestCapture`). Linear blend skinning, ≤ 3
+  bones a vertex, 6 px grid.
+- **The weight paint**: legs by distance along their rest chain (body above the
+  shoulder/hip, a 3-unit blend at each joint); the tail by distance from its
+  root; the mane on the mane bone, its fall half onto the body; the neck body →
+  head. Paid for: a grid vertex just OUTSIDE its layer's regions must take the
+  NEAREST limb, never the body — a triangle with one body corner tore into a
+  spike; the mane may not swing off the skull when lying (the puppet's
+  `nod * 0.6` bared the back of the head); pinning the mane fall harder than
+  half opened a gap when the head drops.
+- **WebGL**, one shared canvas; layers with nothing worn between them draw in
+  ONE GL frame with ONE copy onto the duel canvas (`meshPass(…, defer)`): the
+  copies were nearly all the cost (1.75 ms → 0.86 ms a duelist on the desktop
+  GPU; bones alone 0.06 ms; the puppet 0.35–0.57). No WebGL, art off, a skin
+  or a mane palette: the puppet draws as before.
+- **Owner: "the horse back lines don't match up and the feet and legs border
+  strokes are a bit broken"** (lower half). All of it was the layering, found
+  with a REST DIFF (the rest pose rendered in the painting's own pixels,
+  `__hairStill(true)`, against the painting — at rest every bone is identity,
+  so anything that differs is a cut, a fill or a fade; 42 px → 38 px left):
+  the fill had painted coat into BACKGROUND under the head region (a pale bump
+  on the back) — fill and hidden strokes now stay inside the painting's
+  alpha; the hidden neck line now runs on the painted back line's centre from
+  where the mane covers it; two "hidden" strokes were in plain view (chest over
+  the far foreleg, belly over the far hind) and are gone; the near legs' top
+  fade crossed their own outlines and the rump's — their regions now start in
+  plain coat above the joints and the near hind leaves the rump outline to the
+  body; the fill grows from COAT only (median lightness − 30) and its blur skips
+  the outline, or the rump's line smeared into it; ~1100 px of the outline's
+  soft OUTER RIM lay outside every traced region and were clipped (hooves,
+  tail) — each orphan pixel now joins the region it touches; the enclosed
+  magenta pocket between tail and leg is keyed as OUTLINE, not a hole the
+  swaying tail showed through. And motion: the legs follow their bones only
+  below the BELLY LINE (`belly`), and the skinned duelist breathes as one
+  painting — a 1.2 % swell about the ground, not the barrel bobbing on planted
+  legs — so no outline kinks where a leg meets the belly. The mane sways half
+  as much.
+- **Owner: "the back hair outlines seem not to be well cut out, there is some
+  horseback in the hair image."** The traced head region round the mane's fall
+  carried the back's coat, its outline and the shoulder beside the hair, and
+  they swung with the mane. Now: (1) the BODY'S COAT is found by a flood from
+  seeds in the body (`bodyCoatOf`: coat-light pixels, stopped by outlines, kept
+  out of the face polygon — behind the jaw there is no line, so the polygon's
+  diagonal is where the head ends) and none of it is in the hair; (2) the hair
+  edge is traced on the mane's outer outline and round its curl, so the back
+  line left of the junction is the body's, and the body's crest runs on under
+  the mane with its outline (flat-ended — a round end spilled a blob onto the
+  visible line); (3) the outline's soft coat-side edge is UNMIXED against the
+  very body pixel it lies over — outline colour at the opacity that restores
+  the painting at rest, a clean edge in motion (kept, it showed as pale flecks
+  when the hair lifted; given to the body, a dotted ghost; unmixed against an
+  estimated coat, specks where the coat is shaded); (4) the body fills only
+  where the hair is FULLY opaque (1.5 px inside its outline); (5) the neck's top
+  follows the head fully at the jaw, easing off over 38 px, and the mane/face
+  weights blend across the face's outline (a hard switch tore the lock curling
+  onto the cheek); the looser shadow test on the neck stays 3 px clear of any
+  outline. Rest diff 22 px. And the cast: the near foreleg bent into a hard
+  horizontal cut (the leg switched to its bones over a 22 px band while the
+  cast swings it ~85°) — the blend now runs over the leg's whole top.
+  **Trap, paid three rounds for:** a regex written through a shell heredoc lost
+  its backslash (`/d+/`), the ink colour parsed as NaN and every unmixed pixel
+  went transparent — the harness showed "no change" for three fixes in a row.
+  When a change moves nothing, probe the values (`meshMasks`) before the next.
+- Only Aurora so far (owner: Umbra waits until Aurora's whole duel design is
+  approved). Open: Umbra the same way from the mascot's other half;
+  the faces (the mascot smiles in every mood — blink/cheer/ouch/dizzy want
+  Gemini edits of the crop, which register within a pixel); a higher-resolution
+  crop (Gemini "same picture, full resolution"); cosmetics' anchors against the
+  new proportions; a weak-phone pass.
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

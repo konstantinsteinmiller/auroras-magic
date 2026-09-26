@@ -59,7 +59,8 @@ import { drawItem, type ItemSpec } from '@/game/artItem'
 import { spriteFor } from '@/game/art'
 import { RIG_ART } from '@/game/artIds'
 import { STAR_ART } from '@/game/map/kitSky'
-import { puppetDress, paintPart, paintHair, paintHeadHair, paintNearEar, paintLeg, paintHoof, hairRest, faceOf, FACE, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
+import { puppetDress, paintPart, paintHair, paintHeadHair, paintNearEar, paintLeg, paintHoof, hairRest, faceOf, FACE, MANE_ROOT_H, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
+import { meshOn, meshCapturing, meshPass, setBone, setRestCapture } from '@/game/duel/meshRig'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
@@ -241,6 +242,9 @@ let FLASH = ''
 let PAINT: Dress | null = null
 /** The hit flash for a painted duelist: 0 none, 1 white, 2 red. */
 let PF: Flash = 0
+/** Drawing skinned (`meshRig.ts`): the rig hands its bones over instead. */
+let MESH = false
+const DEG = 180 / Math.PI
 /** A painted hair mass's swing about its root, from the rig's own wave. */
 const swing = (sp: number): number => AM * sin(T * sp - 1.8) * 0.45
 /**
@@ -561,6 +565,8 @@ interface RigGeo {
   shoulderDY: number
   hindFarX: number
   hindNearX: number
+  /** The far hind leg's hip, this far forward of the near one's (default 0). */
+  hipFarDX?: number
   foreFar: readonly [number, number, number, number, number]
   foreNear: readonly [number, number, number, number, number]
   /** The hoof: how much wider its sole is than its coronet, and its depth. */
@@ -615,11 +621,31 @@ const CHIBI: RigGeo = {
   headX: 40, headDY: -58, headFoeDY: 4, lieHx: 56, lieHeadY: -6,
   nk: [18, -10, -10, 22], tail: [-38, -6], withers: [4, -28]
 }
+/**
+ * THE MASCOT (owner, 2026-09-26): the skinned duelist's proportions, measured
+ * off the mascot painting itself (`meshRig.ts`, 2.36 painting px per unit) so
+ * that every bone lies along the limb it moves. The chibi's, but the far legs
+ * stand FORWARD of the near ones as the painter placed them, the legs as long
+ * as painted, the barrel, head and tail root where the painting has them.
+ */
+const MASCOT: RigGeo = {
+  ...CHIBI,
+  by0: -47.5, lieBy: -26,
+  fore: [1.57, 1.57, 1.57, 1.45, 14, 13, 8.5, 3.5, -1.3, 0.45, 0.2, 0.1, 10.5, 10, 9, 8.6, 8.6],
+  hind: [1.5, 1.66, 1.57, 1.5, 13, 11, 7.5, 3.3, 0, 0, 0, 0, 12, 11, 9.5, 9, 9],
+  hipX: -38.7, hipDY: 12.7, shoulderDY: 8.5, hindFarX: -20.3, hindNearX: -34.7, hipFarDX: 18.4,
+  foreFar: [32.2, 12, 16, 18, 19], foreNear: [16.9, 8, 17, 14, 22],
+  headX: 44.5, headDY: -55.9,
+  tail: [-33, -22]
+}
 /** The proportions of the rig being drawn (`drawUnicorn` sets it). */
 let GEO: RigGeo = JAM
 /** Test seam: draw every rig in the chibi proportions, painted or not. */
 let FORCE_CHIBI = false
 export const __chibiRig = (on: boolean): void => { FORCE_CHIBI = on }
+/** Test seam: hair that does not sway (a rest pose to diff against its painting). */
+let HAIR_STILL = false
+export const __hairStill = (on: boolean): void => { HAIR_STILL = on }
 
 /** One joint's absolute angle: the standing rig's, curled by `c`, blended `k` of the way to the lying set. */
 const joint = (P: readonly number[], c: number, L: readonly number[] | undefined, k: number, i: number): number => {
@@ -726,6 +752,15 @@ const limb = (hx: number, hy: number, fx: number, fy: number, c: number, P: read
   g.save()
   g.translate(hx, hy)
   g.rotate(rt)
+  if (MESH) {
+    // The skinned rig takes this leg's bones: each segment's frame, and its tip.
+    const F0 = g.getTransform()
+    const id = (P === GEO.fore ? 'fore' : 'hind') + (far ? 'Far' : 'Near')
+    for (let i = 0; i < 4; i++) setBone(id + i, F0.translate(Q[i * 2]!, Q[i * 2 + 1]!).rotate(joint(P, c, L, k, i) * DEG))
+    setBone(id + 4, F0.translate(Q[8]!, Q[9]!).rotate(joint(P, c, L, k, 3) * DEG))
+    g.restore()
+    return
+  }
   // GROUND LEVEL inside the rotated frame runs along (cos rt, -sin rt); the
   // hoof is the one part that answers to the floor rather than the bone.
   const rc = cos(rt)
@@ -1022,22 +1057,33 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   FLASH = F
   MD = midTone(SH, CO)
   // The painted set she wears, if all of it has decoded (`puppet.ts`).
-  PAINT = puppetDress(st, side, S.foe, t)
+  // THE SKINNED MASCOT (`meshRig.ts`, owner 2026-09-26): Aurora is the
+  // mascot's painting, deformed by this rig's bones — the rig poses exactly
+  // as it always has and hands each bone over instead of drawing the part.
+  // Her own colours only: a skin or a mane palette keeps the painted puppet.
+  MESH = meshCapturing() || meshOn(!D && !st.skin && !st.mane ? 'aurora' : null, side)
+  PAINT = MESH ? null : puppetDress(st, side, S.foe, t)
   PF = F ? (F === '#fff' ? 1 : 2) : 0
-  // The painted duelists stand on the chibi's proportions (`CHIBI`).
-  const G0 = PAINT || FORCE_CHIBI ? CHIBI : JAM
+  // The painted duelists stand on the chibi's proportions (`CHIBI`), the
+  // skinned one on the mascot's (`MASCOT`).
+  const G0 = MESH ? MASCOT : PAINT || FORCE_CHIBI ? CHIBI : JAM
+  // Nothing worn goes between the skinned layers: draw them all as one.
+  const MB = !(st.beforeTorso || st.afterTorso || st.afterMane || st.afterHead)
   GEO = G0
 
   const K = 1 + D * G0.kFoe // the foe is a touch stockier...
   const HK = G0.hk + D * G0.hkFoe // ...with a bigger head on a shorter neck
   const br = sin(t * 2.1 + side) * (1 - rear * 0.7) // breathing
-  const by0 = G0.by0 + br * 1.5 + sag * 8
+  // (the skinned rig breathes as one — below — not by lifting the barrel off
+  // planted legs: that drift kinked every outline where a leg meets the belly)
+  const by0 = G0.by0 + (MESH ? 0 : br * 1.5) + sag * 8
   const by = by0 + (G0.lieBy + br - by0) * drop // barrel centre
   // blink + ear flick: short twitches on slow cycles, out of phase per side
   const ph = side * 0.25 + 0.5
   const bl = twitch(t, 0.21, ph, 40)
   const fk = twitch(t, 0.33, ph, 26) * sin(t * 30) * 0.4
   AM = (0.26 + rear * 0.38 + hit * 0.5) * (1 - lie * 0.6) // shared mane/tail wave amplitude; hair on the ground lies still
+  if (meshCapturing() || HAIR_STILL) AM = 0 // the rest pose hangs still
 
   g.save()
   g.translate(x + hit * 9 * side, y - 6) // recoil away from the caster
@@ -1057,6 +1103,9 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   }
 
   g.translate(0, -rear * 4 - win * abs(sin(t * 3.4)) * 5) // victory hop
+  // The skinned duelist breathes as ONE painting: a slight swell about the
+  // ground line, hooves planted, body and legs together.
+  if (MESH) g.scale(1, 1 + br * 0.012)
 
   // The foe's dread aura: stacked low-alpha ellipses, no shadowBlur needed.
   if (D && S.q && !F && !st.onKey) {
@@ -1086,7 +1135,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
 
   // far hind leg — drawn in the standing frame, the hooves stay planted.
   // Far limbs take the shadow tone whole, so they read as behind the body.
-  limb(hipx, hipy, G0.hindFarX, 0, 0, G0.hind, SH, G0.hindLieFar, lie, true)
+  limb(hipx + (G0.hipFarDX ?? 0), hipy, G0.hindFarX, 0, 0, G0.hind, SH, G0.hindLieFar, lie, true)
 
   g.save()
   g.translate(-22, -6)
@@ -1103,22 +1152,43 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const ff = G0.foreFar
   fl(ff[0], win ? ff[2] : ff[1], win ? ff[4] : ff[3], -1, SH, G0.foreLieFar)
 
+  // the head's frame (the tail's section needs it for the skinned rig)
+  const hx0 = G0.headX + sag * 3
+  const hy0 = by + G0.headDY + D * G0.headFoeDY + sag * 9 - rear * 3
+  const hx = hx0 + (G0.lieHx - hx0) * nod
+  const hy = hy0 + (G0.lieHeadY - 23 * HK - hy0) * nod
+  const nk = [G0.nk[0], by + G0.nk[1], hx + G0.nk[2], hy + G0.nk[3]]
+  const hrot = 0.28 * rear + sag * 0.3 + nod * 0.12 + br * 0.02
+
   /* ---- tail: a layered hair mass that hangs and trails --------------- */
   const ta = 2.4 + 0.4 * rear + 0.3 * lie
   // A painted hair piece swings as one rigid mass, so it takes a fraction of
   // the drawn locks' wave (owner: "the hair is swinging too much").
-  if (PAINT) paintHair(g, PAINT, 'tail', G0.tail[0], by + G0.tail[1], ta - hairRest('tail') + swing(1.7) * 0.55, PF)
+  if (MESH) {
+    // The skinned rig's bones in this (reared) frame: the barrel, the head
+    // and the mane hung from it, the tail swinging from its root — then its
+    // back layer, the far legs and the tail, behind everything else.
+    const M = g.getTransform()
+    setBone('body', M.translate(0, by).scale(K, K))
+    const H = M.translate(hx, hy).rotate(hrot * DEG).scale(HK, HK)
+    setBone('head', H)
+    const [mrx, mry] = MANE_ROOT_H
+    // (only its sway: one painting's mane swung back off the skull, as the
+    // puppet's did when lying, bares the back of the head)
+    setBone('mane', H.translate(mrx, mry).rotate((swing(2.1) * 0.15 - hrot * 0.2) * DEG).translate(-mrx, -mry))
+    const rx = G0.tail[0]
+    const ry = by + G0.tail[1]
+    const d = ta - 2.4 + swing(1.7) * 0.55
+    setBone('tail', M.translate(rx, ry).rotate(d * DEG).translate(-rx, -ry))
+    setBone('tail2', M.translate(rx, ry).rotate((d * 1.6 + swing(1.7) * 0.25) * DEG).translate(-rx, -ry))
+    meshPass(g, 'back', PF, MB)
+  } else if (PAINT) paintHair(g, PAINT, 'tail', G0.tail[0], by + G0.tail[1], ta - hairRest('tail') + swing(1.7) * 0.55, PF)
   else hair(G0.tail[0], by + G0.tail[1], ta, 56, 30, 1.7, -0.7, 3)
 
   /* ---- torso + neck: ONE silhouette, then the shaded fills ----------- */
   // Lying, the neck stretches forward and the head settles with its chin on
   // the forelegs — the skull's underside (23 below its centre) just above
   // them, so the near leg crosses the jaw and never the face.
-  const hx0 = G0.headX + sag * 3
-  const hy0 = by + G0.headDY + D * G0.headFoeDY + sag * 9 - rear * 3
-  const hx = hx0 + (G0.lieHx - hx0) * nod
-  const hy = hy0 + (G0.lieHeadY - 23 * HK - hy0) * nod
-  const nk = [G0.nk[0], by + G0.nk[1], hx + G0.nk[2], hy + G0.nk[3]]
   const hooked = st.beforeTorso || st.afterTorso || st.afterMane || st.afterRig
   let anc: RigAnchors | null = null
   if (hooked) {
@@ -1176,7 +1246,9 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   const ndx = nk[2]! - nk[0]!
   const ndy = nk[3]! - nk[1]!
   const nlen = hypot(ndx, ndy) || 1
-  if (PAINT) {
+  if (MESH) {
+    meshPass(g, 'body', PF, MB)
+  } else if (PAINT) {
     // The painted rig: the neck laid along `nk` exactly as the drawn tube
     // runs, the torso over its root, each carrying its own soft line.
     g.save()
@@ -1257,11 +1329,10 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
 
   // mane down the back of the neck, rooted at the poll, behind the head
   const ma = 2.6 - 0.25 * rear + 0.7 * nod // lying, it falls back along the neck
-  const hrot = 0.28 * rear + sag * 0.3 + nod * 0.12 + br * 0.02
   // The painted mane is drawn OVER the head, below (owner, 2026-09-26: "the
   // hair is cut off by the new head … instead of partially painted over the
   // back of the head like in the reference logo").
-  if (!PAINT) hair(hx - 21, hy - 4, ma, 46, 27, 2.1, -0.5, 3)
+  if (!PAINT && !MESH) hair(hx - 21, hy - 4, ma, 46, 27, 2.1, -0.5, 3)
   if (anc && st.afterMane) {
     g.save()
     st.afterMane(g, anc)
@@ -1276,9 +1347,11 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   g.scale(HK, HK)
 
   // The horn's tip, where a forming rune gathers, painted or drawn.
-  const HTX = 9 + 15.68
-  const HTY = -19 - 32.4
-  if (PAINT) {
+  const HTX = MESH ? 19 : 9 + 15.68
+  const HTY = MESH ? -40 : -19 - 32.4
+  if (MESH) {
+    meshPass(g, 'head', PF, MB)
+  } else if (PAINT) {
     // The painted head: both ears, the skull, the muzzle and the FACE are one
     // painting per mood. At rest she is CALM (owner: "not an aroused or happy
     // emotion, but a neutral one"); a win cheers, a blow winces, a fall is
@@ -1529,6 +1602,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // near hind leg, in front of the barrel (which has reared by R)
   BODY_R = R
   limb(hipx + 4, hipy, G0.hindNearX, 0, 0, G0.hind, CO, G0.hindLie, lie)
+  if (MESH) meshPass(g, 'front', PF)
   BODY = null
   LEG_PASS = LEG_ALL
   g.restore()
@@ -1540,6 +1614,16 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
     g.restore()
   }
 }
+
+// The skinned rig's rest pose: the rig posed standing still, breathing at zero
+// (`br`), its bones captured rather than drawn (`meshRig.ts`).
+setRestCapture((side) => {
+  if (typeof document === 'undefined') return
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = 1
+  const c = cv.getContext('2d')
+  if (c) drawUnicorn(c, 0, 0, side, { hp: 1 }, -side / 2.1)
+})
 
 /** Big portrait (splash / panels). `size` ~= body height. */
 export const drawPortrait = (ctx: G2D, x: number, y: number, side: number, size: number, t: number): void => {
