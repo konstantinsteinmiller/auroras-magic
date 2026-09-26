@@ -72,7 +72,7 @@ import {
 import { SEAM_LAND, SEAM_PORT } from '@/game/preview/previewArt'
 import { warmPuppet } from '@/game/duel/puppet'
 import { warmFrames } from '@/game/duel/frameRig'
-import { frameLookOf } from '@/game/duel/chars'
+import { frameDressOf } from '@/game/duel/chars'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 
 /* ─────────────────────────────── the timeline ──────────────────────────── */
@@ -590,8 +590,10 @@ export const warmDuelists = (n: number): void => {
 const warmDuelistsOf = (foe: number): void => {
   warmPuppet({ ...equippedHooks() }, -1, 0)
   warmPuppet({ foe }, 1, foe)
-  // an Umbra's-friend's strip is Umbra's recoloured: baked here, not on stage
-  warmFrames(frameLookOf({ foe }, 1))
+  // a recoloured look's painted poses (a friend, a Guardian, a skin or a mane
+  // colour) are baked here, frame by frame in idle slices, not on stage
+  warmFrames(frameDressOf({ ...equippedHooks() }, -1))
+  warmFrames(frameDressOf({ foe }, 1))
 }
 
 /**

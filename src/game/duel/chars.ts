@@ -54,13 +54,14 @@
  * the art authored them: three bands ARE the look; four are a different
  * drawing, not a better one.
  */
-import { FOES, type FoePalette } from '@/game/duel/foes'
+import { FOES, type FoeDef, type FoePalette } from '@/game/duel/foes'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { spriteFor } from '@/game/art'
 import { RIG_ART } from '@/game/artIds'
 import { STAR_ART } from '@/game/map/kitSky'
-import { puppetDress, paintPart, paintHair, paintHeadHair, paintNearEar, paintLeg, paintHoof, hairRest, faceOf, FACE, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
-import { framesOn, stepPose, drawFrame, framePart, frameLook, type FrameLook } from '@/game/duel/frameRig'
+import { puppetDress, paintPart, paintHair, paintHeadHair, paintNearEar, paintLeg, paintHoof, hairRest, faceOf, lum, FACE, LEG_PAD, LEG_ALL, LEG_TOP, LEG_REST, type Dress, type Flash, type LegJoint } from '@/game/duel/puppet'
+import { framesOn, stepPose, drawFrame, framePart, type FrameDress, type FrameWho } from '@/game/duel/frameRig'
+import { lookFor, type Look } from '@/game/duel/puppetBake'
 import { S, rainbow } from '@/game/duel/state'
 import { TAU, PI, clamp, sin, cos, atan2, hypot, min, max, abs, ease } from '@/game/duel/util'
 
@@ -249,21 +250,55 @@ let BASE_M: DOMMatrix | null = null
 /** The pose painting shown this draw, and where the rig at rest lands on it:
  *  its head, body and near hooves (`frameRig.framePart`), rig units → rig units. */
 let FRAME_NOW = 'idle'
-let FRAME_WHO: FrameLook = 'aurora'
+let FRAME_DRESS = null as unknown as FrameDress
 let HEAD_FM = null as unknown as DOMMatrix
 let BODY_FM = null as unknown as DOMMatrix
 let FORE_FM = null as unknown as DOMMatrix
 let HIND_FM = null as unknown as DOMMatrix
-/** Who draws as painted poses: Aurora in her own colours, Umbra herself, and
- *  Umbra's friends — her strip in their hair (`pal[3]` mane, `pal[4]` streak).
- *  A skin, a mane palette or a portrait's emote keeps the painted puppet;
- *  every other foe wears a recoloured puppet. */
-export const frameLookOf = (st: PoseState, side: number): FrameLook | null => {
-  if (st.skin || st.mane || st.face) return null
-  if (side <= 0) return 'aurora'
-  const foe = FOES[st.foe ?? S.foe]
-  if (foe?.slug === 'umbra') return 'umbra'
-  return foe?.model === 'umbra' ? frameLook('umbra', [foe.pal[3], foe.pal[4]]) : null
+/** Prism's cycling mane and horn, in hue steps (as the puppet bakes them). */
+const PRISM_STEPS = 8
+interface DressMemo { d: FrameDress | null; foe: FoeDef | undefined; skin: FoePalette | undefined; mane: PoseState['mane'] | null; prism: string; rb: number }
+/** The last dress per side, and what it was made from: this runs twice a draw. */
+const DRESS_MEMO: DressMemo[] = [0, 1].map(() => ({ d: null, foe: undefined, skin: undefined, mane: null, prism: '', rb: -1 }))
+/**
+ * What `side` wears as painted poses (`frameRig.ts`) — every duelist now:
+ * Aurora in her own colours, or recoloured by a skin or a mane colour; Umbra
+ * herself as painted; Umbra's friends in her strip with their own hair
+ * (`pal[3]` mane, `pal[4]` streak); a Guardian in whichever strip is nearer
+ * her coat's light, in her whole palette (Prism's mane and horn cycling, as the
+ * puppet's did). Only a portrait's emote (`st.face`) keeps the painted puppet.
+ */
+export const frameDressOf = (st: PoseState, side: number, t = 0): FrameDress | null => {
+  if (st.face) return null
+  const foe = side > 0 ? FOES[st.foe ?? S.foe] : undefined
+  if (side > 0 && !foe) return null
+  const mane = st.mane ?? null
+  const prism = foe?.slug === 'prism' ? rainbow(Math.round(t * 0.14 * PRISM_STEPS) / PRISM_STEPS, 80) : ''
+  const rb = mane === 'rainbow' ? Math.round((t * 0.12 % 1) * 8) : -1
+  const c = DRESS_MEMO[side > 0 ? 1 : 0]!
+  if (c.d && c.foe === foe && c.skin === st.skin && c.mane === mane && c.prism === prism && c.rb === rb) return c.d
+  let who: FrameWho
+  let look: Look | null
+  if (!foe) {
+    who = 'aurora'
+    look = lookFor('aurora', st.skin ?? null, mane, '', t, true)
+  } else if (foe.slug === 'umbra') {
+    who = 'umbra'
+    look = null
+  } else if (foe.model === 'umbra') {
+    who = 'umbra'
+    look = lookFor('umbra', foe.pal, null, '', t, true, true)
+  } else {
+    who = lum(foe.pal[0]) > 0.55 ? 'aurora' : 'umbra'
+    look = lookFor(who, foe.pal, mane, prism, t, true)
+  }
+  c.foe = foe
+  c.skin = st.skin
+  c.mane = mane
+  c.prism = prism
+  c.rb = rb
+  c.d = { who, look, key: `${who}|${look?.key ?? ''}` }
+  return c.d
 }
 const DEG = 180 / Math.PI
 /** A painted hair mass's swing about its root, from the rig's own wave. */
@@ -1035,7 +1070,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // THE PAINTED POSES (`frameRig.ts`): the painting shows the pose, so the
   // rig keeps its REST geometry — every anchor then lies where it lies on the
   // mascot, and each frame's part matrices carry it onto that painting.
-  FRAMES = framesOn(frameLookOf(st, side))
+  FRAMES = framesOn(frameDressOf(st, side, t))
   const winR = clamp(st.win || 0, 0, 1)
   const loseR = clamp(st.lose || 0, 0, 1)
   // A win is a full rear; a collapse cancels both.
@@ -1140,12 +1175,13 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   if (FRAMES) g.scale(1, 1 + br * 0.012)
   BASE_M = FRAMES ? g.getTransform() : null
   if (FRAMES) {
-    FRAME_WHO = frameLookOf(st, side)!
-    FRAME_NOW = stepPose(FRAME_WHO, side, { rear: rearR, win: winR, lose: loseR, hit, blink: bl, hp: hpv }, t)
-    HEAD_FM = framePart(FRAME_WHO, FRAME_NOW, 'head')
-    BODY_FM = framePart(FRAME_WHO, FRAME_NOW, 'body')
-    FORE_FM = framePart(FRAME_WHO, FRAME_NOW, 'fore')
-    HIND_FM = framePart(FRAME_WHO, FRAME_NOW, 'hind')
+    FRAME_DRESS = frameDressOf(st, side, t)!
+    const fw = FRAME_DRESS.who
+    FRAME_NOW = stepPose(fw, side, { rear: rearR, win: winR, lose: loseR, hit, blink: bl, hp: hpv }, t)
+    HEAD_FM = framePart(fw, FRAME_NOW, 'head')
+    BODY_FM = framePart(fw, FRAME_NOW, 'body')
+    FORE_FM = framePart(fw, FRAME_NOW, 'fore')
+    HIND_FM = framePart(fw, FRAME_NOW, 'hind')
   }
 
   // The foe's dread aura: stacked low-alpha ellipses, no shadowBlur needed.
@@ -1307,7 +1343,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
     // the whole painted pose, in the standing frame (it paints its own rear)
     g.save()
     g.setTransform(BASE_M!)
-    drawFrame(g, FRAME_WHO, FRAME_NOW, PF)
+    drawFrame(g, FRAME_DRESS, FRAME_NOW, PF)
     g.restore()
   } else if (PAINT) {
     // The painted rig: the neck laid along `nk` exactly as the drawn tube

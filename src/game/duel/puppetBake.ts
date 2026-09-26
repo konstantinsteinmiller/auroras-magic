@@ -86,24 +86,40 @@ const same = (a: string | undefined, b: string): boolean => !a || a.toLowerCase(
  * coat). Aurora's matched her model and is left alone.
  */
 const LIFT: Readonly<Record<PuppetWho, string | undefined>> = { aurora: undefined, umbra: '#66507a' }
+/**
+ * What Umbra's palette colours look like PAINTED, measured off her poses'
+ * regions: the palette is the vector rig's, and  laid flat on Aurora's
+ * painted coat (the Umbra skin) came out near black. A painted pose takes her
+ * painted coat, hooves and horn instead.
+ */
+const PAINTED_AS: Readonly<Record<string, string>> = { '#213': '#6f507d', '#539': '#68447d', '#a5f': '#9054b4' }
 /** Her horn, likewise: painted near-black, where her model's is violet. */
 const HORN_LIFT: Readonly<Record<PuppetWho, string | undefined>> = { aurora: undefined, umbra: '#9a74d6' }
 
 /**
  * The recolour a duelist needs, or null when she is exactly as painted.
  * `mane` is the Mane Color Palette's override; `prism` a hue that replaces
- * mane and horn (Prism's cycle, already quantised by the caller).
+ * mane and horn (Prism's cycle, already quantised by the caller). `painted`
+ * is for the painted POSES (`frameRig.ts`): painted from the mascot, they need
+ * none of the piece sets' lifts; and with `hairOnly` only the palette's mane
+ * and streak count (Umbra's friends: her model in their own hair).
  */
 export const lookFor = (
-  who: PuppetWho, pal: FoePalette | null, mane: readonly [string, string] | 'rainbow' | null, prism: string, t: number
+  who: PuppetWho, pal: FoePalette | null, mane: readonly [string, string] | 'rainbow' | null, prism: string, t: number,
+  painted = false, hairOnly = false
 ): Look | null => {
   const own = OWN[who]
-  const P = pal ?? own
+  const P = pal ? (hairOnly ? own.map((c, i) => (i === 3 || i === 4 ? pal[i]! : c)) as unknown as FoePalette : pal) : own
   let coat: string | undefined = same(P[0], own[0]) ? undefined : P[0]
-  const lift = coat ? undefined : LIFT[who]
+  const lift = coat || painted ? undefined : LIFT[who]
   let hoof: string | undefined = same(P[6], own[6]) ? undefined : P[6]
   let m: [string, string] | undefined = same(P[3], own[3]) && same(P[4], own[4]) ? undefined : [P[3]!, P[4]!]
-  let horn: string | undefined = same(P[5], own[5]) ? HORN_LIFT[who] : P[5]
+  let horn: string | undefined = same(P[5], own[5]) ? (painted ? undefined : HORN_LIFT[who]) : P[5]
+  if (painted) {
+    if (coat) coat = PAINTED_AS[coat.toLowerCase()] ?? coat
+    if (hoof) hoof = PAINTED_AS[hoof.toLowerCase()] ?? hoof
+    if (horn) horn = PAINTED_AS[horn.toLowerCase()] ?? horn
+  }
   if (mane === 'rainbow') {
     // The swatch cycles; bake it in steps, like Prism's.
     const k = Math.round((t * 0.12 % 1) * 8) / 8
@@ -583,6 +599,39 @@ type FaceMask = (who: PuppetWho, W: number, H: number) => Uint8Array | null
 let FACE_MASK: FaceMask | null = null
 export const setFaceMask = (fn: FaceMask): void => {
   FACE_MASK = fn
+}
+
+/** A painted region's own light, measured offline over a whole strip
+ *  (`frameData.ts` `regions`), so every frame recolours alike. */
+export type RegionStat = Stat
+/** A painted pose's regions, as its mask labels them (`frameRig.ts`). */
+export interface RegionStats { coat: Stat | null; hair: Stat | null; horn: Stat | null; hoof: Stat | null }
+
+/**
+ * Recolour one painted POSE (`frameRig.ts`) by its region labels — the green
+ * channel of its mask, 60 per step: 1 coat, 2 hair, 3 horn, 4 hoof, 0 as
+ * painted (eyes, blush, mouth, inner ear) — each region the way this module
+ * recolours that piece of a set, measured against the whole strip's light.
+ */
+export const recolourRegions = (d: Uint8ClampedArray, W: number, H: number, mask: Uint8ClampedArray, st: RegionStats, look: Look): void => {
+  LUM = null
+  LUM_OF = { d, W, H }
+  try {
+    const coat = look.coat && st.coat ? { to: look.coat, lite: liteOf(look.coat), gain: gainable(st.coat, look.coat) } : null
+    const hoof = look.hoof && st.hoof ? { to: look.hoof, lite: liteOf(look.hoof), gain: gainable(st.hoof, look.hoof) } : null
+    const hornLite: RGB | null = look.horn ? [look.horn[0] + (1 - look.horn[0]) * 0.5, look.horn[1] + (1 - look.horn[1]) * 0.5, look.horn[2] + (1 - look.horn[2]) * 0.5] : null
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue
+      const lab = Math.round(mask[i + 1]! / 60)
+      if (lab === 1 && coat) coat.gain ? gainPx(d, i, st.coat!, coat.to, 1) : transfer(d, i, st.coat!, coat.to, coat.lite, 1)
+      else if (lab === 2 && look.mane && st.hair) transfer(d, i, st.hair, look.mane[0], look.mane[1], 1)
+      else if (lab === 3 && look.horn && st.horn) transfer(d, i, st.horn, look.horn, hornLite!, 1)
+      else if (lab === 4 && hoof) hoof.gain ? gainPx(d, i, st.hoof!, hoof.to, 1) : transfer(d, i, st.hoof!, hoof.to, hoof.lite, 1)
+    }
+  } finally {
+    LUM = null
+    LUM_OF = null
+  }
 }
 
 /** Test seam. */

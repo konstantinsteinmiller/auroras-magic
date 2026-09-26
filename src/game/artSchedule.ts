@@ -51,7 +51,7 @@
  * as with the art layer off.
  */
 import { FRAME_DATA, type FrameWho } from '@/game/duel/frameData'
-import { frameArtId, hairArtId } from '@/game/duel/frameRig'
+import { frameArtId, regionsArtId } from '@/game/duel/frameRig'
 import { watch } from 'vue'
 import {
   artOverridesEnabled, artSettled, holdBack, preloadArtOverrides, recordArtWants, type ArtWant, type FetchPriority
@@ -121,11 +121,13 @@ const CLOTH: ArtWant = ['page', 'cover-cloth']
 const puppetSet = (who: keyof typeof PUPPET_ART): ArtWant[] => Object.values(PUPPET_ART[who]).map((a): ArtWant => [a.kind, a.id])
 // the painted poses (`duel/frameRig.ts`): whole paintings per duel state
 const atlas = (who: FrameWho): ArtWant => ['rig', frameArtId(who)]
+// and the strip's region mask, which a recoloured look needs
+const regions = (who: FrameWho): ArtWant => ['rig', regionsArtId(who)]
 const RIG: ArtWant[] = [
   ...puppetSet('aurora'),
   ...puppetSet('umbra'),
   ...(Object.keys(FRAME_DATA) as FrameWho[]).map(atlas),
-  ...(Object.keys(FRAME_DATA) as FrameWho[]).filter((w) => FRAME_DATA[w]?.hair).map((w): ArtWant => ['rig', hairArtId(w)])
+  ...(Object.keys(FRAME_DATA) as FrameWho[]).filter((w) => FRAME_DATA[w]?.regions).map(regions)
 ]
 /** Relative luminance of a `#rgb`/`#rrggbb` (`puppet.lum`), 0..1. */
 const lumOf = (c: string): number => {
@@ -135,26 +137,30 @@ const lumOf = (c: string): number => {
   return Number.isFinite(n) ? (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 : 0.5
 }
 /**
- * What a duel at node `n` draws of its two duelists: Aurora's painted poses
- * (her painted pieces too while she wears a skin or a mane colour, which the
- * poses do not carry), and the foe's — Umbra's poses, or the piece set every
- * other foe wears recoloured (`puppet.puppetDress`). A versus duel (no node)
- * takes everything.
+ * What a duel at node `n` draws of its two duelists: both as painted poses
+ * (`duel/frameRig.ts`, `chars.frameDressOf`) — Aurora's strip, and its region
+ * mask when a skin or a mane colour recolours her; the foe's strip — Umbra's
+ * for Umbra and her friends, else whichever is nearer the foe's coat — with
+ * its mask unless she is Umbra as painted. A character without a strip wears
+ * her piece set (`puppet.puppetDress`). A versus duel (no node) takes
+ * everything.
  */
 const duelists = (n: number, save: ScheduleSave): ArtWant[] => {
   if (n < 0) return RIG
   const out: ArtWant[] = []
+  const add = (w: ArtWant): void => { if (!out.some((o) => o[0] === w[0] && o[1] === w[1])) out.push(w) }
   const dressed = (['mane', 'skin'] as const).some((slot) => (save.giftsEquipped[COSMETIC_SLOTS.indexOf(slot)] ?? -1) >= 0)
-  if (FRAME_DATA.aurora) out.push(atlas('aurora'))
-  if (!FRAME_DATA.aurora || dressed) out.push(...puppetSet('aurora'))
+  if (FRAME_DATA.aurora) {
+    add(atlas('aurora'))
+    if (dressed && FRAME_DATA.aurora.regions) add(regions('aurora'))
+  } else out.push(...puppetSet('aurora'))
   const foe = FOES[nodeFoe(n)]
-  const umbraModel = !!foe && (foe.slug === 'umbra' || foe.model === 'umbra')
-  if (umbraModel && FRAME_DATA.umbra) {
-    out.push(atlas('umbra'))
-    // a friend: Umbra's strip recoloured through her hair mask (`frameRig.ts`)
-    if (foe.model === 'umbra' && FRAME_DATA.umbra.hair) out.push(['rig', hairArtId('umbra')])
-  }
-  else out.push(...puppetSet(!foe || umbraModel || lumOf(foe.pal[0]) <= 0.55 ? 'umbra' : 'aurora'))
+  const who: FrameWho = !foe || foe.slug === 'umbra' || foe.model === 'umbra' || lumOf(foe.pal[0]) <= 0.55 ? 'umbra' : 'aurora'
+  const set = FRAME_DATA[who]
+  if (set) {
+    add(atlas(who))
+    if (foe && foe.slug !== 'umbra' && set.regions) add(regions(who))
+  } else puppetSet(who).forEach(add)
   return out
 }
 const BADGE: ArtWant = [BADGE_ART.kind, BADGE_ART.id]

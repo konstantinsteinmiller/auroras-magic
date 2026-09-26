@@ -2241,6 +2241,63 @@ same for the VS screen."**
   painting the intro was tuned on. Page 4 already had the chibi mascot look and
   was kept. Same sizes as before after the compressor (29/24/23 kB).
 
+**Fourth pass (owner, 2026-09-27): "do all from the still open, it's important
+— but can you save some space on the animations by using smaller baked
+images, maybe max 256x256 per frame?"** The open items were: the Guardians
+still on the recoloured piece puppet, a skin or a mane colour dropping Aurora
+back to the puppet, and the painted duelists' memory on weak phones.
+
+- **Every frame within 256 × 256.** Both strips re-packed at 0.96 px per rig
+  unit (was 1.6; the biggest frame, Aurora's win, is 243 × 252) and packed
+  narrow for fill (`ATLAS_W` 1024 → 894 × 1070 at 86 %, Umbra 821 × 983 at
+  90 %): 211 + 169 kB, 3.6 + 3.1 MB decoded (was 10.8 + 10.5). On a 1080p
+  screen the duelist is drawn ~1.5× the strip's size.
+- **Every duelist is painted poses now** (`chars.frameDressOf`): a Guardian
+  wears Aurora's or Umbra's strip (whichever is nearer her coat's light) in her
+  whole palette — Prism's mane and horn cycling as before; a skin or a mane
+  colour recolours Aurora's own strip; Umbra's friends are her strip in their
+  hair. Only a portrait's emote keeps the piece puppet. A duel no longer
+  loads a piece set at all.
+- **One colour science.** The recolour is the puppet's (`puppetBake`: coat and
+  hooves by gain or transfer, mane dark→lite by light, horn, the ink kept),
+  run per REGION of a frame: `images/rig/<who>-regions.webp` (lossless, G =
+  label × 60: coat, hair, horn, hoof, or as painted — eyes, blush, mouth,
+  inner ear), with each region's light measured once over the whole strip
+  (`FRAME_DATA.regions`) so every frame recolours alike. `lookFor` gained
+  `painted` (none of the piece sets' lifts; Umbra's vector `#213` coat maps
+  to her PAINTED violet — the Umbra skin on Aurora was near black) and
+  `hairOnly` (the friends).
+- **Baked per frame, not per strip.** A recoloured frame is baked the first
+  time it is shown (≤ 256² px, ~1 ms) into a least-recently-used cache capped
+  at 1.8 M px; `warmFrames` bakes a look's common frames ahead on the VS
+  screen, one per idle slice. The hit flash tints only the frame on screen, on
+  one scratch canvas — the two whole-strip tinted copies per strip are gone.
+- **Memory, a friend's duel**: duelist bitmaps were 74 MB (two strips, a
+  recoloured copy, four tinted copies); now 9.7 MB steady, 12.8 MB while the
+  region mask is read. Measured on an Android-sized viewport (800 × 360 at
+  2.5×): the renderer holds 141 MB on the map and 157–159 MB twelve seconds
+  into a friend's or a Guardian's duel.
+- **The region masks** (`regions.cjs`, scratchpad → `art-sheets/aurora-poses/v2`)
+  were the work. Umbra splits by light (dark coat, pale hair); her cuffs share
+  her coat's violet, so a hoof is cuff colour INSIDE an ellipse round each of
+  the mascot's four cuffs, carried by the frame's leg matrix. Aurora's coat
+  and mane share colours — the mane's pale yellow is the coat's shaded cream,
+  both have a pale lilac, the coat shades peach and red-pink at its ink —
+  so only SURE pixels decide by colour (mane: saturated yellow, mint to blue,
+  pink 318–349°; coat: cream, peach) and a doubtful one takes the majority of
+  the sure pixels within 6 px. Priors placed by each frame's matrices fix the
+  rest: the mascot's horn (by colour inside its box, the biggest mass) on the
+  head matrix; a face box (blush, eyes, catch-lights stay as painted; the
+  face's cream and peach are coat; a mint lock crossing it is mane) and an ear
+  box (only the pink inside stays); the legs (shaded lilac is coat there); the
+  head top above the brow (doubtful paint is mane there). Islands of coat in
+  the mane and of mane in the coat under 260 px flip; ink takes the nearest
+  region. Traps paid for: a colour-only split read coat shade as mane and the
+  mane's cream as coat; line-bounded shapes merged (the lines are not closed);
+  a face box that keeps "whatever is not coat" froze every lock crossing it.
+- Stray paint islands (Gemini's edge seam) are dropped before packing, as in
+  the third pass.
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was
