@@ -114,10 +114,13 @@ const itemEntry = (s: ItemSheet, fit: Fit) => {
     bg: 'magenta',
     size: { w: L.w, h: L.h },
     frames: s.frames,
+    // A grid (`ItemSheet.rows`): the slicer cuts panel f at column f % cols,
+    // row floor(f / cols), and still writes one strip.
+    ...(L.rows > 1 ? { rows: L.rows } : {}),
     panel: { w: L.panelW, h: L.panelH },
     crop: L.crop,
     anchor: s.anchor,
-    maxEdge: ITEM_MAX_EDGE,
+    maxEdge: Math.min(ITEM_MAX_EDGE, s.maxEdge ?? ITEM_MAX_EDGE),
     // Only ever set where the file is read at a fixed size by something
     // outside the renderer (`ItemSheet.exact`); the slicer's cap stands
     // everywhere else.

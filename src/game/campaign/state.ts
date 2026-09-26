@@ -108,8 +108,6 @@ export interface CampaignState {
    *  One bit per sector, so the album's cell is drawn from the sector's own
    *  `TapCreature` rather than a stored copy of it. *(item 3)* */
   creaturesMet: string
-  /** 50 bits: has this node's optional replay goal been met? *(item 4)* */
-  stars: string
   /** The local device date the daily gift was last taken, YYYYMMDD; 0 = never.
    *  Never a streak (D1): missing a day costs nothing, so this is a "not
    *  today" latch and not a counter. *(item 5)* */
@@ -145,7 +143,6 @@ export const defaultCampaign = (): CampaignState => ({
   lastPlayedDay: 0,
   sessions: 0,
   creaturesMet: emptyBitset(NODE_COUNT),
-  stars: emptyBitset(NODE_COUNT),
   giftDay: 0,
   photos: []
 })
@@ -238,13 +235,12 @@ export const readCampaign = (raw: unknown): CampaignState => {
       : r.introSeen === true || furthestNode >= 0 || countBits(dialoguesSeen) > 0,
     // The retention fields. A blob written before they existed simply has
     // none of them, and every one falls back to "fresh": never played, no
-    // sessions, nothing met, no stars, no gift taken, no photos. That is why
+    // sessions, nothing met, no gift taken, no photos. That is why
     // they need no schema bump — `migrate.ts` reads through this same reader
     // and writes the result back, so schema 2 already grows them.
     lastPlayedDay: int(r.lastPlayedDay, 0, DAY_MAX, 0),
     sessions: int(r.sessions, 0, SESSIONS_MAX, 0),
     creaturesMet: b64(r.creaturesMet, d.creaturesMet),
-    stars: b64(r.stars, d.stars),
     giftDay: int(r.giftDay, 0, DAY_MAX, 0),
     photos: photoList(r.photos)
   }

@@ -295,7 +295,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Hoofdstukken'
+    'chapters': 'Hoofdstukken',
+    'tabLabel': '{name} — {n} van {total} duels gewonnen'
   },
 
   'story': {
@@ -534,10 +535,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Deze plek staat in volle bloei!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} van {total} sterren'
   },
 
   'daily': {

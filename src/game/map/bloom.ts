@@ -87,9 +87,38 @@ export const FLOWER_HEAD_ART: ItemSpec = {
   draw: (g, s, _f, accent) => {
     g.save()
     g.scale(s / FLOWER_UNIT, s / FLOWER_UNIT)
-    flower(g, 0, 0, FLOWER_UNIT, accent.base, 0)
+    flowerRef(g, FLOWER_UNIT, accent.base)
     g.restore()
   }
+}
+
+/**
+ * The head as its REFERENCE draws it — the game's own fallback is still
+ * `kit.flower`. That rings every petal, so five rings cross inside the flower,
+ * and two paintings in a row traced them ring for ring, the second from a
+ * reference already inked to a guide (2026-09-24, 2026-09-25). Words did not
+ * stop it, as they did not stop the rock ward: here the petals' ink goes down
+ * FIRST and their fills over it, which covers every ring where it runs inside
+ * the flower and leaves a line only round the OUTSIDE — the picture the brief
+ * describes.
+ */
+const flowerRef = (g: G2D, r: number, petal: string): void => {
+  const petals = (): void => {
+    g.beginPath()
+    for (let i = 0; i < 5; i++) {
+      const a = (i * TAU) / 5
+      g.moveTo(cos(a) * r * 0.62 + r * 0.46, sin(a) * r * 0.62)
+      g.arc(cos(a) * r * 0.62, sin(a) * r * 0.62, r * 0.46, 0, TAU)
+    }
+  }
+  petals()
+  ink(g, 2.4)
+  petals()
+  fill(g, petal)
+  g.beginPath()
+  g.arc(0, 0, r * 0.34, 0, TAU)
+  fill(g, '#fff4a8')
+  ink(g, 2)
 }
 
 /** The bloom-critter: a small white bunny hopping to and fro. */

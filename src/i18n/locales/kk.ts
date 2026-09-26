@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Тараулар'
+    'chapters': 'Тараулар',
+    'tabLabel': '{name} — {total} жекпе-жектен {n} жеңіс'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Бұл жер гүлге толды!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {total} жұлдыздан {n} жиналды'
   },
 
   'daily': {

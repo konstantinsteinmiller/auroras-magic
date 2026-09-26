@@ -230,7 +230,15 @@ of its cell and cut chapter 3's pegasus in half; every creature now fills
 ≥ 75 %. 59 cells, not 60: chapter 10 has no rescue collectible (the finale is
 the rescue), and the cell appears by itself if one is ever authored.
 
-## 4. A sparkle star per node (replay goals) ✅
+## 4. A sparkle star per node (replay goals) — REMOVED 2026-09-25
+
+**Removed by the owner, 2026-09-25.** The chapter tabs' `★ 0/5` read as a
+failing grade on chapters already finished, and nothing in the game said what
+a star was for. "Nobody wants to chase." The tabs now count the chapter's
+duels won (`3/5`, a finished chapter `5/5`, read off `furthestNode`); the goal
+module, the card stickers, the `stars` save field and `star_earned` are gone.
+A save that still carries `stars` is read without it. What follows is the
+item as it was built.
 
 **Why:** finished nodes are replayable (`flow/nodes.ts` `isReplay` → straight
 into the duel) but a replay earns nothing except a leaderboard win. After the

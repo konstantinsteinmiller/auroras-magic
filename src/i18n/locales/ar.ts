@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'الفصول'
+    'chapters': 'الفصول',
+    'tabLabel': '{name} — فزت في {n} من {total} مبارزات'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'أزهر هذا المكان بالكامل!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} من {total} نجوم'
   },
 
   'daily': {

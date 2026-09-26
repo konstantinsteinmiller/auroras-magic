@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'チャプター'
+    'chapters': 'チャプター',
+    'tabLabel': '{name} — たいせん {total}かい中 {n}かい しょうり'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'この場所が花でいっぱいになったよ！'
-  },
-
-  'star': {
-    'tabLabel': '{name} — ほし {total} こ中 {n} こ'
   },
 
   'daily': {

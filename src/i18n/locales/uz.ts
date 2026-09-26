@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Boblar'
+    'chapters': 'Boblar',
+    'tabLabel': '{name} — {total} ta dueldan {n} tasi yutildi'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Bu joy gullab-yashnadi!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {total} yulduzdan {n} ta'
   },
 
   'daily': {

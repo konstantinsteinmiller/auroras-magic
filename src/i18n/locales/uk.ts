@@ -295,7 +295,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Розділи'
+    'chapters': 'Розділи',
+    'tabLabel': '{name} — виграно дуелей: {n} із {total}'
   },
 
   // {name} is a creature's name inserted as is — it always stands as the subject.
@@ -535,10 +536,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Це місце все в цвіту!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} із {total} зірок'
   },
 
   'daily': {

@@ -295,7 +295,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Главы'
+    'chapters': 'Главы',
+    'tabLabel': '{name} — выиграно дуэлей: {n} из {total}'
   },
 
   // {name} is a creature's name inserted as is — it always stands as the subject.
@@ -535,10 +536,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Это место всё в цвету!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} из {total} звёзд'
   },
 
   'daily': {

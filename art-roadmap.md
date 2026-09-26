@@ -360,7 +360,8 @@ in `sectorsC8` route through `prop-twinkle` (wired in the first revision), and
 so the banner threads `prop-flag` along its own cord for no generation at all.
 **`star5` is NOT `prop-twinkle`**: that sheet's prompt rules a five-pointed
 star out in as many words, so the vane tower's finial got `prop-star` of its
-own.
+own. *(Corrected 2026-09-26: the finial is in `paint()`, so already in its
+sector's painting; `prop-star`'s live call site is the 3-5 castle lamps.)*
 
 **What this pass left vector, and why:**
 
@@ -634,7 +635,9 @@ painted self:
 - chapter 1's `logSprite` never called `tapCover` at all. Every other
   chapter's tap creature routes its hiding place through it; the woods' hollow
   log was missed. It now takes TWO covers, because the sprite rises BETWEEN
-  them — the hollow behind it, the bark in front.
+  them — the hollow behind it, the bark in front. *(Corrected 2026-09-26: true
+  only for 1-1 and 1-4, whose sectors paint a log; 1-2, 1-3 and 1-5 have none
+  painted, and draw `prop-hollow-log` live instead — see the B1 note below.)*
 - a RESCUE was outside the cover layer. `map.ts`, `wipe.ts` (both call sites)
   and the playground wrapped only `sec.tap?.draw` in `withCoverLayer`, and
   chapter 3's rescue redraws `nestFront` — a nest its sector's `paint()`
@@ -864,7 +867,10 @@ Before flipping it:
    confirm the duel's full-res bake (`RES_PAINTED`) is released on
    `resetDuelPage`.
 5. A pass on a mid-range Android, art on, watching for first-seconds stutter.
-6. **The CLOTH is painted on the map and drawn everywhere else** — audited
+6. **The CLOTH — DONE (2026-09-24, paint-outstanding B17):** all five places
+   now call `drawCloth` — the map, the restore, the intro, the duel's letterbox
+   and the boot fill. What follows is the audit as it was written.
+   **The CLOTH is painted on the map and drawn everywhere else** — audited
    2026-09-21 and left alone, because three of the four are a look decision
    and one of them is in `duel/`. `page/cover-cloth` is painted and the map
    blits it (`map.ts` `drawBackdrop`); the restore's surround
@@ -1682,3 +1688,37 @@ files went 38.9 → 41.0 kB. Before/after contact sheets:
 into one cream band at the 256 px cut (a third roll was not spent — the
 margin is 9–25 px in play); the snowball's and the scarf's lines still close
 round them.
+
+## 2026-09-25 — the traced pictograms and props, re-rolled
+
+The owner read chapter 4's crystal pictogram as "not painted yet": it was
+painted, but as a TRACE of its flat reference (paint-outstanding.md §0.1). 27
+generations re-rolled the four pictogram sets, the flower head, the coconuts
+and fifteen more props; the results, what is still open and every lesson are
+in paint-outstanding.md §0.1 "RE-ROLLED 2026-09-25".
+
+**New in the pipeline, for the next traced sheet:**
+- `ItemSheet.refInk` — the bench thins that sheet's reference ink
+  (`kit.setRefInk`, the creatures' mechanism), and the prompt then carries
+  `OBJECT_NOT_A_STICKER`. `ItemSheet.also` now reaches item and prop headings
+  (`TRACE_FINISH_REFS`: the snowball and gold star as FINISH references).
+- `ItemSheet.rows` — a set painted as a grid (the pictograms: 2 rows of 3 on
+  16:9). The bench, the prompt and the slicer understand it; the slicer still
+  writes ONE strip, so nothing in the game changed. One-row sheets cut
+  byte-identical to before (checked on a single, a 3-strip and a 6-strip).
+  `ItemSheet.maxEdge` keeps a bigger-painted set's frames at the size it
+  shipped at.
+- **The words that bought flat icons were the brief's own**: "PICTOGRAMS",
+  "signs, not characters". Briefed as small painted OBJECTS, the same sheet
+  came back painted.
+
+## 2026-09-26 — the rest of the traces, three runes, 5-4
+
+16 generations: the gift box, boss chest, tent, pet firefly, phone, Frost Lock
+emblem, two shelf badges and the vane came back painted; the lightning,
+illusion and rainbow runes lost their faults (each named as its own check,
+`RUNE_FIX`); the wind ward failed again and kept its old painting; 5-4's
+flat patch was REPAIRED in the shipped painting after two re-rolls came back
+less faithful. Details and lessons: paint-outstanding.md §0.1 "SECOND PASS".
+New in the pipeline: `artDraw.thinStrokes` — `ItemSheet.refInk` now thins a
+drawing that strokes its own lines, not only one that inks through the kit.

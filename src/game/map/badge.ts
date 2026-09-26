@@ -20,7 +20,6 @@
  */
 import { drawItem, itemBox, type ItemSpec } from '@/game/artItem'
 import { spriteFor } from '@/game/art'
-import { STAR_ART } from '@/game/map/kitSky'
 import { TAU, PI } from '@/game/duel/util'
 
 type G2D = CanvasRenderingContext2D
@@ -82,65 +81,6 @@ export const paintBadge = (g: G2D, r: number, f: BadgeFrame): void => {
   }
   g.fill()
   g.stroke()
-  g.restore()
-}
-
-/* ───────────────── the replay star (retention item 4) ────────────────── */
-//
-// A separate emblem from the badge above, and deliberately so: the badge says
-// what the node IS (shut, yours, done) and hangs off its foot, while this
-// says what the player DID and sits on the card's corner like a sticker
-// pressed onto a page. Same five-pointed shape, because a child who has read
-// the gold badge's star once should not have to learn a second symbol.
-//
-// Unearned it is drawn hollow and faint, on DONE cards only. That is not a
-// scold — it is the only way a wordless game can say "there is one here",
-// and a node still to be played never shows one at all, so nothing on the
-// map ever reads as a list of things missed.
-
-/** The star outline, centred on the origin, `r` across. */
-const starPath = (g: G2D, r: number): void => {
-  g.beginPath()
-  for (let i = 0; i < 10; i++) {
-    const a = -PI / 2 + (i * PI) / 5
-    const rr = i & 1 ? r * 0.44 : r
-    if (i) g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr)
-    else g.moveTo(Math.cos(a) * rr, Math.sin(a) * rr)
-  }
-  g.closePath()
-}
-
-/**
- * The replay star, centred on the origin, `r` across. `earned` fills it gold
- * with the map's plum ink; otherwise it is the same outline, hollow and low
- * enough in contrast that it reads as a space waiting rather than a mark.
- */
-export const paintStarSticker = (g: G2D, r: number, earned: boolean): void => {
-  g.save()
-  if (earned) {
-    // A soft halo, so a gold star still separates from a cream card.
-    const halo = g.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 1.9)
-    halo.addColorStop(0, 'rgba(255, 246, 200, 0.85)')
-    halo.addColorStop(1, 'rgba(255, 246, 200, 0)')
-    g.fillStyle = halo
-    g.fillRect(-r * 2, -r * 2, r * 4, r * 4)
-    // The earned star is the shared painted five-point star, tinted gold,
-    // once it has landed; the halo behind it is light and stays drawn. The
-    // hollow one below is a faint outline — a space, not a shape — and stays.
-    if (!drawItem(g, STAR_ART, r, 0, '#ffd76a')) {
-      starPath(g, r)
-      g.fillStyle = '#ffd76a'
-      g.fill()
-      g.lineWidth = Math.max(1.5, r * 0.22)
-      g.strokeStyle = '#3A2340'
-      g.stroke()
-    }
-  } else {
-    starPath(g, r)
-    g.lineWidth = Math.max(1.2, r * 0.18)
-    g.strokeStyle = 'rgba(58, 35, 64, 0.32)'
-    g.stroke()
-  }
   g.restore()
 }
 

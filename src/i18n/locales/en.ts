@@ -379,7 +379,10 @@ export default {
 
   'map': {
     // Read aloud: the chapter-tab ribbon.
-    'chapters': 'Chapters'
+    'chapters': 'Chapters',
+    // Read aloud: a chapter tab, which shows `3/5` — its duels won — as a
+    // bare number. {name} is the chapter's name.
+    'tabLabel': '{name} — {n} of {total} duels won'
   },
 
   // Dialogue bubbles: at most eight words, every worry resolved in the same
@@ -635,14 +638,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'This place is in full bloom!'
-  },
-
-  // The replay stars (retention item 4). Nothing about them is READ on
-  // screen: the map draws a star on the card and `★ 3/5` on the chapter tab,
-  // both glyph and number. This is the spoken version of that tab, for a
-  // screen reader — the only place the feature needs words at all.
-  'star': {
-    'tabLabel': '{name} — {n} of {total} stars'
   },
 
   // The daily gift (retention item 5). Never a streak: nothing here counts

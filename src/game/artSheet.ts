@@ -64,10 +64,13 @@ export const SECTOR_THUMB = { w: 384, h: 224 } as const
  * returns — a square, or 16:9 — because a return re-composed to another
  * aspect cannot be cut: one panel is 1:1, two or three share a 16:9 sheet.
  */
-export const itemSheetSize = (frames: number): { w: number; h: number; panelW: number; panelH: number } =>
+export const itemSheetSize = (frames: number, rows = 1): { w: number; h: number; panelW: number; panelH: number } =>
   frames <= 1
     ? { w: 768, h: 768, panelW: 768, panelH: 768 }
-    : { w: 1536, h: 864, panelW: Math.floor(1536 / frames), panelH: 864 }
+    : { w: 1536, h: 864, panelW: Math.floor(1536 / Math.ceil(frames / rows)), panelH: Math.floor(864 / rows) }
+
+/** How many panels a sheet's row holds (`ItemSheet.rows`). */
+export const sheetCols = (s: { frames: number; rows?: number }): number => Math.ceil(s.frames / (s.rows ?? 1))
 
 /** How much of its panel an item's BOX fills, on its tighter axis. The rest
  *  is air, so a painted edge or a glint is never cut off by the panel. */
@@ -170,6 +173,30 @@ const SECTOR_INFO: readonly (readonly [string, string])[] = [
  */
 const STYLE_ANCHOR = 'painted/style-anchor.png'
 
+/**
+ * The shipped paintings a traced sheet is shown BEFORE its reference
+ * (`ItemSheet.also`): two small objects that came back properly painted after
+ * the 2026-09-24 re-roll — a soft snowball and a plump gold star, both with
+ * the line that swells, fades and breaks. A flat reference cannot show a
+ * painter what "painted" means in this game; a finished painting can
+ * (skill: PROMPT-ANATOMY §8, finish references). Square, so the LAST image —
+ * the layout reference — still sets the return's shape.
+ */
+const TRACE_FINISH_REFS = ['painted/prop-snowball.jpg', 'painted/worldui-gold-star.jpg'] as const
+
+/** How much ink a traced PROP's reference keeps (`ItemSheet.refInk`) — the
+ *  creatures' figure (`artDraw.CREATURE_REF_INK`), which is what stopped them
+ *  tracing: a guide the silhouette still reads through, not a ring to copy. */
+const PROP_REF_INK = 0.4
+
+/**
+ * The traced-sheet re-roll (2026-09-25/26) in one: the reference's ink thinned
+ * to a guide, the edge painted rather than inked, and the two finish
+ * references attached before the reference. `edge` names the thing whose
+ * edge it is ('the chest').
+ */
+const retrace = (edge: string): Partial<ItemSheet> => ({ refInk: PROP_REF_INK, softEdge: edge, also: TRACE_FINISH_REFS })
+
 export interface SectorSheet {
   node: number
   /** The drop-in's file name (`sectorArtId`). */
@@ -252,6 +279,34 @@ export interface ItemSheet {
    * colour-me clause, which otherwise asks for the ring back.
    */
   softEdge?: string
+  /**
+   * How much of its ink the REFERENCE keeps (`kit.setRefInk`, set by the bench
+   * around this sheet only — the game always draws at full weight).
+   *
+   * For a sheet whose painting came back as a TRACE of its reference: the same
+   * flat fills inside the same even ring, which at the size it is seen reads as
+   * the drawing (paint-outstanding.md §0.1, 2026-09-25). Words alone never
+   * stopped a trace in this project — the rock ward and the creatures only
+   * stopped once the picture in front of the painter stopped showing a ring —
+   * so the line is thinned to a guide, and the prompt says so
+   * (`OBJECT_NOT_A_STICKER`) so the painter does not "restore" it.
+   */
+  refInk?: number
+  /**
+   * Paint the panels in this many ROWS on the 16:9 sheet, read left to right
+   * along the top row first; the slicer still writes one strip, so nothing in
+   * the game changes. For a SET whose drawings are too small in one row: six
+   * pictograms in a row were ~140 px each in the return, and at that size the
+   * painter drew icons whatever the prompt said (2026-09-25). Two rows of three
+   * make each about 1.7× bigger.
+   */
+  rows?: number
+  /**
+   * Cut its frames at most this many px tall — LOWER than the slicer's 256 cap
+   * only. A set painted bigger (`rows`) would otherwise ship 256 px frames of
+   * a thing drawn 47 px wide, and the pictogram sets load on the first screen.
+   */
+  maxEdge?: number
   /**
    * A canvas of this sheet's own, in place of `itemSheetSize(frames)`.
    *
@@ -338,7 +393,7 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       'Panel 1: shut. The corner flap lies folded down flat.',
       'Panel 2: the corner flap has lifted up and back, the box about to open. Everything else is exactly the same as in panel 1.'
     ],
-    { tinted: 'the band across the middle' }),
+    { tinted: 'the band across the middle', ...retrace('the box') }),
   item('chest', 'Boss Chest', 2, 'feet',
     'A big, sturdy treasure chest of warm wood with a rounded lid, two gold straps running over the lid and down the front, a thin glowing seam where the lid meets the body, and a diamond-shaped clasp gem at the front of the seam.',
     'Honey-brown wood with a darker brown shadow side, butter-gold straps, a warm cream-yellow glow in the seam.',
@@ -346,7 +401,7 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       'Panel 1: shut. The lid is closed and the seam glows softly.',
       'Panel 2: the lid has swung open, exactly as the reference draws it, the seam glowing bright. The body, the straps and the clasp are exactly the same as in panel 1.'
     ],
-    { tinted: 'the clasp gem' }),
+    { tinted: 'the clasp gem', ...retrace('the chest') }),
   item('sponge', 'Stardust Sponge', 1, 'centre',
     'A chunky, soft bath sponge lying flat: a butter-yellow rounded-block body with a few round pores, a pastel mint scrubbing layer along its top, and a small gold star printed on its front side. A cleaning sponge, not a brush.',
     'Butter-yellow sponge with a warm golden shadow side, pastel mint top layer, a pale gold star.',
@@ -357,7 +412,8 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
     [], { facing: 'It lies level, exactly as the reference draws it: the game turns it as it rubs.' }),
   item('tent', 'Wardrobe tent', 1, 'feet',
     'A little round-topped tent in pale pink with darker pink stripes running up to its peak, a purple arched door flap at the front, and a thin pole on the peak flying a small yellow pennant to the right.',
-    'Pale candy-pink canvas with rose-pink stripes, a violet door flap, a butter-yellow pennant.'),
+    'Pale candy-pink canvas with rose-pink stripes, a violet door flap, a butter-yellow pennant.',
+    [], retrace('the tent')),
   item('crown', 'Flower Crown', 1, 'centre',
     'A gently arched band of green vine with two small leaves and four little round blossoms along it — pink, white, yellow and lilac, left to right. It is worn on a unicorn\'s head, but ONLY the crown is in the picture.',
     'Leaf greens; candy-pink, white, butter-yellow and lilac blossoms with golden centres.'),
@@ -539,6 +595,7 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'firefly',
+      ...retrace('the firefly'),
       facing: 'Its head is at the RIGHT, exactly as the reference draws it: the game mirrors it itself, so one painted facing left is backwards.',
       not: [
         'Draw ONLY the beetle\'s body, exactly as the reference shows it.',
@@ -663,15 +720,19 @@ export const ITEM_SHEETS: readonly ItemSheet[] = [
       checks: ['· Count them: three prisms, the middle one tallest, all standing on the same base line.']
     }),
   item('emblemFrost', 'Frost Lock emblem', 1, 'centre',
-    'A six-armed ice crystal — a snowflake emblem: six straight arms meeting in the middle, each with one small pair of side branches halfway along, drawn as thick white strokes with a thin ice-blue line down the middle of every stroke.',
-    'Snow white, with an ice-blue core line down every arm and branch.',
+    'A six-armed ICE CRYSTAL — a little snowflake of frosted ice: six straight arms meeting in the middle, each with one small pair of side branches halfway along; thick, rounded arms of white ice, lit from the top left, their middles glowing a pale ice blue.',
+    'Snow white ice, glowing a pale ice blue along the middle of every arm and branch.',
     [], {
       noun: 'snowflake',
       not: [
         'Draw ONLY the snowflake. NO circle, disc, badge or snowball behind it — it is the six arms and nothing between them.',
         'No sparkles, no glow, no ground, no face, no text.'
       ],
-      keep: 'SIX ARMS, ALL THE SAME, evenly spaced — a snowflake has six, never four, five or eight — each with ONE pair of side branches. Thick, bold, rounded strokes: it is shown about the size of a coin.',
+      // Not thinned (2026-09-26): its arms ARE strokes, so a thinned reference
+      // draws a line snowflake — the wind ward's lost blades again.
+      softEdge: 'the snowflake',
+      also: TRACE_FINISH_REFS,
+      keep: 'SIX ARMS, ALL THE SAME, evenly spaced — a snowflake has six, never four, five or eight — each with ONE pair of side branches. Thick, bold, rounded arms of ice: it is shown about the size of a coin.',
       checks: [
         '· Count the arms: exactly 6, evenly spaced, each with one pair of side branches.',
         '· Between the arms is plain magenta: no disc, no ball, no frosted circle behind the flake.'
@@ -694,6 +755,22 @@ const RUNE_INFO: readonly (readonly [string, string])[] = [
   ['Love', 'rose pink']
 ]
 
+/**
+ * What a rune's LAST painting got wrong (2026-09-26, owner: "minor mistakes"),
+ * said as a check it can run on its own result. By index in `RUNE_SLUGS`.
+ */
+const RUNE_FIX: Readonly<Record<number, readonly string[]>> = {
+  6: [
+    '· THE GLOW IS YELLOW ALL THE WAY: butter yellow into a near-white core, and NOTHING pink, rose, red or orange anywhere inside the stroke. The last painting put two pink blotches inside the spiral — a pink beside the magenta ground is cut as ground, and ships as a stain.'
+  ],
+  7: [
+    '· BOTH LOOPS HAVE A CLEAN, WHOLE EDGE, the same on the left as on the right. The last painting frayed the right loop\'s outer edge into a ragged, broken smear with flecks off it: follow the outline all the way round both loops and paint out any fraying, fleck or smudge.'
+  ],
+  8: [
+    '· NOTHING STICKS OUT OF THE ARCH, and both ends are the same clean, rounded cap in the same candy pink as the rest. The last painting left a dark tick on the outer edge near the right end and darker, redder tips: the stroke is one colour from end to end, its edge clean all round.'
+  ]
+}
+
 export const RUNE_SHEETS: readonly ItemSheet[] = RUNE_SLUGS.map((_, k) => {
   const id = runeArtId(k)
   const [title, hue] = RUNE_INFO[k]!
@@ -707,6 +784,7 @@ export const RUNE_SHEETS: readonly ItemSheet[] = RUNE_SLUGS.map((_, k) => {
     panels: [],
     blurb: `The ${title} rune: a magic glyph drawn as ONE thick, rounded stroke of glowing ${hue} light with a plum outline, in exactly the shape of the reference.`,
     colour: `${hue} light, bright and saturated — this is magic, the most colourful thing in the game — with a paler, near-white core along the middle of the stroke.`,
+    ...(RUNE_FIX[k] ? { checks: RUNE_FIX[k] } : {}),
     file: `rune-${RUNE_SLUGS[k]}`,
     target: artTarget('rune', id)
   }
@@ -808,6 +886,11 @@ const chrome = (key: ChromeName, sheet: Omit<ItemSheet, 'name' | 'kind' | 'id' |
 }
 
 /** "HOW BIG IT IS IN PLAY", the movie camera's opening, for a small mark. */
+/** `seenAt` for a re-rolled trace: the same brief, without "a confident plum
+ *  line" — which, read by a painter, is the sticker ring (74603a7). */
+const seenAtPainted = (where: string, how: string): string =>
+  `HOW BIG IT IS IN PLAY — ${where}. ${how} So it is a bold, simple silhouette first: a few big masses and strong colour, each PAINTED and lit from the top left; no small details, which only turn to mush at that size.`
+
 const seenAt = (where: string, how: string): string =>
   `HOW BIG IT IS IN PLAY — ${where}. ${how} So it is a bold, simple silhouette first and a picture second: a few big masses, strong colour and a confident plum line; no small details, which only turn to mush at that size.`
 
@@ -986,6 +1069,7 @@ const CHROME_SHEETS: readonly ItemSheet[] = [
     title: 'Turn-sideways phone',
     anchor: 'centre',
     noun: 'phone',
+    ...retrace('the phone'),
     blurb: 'A friendly, toy-like SMARTPHONE standing upright, seen straight from the front: a chubby cream body with round corners, a big rounded lilac screen filling most of its front, and one small round plum button below the screen.',
     colour: 'A warm cream body, a soft lilac screen with a gentle sheen at its top, a plum button.',
     not: [
@@ -994,7 +1078,7 @@ const CHROME_SHEETS: readonly ItemSheet[] = [
       'No text, letters or numbers anywhere.'
     ],
     keep: [
-      seenAt('about 76 pixels tall on a cream card, where the game slowly turns it onto its side and back to show a child to hold the device sideways', 'It is a toy phone from a picture book, not a real product: no brand, no camera bump, no notch.'),
+      seenAtPainted('about 76 pixels tall on a cream card, where the game slowly turns it onto its side and back to show a child to hold the device sideways', 'It is a toy phone from a picture book, not a real product: no brand, no camera bump, no notch.'),
       NO_SHADOW_UNDER.replace('stuck to it', 'stuck to the phone'),
       STILL_PAINTED
     ].join('\n'),
@@ -1072,19 +1156,28 @@ const pictoSheet = (k: number): ItemSheet => {
     frames: names.length,
     set: true,
     anchor: 'centre',
-    noun: 'pictogram',
+    // Not "pictogram", not "sign", not "icon" (2026-09-25): those words asked
+    // for flat icons, and three rolls came back flat icons whatever the style
+    // block said, while the Z prop — briefed as a THING — came back a plump
+    // painted Z. The game still uses them as pictograms; the painter is told
+    // what they ARE.
+    noun: 'little painted object',
     panels: names.map((n, i) => `Panel ${i + 1}: ${PICTO_WORDS[n] ?? n}.`),
-    blurb: `${names.length} small storybook PICTOGRAMS, each a different little picture that tells a child what a line of the story is about without a single word. They are printed beside the words on a cream paper leaf, one or two at a time, next to the face of whoever is speaking.`,
-    colour: 'Each keeps the colours the reference gives it — bright, clean storybook colours, never muddy. Every one keeps a warm plum line round its OUTSIDE, swelling and fading as a brush does: on cream paper, a little picture with no edge at all dissolves into the page.',
+    blurb: `${names.length} small storybook OBJECTS, each a different little thing painted as if it sat on a picture-book page — with light falling on it from the top left, a rounded form and a soft shadow side — telling a child what a line of the story is about without a single word. Each is a tiny painting of a THING, never a flat symbol, sign or icon. They are printed beside the words on a cream paper leaf, one or two at a time, next to the face of whoever is speaking.`,
+    // "Every one keeps a warm plum line round its OUTSIDE" and seenAt's "a
+    // confident plum line" asked for the ring the first sets traced (the gold
+    // star's brief did the same, 74603a7). The edge is still needed on cream
+    // paper — it is just not a ring.
+    colour: 'Each keeps the colours the reference gives it — bright, clean storybook colours, never muddy. On cream paper a little picture still needs an edge, so each has a warm plum brush accent on its shadow side — swelling at the lower right, fading to nothing along the lit upper left — never one even ring all the way round.',
     not: [
       `Draw ONLY the ${names.length} pictures the reference shows, one in each panel. No ground, no shadow, no scenery, no characters, no hands, and no bubble, badge, disc, tile or card behind any of them.`,
-      'THEY HAVE NO FACES — not the sun, the moon, the cloud, the star, the heart or the snowflake: no eyes, no mouth, no cheeks. They are signs, not characters.',
+      'THEY HAVE NO FACES — not the sun, the moon, the cloud, the star, the heart or the snowflake: no eyes, no mouth, no cheeks. They are things, not characters.',
       hasZ
         ? 'No text, letters or numbers — except the three Z shapes of the sleeping sign, which ARE that picture. Nothing else in the strip is a letter.'
         : 'No text, letters or numbers.'
     ],
     keep: [
-      seenAt('about 40 to 58 pixels across, beside a line of words on cream paper, one or two at a time', 'A child who cannot read yet follows the story from these alone, so each must say what it is at a glance.'),
+      'HOW BIG IT IS IN PLAY — about 40 to 58 pixels across, beside a line of words on cream paper, one or two at a time, next to a PAINTED portrait. A child who cannot read yet follows the story from these alone, so each must say what it is at a glance: a few big masses and strong colour, no small details. Simple is not flat — each big mass is painted, lit from the top left, as the portrait beside it is.',
       '· Every one is a whole, separate little picture in the MIDDLE of its own panel, about the size the reference draws it — never touching a neighbour.',
       NO_SHADOW_UNDER.replace('stuck to it', 'stuck to each picture'),
       STILL_PAINTED
@@ -1094,6 +1187,20 @@ const pictoSheet = (k: number): ItemSheet => {
       '· None of them has a face.',
       '· NOTHING under or around any of them — no shadow, no glow, no bubble, no card.'
     ],
+    // Re-rolled 2026-09-25: the first sets were traces (paint-outstanding.md
+    // §0.1 T1). The filled shapes' outline is already halved in the reference
+    // (`pictoArt.REF_OUTLINE`); this halves it again. A stroke that IS the
+    // picture — a Z, a note's stem, a bramble — keeps its weight.
+    refInk: 0.5,
+    softEdge: 'each little picture',
+    also: TRACE_FINISH_REFS,
+    // …and six in ONE row were ~140 px each in the return, and the second
+    // roll with all of the above came back a trace again: at that size the
+    // painter draws icons. Two rows make each ~1.7× bigger; the frames are
+    // still cut at about the size they shipped at (163 px), for a thing
+    // shown 40–58 px wide on the first screen.
+    rows: 2,
+    maxEdge: 176,
     file: `worldui-${id}`,
     target: artTarget('worldUi', id)
   }
@@ -1835,6 +1942,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'duck',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the duck',
+      also: TRACE_FINISH_REFS,
       facing: 'It floats LEVEL, facing right, exactly as the reference draws it: the game paddles it along the brook and bobs it.',
       checks: ['· No water, no ripples and no reflection — the brook is already painted underneath.']
     }),
@@ -1865,6 +1976,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'fish',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the fish',
+      also: TRACE_FINISH_REFS,
       tinted: 'the whole fish, body and tail together. The eye stays plum',
       facing: 'It lies LEVEL, nose to the right, exactly as the reference draws it: the game tips it up and down along its leap.',
       checks: ['· It is level and flat, not diving, not leaping, not curved.']
@@ -1895,6 +2010,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'sail cross',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'each sail',
+      also: TRACE_FINISH_REFS,
       not: [
         'THIS IS A PART, NOT A WINDMILL. Draw ONLY the four sails and their hub, exactly as the reference shows them.',
         '· NO tower, NO mill body, NO cap, NO roof, NO door, NO windows, NO ground, NO grass, NO sky, NO scenery.',
@@ -1941,6 +2060,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'twinkle',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the twinkle',
+      also: TRACE_FINISH_REFS,
       tinted: 'the whole star, from its middle right out to its four tips',
       view: 'THE VIEW: flat and square-on, one point straight up, one straight down, one left, one right, exactly as the reference has it. The game turns it and swells it, so draw it standing still and upright.',
       not: [
@@ -1988,6 +2111,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'flag',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the flag',
+      also: TRACE_FINISH_REFS,
       tinted: 'the whole flag',
       view: 'THE VIEW: flat and square-on, hanging straight down, exactly as the reference has it. The game tilts each flag as the breeze takes it, so draw it hanging still.',
       not: [
@@ -2183,7 +2310,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('boat', 'Far sailboat', 3,
-    'A small faraway sailboat seen from the side, sailing to the RIGHT: a shallow curved hull with a white foam line under it, a thin mast, a tall pointed mainsail behind the mast and a smaller pointed sail in front of it.',
+    'A small faraway sailboat — a little painted WOODEN boat with CLOTH sails that catch the light, softly shaded like a toy in a picture book — seen from the side, sailing to the RIGHT: a shallow curved hull with a white foam line under it, a thin mast, a tall pointed mainsail behind the mast and a smaller pointed sail in front of it.',
     'See the panels: each one is the same boat in a different pair of colours.',
     'it is about a fifteenth of the width of the scene, far out on the water.',
     [
@@ -2194,6 +2321,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     ],
     {
       noun: 'boat',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'each boat',
+      also: TRACE_FINISH_REFS,
       facing: 'It sails to the RIGHT in every panel: the game mirrors it when it sails the other way.',
       not: [
         'Draw ONLY the boat and its own thin white foam line, exactly as the reference shows it.',
@@ -2214,6 +2345,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'kite half',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the kite',
+      also: TRACE_FINISH_REFS,
       tinted: 'the cloth. The spine down the straight right edge and the cross-spar stay plum',
       view: 'THE VIEW: flat and square-on, the nose straight up and the straight spine edge vertical on the RIGHT, exactly as the reference has it. The game tilts it as it flies.',
       not: [
@@ -2309,6 +2444,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'crystal',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the crystal',
+      also: TRACE_FINISH_REFS,
       tinted: 'the whole crystal, every facet of it',
       view: 'THE VIEW: flat and square-on, standing upright with its point at the top, exactly as the reference has it. The game hangs it and sways it.',
       not: [
@@ -2352,6 +2491,11 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'cluster',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'each nut',
+      also: TRACE_FINISH_REFS,
+      keep: '· WHERE ONE NUT OVERLAPS ANOTHER THERE IS NO LINE. The reference is three flat circles stacked, and the ring round each one is how the game sketches it — traced, the rings cross INSIDE the cluster and cut the nuts into slices. Each nut is a round, lit, husky ball; where one sits in front of another, the front one simply covers it, and the shadow it throws on the one behind is paint, not a line.',
       view: 'THE VIEW: flat and square-on, exactly as the reference has it — two nuts up, one hanging below between them.',
       not: [
         'Draw ONLY the three nuts, exactly as the reference shows it.',
@@ -2359,7 +2503,7 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
         '· The palm is drawn around them by the game.',
         '· No text, letters or numbers.'
       ],
-      checks: ['· Exactly THREE nuts — count them.']
+      checks: ['· Exactly THREE nuts — count them.', '· Look where two nuts overlap: NO line crosses into a nut and no nut is ringed by a line of its own.']
     }),
   prop('flyer', 'Flying pegasus', 3,
     'A chubby little baby pegasus flying to the RIGHT, seen from the side: a round barrel body, a round head with a small muzzle, four short tucked legs, a soft curly mane and forelock, and a pair of feathered wings spread out and held level — one behind the body and one in front of it.',
@@ -2454,6 +2598,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'wheel',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the wheel',
+      also: TRACE_FINISH_REFS,
       view: 'THE VIEW: flat and square-on, face-on, with the spokes in an upright plus, exactly as the reference has it. The game spins it, so draw it standing still.',
       not: [
         'Draw ONE wheel and nothing else, exactly as the reference shows it.',
@@ -2545,6 +2693,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'star',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the star',
+      also: TRACE_FINISH_REFS,
       tinted: 'the whole star, right out to its five points',
       view: 'THE VIEW: flat and square-on, one point straight up, exactly as the reference has it.',
       not: [
@@ -2576,6 +2728,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'blade',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the kelp blade',
+      also: TRACE_FINISH_REFS,
       facing: 'It is rooted at the BOTTOM and reaches UP, exactly as the reference draws it: the game leans its tip over as the current takes it.',
       view: 'THE VIEW: flat and side-on, standing upright with its root at the bottom, exactly as the reference has it. Draw it standing still — the water does the swaying.',
       not: [
@@ -2657,12 +2813,16 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
       ]
     }),
   prop('vane', 'Weather-vane arrow', 1,
-    'A weather-vane arrow lying level and pointing RIGHT: a slim straight shaft, a solid triangular arrowhead at its right end, and a tail fin at its left end — a triangle pointing left whose right-hand edge is scooped hollow, so it reads as a flight. A small round boss sits on the shaft at its middle, where it turns on its mast.',
+    'A weather-vane arrow of gilded METAL and enamel, catching the light like a little ornament, lying level and pointing RIGHT: a slim straight shaft, a solid triangular arrowhead at its right end, and a tail fin at its left end — a triangle pointing left whose right-hand edge is scooped hollow, so it reads as a flight. A small round boss sits on the shaft at its middle, where it turns on its mast.',
     'A butter-gold arrowhead and a butter-gold boss, a candy-pink fletching, and a plum shaft — the little gilded arrow on top of a storybook tower.',
     'it is about a tenth of the width of the scene, turning on the mast on top of the wind-vane tower.',
     [],
     {
       noun: 'arrow',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the arrow',
+      also: TRACE_FINISH_REFS,
       facing: 'It points RIGHT, exactly as the reference draws it: the game squeezes it narrow and flips it as it swings round its mast.',
       view: 'THE VIEW: flat and side-on, lying dead level, at its full stretch, exactly as the reference has it. Draw it standing still and at its widest.',
       not: [
@@ -2818,12 +2978,16 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     // CIRCLES, outline through outline, so every petal wore a heavy ring and
     // the rings crossed inside the flower. The reference is a stack of flat
     // circles; say what the overlap IS.
-    'ONE round flower head seen face-on: five soft rounded petals of the same size set evenly round a round butter-yellow middle, each petal tucked a little behind the next — a simple storybook daisy-flower. WHERE ONE PETAL OVERLAPS ANOTHER THERE IS NO LINE: the reference is five flat circles stacked, so its outlines cross through each other there, and that crossing is a drawing artefact, not part of the flower. Paint the front petal\'s edge as a soft change of shade over the one behind it.',
+    'ONE round flower head seen face-on: five soft rounded petals of the same size set evenly round a round butter-yellow middle, each petal tucked a little behind the next — a simple storybook daisy-flower. WHERE ONE PETAL OVERLAPS ANOTHER THERE IS NO LINE: the reference shows the five petals as ONE pale shape with a line only round its outside, because a line between petals is exactly what must not be painted. The five petals are still five — find them by the scallops of that outside edge, and paint each front petal\'s edge as a soft change of shade over the one behind it.',
     'Keep the reference\'s pale neutral grey (see below) for the PETALS: the game gives each flower its own colour. The middle is a warm butter yellow.',
     'it is about a thirtieth of the width of the scene, nodding on top of a tall stem.',
     [],
     {
       noun: 'flower',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'each petal',
+      also: TRACE_FINISH_REFS,
       tinted: 'the five petals. The butter-yellow middle stays as it is',
       view: 'THE VIEW: flat and square-on, face-on, exactly as the reference has it. The game turns it slowly, so draw it standing still.',
       not: [
@@ -2894,6 +3058,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'pointer',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the gnomon',
+      also: TRACE_FINISH_REFS,
       view: 'THE VIEW: flat and square-on, leaning exactly as the reference has it, its point at the top LEFT.',
       not: [
         'Draw ONLY the gold triangle, exactly as the reference shows it.',
@@ -3039,6 +3207,10 @@ export const PROP_SHEETS: readonly ItemSheet[] = [
     [],
     {
       noun: 'Z',
+      // Re-rolled 2026-09-25: the first painting was a trace (paint-outstanding.md §0.1).
+      refInk: PROP_REF_INK,
+      softEdge: 'the Z',
+      also: TRACE_FINISH_REFS,
       tinted: 'the body of the Z, inside its plum rim',
       view: 'THE VIEW: flat and square-on, upright, exactly as the reference has it. The game floats it up, swells it and fades it.',
       not: [
@@ -3296,6 +3468,8 @@ export const KEEPSAKE_SHEETS: readonly ItemSheet[] = KEEPSAKE_ICON_SLUGS.map((sl
     id, title: `${title} (wardrobe badge)`, frames: 1, anchor: 'centre' as const, panels: [],
     blurb: `${blurb} It is the keepsake's picture on the wardrobe shelf, shown small, so it must read at a glance.`,
     colour,
+    // Re-rolled 2026-09-26: both came back as traces (paint-outstanding.md §0.1 T8).
+    ...(slug === 'petalTrail' ? retrace('each petal') : slug === 'frostTrail' ? retrace('each flake') : {}),
     file: `item-${id}`,
     target: artTarget('cosmetic', id)
   }
@@ -3921,6 +4095,34 @@ const CREATURE_NOT_A_STICKER = [
   '· THE SECOND TEST: cover the face. What is left must look like a painting of a small animal, not like a sticker of one.'
 ].join('\n')
 
+/**
+ * The same trap for a small OBJECT (`ItemSheet.refInk`; 2026-09-25). The four
+ * pictogram sets and seventeen props came back as traces: the reference's flat
+ * fills — even its light and dark halves, kept as two flat tones — inside the
+ * reference's even ring, a little thinner. At 47 px on the dialogue leaf the
+ * crystal pictogram could not be told from the drawing, and the owner reported
+ * it as "not painted yet". Every one of their prompts already carried "IT MUST
+ * LOOK HAND-DRAWN" and "DO NOT PUT AN EVEN OUTLINE AROUND EVERYTHING": words
+ * alone lose to the picture. So the reference's line is thinned (the bench),
+ * and this clause names what the picture is, what is taken from it, and hands
+ * the painter the creatures' tests.
+ */
+const OBJECT_NOT_A_STICKER = [
+  'YOU ARE PAINTING THIS BY HAND, NOT TRACING A STICKER. The last painting of it was a trace, and it could not be told from the flat drawing it was made from.',
+  '· The reference is flat vector art: one flat colour inside each shape — where a shape has a light side and a dark side, they are two flat colours meeting at a hard straight edge — and a faint line round it. You are copying its SHAPES, their PLACES and their PROPORTIONS, and painting everything else yourself.',
+  '· PAINT EVERY SHAPE AS A LITTLE ROUNDED THING IN THE LIGHT: brighter and warmer toward the top left, deepening softly toward the lower right, one soft highlight where the light lands. A light face and a dark face are painted as light falling across a form — a soft turn from one to the other, never two flat stripes.',
+  '· THE LINE IN THE REFERENCE IS DELIBERATELY FAINT. It is a guide to where the shapes are, not a contour to ink in. Do not thicken it, do not close it up, and do not trace round the outside.',
+  '· THE TEST: put your picture beside the reference. If someone could mistake yours for the reference with a thinner line and a shadow added, it is not finished — paint it again.',
+  '· THE SECOND TEST: look at the colour INSIDE any one shape. If it is one flat tone, edge to edge, it is not painted yet.'
+].join('\n')
+
+/** Says which attached image is which, when finish references ride along. */
+const finishRefsClause = (n: number): string => [
+  `THE ATTACHED IMAGES: the first ${n === 1 ? 'one is a FINISH reference' : `${n} are FINISH references`} — finished paintings from this game, showing how a small object is PAINTED here: the soft light across it, the soft edge, the line that swells, fades and breaks. Match that finish.`,
+  `· They are never subjects. Paint nothing taken from them — only what this brief names.`,
+  '· The LAST attached image is the layout reference — "the reference" everywhere in this brief. Take the subject, the layout, the size and the shape of the canvas from it alone.'
+].join('\n')
+
 const MAGENTA = [
   'BACKGROUND — read this before anything else. It matters more than the style.',
   'Fill every pixel that is not the object itself with solid, flat, pure magenta #FF00FF. Treat it as a green-screen: one flat chroma-key colour, edge to edge.',
@@ -4089,13 +4291,55 @@ const sizeClause = (s: ItemSheet, fit: Fit | undefined): string => {
 }
 
 /** The prompt for one item or rune. */
+/** Where panel `i` sits in a grid of `rows` × `cols`, in the painter's words. */
+const cellName = (i: number, rows: number, cols: number): string => {
+  const r = Math.floor(i / cols)
+  const c = i % cols
+  const row = rows === 2 ? (r === 0 ? 'top row' : 'bottom row') : `row ${r + 1}`
+  const col = cols === 3 ? ['left', 'middle', 'right'][c]! : cols === 2 ? ['left', 'right'][c]! : `${c + 1} from the left`
+  return `${row}, ${col}`
+}
+
+/** "3 in the top row and 2 in the bottom row". */
+const rowCounts = (frames: number, rows: number, cols: number): string =>
+  Array.from({ length: rows }, (_, r) => {
+    const n = Math.min(cols, frames - r * cols)
+    return `${n} in the ${rows === 2 ? (r === 0 ? 'top' : 'bottom') : `number ${r + 1}`} row`
+  }).join(' and ')
+
+/**
+ * WHAT COMES BACK for a set painted in rows (`ItemSheet.rows`). The strip's
+ * rules hold cell by cell: the game cuts a grid of equal cells WITHOUT LOOKING,
+ * so the count, the spacing and the invisible divisions are the whole job.
+ */
+const gridShape = (s: ItemSheet, rows: number, cols: number): string => {
+  const noun = s.noun ?? 'object'
+  const last = s.frames - (rows - 1) * cols
+  const empty = cols - last
+  return [
+    `WHAT COMES BACK IS A GRID OF ${s.frames} PANELS IN ${rows} ROWS, NOT ONE PICTURE.`,
+    `One landscape image, 16:9, holding ${s.frames} SEPARATE drawings — a DIFFERENT ${noun} in each, in the order READ THE PANELS lists them — in ${rows} rows of ${cols}, read left to right along the top row first, each in the middle of its own equal cell of the sheet, on the same layout as the attached reference.${empty > 0 ? ` The last row holds only ${last}: its right-hand ${empty === 1 ? 'cell stays' : `${empty} cells stay`} EMPTY magenta.` : ''}`,
+    `· Exactly ${s.frames} drawings: ${rowCounts(s.frames, rows, cols)}. Not one row of ${s.frames}, not ${s.frames + 1}.`,
+    '· ONE big drawing filling the canvas is the wrong answer however well it is painted.',
+    `· THE LAYOUT IS THE WHOLE JOB, and it is the one mistake that cannot be repaired afterwards. The game cuts this picture into ${rows} rows of ${cols} equal cells WITHOUT LOOKING AT WHAT IS IN IT. A drawing out of its cell ships cut in half, and so does its neighbour.`,
+    '· SO SPACE THEM EVENLY AND KEEP THE GAPS EMPTY. Share the sheet out into equal cells in your head and put one drawing in the middle of each, with a clear band of plain magenta between every neighbouring pair — side by side AND one above the other — that nothing reaches into.',
+    '· DO NOT DRAW THE DIVISIONS. No lines, rules, bars, gutters, boxes, frames or guides between the drawings, in any colour. THE CELLS ARE INVISIBLE — they are only where the drawings happen to sit on one unbroken magenta sheet. A line you draw is paint: it survives the cut and ends up inside the pictures either side of it.'
+  ].join('\n')
+}
+
 export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   // A sheet with a canvas of its own (`ItemSheet.canvas`) is briefed in that
   // canvas's shape: the HP frames are ONE wide panel, not a square.
-  const { w, h } = s.canvas ?? itemSheetSize(s.frames)
+  const rows = s.rows ?? 1
+  const { w, h } = s.canvas ?? itemSheetSize(s.frames, rows)
   const many = s.frames > 1
+  // A set painted in rows (`ItemSheet.rows`) is briefed as a grid.
+  const grid = many && rows > 1
+  const cols = sheetCols(s)
   const wide = !many && !!s.canvas && s.canvas.w > s.canvas.h
-  const shape = wide
+  const shape = grid
+    ? gridShape(s, rows, cols)
+    : wide
     ? `WHAT COMES BACK IS ONE ${(s.noun ?? 'object').toUpperCase()} ON A FLAT MAGENTA GROUND.\nOne WIDE landscape image, 16:9, holding the single ${s.noun ?? 'object'} the attached reference shows, in the middle, at the reference's size. One picture — not a strip of panels, not a close-up of one part of it.`
     : many
     ? `WHAT COMES BACK IS A STRIP OF ${s.frames} PANELS, NOT ONE PICTURE.\nOne landscape image, 16:9, holding ${s.frames} SEPARATE drawings ${s.set ? `— a DIFFERENT ${s.noun ?? 'object'} in each, in the order READ THE PANELS lists them —` : `of the same ${s.title.toLowerCase()}`} side by side, left to right, each in its own equal share of the width — on the same layout as the attached reference.\n· Exactly ${s.frames} panels. Not 1, not ${s.frames + 1}, not ${s.frames * 2}. One row.\n· ONE big drawing filling the canvas is the wrong answer however well it is painted.\n· THE COUNT IS THE WHOLE JOB, and it is the one mistake that cannot be repaired afterwards. The game cuts this picture into ${s.frames} equal vertical slices WITHOUT LOOKING AT WHAT IS IN IT. One drawing too many and every slice lands across two of them — all ${s.frames} ship as halves, not just the extra one.\n· SO SPACE THEM EVENLY AND KEEP THE JOINS EMPTY. Share the width out equally between them in your head and put one drawing in the middle of each share, with a clear band of plain magenta between every neighbouring pair that nothing reaches into — no mane, no ear, no backdrop, no shadow.\n· DO NOT DRAW THE DIVISIONS. No lines, rules, bars, gutters, boxes, frames or guides between the drawings, in any colour. THE PANELS ARE INVISIBLE — they are only where the drawings happen to sit on one unbroken magenta sheet. A line you draw is paint: it survives the cut and ends up inside the pictures either side of it.`
@@ -4114,9 +4358,12 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
     `WHAT IT IS: ${s.blurb}`,
     ''
   ]
-  if (many) lines.push('READ THE PANELS:', ...s.panels.map((p) => `· ${p}`), '')
+  if (many) lines.push('READ THE PANELS:', ...s.panels.map((p, i) => `· ${grid ? p.replace(/^Panel (\d+):/, `Panel $1 (${cellName(i, rows, cols)}):`) : p}`), '')
   lines.push(REFERENCE_CLAUSE, '')
+  if (s.also?.length) lines.push(finishRefsClause(s.also.length), '')
   if (s.kind === 'creature') lines.push(CREATURE_NOT_A_STICKER, '')
+  // …and an object whose painting came back as a trace (`ItemSheet.refInk`).
+  else if (s.refInk !== undefined && s.refInk < 1) lines.push(OBJECT_NOT_A_STICKER, '')
   lines.push(`COLOUR IDENTITY (keep the hues; the exact shades are yours): ${s.colour}`, '')
   if (s.tinted) lines.push(neutralClause(`${s.tinted}. The game gives it a different colour for every chapter`, !s.softEdge), '')
   if (s.keep) lines.push(s.keep, '')
@@ -4144,8 +4391,9 @@ export const itemPrompt = (s: ItemSheet, fit?: Fit): string => {
   lines.push(s.character ? withCharacter(STYLE_ITEM) : STYLE_ITEM, '', sizeClause(s, fit), '', magentaFor(s.holes), '')
   lines.push(
     'BEFORE YOU CALL IT FINISHED, count and check:',
-    many ? `· COUNT THE DRAWINGS left to right. There must be exactly ${s.frames} — not ${s.frames + 1}. One row, 16:9 landscape.` : `· One ${s.noun ?? 'object'}, in the middle of a ${wide ? 'wide 16:9' : 'square'} canvas.`,
-    ...(many ? [`· The gaps: ${s.frames - 1} clear bands of plain magenta, one between each neighbouring pair, all about the same width, with nothing reaching into any of them. And NO line, rule, bar or frame drawn anywhere on the sheet.`] : []),
+    grid ? `· COUNT THE DRAWINGS: exactly ${s.frames}, in ${rows} rows — ${rowCounts(s.frames, rows, cols)} — read left to right, top row first. 16:9 landscape.`
+      : many ? `· COUNT THE DRAWINGS left to right. There must be exactly ${s.frames} — not ${s.frames + 1}. One row, 16:9 landscape.` : `· One ${s.noun ?? 'object'}, in the middle of a ${wide ? 'wide 16:9' : 'square'} canvas.`,
+    ...(grid ? ['· The gaps: a clear band of plain magenta between every neighbouring pair, across AND down, all about the same width, with nothing reaching into any of them. And NO line, rule, bar or frame drawn anywhere on the sheet.'] : many ? [`· The gaps: ${s.frames - 1} clear bands of plain magenta, one between each neighbouring pair, all about the same width, with nothing reaching into any of them. And NO line, rule, bar or frame drawn anywhere on the sheet.`] : []),
     '· Nothing in any panel is anywhere near filling it.',
     ...(s.tinted ? [`· ${s.tinted[0]!.toUpperCase()}${s.tinted.slice(1)}: pale neutral lilac-grey, no hue.`] : []),
     ...(s.checks ?? []),
@@ -4655,13 +4903,13 @@ export const promptDocs = (fits?: Record<string, Fit>): Record<string, string> =
   ].join('\n\n') + '\n',
   'PROMPTS-ITEMS.md': [
     DOC_HEAD('Items'),
-    ...[...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS].map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+    ...[...ITEM_SHEETS, ...WORLD_UI_SHEETS, ...KEEPSAKE_SHEETS].map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file]), s.also ?? []))
   ].join('\n\n') + '\n',
   'PROMPTS-PROPS.md': [
     DOC_HEAD('The sectors\' live props'),
     'These are drawn ON TOP of a painted sector, every frame, while the drawing moves them. Paint the SHAPE only — the flight, the bob, the leap, the turn and the scuttle all stay with the game, so every one of these is drawn standing still.',
     '',
-    ...PROP_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file])))
+    ...PROP_SHEETS.map((s) => block(s.title, s.file, s.target, itemPrompt(s, fits?.[s.file]), s.also ?? []))
   ].join('\n\n') + '\n',
   'PROMPTS-CREATURES.md': [
     DOC_HEAD('The creatures a restored sector gets back'),

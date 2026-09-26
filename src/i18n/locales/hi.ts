@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'अध्याय'
+    'chapters': 'अध्याय',
+    'tabLabel': '{name} — {total} में से {n} मुक़ाबले जीते'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'यह जगह पूरी तरह खिल उठी है!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {total} में से {n} तारे'
   },
 
   'daily': {

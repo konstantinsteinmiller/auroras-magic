@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': '章节'
+    'chapters': '章节',
+    'tabLabel': '{name} — {total} 场对决中赢了 {n} 场'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': '这里开满了鲜花！'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {total} 颗星中的 {n} 颗'
   },
 
   'daily': {

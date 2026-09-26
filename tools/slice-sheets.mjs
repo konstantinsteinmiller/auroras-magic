@@ -285,6 +285,20 @@ const floodGround = (px, w, h) => {
  * against — hence the threshold at 0.10, two and a half times the largest
  * value a good strip has ever produced.
  */
+/**
+ * Row `r` of a grid painting (`rows` rows, `cols` columns), cropped to the
+ * `n` cells it holds — a strip the strip guards can read on its own.
+ */
+const rowBand = (px, r, rows, n, cols) => {
+  const y0 = Math.round((r * px.h) / rows)
+  const y1 = Math.round(((r + 1) * px.h) / rows)
+  const w = Math.round((n * px.w) / cols)
+  const h = y1 - y0
+  const d = new Uint8ClampedArray(w * h * 4)
+  for (let y = 0; y < h; y++) d.set(px.d.subarray(((y0 + y) * px.w) * 4, ((y0 + y) * px.w + w) * 4), y * w * 4)
+  return { d, w, h }
+}
+
 const sampler = (px) => {
   const { d, w, h } = px
   const pm = new Float32Array(w * h * 4)
@@ -424,6 +438,12 @@ for (const file of paintings) {
       const panelW = sheet.panel.w
       const panelH = sheet.panel.h
       const frames = sheet.frames
+      // A GRID (`ItemSheet.rows`, the dialogue pictograms): panel f sits at
+      // column f % cols, row floor(f / cols). Still written as ONE strip, so
+      // nothing that reads the file changes. One row is every other sheet, and
+      // every line below reduces to the strip's own arithmetic there.
+      const rows = sheet.rows ?? 1
+      const cols = Math.ceil(frames / rows)
       const px = await decode(file)
       const want = refW / refH
       const got = px.w / px.h
@@ -461,9 +481,16 @@ for (const file of paintings) {
       // Every stage below assumes all three and none of them can tell
       // otherwise — `tools/strip-guards.mjs` has the whole story.
       if (frames > 1) {
-        const refusal = stripRefusal(px.d, px.w, px.h, frames, panelW * sx)
-        if (refusal) throw new Error(refusal)
-        log(`  · ${stripNote(px.d, px.w, px.h, frames, panelW * sx)}`)
+        // A grid is checked row by row — each row a strip of the drawings it
+        // holds, cut from the columns it uses (a short last row leaves its
+        // right-hand cells empty).
+        for (let r = 0; r < rows; r++) {
+          const n = Math.min(cols, frames - r * cols)
+          const band = rows > 1 ? rowBand(px, r, rows, n, cols) : px
+          const refusal = stripRefusal(band.d, band.w, band.h, n, panelW * sx)
+          if (refusal) throw new Error(rows > 1 ? `row ${r + 1}: ${refusal}` : refusal)
+          log(`  · ${rows > 1 ? `row ${r + 1}: ` : ''}${stripNote(band.d, band.w, band.h, n, panelW * sx)}`)
+        }
       }
 
       // Measure the return's SOLID extent (α > 140) per panel, in reference px.
@@ -474,14 +501,18 @@ for (const file of paintings) {
           if (px.d[(y * px.w + x) * 4 + 3] <= 140) continue
           const rx = (x + 0.5 + offX) / sx
           const ry = (y + 0.5 + offY) / sy
-          const f = Math.min(frames - 1, Math.max(0, Math.floor(rx / panelW)))
-          const ix = rx - f * panelW
+          const col = Math.min(cols - 1, Math.max(0, Math.floor(rx / panelW)))
+          const row = Math.min(rows - 1, Math.max(0, Math.floor(ry / panelH)))
+          const f = row * cols + col
+          if (f >= frames) continue
+          const ix = rx - col * panelW
+          const iy = ry - row * panelH
           if (ix < x0) x0 = ix
           if (ix > x1) x1 = ix
-          if (ry < y0) y0 = ry
-          if (ry > y1) y1 = ry
-          if (ry < hs[f][0]) hs[f][0] = ry
-          if (ry > hs[f][1]) hs[f][1] = ry
+          if (iy < y0) y0 = iy
+          if (iy > y1) y1 = iy
+          if (iy < hs[f][0]) hs[f][0] = iy
+          if (iy > hs[f][1]) hs[f][1] = iy
         }
       }
       if (!Number.isFinite(x0)) throw new Error('nothing opaque left after keying — the ground ate the art, or the painting is empty')
@@ -548,7 +579,7 @@ for (const file of paintings) {
           const ry = crop.y + (oy / fh) * crop.h
           const ux = (rx - ancX - dx * panelW) / k + ancX
           const uy = (ry - ancY - dy * panelH) / k + ancY
-          return [(f * panelW + ux) * sx - offX, uy * sy - offY]
+          return [((f % cols) * panelW + ux) * sx - offX, (Math.floor(f / cols) * panelH + uy) * sy - offY]
         }
         const cell = resampleInto(sample, map, fw, fh, taps)
         for (let y = 0; y < fh; y++) {

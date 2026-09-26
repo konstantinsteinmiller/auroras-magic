@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Chương'
+    'chapters': 'Chương',
+    'tabLabel': '{name} — thắng {n} trên {total} trận đấu'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Nơi này đã nở hoa rực rỡ!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} trên {total} ngôi sao'
   },
 
   'daily': {

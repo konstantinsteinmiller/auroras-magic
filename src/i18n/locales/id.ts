@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Bab'
+    'chapters': 'Bab',
+    'tabLabel': '{name} — {n} dari {total} duel dimenangkan'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Tempat ini mekar sepenuhnya!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} dari {total} bintang'
   },
 
   'daily': {

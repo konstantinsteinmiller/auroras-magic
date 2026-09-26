@@ -295,7 +295,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Rozdziały'
+    'chapters': 'Rozdziały',
+    'tabLabel': '{name} — wygrane pojedynki: {n} z {total}'
   },
 
   // {name} is a creature's name inserted as is — it always stands as the subject.
@@ -535,10 +536,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'To miejsce jest w pełnym rozkwicie!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} z {total} gwiazdek'
   },
 
   'daily': {

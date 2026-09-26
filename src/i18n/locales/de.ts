@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Kapitel'
+    'chapters': 'Kapitel',
+    'tabLabel': '{name} — {n} von {total} Duellen gewonnen'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Dieser Ort steht in voller Blüte!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} von {total} Sternen'
   },
 
   'daily': {

@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Capítulos'
+    'chapters': 'Capítulos',
+    'tabLabel': '{name} — {n} de {total} duelos ganados'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': '¡Este lugar ha florecido por completo!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {n} de {total} estrellas'
   },
 
   'daily': {

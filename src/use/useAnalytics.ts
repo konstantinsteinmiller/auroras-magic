@@ -142,8 +142,6 @@ export type AnalyticsEvent =
   //    no `track(` for one of these has found unbuilt work, not a bug.
   /** A tap creature met for the first time — the sticker album (item 3). `{ node }` */
   | 'sticker_collect'
-  /** A node's optional replay goal met (item 4). `{ nodeId, goal }` */
-  | 'star_earned'
   /** The daily gift opened (item 5). Never a streak. `{ daysSinceLast, reward }` */
   | 'daily_gift'
   /** A rune drawn well past the acceptance threshold (item 7). `{ rune, margin }` */

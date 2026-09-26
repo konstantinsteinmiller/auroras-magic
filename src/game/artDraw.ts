@@ -12,7 +12,7 @@
  */
 import {
   ITEM_SHEETS, RUNE_SHEETS, KEEPSAKE_SHEETS, PORTRAIT_SHEETS, ISLAND_SHEETS, WORLD_UI_SHEETS, PROP_SHEETS, CREATURE_SHEETS, RIG_SHEETS,
-  WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, SECTOR_REF,
+  WARDROBE_ITEM_SHEETS, BRAND_MASCOT_SHEET, ITEM_FILL, itemSheetSize, sheetCols, SECTOR_REF,
   type BrandSheet, type Fit, type ItemSheet, type PageSheet, type SectorSheet, type StorySheet, type WardrobeSheet
 } from '@/game/artSheet'
 import { MOVIE_ICON, HP_FRAMES, type ItemName, type PropName, type CreatureName, type RigPart } from '@/game/artIds'
@@ -346,6 +346,11 @@ export interface Layout {
   w: number
   h: number
   frames: number
+  /** The lattice: `cols` panels a row, `rows` rows (`ItemSheet.rows`); one
+   *  row for every sheet that does not ask. Panel `f` is at column
+   *  `f % cols`, row `floor(f / cols)`. */
+  cols: number
+  rows: number
   panelW: number
   panelH: number
   /** Pixels per unit of the drawing's scale. */
@@ -363,7 +368,9 @@ export const layoutOf = (sheet: ItemSheet): Layout => {
   // square would spend two thirds of the return on magenta.
   const { w, h, panelW, panelH } = sheet.canvas
     ? { w: sheet.canvas.w * sheet.frames, h: sheet.canvas.h, panelW: sheet.canvas.w, panelH: sheet.canvas.h }
-    : itemSheetSize(sheet.frames)
+    : itemSheetSize(sheet.frames, sheet.rows)
+  const rows = sheet.canvas ? 1 : sheet.rows ?? 1
+  const cols = sheet.canvas ? sheet.frames : sheetCols(sheet)
   const box = sheet.kind === 'rune' ? RUNE_BOX : itemBox(specOf(sheet))
   const k = sheet.kind === 'rune'
     ? panelW / box.w
@@ -373,7 +380,7 @@ export const layoutOf = (sheet: ItemSheet): Layout => {
   const cx = (panelW - cw) / 2
   const cy = (panelH - ch) / 2
   return {
-    w, h, frames: sheet.frames, panelW, panelH, k,
+    w, h, frames: sheet.frames, cols, rows, panelW, panelH, k,
     crop: { x: Math.round(cx), y: Math.round(cy), w: Math.round(cw), h: Math.round(ch) },
     ox: cx - box.x * k,
     oy: cy - box.y * k
@@ -390,7 +397,7 @@ const canvasOf = (w: number, h: number): [HTMLCanvasElement, G2D] => {
 /** Draw panel `f` of `sheet` at its place on the lattice. */
 const drawPanel = (g: G2D, sheet: ItemSheet, L: Layout, f: number): void => {
   g.save()
-  g.translate(f * L.panelW + L.ox, L.oy)
+  g.translate((f % L.cols) * L.panelW + L.ox, Math.floor(f / L.cols) * L.panelH + L.oy)
   specOf(sheet).draw(g, L.k, f, NEUTRAL)
   g.restore()
 }
@@ -407,6 +414,22 @@ const drawPanel = (g: G2D, sheet: ItemSheet, L: Layout, f: number): void => {
  */
 const CREATURE_REF_INK = 0.4
 
+/**
+ * Every stroke made on reference canvas `g` at `k` × its width — for a
+ * drawing that strokes its own lines rather than the kit's `ink`. The canvas
+ * is the bench's own and thrown away after, so nothing is put back.
+ */
+const thinStrokes = (g: G2D, k: number): void => {
+  const stroke = g.stroke.bind(g)
+  g.stroke = ((path?: Path2D): void => {
+    const w = g.lineWidth
+    g.lineWidth = w * k
+    if (path) stroke(path)
+    else stroke()
+    g.lineWidth = w
+  }) as typeof g.stroke
+}
+
 /** The reference: every panel on flat magenta, no gutters, no captions. */
 export const renderItemSheet = (sheet: ItemSheet, ground: string | null = '#ff00ff'): HTMLCanvasElement => {
   const L = layoutOf(sheet)
@@ -417,7 +440,16 @@ export const renderItemSheet = (sheet: ItemSheet, ground: string | null = '#ff00
   }
   // Around the panels only, and always put back — the game draws through the
   // very same `ink`, and a leaked scale would thin every sector on the map.
-  if (sheet.kind === 'creature') setRefInk(CREATURE_REF_INK)
+  // Any sheet whose painting came back as a trace says so itself
+  // (`ItemSheet.refInk`); a creature keeps its family's thinning.
+  const refInk = sheet.refInk ?? (sheet.kind === 'creature' ? CREATURE_REF_INK : 1)
+  // Props and the pictogram sets thin through the kit's `ink`, which is how
+  // their references were cut (2026-09-25). A gift, a chest, a phone or a
+  // shelf badge strokes its OWN lines and never meets `ink` — for those every
+  // stroke on this canvas is thinned instead (2026-09-26).
+  const ownLines = sheet.refInk !== undefined && sheet.kind !== 'prop' && !sheet.set
+  if (refInk !== 1 && !ownLines) setRefInk(refInk)
+  if (ownLines) thinStrokes(g, refInk)
   try {
     for (let f = 0; f < L.frames; f++) drawPanel(g, sheet, L, f)
   } finally {
@@ -439,17 +471,21 @@ export const measureFit = (sheet: ItemSheet): Fit => {
   let x0 = L.panelW, y0 = L.panelH, x1 = -1, y1 = -1
   const top = new Array<number>(L.frames).fill(L.panelH)
   const bot = new Array<number>(L.frames).fill(-1)
-  for (let y = 0; y < L.h; y++) {
-    for (let x = 0; x < L.frames * L.panelW; x++) {
+  for (let y = 0; y < L.rows * L.panelH; y++) {
+    for (let x = 0; x < L.cols * L.panelW; x++) {
       if (d[(y * L.w + x) * 4 + 3]! <= 140) continue
-      const f = Math.floor(x / L.panelW)
-      const px = x - f * L.panelW
+      const col = Math.floor(x / L.panelW)
+      const row = Math.floor(y / L.panelH)
+      const f = row * L.cols + col
+      if (f >= L.frames) continue
+      const px = x - col * L.panelW
+      const py = y - row * L.panelH
       if (px < x0) x0 = px
       if (px > x1) x1 = px
-      if (y < y0) y0 = y
-      if (y > y1) y1 = y
-      if (y < top[f]!) top[f] = y
-      if (y > bot[f]!) bot[f] = y
+      if (py < y0) y0 = py
+      if (py > y1) y1 = py
+      if (py < top[f]!) top[f] = py
+      if (py > bot[f]!) bot[f] = py
     }
   }
   if (x1 < 0) return { h: 0, w: 0, bottom: 0, cx: 0.5 }
@@ -482,9 +518,12 @@ export const renderKeySheet = (sheet: ItemSheet): HTMLCanvasElement => {
   g.font = 'bold 26px system-ui, sans-serif'
   g.textAlign = 'center'
   for (let f = 0; f < L.frames; f++) {
-    g.strokeRect(f * L.panelW + 1, 1, L.panelW - 2, L.h - 2)
+    const x = (f % L.cols) * L.panelW
+    const y = Math.floor(f / L.cols) * L.panelH
+    g.strokeRect(x + 1, y + 1, L.panelW - 2, (L.rows > 1 ? L.panelH : L.h) - 2)
     const text = (sheet.panels[f] ?? '').replace(/^Panel \d+:\s*/, '').split(/[.—]/)[0]!.trim()
-    g.fillText(`${f + 1} · ${text}`, f * L.panelW + L.panelW / 2, L.h + 70)
+    // One row: under the sheet, as always. A grid: inside the foot of its cell.
+    g.fillText(`${f + 1} · ${text}`, x + L.panelW / 2, L.rows > 1 ? y + L.panelH - 18 : L.h + 70)
   }
   return cv
 }

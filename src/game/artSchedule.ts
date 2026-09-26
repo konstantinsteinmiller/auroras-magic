@@ -245,7 +245,11 @@ export const duelFxWants = (n: number, save: ScheduleSave): ArtWant[] => {
     ...(frost ? [item(PROP_ART.wardFrost), item(PROP_ART.frostLockIce), item(PROP_ART.snowflake)] : []),
     item(PROP_ART.sleepZ),
     item(PROP_ART.star),
-    item(PROP_ART.twinkle)
+    item(PROP_ART.twinkle),
+    // The help note a lost duel raises (`DuelHelpNote`) wears the sparkle of
+    // the first pictogram set — asked for here, or it was drawn until a
+    // dialogue happened to fetch that set (paint-outstanding §0.2).
+    ['worldUi', pictoSetArtId(0)]
   ]
 }
 
@@ -266,11 +270,14 @@ export const pageWants = (c: number, save: ScheduleSave, env: ScheduleEnv): ArtW
     ['page', pageArtId(c, env.portrait)],
     ...[0, 1, 2, 3, 4].map((i): ArtWant => ['sectorThumb', sectorArtId(c * 5 + i)]),
     BADGE,
-    // The replay star pressed onto every played card (`badge.paintStarSticker`).
-    item(PROP_ART.star),
     BOOKMARK,
     // The book's own board and leaves, round every page.
     BOARD,
+    // A bloom (the daily gift, the Twin Gift) lands on a RESTORED card and
+    // stays there. Its bunny and flower heads (`bloom.ts`) are drawn outside
+    // `sec.props`, so no sector records them: ask for them on any page with a
+    // restored card, or the first bloom is drawn until its painting lands.
+    ...([0, 1, 2, 3, 4].some((i) => hasBit(save.sectorsDone, c * 5 + i)) ? [item(PROP_ART.bunny), item(PROP_ART.flowerHead)] : []),
     // The duelists' rig: Umbra wandering the map and Aurora on the front page
     // wear its painted parts. (The guardian's "next up" silhouette on a locked
     // card is drawn vector on purpose — `map.ts`, paint-outstanding B25.)

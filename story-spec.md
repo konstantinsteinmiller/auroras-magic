@@ -6158,8 +6158,10 @@ Until they exist, the art layer is off in every build
   - The motion around those states is still the drawing's own transform:
     the shake, squash, rattle, float and cross-fade.
 - **Runes (12).** Painted in `RuneGlyph.vue`'s 100-unit box, for the HUD
-  slots, the weakness badge and the spellbook. The canvas traces (snap,
-  reveal, onboarding) stay drawn: a trace is motion, not a picture.
+  slots, the weakness badge and the spellbook. The player's trace and the
+  onboarding guides stay drawn: a trace is motion, not a picture. *(2026-09-26:
+  the snap flash and the reward reveal now settle into the `rune/*` painting —
+  `render.ts` `snapGlyph`, `wipe.ts` `drawTracedRune`.)*
 - **Stays drawn, deliberately:**
   - Of the keepsakes, only what the pose REBUILDS each frame (re-argued
     2026-09-24 under art-roadmap's third-sweep test; this line used to keep

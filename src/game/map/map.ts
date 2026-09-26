@@ -41,8 +41,7 @@ import { drawItem } from '@/game/artItem'
 import { TENT_ART, tentShape } from '@/game/map/tent'
 import { drawGlove } from '@/game/map/glove'
 import { drawBoardArt } from '@/game/map/bookBoard'
-import { badgeFrame, drawBadge, paintStarSticker } from '@/game/map/badge'
-import { hasStar } from '@/game/campaign/stars'
+import { badgeFrame, drawBadge } from '@/game/map/badge'
 import { paintSectorArt, sectorPainted } from '@/game/map/sectorArt'
 import { withCoverLayer, type CoverLayer } from '@/game/map/tapCover'
 import { readInsets } from '@/game/duel/layout'
@@ -1474,16 +1473,6 @@ const drawSector = (g: G2D, n: number, liveBudget: { n: number }): void => {
     if (bloomed) drawBloom(g, n, live ? Td + n * 0.9 : 0)
   }
   g.restore()
-  // The replay star (item 4), pressed onto the card's top-right corner —
-  // OUTSIDE the picture's clip, so it sits on the mount like a sticker and
-  // never covers the sector. Only a node that has been played shows one.
-  if (st === 'done') {
-    const sr = Math.max(7, h * 0.12)
-    g.save()
-    g.translate(x + w - b * 0.4, y - b * 0.2)
-    paintStarSticker(g, sr, hasStar(n))
-    g.restore()
-  }
 }
 
 const drawMarker = (g: G2D, n: number): void => {

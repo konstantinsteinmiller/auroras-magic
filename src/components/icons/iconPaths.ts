@@ -124,8 +124,8 @@ export const ICON_PATHS: Record<GameIconName, string[]> = {
   // sub-paths wound the same way so they merge under nonzero — the chevron's
   // lower tips stop just above the face, and the waist between face and base
   // is the one place the outline narrows, which is what reads as an anvil at
-  // 24 px rather than as a lump. Only ever seen when the drawn mark in
-  // `uiArt.paintForge` cannot be baked; see `ArtIcon`.
+  // 24 px rather than as a lump. (From the game this shared set came from,
+  // where it was the floor under a painted forge mark; see `ArtIcon`.)
   'anvil': [
     // The chevron: two arms of even thickness meeting at a point.
     'M12 2.6 20.2 9.2 20.2 12.4 12 5.8 3.8 12.4 3.8 9.2Z',

@@ -14,10 +14,7 @@
  *     and its keepsake — at the UNBOX, not the win (R-1b): a player may win a
  *     boss and close the game before ever opening the chest;
  *   • a tap creature met for the first time is recorded in `creaturesMet`
- *     (the sticker album, retention item 3) and reported once;
- *   • a node's optional replay goal met is recorded in `stars` (retention
- *     item 4) — on a REPLAY as much as on a first win, which is the whole
- *     point of it.
+ *     (the sticker album, retention item 3) and reported once.
  *
  * `sim.ts` never imports this; it only emits events.
  */
@@ -26,7 +23,6 @@ import { S, save } from '@/game/duel/state'
 import { nextDuelNode, NODE_COUNT } from '@/game/campaign/state'
 import { CHAPTERS, GIFTS, NODES, nodeChapter, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
 import { hasBit, setBit } from '@/game/campaign/bitset'
-import { awardStar, castEarnsStar } from '@/game/campaign/stars'
 import { clamp } from '@/game/duel/util'
 import { track } from '@/use/useAnalytics'
 import { refreshBook } from '@/use/useBook'
@@ -39,25 +35,6 @@ export const isReplay = (node: number): boolean => node >= 0 && node <= S.campai
 export const lossStreakOf = (node: number): number => S.campaign.lossStreaks[String(node)] ?? 0
 
 let installed: (() => void) | null = null
-
-/* ── The replay goal in flight (retention item 4) ──────────────────────── */
-//
-// A star is decided over a whole duel — "she cast a three-rune spell AND then
-// won" — so the controller has to carry one bit from the cast to the finish.
-// The duel that bit belongs to is named by `S.round`, which `resetDuel`
-// increments and nothing else touches: a duel abandoned halfway (the player
-// walks out to the map and comes back) starts a new round, so its half-met
-// goal cannot leak into the next attempt. No duel-start event is needed, and
-// none exists.
-let goalRound = -1
-let goalMet = false
-
-/** Open the accumulator if this event belongs to a duel we have not seen. */
-const sameDuel = (): void => {
-  if (S.round === goalRound) return
-  goalRound = S.round
-  goalMet = false
-}
 
 export const installCampaignController = (): (() => void) => {
   if (installed) return installed
@@ -73,14 +50,6 @@ export const installCampaignController = (): (() => void) => {
     }
     if (e === 'cast') {
       const c = lastPlayerCast()
-      sameDuel()
-      // The spell's runes, from the combo key `comboKey` built: the sorted
-      // ids, dot-joined. Parsed rather than re-derived, so the goal is judged
-      // against exactly what the sim resolved and fired.
-      if (S.flow.node >= 0 && !goalMet) {
-        const runes = c.key ? c.key.split('.').map(Number) : []
-        goalMet = castEarnsStar(S.flow.node, runes, c.count, S.foe)
-      }
       if (c.index >= 0 && !hasBit(S.campaign.combosSeen, c.index)) {
         S.campaign.combosSeen = setBit(S.campaign.combosSeen, c.index)
         save()
@@ -92,11 +61,6 @@ export const installCampaignController = (): (() => void) => {
     if (e !== 'finish') return
     const node = S.flow.node
     if (node < 0) return
-    // The star comes FIRST, and before the fresh/replay split: a replay is
-    // exactly the run it is meant to reward (C24 gives one nothing else).
-    sameDuel()
-    if (won && goalMet) awardStar(node)
-    goalMet = false
     const fresh = node === nextDuelNode(S.campaign) && node > S.campaign.furthestNode
     if (!fresh) return
     const k = String(node)

@@ -2229,8 +2229,7 @@ export const heartAt = (g: G2D, x: number, y: number, r: number, col: string): b
  * WHERE IT IS DRAWN (corrected 2026-09-24 — this used to say "the wind-vane
  * tower's finial", which is `paint()` and so already in that painting): the
  * 3-5 castle lamps lighting up, registered on the lamp star their sector
- * painting already carries, and the map's replay-star sticker (`badge.ts`),
- * tinted gold.
+ * painting already carries.
  *
  * The seam is at the live call site, not inside `star5` — `star5` builds a
  * bare path that two dozen `paint()` shapes fill for themselves.
@@ -2295,7 +2294,9 @@ const zShape = (g: G2D, r: number, col: string): void => {
   g.lineTo(r, -r)
   g.lineTo(-r, r)
   g.lineTo(r, r)
-  g.lineWidth = 7
+  // The plum band round the colour thins with a reference (`kit.refInk`); in
+  // the game it is always 7.
+  g.lineWidth = 3.4 + 3.6 * refInk()
   g.strokeStyle = INK
   g.lineJoin = 'round'
   g.lineCap = 'round'

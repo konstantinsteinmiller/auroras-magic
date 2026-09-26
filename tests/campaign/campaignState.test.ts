@@ -86,7 +86,6 @@ describe('the retention fields', () => {
     expect(c.sessions).toBe(0)
     expect(c.giftDay).toBe(0)
     expect(c.creaturesMet).toBe(emptyBitset(NODE_COUNT))
-    expect(c.stars).toBe(emptyBitset(NODE_COUNT))
     expect(c.photos).toEqual([])
   })
 
@@ -103,13 +102,12 @@ describe('the retention fields', () => {
   it('clamps junk days, junk counters and junk bitsets', () => {
     const c = readCampaign({
       lastPlayedDay: 'yesterday', sessions: -12, giftDay: 1e30,
-      creaturesMet: '%%%', stars: 99
+      creaturesMet: '%%%'
     })
     expect(c.lastPlayedDay).toBe(0)
     expect(c.sessions).toBe(0)
     expect(c.giftDay).toBe(99991231)
     expect(c.creaturesMet).toBe(emptyBitset(NODE_COUNT))
-    expect(c.stars).toBe(emptyBitset(NODE_COUNT))
   })
 
   it('holds the session counter under its ceiling', () => {
@@ -154,7 +152,6 @@ describe('the retention fields', () => {
     c.sessions = 3
     c.giftDay = 20260922
     c.creaturesMet = setBit(c.creaturesMet, 4)
-    c.stars = setBit(c.stars, 4)
     c.photos = ['a1', 'b2']
     expect(readCampaign(JSON.parse(JSON.stringify(c)))).toEqual(c)
   })

@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': '챕터'
+    'chapters': '챕터',
+    'tabLabel': '{name} — 대결 {total}번 중 {n}번 승리'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': '이곳에 꽃이 활짝 피었어요!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — 별 {total}개 중 {n}개'
   },
 
   'daily': {

@@ -55,7 +55,13 @@ describe('the dialogue pictograms, painted as sets (P5)', () => {
       const j = items.find((x) => x.refName === `${s.file}.png`)!
       expect(j, s.file).toBeTruthy()
       expect(j.prompt).toContain('ONE HAND')
-      expect(j.prompt).toContain(`Exactly ${s.frames} panels`)
+      // Painted in rows since 2026-09-25 (`ItemSheet.rows`): briefed as a grid.
+      if (s.rows) {
+        expect(j.prompt).toContain(`A GRID OF ${s.frames} PANELS IN ${s.rows} ROWS`)
+        expect(j.prompt).toContain(`Exactly ${s.frames} drawings`)
+      } else {
+        expect(j.prompt).toContain(`Exactly ${s.frames} panels`)
+      }
       expect(j.prompt).not.toContain('at a different moment')
     }
   })

@@ -18,7 +18,6 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CHAPTERS, NODES_PER_CHAPTER } from '@/game/campaign/tables'
-import { starsInChapter } from '@/game/campaign/stars'
 import { showChapter, openTent } from '@/game/map/map'
 import { openOverlay } from '@/game/flow/scene'
 import { sfx } from '@/game/duel/audio'
@@ -40,27 +39,27 @@ import { openVersus } from '@/game/flow/duelFlow'
 const { t } = useI18n()
 
 /**
- * The ribbon's tabs, and each opened chapter's replay stars (item 4) as
- * `★ 3/5` — a glyph and a number, because nothing on this map is read.
+ * The ribbon's tabs, and each opened chapter's duels won as `3/5` — a finished
+ * chapter reads `5/5` (owner, 2026-09-25: the tab counts the story, not a
+ * side goal; the optional replay stars that used to fill it are gone).
  *
  * The count is taken once, when the scene mounts, and needs no reactive
- * mirror: a star is only ever earned at the end of a DUEL, and getting back
- * to the map from a duel unmounts and remounts this component. A revision
- * counter here would fire for something that cannot happen while it is on
- * screen.
+ * mirror: a duel is only ever won in the DUEL scene, and getting back to the
+ * map from a duel unmounts and remounts this component.
  */
+const wonInChapter = (c: number): number =>
+  Math.max(0, Math.min(NODES_PER_CHAPTER, S.campaign.furthestNode - c * NODES_PER_CHAPTER + 1))
 const tabs = computed(() => CHAPTERS.map((c, i) => ({
   i,
   slug: c.slug,
   open: i <= mapHud.reached,
-  stars: starsInChapter(i)
+  won: wonInChapter(i)
 })))
-const STAR_TOTAL = NODES_PER_CHAPTER
 
-/** A tab's spoken name: the chapter, plus its stars once it is open. */
-const tabLabel = (c: { i: number; slug: string; open: boolean; stars: number }): string =>
+/** A tab's spoken name: the chapter, plus its duels won once it is open. */
+const tabLabel = (c: { i: number; slug: string; open: boolean; won: number }): string =>
   c.open
-    ? t('star.tabLabel', { name: t(`chapter.${c.slug}`), n: c.stars, total: STAR_TOTAL })
+    ? t('map.tabLabel', { name: t(`chapter.${c.slug}`), n: c.won, total: NODES_PER_CHAPTER })
     : t(`chapter.${c.slug}`)
 
 /* The ribbon scrolls on a narrow screen (10 tabs never fit 320 px at the 44 px
@@ -264,7 +263,7 @@ const twinStyle = computed(() => {
         @click.stop="tab(c.i)"
       )
         span.num(aria-hidden="true") {{ c.i + 1 }}
-        span.stars(v-if="c.open" aria-hidden="true") ★{{ c.stars }}/{{ STAR_TOTAL }}
+        span.won(v-if="c.open" aria-hidden="true") {{ c.won }}/{{ NODES_PER_CHAPTER }}
     button.twin(
       v-if="mapHud.twin"
       :style="twinStyle"
@@ -408,7 +407,7 @@ button
   width: 44px
   height: 44px
   border-radius: 12px
-  // The chapter number over its star count: two lines inside the 44 px
+  // The chapter number over its duels won: two lines inside the 44 px
   // floor (§3.4), so the tab stays a 44 px target and the ribbon's height
   // does not change.
   flex-direction: column
@@ -432,9 +431,9 @@ button
     color: var(--am-on-accent)
   &:disabled
     cursor: default
-  // The stars inherit the tab's own ink, so every state keeps the contrast
+  // The count inherits the tab's own ink, so every state keeps the contrast
   // that state was measured at — a tab never writes a colour of its own.
-  > .stars
+  > .won
     font-size: 10px
     line-height: 1
     margin-top: 2px
@@ -452,8 +451,9 @@ button
     transform: none
 
 // The Twin Gift's movie icon: a paper chip on the box's upper-right corner
-// (the button is centred on the box, 1.25 of its height), clear of the drawn
-// film strip on its lower-left panel and of the bow.
+// (the button is centred on the box, 1.25 of its height), clear of the bow.
+// It is the gift's ONLY video mark — the box's own drawn film strip is gone
+// (paint-outstanding B15).
 .ad-mark
   position: absolute
   right: 6%

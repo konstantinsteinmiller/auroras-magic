@@ -15,6 +15,7 @@
 import type { ItemSpec } from '@/game/artItem'
 import { PICTO_SETS, pictoSetArtId } from '@/game/artIds'
 import type { Picto } from '@/game/story/story'
+import { refInk } from '@/game/map/kit'
 import { PICTOS } from './pictos'
 
 type G2D = CanvasRenderingContext2D
@@ -44,7 +45,10 @@ export const paintPicto = (g: G2D, name: Picto, s: number): void => {
       g.fillStyle = p.fill
       g.fill(path)
     }
-    g.lineWidth = p.stroke ? 4 : 2.6 * REF_OUTLINE
+    // A filled shape's outline also takes the bench's reference thinning
+    // (`ItemSheet.refInk` → `kit.setRefInk`); a stroke that IS the picture
+    // does not.
+    g.lineWidth = p.stroke ? 4 : 2.6 * REF_OUTLINE * refInk()
     g.stroke(path)
   }
   g.restore()

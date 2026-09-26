@@ -74,9 +74,9 @@
 // fits. Those strings are spoken, not laid out, so there is nothing to fit —
 // but they must not be counted as covered either:
 //
-//   star.tabLabel        the chapter tab is PAINTED (`game/map/badge.ts`
-//                        draws `★ n/5` as a glyph and a numeral); the label
-//                        is the spoken version of that picture.
+//   map.tabLabel         the chapter tab shows only `3/5` (its duels won)
+//                        under the chapter number; the label is the spoken
+//                        version of those two numerals.
 //   daily.open           a bare tap target laid over the canvas gift.
 //   album.chapter/found/friend/dressTab/albumTab, photo.title/take/card/empty
 //                        picture tabs, baked sticker cells and photo cards.

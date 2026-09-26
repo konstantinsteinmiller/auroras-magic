@@ -295,7 +295,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'Bölümler'
+    'chapters': 'Bölümler',
+    'tabLabel': '{name} — {total} düellodan {n} tanesi kazanıldı'
   },
 
   // {name} is a creature's name inserted as is — it always stands as the subject,
@@ -536,10 +537,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'Burası baştan başa çiçek açtı!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — {total} yıldızdan {n} tane'
   },
 
   'daily': {

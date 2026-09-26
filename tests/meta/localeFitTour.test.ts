@@ -113,6 +113,6 @@ describe('the four retention surfaces are toured', () => {
     // A picture tab's `aria-label` has no box, so no sweep can clear it. The
     // header must keep saying so rather than let the surface look covered.
     expect(AUDIT).toMatch(/WHAT IT CANNOT MEASURE/)
-    for (const key of ['star.tabLabel', 'daily.open']) expect(AUDIT).toContain(key)
+    for (const key of ['map.tabLabel', 'daily.open']) expect(AUDIT).toContain(key)
   })
 })

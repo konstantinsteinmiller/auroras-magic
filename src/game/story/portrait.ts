@@ -926,7 +926,25 @@ const auroraBare = (): boolean => {
  */
 const portraitArtRev = ref(0)
 onArtChanged((c) => {
-  if (!c || c.kind === 'portrait') portraitArtRev.value++
+  if (!c || c.kind === 'portrait') {
+    portraitArtRev.value++
+    return
+  }
+  // A DRESSED Aurora is drawn from her rig and what she wears (`paintBadge`),
+  // so a keepsake's, rig part's or prop's painting that decodes after her bake
+  // left the drawn one on her portrait for the session (paint-outstanding
+  // §0.2). Only her dressed bakes go — every other face is a portrait
+  // painting or a creature drawing, which none of these change.
+  if ((c.kind === 'cosmetic' || c.kind === 'rig' || c.kind === 'prop') && !auroraBare()) {
+    let dropped = false
+    for (const k of cache.keys()) {
+      if (k.startsWith('aurora:') && !k.endsWith(':painted')) {
+        cache.delete(k)
+        dropped = true
+      }
+    }
+    if (dropped) portraitArtRev.value++
+  }
 })
 
 /** A portrait as a data URL, baked on first use. `creature` names which

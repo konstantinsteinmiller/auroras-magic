@@ -294,7 +294,8 @@ export default {
   },
 
   'map': {
-    'chapters': 'บท'
+    'chapters': 'บท',
+    'tabLabel': '{name} — ชนะการดวล {n} จาก {total} ครั้ง'
   },
 
   'story': {
@@ -533,10 +534,6 @@ export default {
 
   'bloom': {
     'claimedToast': 'ที่นี่ดอกไม้บานสะพรั่งแล้ว!'
-  },
-
-  'star': {
-    'tabLabel': '{name} — ดาว {n} จาก {total} ดวง'
   },
 
   'daily': {
