@@ -33,11 +33,17 @@
  * look's common frames ahead, on the VS screen.
  *
  * The strips are small on purpose (owner: "save some space … max 256x256 per
- * frame"): 0.96 px per rig unit, every frame within 256 px.
+ * frame"): 0.96 px per rig unit, every frame within 256 px. Where a frame lands
+ * big — the VS screen, the tent, a very large screen — that was too soft
+ * (owner: "just too blurry"), so each strip has a SHARP twin within 512 px
+ * (`FrameSet.hi`): a draw that would magnify the small strip past `HI_AT` takes
+ * it once it has decoded, on any device the render controller has not had to
+ * throttle (`renderScale.renderCap`).
  */
 import { spriteFor } from '@/game/art'
 import { FRAME_DATA, type FrameWho, type FrameSet } from '@/game/duel/frameData'
-import { idle, recolourRegions, type Look } from '@/game/duel/puppetBake'
+import { idle, recolourRegions, type Look, type RegionStats } from '@/game/duel/puppetBake'
+import { renderCap } from '@/game/renderScale'
 
 export type { FrameWho }
 type G2D = CanvasRenderingContext2D
@@ -66,6 +72,26 @@ export const frameArtId = (who: FrameWho): string => `${who}-frames`
 /** The strip's region mask (`images/rig/<who>-regions.webp`), needed only by a
  *  recoloured look. */
 export const regionsArtId = (who: FrameWho): string => `${who}-regions`
+/** The sharp twin's art ids (`images/rig/<who>-frames-hi.webp`, its mask). */
+export const hiArtId = (who: FrameWho): string => `${who}-frames-hi`
+export const hiRegionsArtId = (who: FrameWho): string => `${who}-regions-hi`
+
+/** Past this magnification of the small strip, a draw takes the sharp one. */
+const HI_AT = 1.6
+/** The sharp strips are for a device the render controller left at full
+ *  resolution: a phone it had to throttle draws the small ones everywhere. */
+export const sharpRigAllowed = (): boolean => renderCap() >= 1.5
+
+/** One resolution of a strip: its pixels, its region mask, its scale and layout. */
+interface Level {
+  tag: string
+  img: HTMLImageElement
+  mask: HTMLImageElement | null
+  px: number
+  anchor: readonly [number, number]
+  rects: Readonly<Record<string, readonly number[]>>
+  regions?: RegionStats
+}
 
 /** The graph over the frames `set` actually has (a missing in-between is skipped). */
 const graphOf = (set: FrameSet): Map<string, string[]> => {
@@ -104,8 +130,9 @@ export const framesOn = (dress: FrameDress | null): boolean => {
 interface Bake { cv: HTMLCanvasElement; px: number }
 /** Baked frames, least recently used first (a Map keeps insertion order). */
 const BAKES = new Map<string, Bake>()
-/** About 7 MB of baked frames: a whole look (23 frames) is well under half of it. */
-const BUDGET_PX = 1_800_000
+/** About 13 MB of baked frames: a whole small look (23 frames) is a fifth of
+ *  it; a sharp frame is four small ones. */
+const BUDGET_PX = 3_200_000
 let bakedPx = 0
 let scratch: CanvasRenderingContext2D | null = null
 const scratchOf = (w: number, h: number): CanvasRenderingContext2D | null => {
@@ -123,28 +150,42 @@ const scratchOf = (w: number, h: number): CanvasRenderingContext2D | null => {
   return scratch
 }
 
-/** Frame `name` in `dress`'s colours: baked on first use, then kept. */
-const bakedFrame = (dress: FrameDress, name: string): HTMLCanvasElement | null => {
-  const key = `${dress.key}#${name}`
+/** The small strip, as a level. */
+const smallOf = (s: Strip, who: FrameWho): Level => ({
+  tag: '', img: s.img, mask: spriteFor('rig', regionsArtId(who)), px: s.set.px, anchor: s.set.anchor, rects: s.set.rects, regions: s.set.regions
+})
+/** The sharp strip, once it (and, for a recolour, its mask) has decoded. */
+const sharpOf = (s: Strip, dress: FrameDress): Level | null => {
+  const h = s.set.hi
+  if (!h || !sharpRigAllowed()) return null
+  const img = spriteFor('rig', hiArtId(dress.who))
+  if (!img) return null
+  const mask = dress.look ? spriteFor('rig', hiRegionsArtId(dress.who)) : null
+  if (dress.look && (!mask || !h.regions)) return null
+  return { tag: '@hi', img, mask, px: h.px, anchor: h.anchor, rects: h.rects, regions: h.regions }
+}
+
+/** Frame `name` in `dress`'s colours at level `lv`: baked on first use, then kept. */
+const bakedFrame = (dress: FrameDress, name: string, lv: Level): HTMLCanvasElement | null => {
+  const key = `${dress.key}#${name}${lv.tag}`
   const hit = BAKES.get(key)
   if (hit) {
     BAKES.delete(key)
     BAKES.set(key, hit)
     return hit.cv
   }
-  const s = STRIPS.get(dress.who)
-  const r = s?.set.rects[name]
-  const mask = spriteFor('rig', regionsArtId(dress.who))
-  if (!s || !r || !mask || !dress.look || !s.set.regions) return null
+  const r = lv.rects[name]
+  const mask = lv.mask
+  if (!r || !mask || !dress.look || !lv.regions) return null
   const x = r[0]!, y = r[1]!, w = r[2]!, h = r[3]!
   const g = scratchOf(w, h)
   if (!g) return null
   g.drawImage(mask, x, y, w, h, 0, 0, w, h)
   const m = g.getImageData(0, 0, w, h).data
   g.clearRect(0, 0, w, h)
-  g.drawImage(s.img, x, y, w, h, 0, 0, w, h)
+  g.drawImage(lv.img, x, y, w, h, 0, 0, w, h)
   const id = g.getImageData(0, 0, w, h)
-  recolourRegions(id.data, w, h, m, s.set.regions, dress.look)
+  recolourRegions(id.data, w, h, m, lv.regions, dress.look)
   const cv = document.createElement('canvas')
   cv.width = w
   cv.height = h
@@ -169,17 +210,28 @@ const warmed = new Set<string>()
  * it is first shown simply bakes then. Cheap to repeat.
  */
 export const warmFrames = (dress: FrameDress | null): void => {
-  if (!dress?.look || warmed.has(dress.key) || !framesOn(dress)) return
-  warmed.add(dress.key)
-  const names = [...WARM_FIRST, ...(FRAME_DATA[dress.who]?.order ?? [])].filter((n, i, a) => a.indexOf(n) === i)
-  const step = (i: number): void => {
-    if (i >= names.length) return
-    idle(() => {
-      if (FRAME_DATA[dress.who]?.rects[names[i]!]) bakedFrame(dress, names[i]!)
-      step(i + 1)
-    })
+  if (!dress?.look || !framesOn(dress)) return
+  const s = STRIPS.get(dress.who)!
+  const bake = (lv: Level, names: readonly string[]): void => {
+    const step = (i: number): void => {
+      if (i >= names.length) return
+      idle(() => {
+        if (lv.rects[names[i]!]) bakedFrame(dress, names[i]!, lv)
+        step(i + 1)
+      })
+    }
+    step(0)
   }
-  step(0)
+  if (!warmed.has(dress.key)) {
+    warmed.add(dress.key)
+    bake(smallOf(s, dress.who), [...WARM_FIRST, ...s.set.order].filter((n, i, a) => a.indexOf(n) === i))
+  }
+  // the sharp standing frames, where the VS screen will want them
+  const sharp = sharpOf(s, dress)
+  if (sharp && !warmed.has(dress.key + '@hi')) {
+    warmed.add(dress.key + '@hi')
+    bake(sharp, ['idle', 'bl1', 'bl2', 'blink'])
+  }
 }
 
 /** The pose, as `chars.ts` computes it (the raw values, before any geometry). */
@@ -268,15 +320,19 @@ export const stepPose = (who: FrameWho, side: number, pose: FramePose, t: number
 export const drawFrame = (g: G2D, dress: FrameDress, name: string, flash: 0 | 1 | 2 = 0): void => {
   const s = STRIPS.get(dress.who)
   if (!s) return
-  const r = s.set.rects[name]
+  // the sharp strip where the small one would be magnified too far
+  const m = g.getTransform()
+  const lv = (Math.hypot(m.a, m.b) > s.set.px * HI_AT && sharpOf(s, dress)) || smallOf(s, dress.who)
+  const r = lv.rects[name]
   if (!r) return
-  const { px, anchor, anchorRig } = s.set
+  const { px, anchor } = lv
+  const { anchorRig } = s.set
   const k = 1 / px
   const w = r[2]!, h = r[3]!
-  let src: CanvasImageSource = s.img
+  let src: CanvasImageSource = lv.img
   let sx = r[0]!, sy = r[1]!
   if (dress.look) {
-    const cv = bakedFrame(dress, name)
+    const cv = bakedFrame(dress, name, lv)
     if (cv) { src = cv; sx = 0; sy = 0 }
   }
   if (flash) {

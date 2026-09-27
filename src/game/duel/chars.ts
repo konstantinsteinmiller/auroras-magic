@@ -278,12 +278,12 @@ const MASCOT_NECK = {
 } as const
 /**
  * An item's own seat on the painted head, where the common fit is not enough:
- * the Acorn Cap is worn BEHIND the near ear, and the mascot's ear stands
- * further back than the vector head's, so the cap goes back with it and the
- * ear shows in front of the brim.
+ * the Acorn Cap sits on the crown behind the horn, a little higher and further
+ * back than the common fit, so its brim cuts the skull with the near ear
+ * showing — further back still, it hung off the back of her head.
  */
 const HEAD_ITEM_FITS: Record<string, readonly number[]> = {
-  acornCap: [1.06, 0, 0, 1.06, -8.5, -2.8]
+  acornCap: [1.06, 0, 0, 1.06, -2, -6.5]
 }
 /** Tuning seam: the head items' fit on the painted head (one item's, with `slug`). */
 export const __headItemsFit = (m: readonly number[], slug?: string): void => {

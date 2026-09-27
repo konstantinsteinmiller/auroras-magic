@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { frameDressOf } from '@/game/duel/chars'
-import { frameArtId, regionsArtId } from '@/game/duel/frameRig'
+import { frameArtId, regionsArtId, hiArtId, hiRegionsArtId } from '@/game/duel/frameRig'
 import { FRAME_DATA } from '@/game/duel/frameData'
 import { FOES, FIRST_UMBRA, shadowOf, guardianOf } from '@/game/duel/foes'
 import { lum } from '@/game/duel/puppet'
-import { duelWants } from '@/game/artSchedule'
+import { duelWants, planFor } from '@/game/artSchedule'
 import { defaultCampaign } from '@/game/campaign/state'
 import { NODES_PER_CHAPTER } from '@/game/campaign/tables'
 
@@ -92,5 +92,45 @@ describe('a duel loads each strip, and a region mask only for a recolour', () =>
       expect(k).toContain(`rig/${regionsArtId(who)}`)
       expect(k.some((x) => x.includes('duelist-'))).toBe(false)
     }
+  })
+})
+
+// THE SHARP STRIPS (owner, 2026-09-27: "just too blurry" — the VS screen, the
+// tent, very large screens): every frame again within 512 px, same rig and
+// matrices, queued right behind a duel's and the tent's first screen on a
+// device the render controller has not throttled.
+describe('the sharp strips', () => {
+  it.runIf(!!FRAME_DATA.aurora?.hi)('are the same frames at twice the scale, each within 512 px', () => {
+    for (const who of ['aurora', 'umbra'] as const) {
+      const set = FRAME_DATA[who]!
+      const hi = set.hi!
+      expect(Object.keys(hi.rects).sort()).toEqual(Object.keys(set.rects).sort())
+      expect(hi.px).toBeCloseTo(set.px * 2, 5)
+      for (const r of Object.values(hi.rects)) expect(Math.max(r[2]!, r[3]!)).toBeLessThanOrEqual(512)
+      for (const r of Object.values(set.rects)) expect(Math.max(r[2]!, r[3]!)).toBeLessThanOrEqual(256)
+    }
+  })
+
+  it.runIf(!!FRAME_DATA.aurora?.hi)("a duel queues its duelists' sharp strips NEXT, never in the hold", () => {
+    const save = { ...defaultCampaign(), prologueSeen: true, introSeen: true }
+    const n = 1 * NODES_PER_CHAPTER + NODES_PER_CHAPTER - 1 // a Guardian: a recolour
+    const p = planFor({ scene: 'duel', node: n }, save, { ...LAND, sharpRig: true })
+    const next = p.next.map(([k, i]) => `${k}/${i}`)
+    const hold = p.hold.map(([k, i]) => `${k}/${i}`)
+    expect(next).toContain(`rig/${hiArtId('aurora')}`)
+    for (const k of hold) expect(k).not.toMatch(/-hi$/)
+    const who = lum(FOES[guardianOf(1)]!.pal[0]) > 0.55 ? 'aurora' : 'umbra'
+    expect(next).toContain(`rig/${hiArtId(who)}`)
+    expect(next).toContain(`rig/${hiRegionsArtId(who)}`)
+    // a throttled device never asks for them
+    const low = planFor({ scene: 'duel', node: n }, save, { ...LAND, sharpRig: false })
+    for (const k of [...low.hold, ...low.next, ...low.soon, ...low.ahead]) expect(k[1]).not.toMatch(/-hi$/)
+  })
+
+  it.runIf(!!FRAME_DATA.aurora?.hi)("the tent queues Aurora's sharp strip and mask", () => {
+    const save = { ...defaultCampaign(), prologueSeen: true, introSeen: true }
+    const next = planFor({ scene: 'wardrobe', node: -1 }, save, { ...LAND, sharpRig: true }).next.map(([k, i]) => `${k}/${i}`)
+    expect(next).toContain(`rig/${hiArtId('aurora')}`)
+    expect(next).toContain(`rig/${hiRegionsArtId('aurora')}`)
   })
 })

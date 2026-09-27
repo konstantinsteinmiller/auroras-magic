@@ -51,7 +51,7 @@
  * as with the art layer off.
  */
 import { FRAME_DATA, type FrameWho } from '@/game/duel/frameData'
-import { frameArtId, regionsArtId } from '@/game/duel/frameRig'
+import { frameArtId, regionsArtId, hiArtId, hiRegionsArtId, sharpRigAllowed } from '@/game/duel/frameRig'
 import { watch } from 'vue'
 import {
   artOverridesEnabled, artSettled, holdBack, preloadArtOverrides, recordArtWants, type ArtWant, type FetchPriority
@@ -89,7 +89,8 @@ export interface Screen { scene: SceneId; node: number; mode?: 'campaign' | 'ver
 
 /** What the device looks like: which orientation's paintings, and whether the
  *  duel's letterbox shows the cloth at all. */
-export interface ScheduleEnv { portrait: boolean; clothInDuel: boolean }
+/** `sharpRig`: the device may draw the painted poses' sharp strips (`frameRig.sharpRigAllowed`). */
+export interface ScheduleEnv { portrait: boolean; clothInDuel: boolean; sharpRig?: boolean }
 
 /** The four stages of one screen's plan, each in the order it goes out. */
 export interface Plan {
@@ -163,6 +164,16 @@ const duelists = (n: number, save: ScheduleSave): ArtWant[] => {
   } else puppetSet(who).forEach(add)
   return out
 }
+/** The sharp twins (`frameRig`, `FrameSet.hi`) of a list's painted-pose strips
+ *  and masks: the VS screen and the tent draw her big. */
+const sharpOfWants = (wants: readonly ArtWant[]): ArtWant[] => wants.flatMap(([, id]): ArtWant[] => {
+  for (const w of Object.keys(FRAME_DATA) as FrameWho[]) {
+    if (!FRAME_DATA[w]?.hi) continue
+    if (id === frameArtId(w)) return [['rig', hiArtId(w)]]
+    if (id === regionsArtId(w)) return [['rig', hiRegionsArtId(w)]]
+  }
+  return []
+})
 const BADGE: ArtWant = [BADGE_ART.kind, BADGE_ART.id]
 const BOOKMARK: ArtWant = [BOOKMARK_ART.kind, BOOKMARK_ART.id]
 const item = (a: { kind: ArtWant[0]; id: string }): ArtWant => [a.kind, a.id]
@@ -577,6 +588,8 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
       // win, then where it lands: node 0's win lands on the FRONT page (the
       // book falls open there and turns itself to chapter 1), any other on
       // its own chapter's page, where the gift now waits.
+      // the duelists' sharp strips first: the VS screen opening this duel draws them big
+      if (env.sharpRig) p.next.push(...sharpOfWants(duelists(n, save)))
       p.next.push(...duelFxWants(n, save))
       p.next.push(...winWants(n, save))
       if (n === OPENING_NODE) p.next.push(...frontWants(env))
@@ -680,6 +693,8 @@ export const planFor = (screen: Screen, save: ScheduleSave, env: ScheduleEnv): P
     }
     case 'wardrobe': {
       p.hold.push(...wardrobeWants(save, env))
+      // she stands big in the tent, trying on skins: her sharp strip and its mask
+      if (env.sharpRig && FRAME_DATA.aurora?.hi) p.next.push(['rig', hiArtId('aurora')], ['rig', hiRegionsArtId('aurora')])
       const next = upNext(save)
       if (next >= 0) p.next.push(...pageWants(Math.min(nodeChapter(next), cap), save, env))
       break
@@ -778,7 +793,7 @@ export const currentEnv = (): ScheduleEnv => {
   const h = typeof window !== 'undefined' ? window.innerHeight : 720
   const portrait = h > w
   const bars = Math.max(w - (h * 16) / 9, h - (w * 9) / 16)
-  return { portrait, clothInDuel: portrait || bars > 12 }
+  return { portrait, clothInDuel: portrait || bars > 12, sharpRig: sharpRigAllowed() }
 }
 
 interface LogEntry { t: number; scene: SceneId; node: number; stage: string; wants: string[] }

@@ -2319,6 +2319,38 @@ mascot's near ear stands in front of its brim as the cap was designed; and a
 knocked-out pose lets the head carry more of the collar (`NECK_HEAD` 0.45
 standing → 0.75 lying), so the bow sits under her resting cheek instead of on it.
 
+**Sharp strips, and the cap again (owner, 2026-09-27: "the hat accessory is even
+worse placed", "in the cast pose the image is very blurry, especially in the
+tent … do the 512x512 versions for the VS preview and the tent and for very high
+screen viewports", "the coloured skins have some artifacts in the hair").**
+
+- **The sharp twins.** Each strip is built a second time at 1.92 px per rig unit,
+  every frame within 512 px (`images/rig/<who>-frames-hi.webp`, 445 + 371 kB,
+  14.5 + 12.2 MB decoded, masks `-regions-hi.webp` 40 kB each), carried in
+  `FrameSet.hi` (same frames, same matrices). `frameRig.drawFrame` takes the
+  sharp strip whenever the small one would be magnified past 1.6× — the VS
+  screen, the tent, a large or high-DPI screen — once it has decoded, and only
+  where `renderScale.renderCap() ≥ 1.5` (a ≤ 2 GB phone starts at 1 and a
+  throttled one drops below: they never load them). The schedule queues them
+  NEXT behind a duel's and the tent's first screen (`ScheduleEnv.sharpRig`),
+  never in the hold. Bakes are keyed per level; the cache grew to 3.2 Mpx.
+- **The Acorn Cap** sits on the crown behind the horn (`HEAD_ITEM_FITS`
+  −2, −6.5): the seat that showed the ear put it off the back of her head.
+- **The skins' face artifacts** were the region mask's face box: everything in it
+  that was not coat stayed as painted, so on a dark skin the cream round the far
+  eye, the forelock's pink and the blush's pale edges glowed in blocks. Now only
+  what is really there stays: an iris (Aurora's is MAUVE, hue 300–330, next to
+  the eye's dark lashes, and in coat rather than mane — a lock the eye box
+  reaches is mane), a catch-light next to an iris, and a knocked-out frame's
+  swirl. The BLUSH is a region of its own (label 5; the mask now steps 50 per
+  label): recoloured with the coat, then its pink laid back over, so it is a
+  soft darker pink on a dark skin. A band over the brow counts the forelock's
+  peach as mane; gold on the head is never a hoof. Pixel sizes in the segmenter
+  scale with the strip (`REG_SCALE`).
+- Trap in the close-up harness: drawing before a recoloured look's MASK has
+  decoded falls back to the old piece puppet (near-black on the Umbra skin) —
+  wait for `framesOn(dress)` per outfit.
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

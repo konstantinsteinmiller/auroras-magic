@@ -609,7 +609,7 @@ export interface RegionStats { coat: Stat | null; hair: Stat | null; horn: Stat 
 
 /**
  * Recolour one painted POSE (`frameRig.ts`) by its region labels — the green
- * channel of its mask, 60 per step: 1 coat, 2 hair, 3 horn, 4 hoof, 0 as
+ * channel of its mask, 50 per step: 1 coat, 2 hair, 3 horn, 4 hoof, 5 blush, 0 as
  * painted (eyes, blush, mouth, inner ear) — each region the way this module
  * recolours that piece of a set, measured against the whole strip's light.
  */
@@ -622,8 +622,19 @@ export const recolourRegions = (d: Uint8ClampedArray, W: number, H: number, mask
     const hornLite: RGB | null = look.horn ? [look.horn[0] + (1 - look.horn[0]) * 0.5, look.horn[1] + (1 - look.horn[1]) * 0.5, look.horn[2] + (1 - look.horn[2]) * 0.5] : null
     for (let i = 0; i < d.length; i += 4) {
       if (!d[i + 3]) continue
-      const lab = Math.round(mask[i + 1]! / 60)
+      const lab = Math.round(mask[i + 1]! / 50)
       if (lab === 1 && coat) coat.gain ? gainPx(d, i, st.coat!, coat.to, 1) : transfer(d, i, st.coat!, coat.to, coat.lite, 1)
+      else if (lab === 5 && coat) {
+        // The blush: coat, with its own pink laid back over the new coat —
+        // kept as painted, a cream-pink cheek glowed on a dark skin, with hard
+        // edges where its region ended.
+        const r0 = d[i]!, g0 = d[i + 1]!, b0 = d[i + 2]!
+        const grey = 0.2126 * r0 + 0.7152 * g0 + 0.0722 * b0
+        coat.gain ? gainPx(d, i, st.coat!, coat.to, 1) : transfer(d, i, st.coat!, coat.to, coat.lite, 1)
+        d[i] = d[i]! + (r0 - grey) * 0.85
+        d[i + 1] = d[i + 1]! + (g0 - grey) * 0.85
+        d[i + 2] = d[i + 2]! + (b0 - grey) * 0.85
+      }
       else if (lab === 2 && look.mane && st.hair) transfer(d, i, st.hair, look.mane[0], look.mane[1], 1)
       else if (lab === 3 && look.horn && st.horn) transfer(d, i, st.horn, look.horn, hornLite!, 1)
       else if (lab === 4 && hoof) hoof.gain ? gainPx(d, i, st.hoof!, hoof.to, 1) : transfer(d, i, st.hoof!, hoof.to, hoof.lite, 1)
