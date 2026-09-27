@@ -2298,6 +2298,23 @@ back to the puppet, and the painted duelists' memory on weak phones.
 - Stray paint islands (Gemini's edge seam) are dropped before packing, as in
   the third pass.
 
+**Worn items on the painted head and neck (owner, 2026-09-27: "the cosmetics
+seem a bit misplaced" — a hat and a tiara on the forehead, goggles on the
+forelock, a bow on the chest).** The head matrices were right; the items were
+placed for the VECTOR head. Drawn in its head space, their skull, ear roots and
+brow band land on the painted mascot's forehead and hairline — her crown sits
+~6–7 head units higher under the mane, and her head with its hair is ~10 %
+bigger. `chars.HEAD_ITEMS_FIT` (1.06×, 4.5 up; painted poses only) puts every
+head item on the crown: the tiara and the flower crown rest on the fringe, the
+goggles sit pushed up on the hair, the acorn cap on top. The neck items stepped
+12–15 units down the vector neck from its collar, which on the chibi's short
+neck is the chest: on a painted pose the collar is now the mascot's own THROAT
+(`MASCOT_NECK`: throat, chest, poll, off the mascot painting), carried half by
+the head and half by the body, with the collar set 13.5 up the neck so every
+neck item lands on it. Checked with a close-up harness drawing the vector
+landmarks over the painted head (`cos-close-entry.ts`), then in the app (VS
+screen and duel).
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

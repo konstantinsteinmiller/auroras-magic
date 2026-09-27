@@ -255,6 +255,26 @@ let HEAD_FM = null as unknown as DOMMatrix
 let BODY_FM = null as unknown as DOMMatrix
 let FORE_FM = null as unknown as DOMMatrix
 let HIND_FM = null as unknown as DOMMatrix
+/**
+ * THE WORN ITEMS ON A PAINTED HEAD. Head-slot items are drawn for the vector
+ * head (skull at the origin, near ear at (0, −19), far ear at (−14, −13), the
+ * brow band over the crown); the mascot's painted head, carried by the same
+ * head matrix, has its skull, ears and crown elsewhere in that space, under a
+ * big mane. This carries the one onto the other (head space → head space).
+ */
+let HEAD_ITEMS_FIT: readonly number[] = [1.06, 0, 0, 1.06, 0.5, -4.5]
+/**
+ * The mascot's neck, in the rig at rest (mascot px → rig: (p − (230, 436.2)) /
+ * 2.36, the poses' fit): the throat a collar rings, just under the jaw on the
+ * short visible neck; the chest below it; the poll above.
+ */
+const MASCOT_NECK = {
+  throat: [(316 - 230) / 2.36, (275 - 436.2) / 2.36],
+  chest: [(318 - 230) / 2.36, (330 - 436.2) / 2.36],
+  poll: [(304 - 230) / 2.36, (195 - 436.2) / 2.36]
+} as const
+/** Tuning seam: the head items' fit on the painted head. */
+export const __headItemsFit = (m: readonly number[]): void => { HEAD_ITEMS_FIT = m }
 /** Prism's cycling mane and horn, in hue steps (as the puppet bakes them). */
 const PRISM_STEPS = 8
 interface DressMemo { d: FrameDress | null; foe: FoeDef | undefined; skin: FoePalette | undefined; mane: PoseState['mane'] | null; prism: string; rb: number }
@@ -1304,21 +1324,25 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       }
     }
     if (FRAMES) {
-      // The neck's collar lies between the body and the head: placed on the
-      // painting partly by each, then given in the BODY's space, where the
-      // hooks draw (below).
-      const cx = anc.neckCollar[0], cy = anc.neckCollar[1]
-      const pb = BODY_FM.transformPoint(new DOMPoint(cx, cy))
-      const ph = HEAD_FM.transformPoint(new DOMPoint(cx, cy))
-      const hc = HEAD_FM.transformPoint(new DOMPoint(hx, hy))
+      // The neck on a painted pose is the MASCOT's: short, under the jaw. The
+      // throat where a collar is worn, the chest below it and the poll above
+      // (`MASCOT_NECK`) are carried onto the painting — the throat mostly by
+      // the head, so a lying head keeps its bow — and given in the BODY's
+      // space, where the hooks draw (below). Neck items step 12–15 down the
+      // neck from the collar, so the collar is set that far above the throat.
+      const [tx, ty] = MASCOT_NECK.throat, [px, py] = MASCOT_NECK.poll, [qx, qy] = MASCOT_NECK.chest
+      const pb = BODY_FM.transformPoint(new DOMPoint(tx, ty))
+      const ph = HEAD_FM.transformPoint(new DOMPoint(tx, ty))
+      const top = HEAD_FM.transformPoint(new DOMPoint(px, py))
+      const bot = BODY_FM.transformPoint(new DOMPoint(qx, qy))
       const inv = BODY_FM.inverse()
-      const col = inv.transformPoint(new DOMPoint(pb.x + (ph.x - pb.x) * 0.4, pb.y + (ph.y - pb.y) * 0.4))
-      const hb = inv.transformPoint(hc)
-      anc.neckCollar[0] = col.x
-      anc.neckCollar[1] = col.y
-      const dl = hypot(hb.x - col.x, hb.y - col.y) || 1
-      anc.neckDir[0] = (hb.x - col.x) / dl
-      anc.neckDir[1] = (hb.y - col.y) / dl
+      const w = inv.transformPoint(new DOMPoint(pb.x + (ph.x - pb.x) * 0.45, pb.y + (ph.y - pb.y) * 0.45))
+      const a = inv.transformPoint(top), b = inv.transformPoint(bot)
+      const dl = hypot(a.x - b.x, a.y - b.y) || 1
+      anc.neckDir[0] = (a.x - b.x) / dl
+      anc.neckDir[1] = (a.y - b.y) / dl
+      anc.neckCollar[0] = w.x + anc.neckDir[0] * 13.5
+      anc.neckCollar[1] = w.y + anc.neckDir[1] * 13.5
     }
     if (st.beforeTorso) {
       g.save()
@@ -1622,6 +1646,7 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // ride every pose and inherit the head's scale for free.
   if (st.afterHead) {
     g.save()
+    if (FRAMES) g.transform(HEAD_ITEMS_FIT[0]!, HEAD_ITEMS_FIT[1]!, HEAD_ITEMS_FIT[2]!, HEAD_ITEMS_FIT[3]!, HEAD_ITEMS_FIT[4]!, HEAD_ITEMS_FIT[5]!)
     st.afterHead(g)
     g.restore()
   }
