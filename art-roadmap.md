@@ -2351,6 +2351,27 @@ screen viewports", "the coloured skins have some artifacts in the hair").**
   decoded falls back to the old piece puppet (near-black on the Umbra skin) —
   wait for `framesOn(dress)` per outfit.
 
+**Each hat its own mount; the wings repainted (owner, 2026-09-27: "make separate
+mounting points for each hat accessory"; "the preview image shows painted
+wings, but the model gets the drawn wings attached — fix it everywhere").**
+
+- `chars.HEAD_ITEM_FITS` now names every hat: the Flower Crown keeps the common
+  seat (on the fringe), the Star Tiara and the Explorer Goggles sit 2.5 units
+  further toward the horn, the Acorn Cap sits on the crown between the near ear
+  and the horn, tilted 0.18 rad toward her face, its brim on the hair.
+- The worn pegasus wing (`images/cosmetics/pegasus-wing.webp`) was a painted
+  TRACE of the vector wing — a flat shield with two drawn strokes — while the
+  shelf badge (`keepsake-pegasus-wings`) shows fluffy feathered wings. Repainted
+  as a Gemini EDIT of the old two-panel return with the badge as the design
+  ("repaint both wings as the feathered wing of image 1 … the same place, the
+  same size, rooted at the lower right"), so the slicer registered it onto the
+  old box (93 %, 1 % shift) and the wing roots where it did. The old return is
+  kept in the scratchpad. The seashell necklace and the winter scarf were
+  checked the same way: their worn pieces already match their badges.
+- The tent now preloads the WORN painting of every keepsake on its shelf, not
+  only its badge: trying on the wings the first time drew the vector stand-in
+  until the painting decoded.
+
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 
 The owner read chapter 4's crystal pictogram as "not painted yet": it was

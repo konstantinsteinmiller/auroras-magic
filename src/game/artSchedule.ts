@@ -471,7 +471,14 @@ export const wardrobeWants = (save: ScheduleSave, env: ScheduleEnv): ArtWant[] =
   }
   // She stands in the middle of it in what she has on. The shelf's rewarded
   // unlocks wear the movie camera.
-  return [['wardrobe', wardrobeArtId(env.portrait)], item(WARDROBE_RUG), ...RIG, ...wornStills(save), ...shelf, item(MOVIE_ICON)]
+  // …and what each of them looks like WORN: a keepsake with a badge of its own
+  // (the pegasus wings) is tried on as its worn painting, which the badge is
+  // not — without it the first try-on drew the vector stand-in, then popped.
+  const worn: ArtWant[] = []
+  for (let id = 0; id < COSMETICS.length; id++) {
+    if (((save.giftsOwned >> id) & 1) === 1 || ALTERNATIVES.includes(id)) worn.push(...wornArt(COSMETICS[id]?.slug))
+  }
+  return [['wardrobe', wardrobeArtId(env.portrait)], item(WARDROBE_RUG), ...RIG, ...wornStills(save), ...shelf, ...worn, item(MOVIE_ICON)]
 }
 
 /** A node's DIALOGUE: printed on its chapter's page, with its speakers' faces. */

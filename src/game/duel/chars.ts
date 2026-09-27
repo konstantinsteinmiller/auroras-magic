@@ -277,13 +277,18 @@ const MASCOT_NECK = {
   poll: [(304 - 230) / 2.36, (195 - 436.2) / 2.36]
 } as const
 /**
- * An item's own seat on the painted head, where the common fit is not enough:
- * the Acorn Cap sits on the crown behind the horn, a little higher and further
- * back than the common fit, so its brim cuts the skull with the near ear
- * showing — further back still, it hung off the back of her head.
+ * EACH HAT'S OWN MOUNT on the painted head (owner, 2026-09-27: "make separate
+ * mounting points for each hat accessory"), head space → head space, over the
+ * common fit's scale: the Flower Crown rests on the fringe as the common fit
+ * seats it; the Star Tiara and the Explorer Goggles sit a little further
+ * toward the horn; the Acorn Cap sits on the crown between the near ear and
+ * the horn, tilted a little toward her face, its brim on the hair.
  */
 const HEAD_ITEM_FITS: Record<string, readonly number[]> = {
-  acornCap: [1.06, 0, 0, 1.06, -2, -6.5]
+  flowerCrown: [1.06, 0, 0, 1.06, 0.5, -4.5],
+  starTiara: [1.06, 0, 0, 1.06, 3, -4.5],
+  explorerGoggles: [1.06, 0, 0, 1.06, 3, -4.5],
+  acornCap: [1.0429, 0.1898, -0.1898, 1.0429, 1, -2.5]
 }
 /** Tuning seam: the head items' fit on the painted head (one item's, with `slug`). */
 export const __headItemsFit = (m: readonly number[], slug?: string): void => {
