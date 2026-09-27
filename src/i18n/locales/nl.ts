@@ -113,6 +113,7 @@ export default {
     'emptySlot': 'Leeg vak',
     'forming': 'Vormt zich: {rune}',
     'weakness': '{rune} doet {n} schade bij deze tegenstander',
+    'strength': '{rune} doet maar {n} schade bij deze tegenstander',
     'sound': 'Geluid aan of uit',
     'spellbook': 'Spreukenboek',
     'hp': '{name}: {n} van {max} levenspunten'
@@ -489,6 +490,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'JOUW RUNEN',
     'weakTo': 'ZWAK TEGEN',
+    'strongTo': 'BESTAND TEGEN',
     'magic': 'MAGIE',
     'epithet': {
       'aurora': 'Hoedster van de Runen',
@@ -598,5 +600,11 @@ export default {
   'help': {
     'auroraLine': 'Kom — ik teken hem met jou!',
     'perfectRune': 'Prachtig getekend!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Eindig je spreuk met een andere rune, niet met {rune}'
+    }
   }
 }

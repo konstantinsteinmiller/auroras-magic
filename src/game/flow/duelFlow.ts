@@ -40,19 +40,21 @@
  * last duel left minor), the fanfare ducks it, and it carries straight on
  * into the fight — `beginDuel` never resets it again.
  */
-import { S } from '@/game/duel/state'
+import { S, save } from '@/game/duel/state'
 import { PH_DUEL } from '@/game/duel/config'
 import { FOES, VERSUS_FOE } from '@/game/duel/foes'
 import { resetDuel, onDuelEvent } from '@/game/duel/sim'
 import { resetFx } from '@/game/duel/fx'
 import { resetAudio, sfx } from '@/game/duel/audio'
-import { duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
+import { STARTING_RUNES, duelSetup, nodeChapter, nodeIsBoss, toolOf } from '@/game/campaign/tables'
 import { isReplay, lossStreakOf } from '@/game/campaign/controller'
 import { noteFirstWin } from '@/game/campaign/session'
 import { earlyEase, duelHpScale } from '@/game/campaign/easing'
 import { glimpseDue } from '@/game/campaign/glimpse'
 import { newRuneDue } from '@/game/campaign/newRune'
 import { armRuneGuide } from '@/game/duel/lesson'
+import { markStrengthTaught, strengthLessonDue } from '@/game/campaign/strengthLesson'
+import { armStrengthLesson } from '@/game/duel/strengthLesson'
 import { pendingSectorNode } from '@/game/campaign/state'
 import { gotoScene, closeOverlay } from '@/game/flow/scene'
 import { reconcileGameplayBracket } from '@/game/flow/bracket'
@@ -60,7 +62,7 @@ import { dipTo, DIP_PUSH } from '@/game/flow/transition'
 import { setArenaGift } from '@/game/restore/gift'
 import { beginDuelPage, resetDuelPage, stashDuelClearing } from '@/game/duel/duelPage'
 import { resetHudMirrors } from '@/use/useDuelHud'
-import { closeHelp, installDuelHelp, openHelp } from '@/game/duel/help'
+import { closeHelp, helpDue, installDuelHelp, openHelp } from '@/game/duel/help'
 import { installPerfectSparkle, resetPerfectMark } from '@/game/duel/perfect'
 import { useMusic } from '@/use/useSound'
 import { isInterstitialReady, showMidgameAd } from '@/use/useAds'
@@ -123,6 +125,8 @@ const beginDuel = (n: number): void => {
   setArenaGift(false)
   resetDuel({
     foe: setup.foe, usesMagic: setup.usesMagic, lossStreak: lossStreakOf(n),
+    // Her strength, from chapter 2 on (§6.6a): the rune she resists.
+    strong: setup.strong,
     // The teaching chapters cost a beginner less (`campaign/easing.ts`); from
     // chapter 4 on this is all 1 and the fight is the roster's own.
     ease: earlyEase(n), versus: false,
@@ -133,7 +137,22 @@ const beginDuel = (n: number): void => {
   })
   // A rune a chest gave her that her hand has never drawn: its guide on the
   // pad for this duel, holding nothing (`campaign/newRune.ts`, `lesson.ts`).
-  armRuneGuide(newRuneDue(n, S.campaign))
+  const guide = newRuneDue(n, S.campaign)
+  armRuneGuide(guide)
+  // The strength lesson (story-spec §8.36a): the first duel whose strength she
+  // owns, once — unless this duel already has a teacher (the rune guide, the
+  // glimpse, the help after two losses); then the next duel with a strength.
+  const strengthDue = strengthLessonDue({
+    strong: setup.strong,
+    owned: (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0,
+    taught: S.campaign.strengthTaught,
+    intro: !!S.intro,
+    versus: false,
+    runeGuide: guide,
+    glimpse: S.glimpse > 0,
+    help: helpDue(lossStreakOf(n))
+  })
+  armStrengthLesson(strengthDue ? { onTaught: () => { if (markStrengthTaught(S.campaign)) save() } } : null)
   // The island dresses for the chapter (§9.6); `arena.ts` rebakes on change.
   S.theme = nodeChapter(n)
   // …and the duel is fought over that sector's own page (§8.29).

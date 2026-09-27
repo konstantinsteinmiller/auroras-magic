@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { hudPops, hudLayout } from '@/use/useDuelHud'
 import { POP_LIFE, type Pop } from '@/game/duel/state'
 import { spellName } from '@/use/useSpellName'
+import GameIcon from '@/components/icons/GameIcon.vue'
+import { guardedLeft, popHalfEm, textEm } from '@/game/duel/popGuard'
 
 /**
  * The floating callouts — "NOT A RUNE", "-12", "WEAK! -20", the spell name,
@@ -38,6 +40,10 @@ const text = (p: Pop): string => {
       : spellName(t, locale.value, { nameId: null, kind: m ? +m[1]! : 0, count: m ? +m[2]! : n, rune: Number(p.p?.rune ?? 0) })
     return n > 1 ? `${name}  ${t('pop.times', { n })}` : name
   }
+  // A blow her strength blunted (§6.6a) is wordless: the shield drawn before
+  // it says "resisted", the number is a plain hit's, and its ×0.55 (its own
+  // span, `mul`) is the strength badge's own words.
+  if (p.k === 'resistHit') return t('pop.hit', p.p ?? {})
   return t(`pop.${p.k}`, p.p ?? {})
 }
 
@@ -53,19 +59,33 @@ const scale = computed(() => {
  * foe, each the family of her own health bar — and drifts off her, outward,
  * the way the blow pushed her, so it can never be read as the other one's.
  * A WEAK hit keeps its mint (the counter-hit says so in its own colour, and
- * only ever lands on the foe) and drifts the same way.
+ * only ever lands on the foe) and drifts the same way. So does a RESISTED one
+ * (§6.6a): a shield before the number, both in the warm resist colour.
  */
-const side = (p: Pop): string => (p.v === undefined ? '' : p.v ? 'on-foe' : 'on-aurora')
+const side = (p: Pop): string =>
+  (p.v === undefined ? '' : p.v ? 'on-foe' : 'on-aurora') + (p.k === 'resistHit' ? ' is-resist' : '')
+
+/** The resisted callout's "×0.55", in its own span at 0.72 em. */
+const mulText = (p: Pop): string => (p.k === 'resistHit' && p.p?.m ? t('pop.times', { n: p.p.m }) : '')
+
+/** A callout's width in its own em: its text, and for a resisted one the
+ *  shield before it and its smaller ×0.55 (`popGuard.ts`). */
+const widthEm = (p: Pop): number =>
+  p.k === 'resistHit' ? 0.9 + textEm(text(p)) + 0.22 + 0.72 * textEm(mulText(p)) : textEm(text(p))
 
 const style = (p: Pop) => {
   const L = hudLayout.value
   const x = props.portrait ? L.vx + p.x * L.vs : p.x
   const y = props.portrait ? L.vy + p.y * L.vs : p.y
   return {
-    left: `${x}px`,
+    // EVERY callout stays on the screen (`popGuard.ts`): on a phone held
+    // upright the foe's "x2 COMBO" and her numbers ran off its right edge, and
+    // a long spell name nearly off its left. The centre keeps half the
+    // callout's width (at its 1.4× pop, plus a number's drift) clear of both.
+    left: guardedLeft(x, popHalfEm(widthEm(p), p.v !== undefined)),
     top: `${y}px`,
     // A side's plain hit takes its colour from the stylesheet's tokens.
-    ...(p.v !== undefined && p.k === 'hit' ? {} : { color: p.c }),
+    ...(p.v !== undefined && (p.k === 'hit' || p.k === 'resistHit') ? {} : { color: p.c }),
     fontSize: `${46 * scale.value}px`,
     '--k': String(scale.value),
     // A callout that is re-rendered mid-flight (a locale switch, a resize)
@@ -78,7 +98,10 @@ const style = (p: Pop) => {
 
 <template lang="pug">
   div.duel-pops(:class="{ fixed: portrait }" aria-live="polite")
-    span.duel-pop.ink-text(v-for="p in hudPops" :key="p.id" :class="side(p)" :style="style(p)") {{ text(p) }}
+    span.duel-pop.ink-text(v-for="p in hudPops" :key="p.id" :class="side(p)" :style="style(p)")
+      GameIcon.pop-shield(v-if="p.k === 'resistHit'" name="shield")
+      | {{ text(p) }}
+      span.pop-mul(v-if="mulText(p)") {{ mulText(p) }}
 </template>
 
 <style scoped lang="sass">
@@ -103,6 +126,27 @@ const style = (p: Pop) => {
 .on-foe
   --dx: 1
   color: var(--am-lilac)
+// Resisted (§6.6a): her strength took the edge off. The number and the
+// shield before it in the muted resist colour, the shield in the same plum
+// line the shouted type wears.
+.on-foe.is-resist
+  color: var(--am-resist)
+.is-resist
+  display: inline-flex
+  align-items: center
+  gap: 0.08em
+.pop-mul
+  margin-left: 0.22em
+  font-size: 0.72em
+.pop-shield
+  flex: none
+  width: 0.82em
+  height: 0.82em
+  :deep(path)
+    stroke: var(--am-ink)
+    stroke-width: 4px
+    stroke-linejoin: round
+    paint-order: stroke fill
 
 // `duel-pop`'s rise and shrink (duel.sass), plus the sideways drift.
 @keyframes duel-pop-drift

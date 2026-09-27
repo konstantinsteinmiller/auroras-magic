@@ -12,12 +12,18 @@
  * recoloured — zero new topology (§9.14); Umbra and her friends are Umbra's
  * painted poses, a friend's hair recoloured (`frameRig.ts`).
  *
- * `element` is the weakness element: it is real from a chapter's first node,
- * so the counter is learnable before the fancy spell shows up. `magic` is the
- * chapter's own new rune, which the foe may cast only from node 3 of that
- * chapter onward (C14's node-3 rule, applied by the caller as `usesMagic`).
+ * `element` is the foe's OWN element (her own rune is a plain ×1 against her,
+ * unless it is also her strength); what she is weak to is the rune that
+ * COUNTERS it (`CTR`, ×1.7) — read it through `weakTo` below, never off
+ * `element` directly. It is real from a chapter's first node, so the counter
+ * is learnable before the fancy spell shows up. `strong` is her STRENGTH
+ * (§6.6a, ×0.55): a rune the player already owns, chosen per chapter — read
+ * what is shown through `strongTo` below, like the weakness.
+ * `magic` is the chapter's own new rune, which the foe may cast only from
+ * node 3 of that chapter onward (C14's node-3 rule, applied by the caller as
+ * `usesMagic`).
  */
-import { NATURE } from '@/game/duel/config'
+import { CTR, FIRE, ICE, LIGHTNING, NATURE, WATER, WIND } from '@/game/duel/config'
 
 /** [coat, shadow, rim, mane, streak, horn, hoof, eye, glow, blush] — `chars.ts`'s palette row. */
 export type FoePalette = readonly [string, string, string, string, string, string, string, string, string, string]
@@ -25,8 +31,18 @@ export type FoePalette = readonly [string, string, string, string, string, strin
 export interface FoeDef {
   /** `duelist.<slug>` — the HP-bar name. */
   slug: string
-  /** Weakness element (a rune id), or -1 for none. */
+  /** Her own element (a rune id), or -1 for none. NOT her weakness: that is
+   *  the rune that counters it — `weakTo`. */
   element: number
+  /**
+   * Her STRENGTH (§6.6a): the rune she resists, ×0.55 when it CLOSES a hand
+   * (the last rune drawn, `closingRune`) — or −1. Her chapter's, shared by
+   * her Guardian. It replaced the hidden own-element resist: one visible
+   * weakness, one visible strength. Live wherever she fights in the campaign
+   * (the gate is a chapter boundary: chapter 1's foes carry −1), and handed to
+   * the duel as `DuelSetup.strong` → `S.eStrong`; the versus Umbra has none.
+   */
+  strong: number
   hpMax: number
   aiTier: 0 | 1 | 2
   /** This chapter's new magic (a rune id) — castable from node 3 — or -1. */
@@ -111,18 +127,46 @@ const hp = (chapter: number, boss: boolean, element: number): number =>
 const tier = (chapter: number, element: number): 0 | 1 | 2 =>
   Math.max(0, Math.min(2, Math.floor(chapter / 3)) - (element < 0 ? 1 : 0)) as 0 | 1 | 2
 
-/** Chapter index (0-based) → [weakness element, new magic]. */
+/** Chapter index (0-based) → [her OWN element (her weakness is `CTR` of it), new magic]. */
 const CH: readonly (readonly [number, number])[] = [
   [NATURE, NATURE], // 1 Whispering Woods — Nature
   [5, 5], // 2 Bubble Bay — Water
   [6, 6], // 3 Cloud Kingdom — Lightning
-  [3, -1], // 4 Crystal Caves — Earth weakness, Crystal Ward (a Signature Spell)
+  [3, -1], // 4 Crystal Caves — Earth (weak to Wind), Crystal Ward (a Signature Spell)
   [7, 7], // 5 Mirror Mountains — Illusion
   [-1, -1], // 6 Rainbow Ridge — exempt; wildcard is player-only
   [-1, 9], // 7 Sunken Sands — exempt, Time
-  [2, -1], // 8 Twilight Tundra — Ice weakness, Frost Lock is player-only
+  [2, -1], // 8 Twilight Tundra — Ice (weak to Fire), Frost Lock is player-only
   [10, 10], // 9 Starlight Summit — Moon
   [-1, -1] // 10 Friendship Festival — Umbra, exempt
+]
+
+/**
+ * EACH CHAPTER'S STRENGTH (owner, 2026-09-27; story-spec §6.6a). Children
+ * spam the two easiest shapes — Wind's wave and Nature's leaf — so those two
+ * are resisted first, in chapters 2–6; the late chapters rotate onto the
+ * other shapes she leans on, so no one rune is always the wrong one. Every
+ * value is a rune she already holds at that chapter's first live duel, never
+ * that chapter's weakness, and never the rune whose new-rune guide is up
+ * there (`tests/duel/strength.test.ts` derives all three from the unlock
+ * schedule). Where it can, a chapter resists the rune the chapter before
+ * rewarded — yesterday's answer is today's wrong one.
+ *
+ * Chapter 1 has none: every duel in it already teaches something (the
+ * first-duel lesson, Ice's guide, the depth glimpse, Wind's guide, the first
+ * boss) — the gate, `campaign/tables.ts` `STRENGTH_FROM_NODE`, is chapter 2.
+ */
+const STRONG: readonly number[] = [
+  -1, // 1 Whispering Woods — none: the teaching chapter
+  WIND, // 2 Bubble Bay — the sea is used to wind; close on Nature, her weakness
+  NATURE, // 3 Cloud Kingdom — nothing grows on a cloud; chapter 2's answer, turned
+  NATURE, // 4 Crystal Caves — no root cracks crystal; Wind is the answer here
+  WIND, // 5 Mirror Mountains — a reflection cannot be blown away; chapter 4's answer, turned
+  WIND, // 6 Rainbow Ridge — no wind blows a rainbow away
+  WATER, // 7 Sunken Sands — the sand drinks every drop
+  ICE, // 8 Twilight Tundra — the frozen cannot be frozen
+  LIGHTNING, // 9 Starlight Summit — the summit stands above the storm
+  FIRE // 10 Friendship Festival — the sky is full of fireworks
 ]
 
 /** Each chapter's standard foe's hair [mane, streak, glow] (the friends'). */
@@ -165,7 +209,7 @@ for (let c = 0; c < 10; c++) {
   // in her own festival. Between: one of her friends.
   const umbra = c === 0 || c === 9
   roster.push({
-    slug: umbra ? 'umbra' : FRIENDS[c - 1]!, element, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
+    slug: umbra ? 'umbra' : FRIENDS[c - 1]!, element, strong: STRONG[c]!, hpMax: hp(c, false, element), aiTier: tier(c, element), magic, boss: false, phase2: null, sigs: SIGS[c]!,
     pal: c === 9 ? UMBRA : c === 0 ? MOONLIT : shade(mane, streak, glow),
     ...(c === 0 ? { gentle: true } : {}),
     ...(umbra ? {} : { model: 'umbra' as const })
@@ -175,15 +219,16 @@ for (let c = 0; c < 10; c++) {
   const [element, magic] = CH[c]!
   const [slug, pal] = GUARDIAN[c]!
   roster.push({
-    slug, element, hpMax: hp(c, true, element), aiTier: tier(c, element), magic, boss: true,
+    slug, element, strong: STRONG[c]!, hpMax: hp(c, true, element), aiTier: tier(c, element), magic, boss: true,
     phase2: PHASE2[c] ?? null, sigs: SIGS[c]!, pal
   })
 }
 
 // Local 2P versus (§6.19): player 2 plays Umbra, befriended — 100 HP, no
-// weakness either side could know about, no AI. Appended: position is the id.
+// weakness and no strength either side could know about, no AI. Appended:
+// position is the id.
 roster.push({
-  slug: 'umbra', element: -1, hpMax: 100, aiTier: 0, magic: -1, boss: false, phase2: null, sigs: 0, pal: UMBRA
+  slug: 'umbra', element: -1, strong: -1, hpMax: 100, aiTier: 0, magic: -1, boss: false, phase2: null, sigs: 0, pal: UMBRA
 })
 
 /**
@@ -213,6 +258,40 @@ export const FIRST_UMBRA = 21
  *  the shadow clones' it replaced). */
 export const shadowOf = (chapter: number): number => chapter
 export const guardianOf = (chapter: number): number => 10 + chapter
+
+/* ─────────────── what the player is shown about a foe's element ─────────────── */
+
+/** `rune` when the player can draw it (`owned`, a drawable-rune mask), else −1. */
+const ifOwned = (rune: number, owned: number): number =>
+  rune >= 0 && ((owned >>> rune) & 1) === 1 ? rune : -1
+
+/**
+ * THE WEAKNESS THE PLAYER IS SHOWN — the duel HUD's badge, the VS preview's
+ * WEAK TO chip (and so its art preload), the help ghost's rune: one rule, so
+ * they cannot drift apart again. It is the rune that COUNTERS her element
+ * (`CTR[element]`, ×1.7 in `elemMul`) — never `element` itself, a plain ×1
+ * (§6.6a) — and only when the player can DRAW it: `owned` is her drawable mask,
+ * `runesUnlocked | STARTING_RUNES`. A hint naming a rune she cannot draw would
+ * teach nothing — chapter 1's foes are Nature, whose counter (Moon) arrives in
+ * chapter 9 (§6.6). −1: nothing to show (no foe, an exempt foe with element
+ * −1, or a counter she does not own yet). Local versus shows none; that is the
+ * caller's (a mode, not a foe).
+ */
+export const weakTo = (foe: FoeDef | undefined, owned: number): number => {
+  const e = foe?.element ?? -1
+  return ifOwned(e >= 0 ? CTR[e] ?? -1 : -1, owned)
+}
+
+/**
+ * THE STRENGTH THE PLAYER IS SHOWN (§6.6a) — the HUD's badge, the VS
+ * preview's chip (and its art preload): her `strong`, the rune she resists
+ * (×0.55 in `elemMul` when it closes a hand), behind the same ownership gate
+ * as `weakTo` — by construction she always holds it (`tests/duel/strength`),
+ * so the gate only guards a save that does not. −1: nothing to show (no foe,
+ * a chapter-1 foe, the versus Umbra). Local versus shows none; that is the
+ * caller's (a mode, not a foe) — in a duel `S.eStrong` is already −1 there.
+ */
+export const strongTo = (foe: FoeDef | undefined, owned: number): number => ifOwned(foe?.strong ?? -1, owned)
 
 /**
  * Rate of rune formation for an AI tier (§6.14): 0.40 / 0.43 / 0.46 runes/s.

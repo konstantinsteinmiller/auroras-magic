@@ -5,6 +5,7 @@ import { previewHud, type PreviewChip } from '@/game/preview/previewHud'
 import { PREVIEW_DOM as D } from '@/game/preview/preview'
 import { vFit } from '@/use/vFit'
 import PreviewRune from '@/components/preview/PreviewRune.vue'
+import GameIcon from '@/components/icons/GameIcon.vue'
 import { RUNE_GAP, chipLayout, runeSize, unitOf } from '@/components/preview/previewSizes'
 
 /**
@@ -20,10 +21,12 @@ import { RUNE_GAP, chipLayout, runeSize, unitOf } from '@/components/preview/pre
  * a few rows in the tall, narrow one beside her in portrait
  * (`previewSizes.runeSize`).
  *
- * The foe's: her CHIPS — what she is weak to, and the chapter's magic she
- * brings — each a small paper pill with the rune on it (1.35 s + 0.10 s
- * each), side by side, or one above the other where the block is narrow. In
- * local versus both sides show a rune row and neither has chips.
+ * The foe's: her CHIPS — what she is weak to, what she RESISTS (her
+ * strength, §6.6a: the pill leads with the HUD badge's shield, so it is never
+ * read as a second weakness), and the chapter's magic she brings — each a
+ * small paper pill with the rune on it (1.35 s + 0.10 s each), side by side,
+ * or one above the other where the block is narrow. In local versus both
+ * sides show a rune row and neither has chips.
  *
  * Anchored by the layout (`lay.heroPowers` / `lay.foePowers`): `y` is the
  * block's top, `x` its left edge, centre or right edge as `align` says, `w`
@@ -43,7 +46,7 @@ const px = (v: number): string => `${v.toFixed(1)}px`
  *  chips is reckoned with that second line. */
 const narrow = computed(() => box.value.w < 0.5 * unitOf(previewHud.lay))
 const epiLines = computed(() => (narrow.value ? 2 : 1))
-const chips = computed(() => chipLayout(previewHud.lay, box.value.w, box.value.h, epiLines.value))
+const chips = computed(() => chipLayout(previewHud.lay, box.value.w, box.value.h, epiLines.value, who.value.chips.length))
 
 const style = computed(() => {
   const b = box.value
@@ -73,7 +76,12 @@ const epithet = computed(() => {
   return t(w.epithet, args)
 })
 
-const chipLabel = (c: PreviewChip): string => t(c.kind === 'weak' ? 'preview.weakTo' : 'preview.magic')
+const CHIP_LABEL: Record<PreviewChip['kind'], string> = {
+  weak: 'preview.weakTo',
+  strong: 'preview.strongTo',
+  magic: 'preview.magic'
+}
+const chipLabel = (c: PreviewChip): string => t(CHIP_LABEL[c.kind])
 </script>
 
 <template lang="pug">
@@ -83,7 +91,8 @@ const chipLabel = (c: PreviewChip): string => t(c.kind === 'weak' ? 'preview.wea
       span.pw-cap.ink-text(v-fit) {{ t('preview.yourRunes') }}
       PreviewRune.pw-rune(v-for="(r, i) in who.runes" :key="r" :rune="r" :style="{ '--i': i }")
     div.pw-chips(v-if="who.chips.length" :class="{ stacked: chips.stacked }")
-      span.pw-chip(v-for="(c, i) in who.chips" :key="c.kind" v-fit :style="{ '--i': i }")
+      span.pw-chip(v-for="(c, i) in who.chips" :key="c.kind" v-fit :class="'is-' + c.kind" :style="{ '--i': i }")
+        GameIcon.pw-chip-shield(v-if="c.kind === 'strong'" name="shield")
         | {{ chipLabel(c) }}
         PreviewRune.pw-chip-rune(:rune="c.rune")
 </template>
@@ -189,6 +198,22 @@ const chipLabel = (c: PreviewChip): string => t(c.kind === 'weak' ? 'preview.wea
   unicode-bidi: plaintext
 .pw-chip-rune
   --rs: calc(var(--ch) * 0.74)
+
+// Her STRENGTH's pill (§6.6a) leads with the HUD badge's shield — the
+// resist colour in the plum line — so "RESISTS" can never pass for a second
+// "WEAK TO". The pill itself stays the same paper.
+.pw-chip.is-strong
+  padding-left: calc(var(--ch) * 0.16)
+.pw-chip-shield
+  flex: none
+  width: calc(var(--ch) * 0.6)
+  height: calc(var(--ch) * 0.6)
+  color: var(--am-resist)
+  :deep(path)
+    stroke: var(--am-ink)
+    stroke-width: 4px
+    stroke-linejoin: round
+    paint-order: stroke fill
 
 // ── the timeline: the powers beat is 1.10 s ──
 .r-powers

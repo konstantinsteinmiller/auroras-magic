@@ -113,6 +113,7 @@ export default {
     'emptySlot': 'Порожня комірка',
     'forming': 'Формується: {rune}',
     'weakness': '{rune} завдає цьому суперникові шкоди: {n}',
+    'strength': '{rune} завдає цьому суперникові лише шкоди: {n}',
     'sound': 'Увімкнути або вимкнути звук',
     'spellbook': 'Книга заклинань',
     'hp': '{name}: здоров’я {n} з {max}'
@@ -490,6 +491,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'ВАШІ РУНИ',
     'weakTo': 'СЛАБКІСТЬ ДО',
+    'strongTo': 'СТІЙКА ДО',
     'magic': 'МАГІЯ',
     'epithet': {
       'aurora': 'Хранителька Рун',
@@ -599,5 +601,11 @@ export default {
   'help': {
     'auroraLine': 'Ходи, намалюємо її разом!',
     'perfectRune': 'Гарно намальовано!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Закінчуй закляття іншою руною, не руною «{rune}»'
+    }
   }
 }

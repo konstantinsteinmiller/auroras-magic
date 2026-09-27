@@ -58,7 +58,7 @@
  * screens with exactly those ratios.
  */
 import { S } from '@/game/duel/state'
-import { FOES, VERSUS_FOE } from '@/game/duel/foes'
+import { FOES, VERSUS_FOE, strongTo, weakTo } from '@/game/duel/foes'
 import { duelSetup, nodeChapter, nodePosInChapter, STARTING_RUNES } from '@/game/campaign/tables'
 import { gotoScene } from '@/game/flow/scene'
 import { isGamePaused } from '@/use/useGamePause'
@@ -231,7 +231,16 @@ export const campaignSpec = (n: number, runesUnlocked: number): PreviewSpec => {
   // chapter's Guardian is named for her place; everyone else is a shadow.
   const epithet = def.slug === 'umbra' ? 'preview.epithet.umbra' : def.boss ? 'preview.epithet.guardian' : 'preview.epithet.friend'
   const chips: PreviewChip[] = []
-  if (def.element >= 0) chips.push({ kind: 'weak', rune: def.element })
+  // WEAK TO: the HUD's own rule (`foes.ts` `weakTo`) — the rune that counters
+  // her element, and only once Aurora can draw it. Never `def.element`: that
+  // is HER element, not her weakness.
+  const weak = weakTo(def, drawableMask(runesUnlocked))
+  if (weak >= 0) chips.push({ kind: 'weak', rune: weak })
+  // …and beside it her STRENGTH (§6.6a), by the HUD badge's rule
+  // (`foes.ts` `strongTo`): only where one is live in this duel (the
+  // campaign's `strengthAt`, from chapter 2 on) and she can draw the rune.
+  const strong = setup.strong >= 0 ? strongTo(def, drawableMask(runesUnlocked)) : -1
+  if (strong >= 0) chips.push({ kind: 'strong', rune: strong })
   if (setup.usesMagic && def.magic >= 0) chips.push({ kind: 'magic', rune: def.magic })
   return {
     mode: 'campaign',

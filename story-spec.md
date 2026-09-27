@@ -3927,8 +3927,9 @@ hand-size 3, per the shipped `MAX_RUNES=3`) with one deterministic function of t
    additively (max 2, only possible in `ABC`); they never scale with the dominant's own numbers.
    A base rune (0–3) as a non-dominant contributes **no** rider (its due is already paid through
    `dr`/`elemMul`, step 7 — see the worked reasoning at the end of §6.20).
-7. **Elemental scaling.** `dr = q[q.length-1]` (post-wildcard-resolution, last drawn). `elemMul(dr,
-   foeEl)` per §6.6. (No rank multiplier — removed per D3; the story build has no element ranks,
+7. **Elemental scaling.** `dr = q[q.length-1]` (post-wildcard-resolution, last drawn — the hand's
+   CLOSING rune, `closingRune`). `elemMul(dr, foeEl, strong)` per §6.6/§6.6a: the foe's weakness
+   ×1.7, her strength ×0.55, anything else ×1. (No rank multiplier — removed per D3; the story build has no element ranks,
    so this step is `elemMul` alone, nothing further.)
 8. **Combo bonus.** If `q.length === 3` and the resolved `kind` is damage-bearing (0, 1, 3, 4 — not
    2 or 5), apply the multiplier from §6.16.
@@ -4114,11 +4115,70 @@ real counter, never matched):
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `CTR[e]` | 3 | 2 | 0 | 1 | 10 | 4 | 5 | 6 | −1 | −1 | 7 | −1 |
 
-`elemMul(r, f)` is **unchanged in code**: `f<0 ? 1 : r===f ? 0.55 : CTR[f]===r ? 1.7 : 1`. Rainbow/
-Time/Love never appear as a `CTR[...]` value, so a cast rune of theirs can never accidentally read
-as "the counter" for any foe; and any foe themed to them uses `f=-1`, so `elemMul` is `1` for
-everyone against them — no special-casing needed anywhere, by construction, same trick the shipped
-Umbra/Prism `-1` already relies on.
+`elemMul(r, f, strong)` (owner, 2026-09-27 — supersedes the shipped `r===f ? 0.55`):
+`f>=0 && CTR[f]===r ? 1.7 : r>=0 && r===strong ? 0.55 : 1`. The counter pays ×1.7; the foe's
+**strength** (§6.6a) pays ×0.55; everything else — **her own element included** — pays ×1. The old
+hidden own-element resist is gone: each foe has exactly one visible weakness and one visible
+strength. Rainbow/Time/Love never appear as a `CTR[...]` value, so a cast rune of theirs can never
+accidentally read as "the counter" for any foe; and any foe themed to them uses `f=-1`, so she has
+no weakness — but she may still have a strength, which is keyed by rune, not by element.
+
+### §6.6a Strength — the rune a foe resists
+
+**Owner, 2026-09-27.** Children spam the two easiest shapes, Wind's wave and Nature's leaf. Every
+foe now shows a **strength** beside her weakness: a rune she resists.
+
+- **Effect.** A cast whose element is her strength takes **×0.55** (`STRONG_MUL`, the old resist
+  value). It replaces the hidden own-element resist (§6.6): one weakness ×1.7, one strength ×0.55,
+  her own element ×1 unless it is the chosen strength.
+- **The closing rune decides.** The element of a cast is its LAST rune drawn (§6.2 step 7; a Rainbow
+  that closes the hand counts as the rune it completed it as, §6.20) — the same rune the weakness
+  reads. So the strong rune may sit *inside* a combo for free: `Fire, Wind` closes on Wind and is
+  resisted, `Wind, Fire` closes on Fire and is not — the same Fire Ball. `closingRune(q)` and
+  `closesOnStrength(q, strong)` (`duel/config.ts`) are the pure helpers.
+- **Only the player's spells.** The foe's spells on Aurora are never element-scaled (§6.14's ease
+  only), so a strength has no mirror on her side.
+- **Per chapter, from runes she already owns.** `FoeDef.strong` (`duel/foes.ts`), one per chapter,
+  shared by its Guardian (node 0's Umbra copies chapter 1's). Constraints, derived from the unlock
+  schedule in `tests/duel/strength.test.ts`: never that chapter's weakness `CTR[element]`; a rune
+  she holds on a first play at the chapter's first live duel (`runesHeldBy`); never the rune whose
+  new-rune guide can be up there (`newestRuneBy`) — the game never resists what it is teaching;
+  never Rainbow; Wind and Nature in several of chapters 2–6, chapters 7–10 rotating onto other
+  shapes, no rune in more than three chapters. Where it can, a chapter resists the rune the chapter
+  before rewarded (chapter 2's answer Nature is chapter 3's strength; chapter 4's Wind, 5's).
+
+| Ch | Own element | Weak to (×1.7) | Strength (×0.55) | Why |
+|---|---|---|---|---|
+| 1 | Nature | Moon (held from ch. 10) | — | the teaching chapter: every duel already teaches something |
+| 2 | Water | Nature | **Wind** | the sea is used to wind; close on Nature |
+| 3 | Lightning | Water | **Nature** | nothing grows on a cloud; chapter 2's answer, turned |
+| 4 | Earth | Wind | **Nature** | no root cracks crystal; Wind is the answer here |
+| 5 | Illusion | Lightning | **Wind** | a reflection cannot be blown away; chapter 4's answer, turned |
+| 6 | −1 | — | **Wind** | no wind blows a rainbow away |
+| 7 | −1 | — | **Water** | the sand drinks every drop |
+| 8 | Ice | Fire | **Ice** | the frozen cannot be frozen |
+| 9 | Moon | Illusion | **Lightning** | the summit stands above the storm |
+| 10 | −1 | — | **Fire** | the festival sky is full of fireworks |
+
+- **The gate: from chapter 2 (node 2-1, `STRENGTH_FROM_NODE = 5`), node-keyed.** Chapter 1 is left
+  alone because every duel in it already teaches something: the first-duel lesson (1-1), Ice's
+  guide (1-2), the depth glimpse (1-3), Wind's guide (1-4), the first boss (1-5). By 2-1 she holds
+  five runes. Nature's guide can be up at 2-1 too, and it teaches the same thing: Nature is chapter
+  2's weakness, Wind its strength — close on Nature, not Wind. A chapter boundary, so every campaign
+  foe's own `FoeDef.strong` is exactly what is live (chapter 1's foes carry −1). The campaign
+  resolves it (`campaign/tables.ts` `strengthAt(n)`, `DuelSetup.strong`) and hands it to the duel
+  with the foe (`DuelStart.strong` → `S.eStrong`), like C14's `usesMagic`; the duel never reads a
+  node (§4.8.1). A replay of a node has what a first play has.
+- **What is shown:** `foes.ts` `strongTo(foe, owned)`, the sibling of `weakTo` behind the same
+  ownership gate (§8.38) — by construction it never hides a live strength on a first play.
+- **Local versus: none** (§6.19 — the plain fight both ways; `resetDuel` ignores a strength there).
+- **Said, like a weakness.** A shot that closed on the strength carries `Shot.rs` (as `Shot.w`
+  marks a counter-hit); when it lands on the foe the sim emits the `resisted` duel event and counts
+  `duelTally.resisted`. The callout and the chips are UI (§8); the lesson that teaches it is its
+  own step.
+- **Unchanged:** HP and AI tier still key off `element` (a foe with element −1 is still the "no
+  weakness" foe of §6.12's S4 note); the foe's own rune choice still leans on her element
+  (§6.13).
 
 ### §6.7 The ten chapter magics — exact rules and numbers
 
@@ -4254,33 +4314,37 @@ Per C5/C26/M2: standard nodes are **Umbra's shadow clones** (all `duelist.shadow
 chapter, per §10.3's own non-goal — chapter 1's inline dialogue nickname "shadow puffs" (C26) is
 flavour text only, not a separate key); bosses are **9 Guardians + Umbra** (node 10-5 only). §10
 owns names — the ids below are copied verbatim from `spec-10-story.md` §10.3's cast table, which
-is also canonical for reuse-or-new status. This table is the mechanics: element/weakness, AI tier
-(via §6.12), and the node-3-rule (C14: a chapter's foes may use its own new magic only from node 3
+is also canonical for reuse-or-new status. This table is the mechanics: own element (her weakness is
+the rune that counters it, `CTR`, §6.6), strength (§6.6a), AI tier (via §6.12), and the node-3-rule (C14: a chapter's foes may use its own new magic only from node 3
 of that chapter onward; nodes 1–2 use base-four runes dyed to the chapter's palette, but
-**already** carry the chapter's real weakness element, so the counter is learnable from node 1
-even before the fancy new spell shows up).
+**already** carry the chapter's real element — and so its real weakness — so the counter is
+learnable from node 1 even before the fancy new spell shows up).
 
 **M2 correction:** chapters 3 and 7 reuse the shipped rivals **Zephyr** and **Ember** as their
 Guardians' rig/name/voice (§10.3), the cheaper option C5 prefers — but §6 keeps its own mechanics
 for both exactly as originally designed: chapter 3 stays a **Lightning**-themed fight (Zephyr is a
-reused *rig*, not a reused *element* — her weakness is Lightning, not Wind), and chapter 7 stays
+reused *rig*, not a reused *element* — her element is Lightning, not Wind, so she is weak to Water), and chapter 7 stays
 **exempt** (`−1`) under **Time**'s mechanics (Ember is a reused *rig*, not a reused *element* —
 she has no exploitable weakness, same as Umbra/Prism). This is a deliberate split, stated once
 here and cross-referenced from §6.7.3/§6.7.7: **the character reuses a shipped rig and name; the
 combat numbers do not follow the rig, they follow the chapter.**
 
-| Ch | Guardian (node ×-5) | `duelist.*` id (§10.3) | Reuses | Element (weakness) | New magic first usable at |
-|---|---|---|---|---|---|
-| 1 | Briar | `briar` | new | Nature (4) | node 1-3 |
-| 2 | Pearl | `pearl` | new | Water (5) | node 2-3 |
-| 3 | Zephyr | `zephyr` | **reused rig/name only** (M2 — mechanics stay Lightning, not Wind) | Lightning (6) | node 3-3 |
-| 4 | Terra | `terra` | reused | Earth (3) | node 4-3 (Crystal Ward) |
-| 5 | Echo | `echo` | new | Illusion (7) | node 5-3 |
-| 6 | Prism | `prism` | reused (a prism casts a rainbow — a strong name fit) | −1 (exempt) | n/a (wildcard never AI-cast, §6.13) |
-| 7 | Ember | `ember` | **reused rig/name only** (M2 — mechanics stay exempt/Time, not Fire) | −1 (exempt) | node 7-3 |
-| 8 | Glace | `glace` | reused | Ice (2) | node 8-3 (Frost Lock is player-only, so "usable" here means she may still be *hit by* it and must resist it per §6.11) |
-| 9 | Nova | `nova` | new | Moon (10) | node 9-3 |
-| 10 | Umbra | `umbra` | shipped, moved here per C26 | −1 (exempt) | see §6.11 (3-phase boss) |
+| Ch | Guardian (node ×-5) | `duelist.*` id (§10.3) | Reuses | Own element (weak to, ×1.7) | Strength (×0.55, §6.6a) | New magic first usable at |
+|---|---|---|---|---|---|---|
+| 1 | Briar | `briar` | new | Nature (4) (Moon) | — | node 1-3 |
+| 2 | Pearl | `pearl` | new | Water (5) (Nature) | Wind | node 2-3 |
+| 3 | Zephyr | `zephyr` | **reused rig/name only** (M2 — mechanics stay Lightning, not Wind) | Lightning (6) (Water) | Nature | node 3-3 |
+| 4 | Terra | `terra` | reused | Earth (3) (Wind) | Nature | node 4-3 (Crystal Ward) |
+| 5 | Echo | `echo` | new | Illusion (7) (Lightning) | Wind | node 5-3 |
+| 6 | Prism | `prism` | reused (a prism casts a rainbow — a strong name fit) | −1 (exempt: no weakness) | Wind | n/a (wildcard never AI-cast, §6.13) |
+| 7 | Ember | `ember` | **reused rig/name only** (M2 — mechanics stay exempt/Time, not Fire) | −1 (exempt: no weakness) | Water | node 7-3 |
+| 8 | Glace | `glace` | reused | Ice (2) (Fire) | Ice | node 8-3 (Frost Lock is player-only, so "usable" here means she may still be *hit by* it and must resist it per §6.11) |
+| 9 | Nova | `nova` | new | Moon (10) (Illusion) | Lightning | node 9-3 |
+| 10 | Umbra | `umbra` | shipped, moved here per C26 | −1 (exempt: no weakness) | Fire | see §6.11 (3-phase boss) |
+
+The chapter's standard foe (Umbra in chapters 1 and 10, one of her friends between) has the same
+element and strength as its Guardian; node 1-1's Umbra has chapter 1's; the versus Umbra has
+neither.
 
 Every Guardian above matches §10.3's `duelist.*` id exactly — no chapter of this spec invents a
 name §10 doesn't also carry. `[S2]`–`[S4]` per chapter, matching that chapter's own stage tag.
@@ -4329,20 +4393,21 @@ verifiable that the formula doesn't already say).
 (isBoss ? 20 : 0)`, **except chapter 10, where the boss bonus is `+16` (`hpMax = 143`, not `147`
 — M1 tuning, §6.11/§6.14/§7.2)** (§6.14); `element = ` this chapter's Guardian element (§6.10) if
 `isBoss`, else this chapter's element regardless of `nodeInChapter` (the weakness is always real;
-only the *casting* of the new magic is gated to node 3+, §6.10); `usesNewMagic = nodeInChapter >= 3`.
+only the *casting* of the new magic is gated to node 3+, §6.10); `usesNewMagic = nodeInChapter >= 3`;
+`strong = chapter >= 2 ? this chapter's strength : −1` (§6.6a, `strengthAt`).
 
-| Chapter | tier | stdHp | bossHp | element | nodes 1–4 use new magic? | node 5 |
-|---|---|---|---|---|---|---|
-| 1 | 0 | 100 | 120 | Nature | nodes 3–4 only | Briar |
-| 2 | 0 | 103 | 123 | Water | nodes 3–4 only | Pearl |
-| 3 | 0 | 106 | 126 | Lightning | nodes 3–4 only | Zephyr (Lightning mechanics, M2) |
-| 4 | 1 | 109 | 129 | Earth | nodes 3–4 only (Crystal Ward) | Terra |
-| 5 | 1 | 112 | 132 | Illusion | nodes 3–4 only | Echo |
-| 6 | 1 | 115 | 135 | −1 | n/a (wildcard is player-only) | Prism |
-| 7 | 2 | 118 | 138 | −1 | nodes 3–4 only (Time) | Ember (exempt/Time mechanics, M2) |
-| 8 | 2 | 121 | 141 | Ice | nodes 3–4 only (Frost Lock is player-only; she resists it) | Glace |
-| 9 | 2 | 124 | 144 | Moon | nodes 3–4 only | Nova |
-| 10 | 2 | 127 | **143** (M1 tuning: `+16`, not `+20` — §6.11) | −1 | n/a (Love is player-only except Umbra's own phase 3) | Umbra (3-phase) |
+| Chapter | tier | stdHp | bossHp | element | strength (§6.6a) | nodes 1–4 use new magic? | node 5 |
+|---|---|---|---|---|---|---|---|
+| 1 | 0 | 100 | 120 | Nature | — | nodes 3–4 only | Briar |
+| 2 | 0 | 103 | 123 | Water | Wind | nodes 3–4 only | Pearl |
+| 3 | 0 | 106 | 126 | Lightning | Nature | nodes 3–4 only | Zephyr (Lightning mechanics, M2) |
+| 4 | 1 | 109 | 129 | Earth | Nature | nodes 3–4 only (Crystal Ward) | Terra |
+| 5 | 1 | 112 | 132 | Illusion | Wind | nodes 3–4 only | Echo |
+| 6 | 1 | 115 | 135 | −1 | Wind | n/a (wildcard is player-only) | Prism |
+| 7 | 2 | 118 | 138 | −1 | Water | nodes 3–4 only (Time) | Ember (exempt/Time mechanics, M2) |
+| 8 | 2 | 121 | 141 | Ice | Ice | nodes 3–4 only (Frost Lock is player-only; she resists it) | Glace |
+| 9 | 2 | 124 | 144 | Moon | Lightning | nodes 3–4 only | Nova |
+| 10 | 2 | 127 | **143** (M1 tuning: `+16`, not `+20` — §6.11) | −1 | Fire | n/a (Love is player-only except Umbra's own phase 3) | Umbra (3-phase) |
 
 **Exceptions to the formula:**
 - **Node 1 overall** (ch.1, node 1) is the tutorial duel. No separate HP/tier exception — the
@@ -7774,6 +7839,51 @@ the sequencer off, Poki's bracket closed — and the same for Options). After
 ANY pause ends (a menu, an ad, the tab) the foe may not release a spell for
 `RESUME_GRACE_S` = 1 s (`noteResume`, wired in `AppScene`); she keeps forming.
 
+### §8.36a Owner ruling, 2026-09-27 — the strength lesson (wordless)
+
+A strength (§6.6a) is paid on the rune that CLOSES a hand — a rule about
+order, which a badge cannot teach. So once, the game shows it, without a word.
+
+- **When.** The first campaign duel whose live strength she owns, with another
+  rune to close on; never in versus, never during the first-duel lessons.
+  One teacher at a time: if the duel already has the new-rune guide, the
+  depth glimpse or the after-two-losses help, it waits for the next duel with
+  a strength. On a first play 2-1 always has Nature's guide (1-5's chest has
+  only just given it), so the lesson lands on **2-2 (node 6)** — or later, for
+  a child who never draws Nature. `campaign/strengthLesson.ts`
+  `strengthLessonDue`, armed by `duelFlow.beginDuel`.
+- **The hold.** At the glimpse's moment (≥ 6 s in, nothing in the air, no
+  ward/decoy/wind-up of hers, foe ≥ 25 %) the foe holds still: she forms and
+  casts nothing, and the HUD's strength badge pulses (`S.strongCue`).
+- **The demo** (`duel/strengthLesson.ts` `demoFrame`, `StrengthLesson.vue`),
+  looping while her hand is empty and she is not drawing: a ghost finger
+  draws the pair rune, then the strength, on the pad from a gold start dot;
+  each drops into her slots; the closing slot gets a coral **✕**, and a dim
+  ghost spell lands as a small puff behind a shield in `--am-resist`. Then
+  the same runes the other way round: mint **✓**, and a bright spell lands
+  big. The pair is true in the rules (`strengthPair`): both orders HIT and
+  close where shown, her weakness when that works — chapter 2 shows
+  Fire, Wind ✕ / Wind, Fire ✓ (Nature, Wind is a ward: nothing would land).
+- **Her tries.** While she builds a hand that will HIT, her own closing slot
+  shows ✕ (it closes on the strength) or ✓ (two runes or more closed on
+  another). A damaging cast of ≥ 2 runes NOT closing on the strength is the
+  answer: ✓, a chime, the real hit, and the foe wakes 1.2 s after it lands
+  (+1 s breath). A hand closing on it lands resisted (the real ×0.55, the
+  resisted pop) and the demo plays again from the top. A lone rune, or a hand
+  that does not hit (a ward, a decoy — Nature, Ice is a wall), is no try: no
+  mark, nothing counted, the demo carries on. Nobody is stuck:
+  3 wrong hands, or 20 s held, and it lets go silently. A wrong hand cast
+  before one whole ✕ demo has been on screen is not counted.
+- **Saved once:** `CampaignState.strengthTaught` (default false; a save from
+  before reads false, so a returning player meets it once), set on the right
+  hand or a let-go. A duel that ends or is left mid-lesson does not set it.
+- **The director.** The AFK clock is held at zero during the hold (`noteAct`,
+  as the first-duel lessons do), and casts during it stay out of the haste's
+  pace tally. The trade still sees the free hits — the foe may press a
+  little after it, as after any lead.
+- **Words.** None on screen. One aria label for the layer,
+  `lesson.strength.hint` (21 locales); the ✓ beat reads `duel.great`.
+
 ### §8.37 Owner request, 2026-09-24 — the spell forge and the cast lock
 
 *"Let's add an animation where the consumed runes are forging together into
@@ -8019,8 +8129,16 @@ at the hand-off), which fades over the duel's first 0.25 s.
 **What it shows.** Left, Aurora (her wardrobe on), "Keeper of the Runes", and
 EVERY rune she can draw in this duel (`drawableMask`). Right, the foe by name,
 her epithet (a Guardian of the chapter's place, Umbra's Shadow, the Dust
-Princess), a crown on a Guardian's ribbon, and two chips: WEAK TO her weakness
-rune, and MAGIC her chapter magic when this node lets her use it. Top, the
+Princess), a crown on a Guardian's ribbon, and her chips: WEAK TO her weakness
+rune, a strength chip with her strength rune (§6.6a; its label is the UI's),
+and MAGIC her chapter magic when this node lets her use it. WEAK TO shows only
+when the player OWNS the counter rune (`foes.ts` `weakTo(foe, owned)`, `owned`
+= `runesUnlocked | STARTING_RUNES`) — the same rule, and the same helper, as the
+duel HUD's badge, so the two can never disagree: chapter 1's Nature foes show
+none until Moon is hers. The strength chip follows the matching rule through
+its sibling `strongTo(foe, owned)`: her strength, when the player owns that
+rune — which on a first play she always does, from chapter 2 on — and nothing
+for chapter 1's foes or in versus. Top, the
 chapter's name with five pips (the boss pip a crown). Versus: Player 1 /
 Player 2, both rune rows. All copy is `preview.*` in the 21 locales.
 

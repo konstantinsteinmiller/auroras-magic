@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Casella vuota',
     'forming': 'In formazione: {rune}',
     'weakness': '{rune} infligge {n} danni a questo avversario',
+    'strength': '{rune} infligge solo {n} danni a questo avversario',
     'sound': 'Attiva o disattiva l’audio',
     'spellbook': 'Libro magico',
     'hp': '{name}: {n} su {max} punti vita'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'LE TUE RUNE',
     'weakTo': 'DEBOLE CONTRO',
+    'strongTo': 'RESISTE A',
     'magic': 'MAGIA',
     'epithet': {
       'aurora': 'Custode delle Rune',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Vieni — la disegno con te!',
     'perfectRune': 'Disegnata benissimo!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Chiudi l’incantesimo con un’altra runa, non con {rune}'
+    }
   }
 }

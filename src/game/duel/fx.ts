@@ -44,6 +44,7 @@ import { lookOf } from '@/game/duel/spellArt'
 import { drawItem, type ItemSpec } from '@/game/artItem'
 import { PROP_ART, type PropName } from '@/game/artIds'
 import { bubbleAt } from '@/game/map/kit'
+import { RESIST_INK } from '@/game/duel/resist'
 
 /**
  * THE POOL'S DICE. `sysRnd` is `Math.random` — the very stream the duel's
@@ -136,6 +137,10 @@ const C_SILVER = C_PASTEL + PASTELS.length
 const C_GOLD = C_SILVER + 1
 PAL[C_SILVER] = '#e4ecf7'
 PAL[C_GOLD] = '#ffd36b'
+/** A foe's STRENGTH (§6.6a): the resisted hit's puff and ring, in the ×0.55
+ *  badge's own amber (`resist.ts` = `--am-resist`). */
+const C_RESIST = C_GOLD + 1
+PAL[C_RESIST] = RESIST_INK
 /** A rune's highlight slot. FIRE (0) returns 0: `sp()` reads 0 as "fan out
  *  into fire's three bands", which is the whole cel fire look. */
 const hi = (rune: number): number => (rune ? C_HI + rune : 0)
@@ -557,6 +562,25 @@ export const impact = (x: number, y: number, rune: number, p?: number, mix = -1)
   flashAdd(0.1 + p * 0.3)
   stopAdd(0.026 + p * 0.05)
   punchAdd(0.25 + p * 0.5)
+}
+
+/**
+ * A RESISTED hit (§6.6a): the spell closed on her strength and landed at
+ * ×0.55, so it gets no element burst — no white impact frame, no shockwaves,
+ * no afterlife. It dies in a soft cloud in the strength badge's amber, with a
+ * spray of dull amber glints (the additive pass, so they glow rather than
+ * read as ink), and a pinch of the element's own debris so what hit her is
+ * still named. Small shake, no flash of its own: the weak blow should FEEL
+ * weak. On the duel's own dice, like `impact`, whose place it takes.
+ */
+export const resistPuff = (x: number, y: number, rune: number, p?: number): void => {
+  rune = fxRune(rune)
+  p = clamp(+(p ?? 0) || 0, 0, 1)
+  burst(x, y, 6 + p * 4, 60 + p * 50, 0.9, 24 + p * 14, K_PUFF, C_RESIST, C_RESIST, 0.02)
+  burst(x, y, 6 + p * 4, 150 + p * 90, 0.45, 8 + p * 4, K_GLINT, C_RESIST, C_RESIST, 0.02)
+  burst(x, y, 2 + p * 2, 90 + p * 60, 0.5, 6 + p * 3, kindOf(rune), rune, hi(rune), 0.03)
+  shakeAdd(0.06 + p * 0.12)
+  stopAdd(0.01)
 }
 
 /**

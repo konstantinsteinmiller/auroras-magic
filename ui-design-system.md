@@ -92,6 +92,7 @@ Each accent is a triple: **face** (gradient top), **foot** (gradient bottom),
 | Secondary action | `--am-lilac` / `-foot` / `-plate` | `#C9B0FF` | `#A98CF0` | `#6F55C9` | The other button in a pair; "this is happening now" (live CAST). `-plate` is already `MapScene`'s open-chapter colour. |
 | Danger / leave | `--am-coral` / `-foot` / `-plate` | `#FFB3A3` | `#F08C78` | `#A8503E` | Close, leave the duel, dismiss. A blush coral, never `#ff3e3e`. |
 | Success / confirm | `--am-mint` / `-foot` / `-plate` | `#9BE8C4` | `#6FCFA4` | `#2F8A63` | Ready, claimed, restored. |
+| Resist (a foe's strength) | `--am-resist` | `#DDA46C` | — | — | **Not a button accent**: a single colour, no foot, no plate. A foe's STRENGTH (§6.6a, ×0.55), the muted warm opposite of the weakness's mint: the duel HUD's strength badge (its "×0.55" and the shield over the rune), the shield that leads the VS preview's "RESISTS" chip, and the resisted hit's shield-and-number callout. Always inside an `--am-ink` line (`.ink-text`, or a `paint-order: stroke` outline on the `shield` glyph) — never a bare fill on paper (2.03:1). Added 2026-09-27. |
 | Reward (money) | `--am-reward` / `-foot` / `-plate` | `#FFC93F` | `#EF9A1F` | `#A9660F` | The rewarded-video button. **Reserved and unused today** — no `type="warning"` call site exists — kept defined so the one button that earns money can never drift. |
 | Disabled | `--am-disabled` face + `--am-ink-3` label | `#E4DACB` | flat | none | A flat, plateless, un-gradiented paper face. Disabled is shown by *losing the material*, never by `opacity: .5` + `grayscale(1)` (which drops the current label to ~2.5:1). |
 
@@ -193,6 +194,14 @@ graphics 3:1. sRGB relative luminance.
 | `--am-ink` | gold foot under the low tint at 0.5 (`#F89251`) | **6.17:1** | A notch on her fill at its reddest | ✓ (graphic) |
 | `--am-hp-chip` | `--am-night-deep` | **11.48:1** | The chip a hit leaves, against the track | ✓ (graphic) |
 | `--am-hp-low` `#FF6B5B` | `--am-night-deep` | **4.56:1** | The low-health glow round the track | ✓ (graphic) |
+
+**Added 2026-09-27 — a foe's strength (§6.6a), measured:**
+
+| Foreground | Background | Ratio | Where | Pass |
+| --- | --- | --- | --- | --- |
+| `--am-resist` `#DDA46C` | `--am-ink` outline | **6.42:1** | The HUD badge's "×0.55" and the resisted callout's number (`.ink-text` fill against its own plum edge, over any backdrop) | AA ✓ |
+| `--am-ink` outline of the resist shield | `--am-paper` | **13.06:1** | The shield leading the VS preview's RESISTS chip — its edge is the plum line, not the fill | ✓ (graphic) |
+| `--am-resist` | `--am-paper` | **2.03:1** | **Not used**: the reason the shield always wears its ink line | — |
 
 **Corrected 2026-09-21, measured:** the two page-on-cloth rows above are
 `#FDF6E7` on `#9E7CBE` = **3.21:1** (not 4.08) and `#F5E7C0` on `#CBA6D6` =
@@ -1358,6 +1367,8 @@ A must land first (or in the same commit) because B and C reference its tokens.
   --am-mint:              #9BE8C4   // ready / confirm / restored
   --am-mint-foot:         #6FCFA4
   --am-mint-plate:        #2F8A63
+
+  --am-resist:            #DDA46C   // a foe's strength (x0.55); in ink only
 
   --am-reward:            #FFC93F   // the rewarded-video button. Reserved:
   --am-reward-foot:       #EF9A1F   // no call site today. Kept so the one

@@ -25,6 +25,7 @@ import { flowHud, openingHud } from '@/use/useFlow'
 import { closeOpening } from '@/game/flow/nodes'
 import { useMute } from '@/use/useMute'
 import DuelHud from '@/components/duel/DuelHud.vue'
+import StrengthLesson from '@/components/duel/StrengthLesson.vue'
 import DuelResult from '@/components/duel/DuelResult.vue'
 import DialogueBubbles from '@/components/story/DialogueBubbles.vue'
 import ArtIcon from '@/components/icons/ArtIcon.vue'
@@ -83,6 +84,9 @@ const opening = computed(() => (openingHud.live && duelBeat.phase === 'fight' ? 
       @options="onOptions"
       @book="onBook"
     )
+    //- The strength lesson (story-spec §8.36a): wordless, over the HUD's slots
+    //- and the pad — a sibling of the HUD, measuring its slots off the DOM.
+    StrengthLesson(v-if="!versus")
     DialogueBubbles(
       v-if="thanks.length"
       :lines="thanks"

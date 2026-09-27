@@ -8,6 +8,8 @@
 //   • half the time draws the rune that counters the foe, when she owns it
 //     (a counter whose pair is no damage spell — Water's ward, Illusion's
 //     decoy — she casts alone); otherwise one of the four she learned first;
+//   • as often, keeps the foe's STRENGTH (§6.6a, ×0.55) from closing a hand —
+//     the same reading of the foe that finds her weakness;
 //   • never raises a shield on purpose — the pessimistic child.
 // Targets, first attempt: standard ≥ 90 % (ch 1–6) / ≥ 85 % (ch 7–10); boss
 // ≥ 75 % / ≥ 60 %. Within three attempts (Dream Dust easing each retry,
@@ -36,7 +38,7 @@ const { reseed } = vi.hoisted(() => {
 
 import { AX, CTR, FIRE, EARTH, MAX_RUNES, NO_EASE, PH_DUEL, PH_WIN, resolveSpell, type DuelEase, type Rune } from '@/game/duel/config'
 import { FOES, shadowOf, guardianOf } from '@/game/duel/foes'
-import { duelSetup, nodeIsBoss, runeForNode } from '@/game/campaign/tables'
+import { duelSetup, nodeIsBoss, runeForNode, strengthAt } from '@/game/campaign/tables'
 import { earlyEase } from '@/game/campaign/easing'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast, castBusy, foeTell } from '@/game/duel/sim'
@@ -61,6 +63,14 @@ interface Player {
   hand: number
   /** Chance she reaches for the counter when she owns it. */
   counter: number
+  /**
+   * Chance she keeps the foe's STRENGTH (§6.6a) from closing a hand: when the
+   * rune that would close it is the one the foe resists, she draws another
+   * last — the counter if she owns it, else any other rune. The strong rune
+   * INSIDE a hand costs nothing, so she never has to give it up. Rolled only
+   * in that moment, so a duel without a strength keeps its old dice.
+   */
+  avoid?: number
   /** Chance she fires what is already in her hand instead of pairing it. */
   single?: number
   /** Chance a beat passes with her attention somewhere else. */
@@ -76,7 +86,7 @@ interface Player {
 }
 
 /** §7.2's core child: a comfortable 7–10-year-old. The targets are hers. */
-const CORE: Player = { id: 'core', beat: 1.25, hand: 0.85, counter: 0.5 }
+const CORE: Player = { id: 'core', beat: 1.25, hand: 0.85, counter: 0.5, avoid: 0.5 }
 
 /**
  * A SMALL CHILD — the owner's "below 9" (2026-09-20). Half the drawing speed,
@@ -88,7 +98,7 @@ const CORE: Player = { id: 'core', beat: 1.25, hand: 0.85, counter: 0.5 }
  * differences is something a five-year-old does that a nine-year-old has
  * stopped doing, and each one costs damage per second in a different way.
  */
-const YOUNG: Player = { id: 'young', beat: 2, hand: 0.62, counter: 0.12, single: 0.3, idle: 0.15 }
+const YOUNG: Player = { id: 'young', beat: 2, hand: 0.62, counter: 0.12, single: 0.3, idle: 0.15, avoid: 0.12 }
 
 /**
  * NOBODY. The phone is on the table, face up, and the duel runs. Every
@@ -107,7 +117,7 @@ const NOBODY: Player = { id: 'nobody', beat: 999, hand: 0, counter: 0 }
  * and accurate, three-rune spells, counters. The children above never block
  * on purpose; this is the model that exercises the skill.
  */
-const ADULT: Player = { id: 'adult', beat: 0.6, hand: 0.95, counter: 0.7, size: 3, block: 0.8 }
+const ADULT: Player = { id: 'adult', beat: 0.6, hand: 0.95, counter: 0.7, size: 3, block: 0.8, avoid: 0.7 }
 
 /** The last duel's tally: the foe's spells the player's own wall stopped. */
 let blocked = 0
@@ -149,7 +159,9 @@ const duel = (
   S.campaign.signaturesUnlocked = 0
   const kit = owned(node)
   S.campaign.runesUnlocked = kit.reduce((m, r) => m | (1 << r), 0)
-  resetDuel({ foe, usesMagic, lossStreak, ease })
+  // Her strength, exactly where the campaign makes it live (§6.6a: chapter 2 on).
+  const strong = strengthAt(node)
+  resetDuel({ foe, usesMagic, lossStreak, ease, strong })
   const el = FOES[foe]!.element
   const counter = el >= 0 && kit.includes(CTR[el]!) ? CTR[el]! : -1
   const solo = counter >= 0 && [2, 5].includes(resolveSpell([counter, counter]).kind)
@@ -201,10 +213,17 @@ const duel = (
         if (leads) lead = true
         // She draws from what she OWNS — two runes in the first battles, more
         // as the chests give them.
-        const r = leads ? EARTH : counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
+        let r = leads ? EARTH : counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
         if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
         const impatient = p.single !== undefined && Math.random() < p.single
         if (S.queue.length < MAX_RUNES) {
+          // THE STRENGTH (§6.6a): this rune would close the hand on the one
+          // the foe resists — a player who reads the foe draws another last.
+          const closes = S.queue.length + 1 >= size || impatient
+          if (r === strong && closes && p.avoid !== undefined && Math.random() < p.avoid) {
+            const other = kit.filter((x) => x !== strong)
+            r = counter >= 0 ? counter : other[(Math.random() * other.length) | 0] ?? r
+          }
           S.queue.push(r as Rune)
           if (S.queue.length >= size || impatient || (r === counter && solo)) want = true
         }

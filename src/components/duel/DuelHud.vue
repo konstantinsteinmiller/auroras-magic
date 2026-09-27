@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CTR, PH_DUEL, MAX_RUNES, RUNE_IDS, SPELLBOOK, SW, SH, elemMul } from '@/game/duel/config'
-import { FOES } from '@/game/duel/foes'
+import { PH_DUEL, MAX_RUNES, RUNE_IDS, SPELLBOOK, SW, SH, elemMul } from '@/game/duel/config'
+import { FOES, weakTo as foeWeakTo, strongTo as foeStrongTo } from '@/game/duel/foes'
 import { S } from '@/game/duel/state'
 import { hud, hudLayout } from '@/use/useDuelHud'
 import { spellName } from '@/use/useSpellName'
@@ -58,20 +58,52 @@ const auroraName = computed(() => t('duelist.aurora'))
  *  moon medallion, so a Guardian's bar carries her colour. */
 const foeTint = computed(() => FOES[hud.foe]?.pal[8] ?? '')
 /**
- * The rune this foe fears — shown only when the player HAS it. Chapter 1's
- * foes are Nature, whose counter (Moon) arrives in chapter 9: a hint naming a
- * rune the player cannot draw would teach nothing (§6.6).
+ * The rune this foe fears — shown only when the player HAS it (`foes.ts`
+ * `weakTo`, the one rule the VS preview's chip reads too). None in versus.
  */
-const weakTo = computed(() => {
-  if (versus.value) return -1
-  const fe = FOES[hud.foe]?.element ?? -1
-  const c = fe >= 0 ? CTR[fe] ?? -1 : -1
-  return c >= 0 && ((S.campaign.runesUnlocked | STARTING_RUNES) >> c) & 1 ? c : -1
-})
+const weakTo = computed(() =>
+  versus.value ? -1 : foeWeakTo(FOES[hud.foe], (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0))
 const weakMul = computed(() => (weakTo.value >= 0 ? elemMul(weakTo.value, FOES[hud.foe]!.element) : 1))
 const weakLabel = computed(() => weakTo.value >= 0
   ? t('hud.weakness', { rune: t(`rune.${RUNE_IDS[weakTo.value]}`), n: `x${weakMul.value}` })
   : '')
+/**
+ * …and the rune she RESISTS (§6.6a): the weakness badge's sibling, a rune
+ * behind a small shield, with its ×0.55. Shown only while a strength is live in
+ * THIS duel (`S.eStrong` — none before chapter 2, none in versus) and by the
+ * shared rule (`foes.ts` `strongTo`, the VS preview's chip reads it too) with
+ * the weakness's own ownership mask. `hud.strongCue` is the strength lesson's
+ * pointer at it: a harder pulse (`.is-cue`).
+ */
+const strongTo = computed(() => versus.value || hud.eStrong < 0
+  ? -1
+  : foeStrongTo(FOES[hud.foe], (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0))
+const strongMul = computed(() => (strongTo.value >= 0 ? elemMul(strongTo.value, FOES[hud.foe]!.element, hud.eStrong) : 1))
+const strongLabel = computed(() => strongTo.value >= 0
+  ? t('hud.strength', { rune: t(`rune.${RUNE_IDS[strongTo.value]}`), n: `x${strongMul.value}` })
+  : '')
+const strongCue = computed(() => strongTo.value >= 0 && hud.strongCue)
+/**
+ * THE LINK (§6.6a): a resisted hit lands and the strength badge answers with
+ * one short amber flash (0.45 s), so the eye jumps from the "🛡 −n ×0.55"
+ * callout to the badge that said so. Two class names alternate, like the
+ * CAST button's "nope", so a second hit inside the first restarts it.
+ */
+const resistFlashOn = ref(false)
+let resistFlashTimer = 0
+watch(() => hud.resistFlash, (n, was) => {
+  if (!(n > was) || strongTo.value < 0) return
+  resistFlashOn.value = true
+  window.clearTimeout(resistFlashTimer)
+  resistFlashTimer = window.setTimeout(() => { resistFlashOn.value = false }, 450)
+})
+const strongClass = computed(() => ({
+  'is-cue': strongCue.value,
+  'flash-a': resistFlashOn.value && hud.resistFlash % 2 === 1,
+  'flash-b': resistFlashOn.value && hud.resistFlash % 2 === 0
+}))
+/** Her closing slot, in amber, while the hand would land at ×0.55. */
+const resistOf = (i: number): boolean => strongTo.value >= 0 && hud.resistSlot === i
 
 const duel = computed(() => hud.phase === PH_DUEL)
 /** Local 2P versus (§3.12): two symmetric halves, each its own CAST. */
@@ -146,6 +178,7 @@ onUnmounted(() => {
   window.clearTimeout(nopeTimer)
   window.clearTimeout(busyTimer)
   window.clearTimeout(pulseTimer)
+  window.clearTimeout(resistFlashTimer)
 })
 /** Beat C: the lightbox, with her filled slots glowing inside its spotlight. */
 const lit = computed(() => introBeat.value === LESSON.LIGHTBOX)
@@ -167,7 +200,9 @@ const castLabel = computed(() => {
  * place is no message: hers says the same thing and shows the shape as well.
  */
 const help = computed(() => (duel.value && !hud.intro && !versus.value ? hud.help : 0))
-const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length && !help.value && !lockedUp.value && !runeCard.value)
+// …and it stands aside while the strength lesson points at her strength
+// badge (`S.strongCue`): that lesson is wordless, so no caption over it.
+const showDrawHint = computed(() => duel.value && !hud.intro && !hud.queue.length && !help.value && !lockedUp.value && !runeCard.value && !hud.strongCue)
 /** The perfect-rune twinkle (retention item 7), for the slot that earned it. */
 const sparkleOf = (i: number): number => (hud.perfectSlot === i ? hud.perfect : 0)
 /** THE SPELL FORGE (§8.37): the slots a forge has just emptied give a soft
@@ -305,10 +340,19 @@ const helpStyle = computed(() => {
         div.abs.weak(:style="box(1180 - 22, 162 - 22, 44, 44)" role="img" :aria-label="weakLabel")
           RuneGlyph(:rune="weakTo")
         span.abs.ink-text.weak(:style="[at(1202, 162, 21, 'left'), { color: 'var(--am-mint)' }]" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
+      //- …and what she resists, right under it (§6.6a): the rune behind a
+      //- small shield, beside the little it pays — its warm, muted opposite.
+      template(v-if="strongTo >= 0")
+        //- The link's halo (a resisted hit just landed), behind the pair.
+        span.abs.strong-halo(:class="{ on: resistFlashOn }" :style="box(1138, 182, 136, 64)" aria-hidden="true")
+        div.abs.strong(:class="strongClass" :style="box(1180 - 22, 214 - 22, 44, 44)" role="img" :aria-label="strongLabel" data-strength-badge)
+          RuneGlyph(:rune="strongTo")
+          GameIcon.strong-shield(name="shield")
+        span.abs.ink-text.strong(:class="strongClass" :style="[at(1202, 214, 21, 'left'), { color: 'var(--am-resist)' }]" aria-hidden="true") {{ t('pop.times', { n: strongMul }) }}
 
       div.abs(:aria-label="t('hud.yourRunes')" role="list")
         div.abs(v-for="i in slots" :key="'p' + i" role="listitem" data-my-slot :class="{ 'lesson-lit': litSlot(i) }" :style="box(30 + i * 64, 80, 60, 60)")
-          RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]")
+          RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]" :resist="resistOf(i)")
       div.abs(:aria-label="t('hud.foeRunes')" role="list")
         div.abs(v-for="i in slots" :key="'e' + i" role="listitem" data-foe-slot :style="box(1190 - i * 64, 80, 60, 60)")
           RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell" :lift="eliftOf(i)" :lift-rune="hud.eforgeQ[i]")
@@ -423,10 +467,17 @@ const helpStyle = computed(() => {
         div.port-row.slots
           div.port-slots(role="list" :aria-label="t('hud.yourRunes')")
             div.port-slot(v-for="i in slots" :key="'p' + i" role="listitem" data-my-slot :class="{ 'lesson-lit': litSlot(i) }")
-              RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]")
-          div.port-weak(v-if="weakTo >= 0" role="img" :aria-label="weakLabel")
-            RuneGlyph.port-weak-glyph(:rune="weakTo")
-            span.ink-text(style="color: var(--am-mint)" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
+              RuneSlot(:rune="hud.queue[i]" :sparkle="sparkleOf(i)" :lift="liftOf(i)" :lift-rune="hud.forgeQ[i]" :resist="resistOf(i)")
+          div.port-marks(v-if="weakTo >= 0 || strongTo >= 0" :class="{ both: weakTo >= 0 && strongTo >= 0 }")
+            div.port-weak(v-if="weakTo >= 0" role="img" :aria-label="weakLabel")
+              RuneGlyph.port-weak-glyph(:rune="weakTo")
+              span.ink-text(style="color: var(--am-mint)" aria-hidden="true") {{ t('pop.times', { n: weakMul }) }}
+            div.port-weak.port-strong(v-if="strongTo >= 0" :class="strongClass" role="img" :aria-label="strongLabel" data-strength-badge)
+              span.port-strong-halo(:class="{ on: resistFlashOn }" aria-hidden="true")
+              span.port-strong-rune
+                RuneGlyph.port-weak-glyph(:rune="strongTo")
+                GameIcon.strong-shield(name="shield")
+              span.ink-text(style="color: var(--am-resist)" aria-hidden="true") {{ t('pop.times', { n: strongMul }) }}
           div.port-slots.rev(role="list" :aria-label="t('hud.foeRunes')")
             div.port-slot(v-for="i in slots" :key="'e' + i" role="listitem" data-foe-slot)
               RuneSlot(:rune="hud.equeue[i]" :forming="hud.eSlot === i" :form-rune="hud.eRune" :warn="hud.eTell" :lift="eliftOf(i)" :lift-rune="hud.eforgeQ[i]")
@@ -798,10 +849,107 @@ button
 .am-still .prompt.pulse
   animation: duel-breathe 2s ease-in-out infinite
 
-.weak
+.weak, .strong
   --from: 0.55
   --to: 0.8
   animation: duel-breathe 1.67s ease-in-out infinite
+
+// The strength badge's shield (§6.6a): a small resist-coloured shield in the
+// arena's plum outline, held up in front of the rune's lower LEFT (the right
+// is where its "×0.55" starts) — the one mark that tells it apart from the
+// weakness above it. The outline is a stroke UNDER the fill (`paint-order`),
+// so the glyph keeps its whole shape.
+.strong-shield
+  position: absolute
+  left: -9px
+  bottom: -7px
+  width: 25px
+  height: 25px
+  color: var(--am-resist)
+  :deep(path)
+    stroke: var(--am-ink)
+    stroke-width: 4.5px
+    stroke-linejoin: round
+    paint-order: stroke fill
+
+// The strength lesson's cue (`S.strongCue`): the badge stops breathing at
+// half strength, lights up in its own colour and swells — "look here". Held
+// still (full and glowing) under reduced motion.
+.strong.is-cue, .port-strong.is-cue
+  animation: strong-cue 0.8s ease-in-out infinite alternate
+  filter: drop-shadow(0 0 3px var(--am-resist)) drop-shadow(0 0 9px var(--am-resist))
+// Its "×0.55" swells away from the rune, never over it — for the cue and the
+// flash alike.
+span.strong.is-cue, span.strong.flash-a, span.strong.flash-b
+  transform-origin: 0 50%
+@keyframes strong-cue
+  from
+    opacity: 1
+    scale: 1
+  to
+    opacity: 1
+    scale: 1.16
+.am-still .strong.is-cue, .am-still .port-strong.is-cue
+  animation: none
+  opacity: 1
+@media (prefers-reduced-motion: reduce)
+  .strong.is-cue, .port-strong.is-cue
+    animation: none
+    opacity: 1
+
+// THE LINK (§6.6a): one amber flash as a resisted hit lands, readable at a
+// glance on a phone. For its 0.45 s the badge and its ×0.55 go to FULL
+// strength (they breathe at half otherwise), glow in their own amber, and
+// swell once to 1.2×; an amber HALO fades up behind them (`.strong-halo`, a
+// transition, so it also fades back out). Two identical swells under two
+// names (`strongClass`), so back-to-back hits each get theirs. Reduced motion
+// keeps the colour — the full strength, the glow, the halo — and drops the
+// swell.
+.strong.flash-a, .port-strong.flash-a, .strong.flash-b, .port-strong.flash-b
+  opacity: 1
+  filter: drop-shadow(0 0 3px var(--am-resist)) drop-shadow(0 0 10px var(--am-resist))
+.strong.flash-a, .port-strong.flash-a
+  animation: strong-flash-a 0.45s ease-out both
+.strong.flash-b, .port-strong.flash-b
+  animation: strong-flash-b 0.45s ease-out both
+@keyframes strong-flash-a
+  0%
+    scale: 1
+  35%
+    scale: 1.2
+  100%
+    scale: 1
+@keyframes strong-flash-b
+  0%
+    scale: 1
+  35%
+    scale: 1.2
+  100%
+    scale: 1
+.am-still .strong.flash-a, .am-still .strong.flash-b, .am-still .port-strong.flash-a, .am-still .port-strong.flash-b
+  animation: none
+@media (prefers-reduced-motion: reduce)
+  .strong.flash-a, .strong.flash-b, .port-strong.flash-a, .port-strong.flash-b
+    animation: none
+
+// The halo behind the badge: a soft amber disc, up in 0.05 s and fading out
+// over 0.3 s once the flash ends. The rune and the ×0.55 keep their plum
+// outline on it, so neither melts into it.
+.strong-halo, .port-strong-halo
+  border-radius: 999px
+  pointer-events: none
+  background: radial-gradient(closest-side, var(--am-resist) 30%, transparent 100%)
+  opacity: 0
+  transition: opacity 0.3s ease-out
+  &.on
+    opacity: 0.9
+    transition-duration: 0.05s
+.port-strong-halo
+  // Wide rather than tall: the weakness sits right above it in portrait,
+  // and must not seem to flash too.
+  position: absolute
+  inset: calc(-3px * var(--pu)) calc(-14px * var(--pu))
+  z-index: -1
 
 .intro-arrow
   overflow: visible
@@ -875,6 +1023,49 @@ button
 .port-weak-glyph
   width: calc(28px * var(--pu))
   height: calc(28px * var(--pu))
+
+// The weakness and the strength between the two slot rows — as landscape
+// stacks them: her weakness on top, her strength under it. The gap between
+// the rows is ~70 px on a 390 px phone, too narrow for two badges side by
+// side (the strength one slid under her slots), so a PAIR is drawn smaller
+// and one above the other, overhanging the row by a few px into the margins
+// above and below it. A lone weakness (chapter 1) keeps its full size.
+.port-marks
+  display: flex
+  flex-direction: column
+  align-items: flex-start
+  justify-content: center
+  min-width: 0
+  &.both
+    height: calc(40px * var(--pu))
+    gap: calc(1px * var(--pu))
+    .port-weak
+      font-size: calc(11.5px * var(--pu))
+      gap: calc(2px * var(--pu))
+    .port-weak-glyph
+      width: calc(19px * var(--pu))
+      height: calc(19px * var(--pu))
+    .port-strong-rune .strong-shield
+      left: calc(-3px * var(--pu))
+      bottom: calc(-2px * var(--pu))
+      width: calc(11px * var(--pu))
+      height: calc(11px * var(--pu))
+
+.port-strong
+  position: relative
+  isolation: isolate
+
+.port-strong-rune
+  position: relative
+  flex: 0 0 auto
+  display: flex
+  .strong-shield
+    left: calc(-4px * var(--pu))
+    bottom: calc(-3px * var(--pu))
+    width: calc(15px * var(--pu))
+    height: calc(15px * var(--pu))
+    :deep(path)
+      stroke-width: 5px
 
 .fixed-caption
   position: absolute

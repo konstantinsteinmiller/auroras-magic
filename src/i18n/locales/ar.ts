@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'خانة فارغة',
     'forming': 'قيد التكوين: {rune}',
     'weakness': '{rune} يُلحق ضررًا مقداره {n} بهذا الخصم',
+    'strength': '{rune} يُلحق ضررًا مقداره {n} فقط بهذا الخصم',
     'sound': 'تشغيل الصوت أو إيقافه',
     'spellbook': 'كتاب التعاويذ',
     'hp': '{name}: الصحة {n} من {max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'رموزك',
     'weakTo': 'نقطة الضعف',
+    'strongTo': 'تقاوم',
     'magic': 'سحر',
     'epithet': {
       'aurora': 'حارسة الرموز',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'هيا، سأرسمها معك!',
     'perfectRune': 'رسمة رائعة!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'اختم تعويذتك برمز آخر، لا برمز {rune}'
+    }
   }
 }

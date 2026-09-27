@@ -45,6 +45,9 @@ export interface Shot {
   dir: number
   /** Super-effective — for the callout on impact. */
   w: 0 | 1
+  /** RESISTED (§6.6a): it closed on the foe's strength and took ×0.55 — for
+   *  the callout on impact, as `w` is for her weakness. Absent = no. */
+  rs?: 0 | 1
   /** Pierces every ward (Lightning, §6.8 rule 1): 1 = yes. */
   p: 0 | 1
   /** Runes in the cast, for the combo callout. */
@@ -255,6 +258,15 @@ export interface DuelState {
   hpScale: number
   /** C14's node-3 rule: the foe may cast her chapter's own magic. */
   usesMagic: boolean
+  /** The foe's STRENGTH live in this duel (§6.6a): the rune she resists,
+   *  ×0.55 when it closes one of the player's hands — or −1. Resolved by the
+   *  campaign (`strengthAt`) and handed over with the foe; −1 in versus. What
+   *  the HUD and the lesson read, never `FoeDef.strong`. */
+  eStrong: number
+  /** The strength lesson's CUE (§6.6a): true while a lesson points at the
+   *  HUD's strength badge, which then pulses harder (`.is-cue`). Written by
+   *  the lesson only; the HUD just reads it. False at every duel start. */
+  strongCue: boolean
   /** Runes the player has landed this duel (trace assist stops at 1, §5.13). */
   landed: number
   /** The chapter (0-based) the arena is dressed for (§9.6). Set by the flow. */
@@ -435,6 +447,8 @@ export const auroras_magic_state: DuelState = {
   ease: { ...NO_EASE },
   hpScale: 1,
   usesMagic: false,
+  eStrong: -1,
+  strongCue: false,
   landed: 0,
   theme: 0,
   decoy: 0,

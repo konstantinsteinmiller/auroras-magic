@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'ช่องว่าง',
     'forming': 'กำลังก่อตัว: {rune}',
     'weakness': '{rune} สร้างความเสียหาย {n} ต่อคู่ต่อสู้นี้',
+    'strength': '{rune} สร้างความเสียหายต่อคู่ต่อสู้นี้เพียง {n}',
     'sound': 'เปิดหรือปิดเสียง',
     'spellbook': 'ตำราเวท',
     'hp': '{name}: พลังชีวิต {n} จาก {max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'รูนของคุณ',
     'weakTo': 'จุดอ่อน',
+    'strongTo': 'ต้านทาน',
     'magic': 'เวทมนตร์',
     'epithet': {
       'aurora': 'ผู้ดูแลรูน',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'มาสิ เดี๋ยวเราวาดด้วยกัน!',
     'perfectRune': 'วาดสวยมาก!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'จบคาถาด้วยรูนอื่น ไม่ใช่{rune}'
+    }
   }
 }

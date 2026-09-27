@@ -43,8 +43,9 @@ import {
   campaignSpec, versusSpec, beatAt, BEATS, PT_TOTAL, HANDOFF_AT, HANDOFF_LEAD, SKIP_FROM, SKIP_TO, AFTER_FADE, FLASH_PEAK_REDUCED,
   drawableMask, runesOfMask, STEP_CAP, type PreviewSpec
 } from '@/game/preview/preview'
-import { STARTING_RUNES } from '@/game/campaign/tables'
-import { FIRST_UMBRA, guardianOf } from '@/game/duel/foes'
+import { STARTING_RUNES, LAST_BUILT_NODE, STRENGTH_FROM_NODE, duelSetup } from '@/game/campaign/tables'
+import { FIRST_UMBRA, FOES, guardianOf, strongTo, weakTo } from '@/game/duel/foes'
+import { elemMul, ICE, MOON, NATURE, WATER, WIND } from '@/game/duel/config'
 
 const spec = (): PreviewSpec => campaignSpec(3, STARTING_RUNES)
 
@@ -93,13 +94,16 @@ describe('the timeline, as pure functions', () => {
 })
 
 describe('what it shows', () => {
-  it('node 0: Umbra herself, her own epithet, her weakness — and no crown', () => {
+  it('node 0: Umbra herself, her own epithet, no crown — and no weakness chip she cannot use', () => {
     const s = campaignSpec(0, STARTING_RUNES)
     expect(s.foe).toBe(FIRST_UMBRA)
     expect(s.foeSide.name).toBe('duelist.umbra')
     expect(s.foeSide.epithet).toBe('preview.epithet.umbra')
     expect(s.foeSide.boss).toBe(false)
-    expect(s.foeSide.chips.map((c) => c.kind)).toEqual(['weak'])
+    // She is Nature, weak to Moon — which a fresh save cannot draw: the HUD
+    // hides it, so the preview does too. With Moon in hand, it shows.
+    expect(s.foeSide.chips).toEqual([])
+    expect(campaignSpec(0, STARTING_RUNES | (1 << MOON)).foeSide.chips).toEqual([{ kind: 'weak', rune: MOON }])
     expect(s.hero.name).toBe('duelist.aurora')
     expect(s.hero.runes).toEqual(runesOfMask(STARTING_RUNES))
     expect(s.chapter).toBe(0)
@@ -112,13 +116,60 @@ describe('what it shows', () => {
     expect(s.foeSide.epithet).toBe('preview.epithet.guardian')
     expect(s.foeSide.epithetArgs).toEqual({ place: 'chapter.c1' })
     expect(s.foeSide.boss).toBe(true)
-    expect(s.foeSide.chips.map((c) => c.kind)).toEqual(['weak', 'magic'])
+    // Briar casts Nature; her weakness (Moon) is out of reach in chapter 1.
+    expect(s.foeSide.chips).toEqual([{ kind: 'magic', rune: NATURE }])
     expect(s.pos).toBe(4)
-    // Chapter 1's standard foe (Umbra) before her chapter's magic is in play: the weakness alone.
-    expect(campaignSpec(1, STARTING_RUNES).foeSide.chips.map((c) => c.kind)).toEqual(['weak'])
+    // Chapter 1's standard foe (Umbra) before her chapter's magic is in play: nothing to show.
+    expect(campaignSpec(1, STARTING_RUNES).foeSide.chips).toEqual([])
     expect(campaignSpec(1, STARTING_RUNES).foeSide.epithet).toBe('preview.epithet.umbra')
     // One of Umbra's friends (chapter 2's standard foe): "Umbra's friend".
     expect(campaignSpec(5, STARTING_RUNES).foeSide.epithet).toBe('preview.epithet.friend')
+  })
+
+  it('WEAK TO names the rune that COUNTERS her, never her own element — the HUD\'s rule', () => {
+    // Chapter 2 (Bubble Bay): a Water foe. Nature, the rune that counters
+    // Water, does ×1.7 to her — so the chip says Nature, once she can draw it.
+    const withNature = STARTING_RUNES | (1 << NATURE)
+    expect(FOES[duelSetup(5).foe]!.element).toBe(WATER)
+    expect(campaignSpec(5, withNature).foeSide.chips).toEqual([{ kind: 'weak', rune: NATURE }])
+    expect(elemMul(NATURE, WATER)).toBe(1.7)
+    // Without Nature: no chip at all (the HUD shows none either).
+    expect(campaignSpec(5, STARTING_RUNES).foeSide.chips).toEqual([])
+    // From node pos 2 her magic joins it: Water, as MAGIC — never as WEAK TO.
+    expect(campaignSpec(7, withNature).foeSide.chips).toEqual([
+      { kind: 'weak', rune: NATURE }, { kind: 'magic', rune: WATER }
+    ])
+    // Every node, every save: the chip is exactly the shared rule.
+    for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+      for (const runes of [STARTING_RUNES, 0xfff]) {
+        const weak = campaignSpec(n, runes).foeSide.chips.filter((c) => c.kind === 'weak').map((c) => c.rune)
+        const want = weakTo(FOES[duelSetup(n).foe], drawableMask(runes))
+        expect(weak, `node ${n}`).toEqual(want >= 0 ? [want] : [])
+        for (const r of weak) expect(elemMul(r, FOES[duelSetup(n).foe]!.element), `node ${n}`).toBe(1.7)
+      }
+    }
+  })
+
+  it('RESISTS: her strength beside the weakness from chapter 2 on, by the HUD badge rule', () => {
+    // Chapter 2's first duel: weak to Nature, resists Wind — side by side.
+    const kit = STARTING_RUNES | (1 << WIND) | (1 << ICE) | (1 << NATURE)
+    expect(duelSetup(STRENGTH_FROM_NODE).strong).toBe(WIND)
+    expect(campaignSpec(STRENGTH_FROM_NODE, kit).foeSide.chips).toEqual([
+      { kind: 'weak', rune: NATURE }, { kind: 'strong', rune: WIND }
+    ])
+    const strongs = (n: number, runes: number): number[] =>
+      campaignSpec(n, runes).foeSide.chips.filter((c) => c.kind === 'strong').map((c) => c.rune)
+    // None before the gate, whatever she holds…
+    for (let n = 0; n < STRENGTH_FROM_NODE; n++) expect(strongs(n, 0xfff), `node ${n}`).toEqual([])
+    // …and none for a rune she cannot draw.
+    expect(strongs(STRENGTH_FROM_NODE, STARTING_RUNES | (1 << NATURE))).toEqual([])
+    // Every node, every save: exactly the shared rule, where a strength is live.
+    for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+      for (const runes of [STARTING_RUNES, 0xfff]) {
+        const want = duelSetup(n).strong >= 0 ? strongTo(FOES[duelSetup(n).foe], drawableMask(runes)) : -1
+        expect(strongs(n, runes), `node ${n}`).toEqual(want >= 0 ? [want] : [])
+      }
+    }
   })
 
   it('versus: player 1 and player 2, the same runes each, no chips', () => {

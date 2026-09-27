@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Bo‘sh uyacha',
     'forming': 'Shakllanmoqda: {rune}',
     'weakness': '{rune} bu raqibga {n} zarar yetkazadi',
+    'strength': '{rune} bu raqibga faqat {n} zarar yetkazadi',
     'sound': 'Ovozni yoqish yoki o‘chirish',
     'spellbook': 'Sehrlar kitobi',
     'hp': '{name}: sog‘liq {n}/{max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'RUNALARINGIZ',
     'weakTo': 'ZAIF TOMONI',
+    'strongTo': 'CHIDAMLI',
     'magic': 'SEHR',
     'epithet': {
       'aurora': 'Runalar Qo‘riqchisi',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Kel, birga chizamiz!',
     'perfectRune': 'Juda chiroyli chizildi!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Sehrni {rune} bilan emas, boshqa runa bilan tugat'
+    }
   }
 }

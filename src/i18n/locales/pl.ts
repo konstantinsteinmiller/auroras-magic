@@ -113,6 +113,7 @@ export default {
     'emptySlot': 'Puste miejsce',
     'forming': 'Tworzy się: {rune}',
     'weakness': '{rune} zadaje temu przeciwnikowi obrażenia: {n}',
+    'strength': '{rune} zadaje temu przeciwnikowi tylko obrażenia: {n}',
     'sound': 'Włącz lub wyłącz dźwięk',
     'spellbook': 'Księga zaklęć',
     'hp': '{name}: zdrowie {n} z {max}'
@@ -490,6 +491,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'TWOJE RUNY',
     'weakTo': 'SŁABOŚĆ NA',
+    'strongTo': 'ODPORNA NA',
     'magic': 'MAGIA',
     'epithet': {
       'aurora': 'Strażniczka Run',
@@ -599,5 +601,11 @@ export default {
   'help': {
     'auroraLine': 'Chodź — narysuję ją z tobą!',
     'perfectRune': 'Pięknie narysowana!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Zakończ czar inną runą, nie tą: {rune}'
+    }
   }
 }

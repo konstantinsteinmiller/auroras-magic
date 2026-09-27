@@ -112,6 +112,7 @@ export default {
     'emptySlot': '空槽位',
     'forming': '正在成形：{rune}',
     'weakness': '{rune}对该对手造成 {n} 点伤害',
+    'strength': '{rune}对该对手只造成 {n} 点伤害',
     'sound': '开启或关闭声音',
     'spellbook': '法术书',
     'hp': '{name}：生命值 {n}/{max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': '你的符文',
     'weakTo': '弱点',
+    'strongTo': '抗性',
     'magic': '魔法',
     'epithet': {
       'aurora': '符文守护者',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': '来，我陪你一起画！',
     'perfectRune': '画得真漂亮！'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': '别用{rune}收尾，换一个符文结束咒语'
+    }
   }
 }

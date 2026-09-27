@@ -20,8 +20,10 @@ import {
   castInvite, chipsCaptionDue, chipsDue, lockedHint, nudgeUp, runeGreat, runeGuideRune
 } from '@/game/duel/lesson'
 import { STARTING_RUNES } from '@/game/campaign/tables'
-import { HP_MAX, MAX_RUNES, PH_DUEL, type Rune } from '@/game/duel/config'
-import { spellOf, foeTell, castBusy } from '@/game/duel/sim'
+import { HP_MAX, MAX_RUNES, PH_DUEL, closesOnStrength, type Rune } from '@/game/duel/config'
+import { spellOf, foeTell, castBusy, onDuelEvent } from '@/game/duel/sim'
+import { hits as handHits, strengthLessonHolds } from '@/game/duel/strengthLesson'
+import { FOES, strongTo } from '@/game/duel/foes'
 import type { SpellNameParts } from '@/use/useSpellName'
 import { LAYOUT, type DuelLayout } from '@/game/duel/layout'
 import { clamp } from '@/game/duel/util'
@@ -91,6 +93,18 @@ export interface HudState {
   /** What the foe's slots warn of (`sim.foeTell`, story-spec §8.36): 2 a full
    *  hand winding up to hit, 1 two runes of one, 0 nothing. */
   eTell: number
+  /** The foe's STRENGTH live in this duel (`S.eStrong`, §6.6a), −1 none —
+   *  the strength badge shows only while it is set — and the strength
+   *  lesson's cue on that badge (`S.strongCue`). */
+  eStrong: number
+  strongCue: boolean
+  /** THE EARLIEST WARNING (§6.6a): the player's slot that closes her hand on
+   *  the foe's strength — amber, like the ×0.55 badge — while that hand is a
+   *  spell that will HIT; −1 none (`resistWarnSlot`). */
+  resistSlot: number
+  /** THE LINK: bumps on every resisted hit (the sim's 'resisted' event), so
+   *  the strength badge gives one amber flash as the callout lands. */
+  resistFlash: number
   /** The depth glimpse's hint (§8.36): the rune it names while it shows, -1
    *  when it does not; and whether that rune has just found the gap. */
   glimpse: number
@@ -149,6 +163,10 @@ export const hud = reactive<HudState>({
   lockedX: 0,
   lockedY: 0,
   eTell: 0,
+  eStrong: -1,
+  strongCue: false,
+  resistSlot: -1,
+  resistFlash: 0,
   glimpse: -1,
   glimpseYes: false,
   refusedAt: -1,
@@ -264,6 +282,23 @@ export const syncHud = (dt: number): void => {
   // The foe's telegraph and the depth glimpse (§8.36).
   const tell = foeTell()
   if (hud.eTell !== tell) hud.eTell = tell
+  // Her strength (§6.6a) and the lesson's cue on its badge.
+  if (hud.eStrong !== S.eStrong) hud.eStrong = S.eStrong
+  if (hud.strongCue !== S.strongCue) hud.strongCue = S.strongCue
+  // The amber closing slot, re-judged only when the hand or what decides it
+  // changes (a hand is at most three runes, but this runs every frame).
+  const lessonOn = strengthLessonHolds()
+  const rk = `${handKey()}|${S.eStrong}|${S.foe}|${lessonOn ? 1 : 0}|${S.phase}`
+  if (resistFor !== rk) {
+    resistFor = rk
+    const owned = (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
+    const shown = S.eStrong >= 0 ? strongTo(FOES[S.foe], owned) : -1
+    const slot = S.phase === PH_DUEL
+      ? resistWarnSlot(S.queue, shown, { sigs: S.campaign.signaturesUnlocked, versus: S.versus, lesson: lessonOn })
+      : -1
+    if (hud.resistSlot !== slot) hud.resistSlot = slot
+  }
+  if (hud.resistFlash !== resistN) hud.resistFlash = resistN
   const gl = S.phase === PH_DUEL && (S.glimpse === 2 || S.glimpse === 3) ? S.glimpseRune : -1
   if (hud.glimpse !== gl) hud.glimpse = gl
   const yes = gl >= 0 && S.glimpse === 3
@@ -363,7 +398,38 @@ export const resetHudMirrors = (): void => {
   resetGhost(ha, S.hpMax)
   resetGhost(ea, S.ehpMax)
   castFor = '-'
+  resistFor = '-'
 }
+
+/**
+ * THE EARLIEST WARNING of a hand closing on her STRENGTH (§6.6a): the index of
+ * the player's slot to mark in the ×0.55 badge's amber, or −1.
+ *
+ * `strong` is the strength the HUD SHOWS (`foes.strongTo` behind a live
+ * `S.eStrong`; −1 none). A hand is marked while the rune that closes it
+ * (`config.closesOnStrength`, post-Rainbow) is that strength AND it is a
+ * spell that will HIT — the strength lesson's own rule (`strengthLesson.hits`):
+ * a ward, a decoy or a heal takes no ×0.55, so it gets no mark. Never in
+ * versus, and never while the strength lesson holds the duel: its ✕ / ✓ on
+ * that same slot says it, and two marks at once is none.
+ */
+export const resistWarnSlot = (
+  q: readonly number[],
+  strong: number,
+  o: { sigs?: number; versus?: boolean; lesson?: boolean } = {}
+): number => {
+  const sigs = o.sigs ?? 0
+  if (o.versus || o.lesson || !q.length || strong < 0) return -1
+  return closesOnStrength(q, strong, sigs) && handHits(q, sigs) ? q.length - 1 : -1
+}
+/** The hand (and what else decides the mark) it was last judged for. */
+let resistFor = '-'
+
+/** Resisted hits so far (the sim's 'resisted' event) — `hud.resistFlash`. */
+let resistN = 0
+onDuelEvent((e) => {
+  if (e === 'resisted') resistN++
+})
 
 /** The hand the CAST plate last resolved, and the current one, as a key. */
 let castFor = '-'

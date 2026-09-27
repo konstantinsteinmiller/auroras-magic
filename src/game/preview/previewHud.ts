@@ -24,7 +24,11 @@ export type PreviewBeat =
   | 'count1' | 'count2' | 'count3' | 'go' | 'exit' | 'done'
 
 export interface PreviewChip {
-  kind: 'weak' | 'magic'
+  /** What the pill says about her rune: she is WEAK TO it (×1.7), she
+   *  RESISTS it (her strength, ×0.55, §6.6a — the pill wears a shield), or
+   *  it is the chapter's MAGIC she casts. One chip per kind (`PowerRow` keys
+   *  them by it). */
+  kind: 'weak' | 'strong' | 'magic'
   /** Rune id (`duel/config.ts`). */
   rune: number
 }

@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Бос ұяшық',
     'forming': 'Қалыптасуда: {rune}',
     'weakness': '{rune} бұл қарсыласқа {n} зақым келтіреді',
+    'strength': '{rune} бұл қарсыласқа тек {n} зақым келтіреді',
     'sound': 'Дыбысты қосу не өшіру',
     'spellbook': 'Сиқыр кітабы',
     'hp': '{name}: денсаулық {n}/{max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'РУНАЛАРЫҢЫЗ',
     'weakTo': 'ӘЛСІЗ ЖАҒЫ',
+    'strongTo': 'ТӨЗІМДІ',
     'magic': 'СИҚЫР',
     'epithet': {
       'aurora': 'Руналар Қорғаушысы',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Кел, бірге сызайық!',
     'perfectRune': 'Тамаша сызылды!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Сиқырды {rune} емес, басқа рунамен аяқта'
+    }
   }
 }

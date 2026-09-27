@@ -115,6 +115,7 @@ export default {
     'emptySlot': 'Emplacement vide',
     'forming': 'En formation : {rune}',
     'weakness': '{rune} inflige {n} dégâts à cet adversaire',
+    'strength': '{rune} n’inflige que {n} dégâts à cet adversaire',
     'sound': 'Activer ou couper le son',
     'spellbook': 'Grimoire',
     'hp': '{name} : {n} sur {max} points de vie'
@@ -491,6 +492,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'VOS RUNES',
     'weakTo': 'FAIBLE CONTRE',
+    'strongTo': 'RÉSISTE À',
     'magic': 'MAGIE',
     'epithet': {
       'aurora': 'Gardienne des Runes',
@@ -600,5 +602,11 @@ export default {
   'help': {
     'auroraLine': 'Viens — je la dessine avec toi !',
     'perfectRune': 'Joliment dessinée !'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Termine ton sort par une autre rune, pas par {rune}'
+    }
   }
 }

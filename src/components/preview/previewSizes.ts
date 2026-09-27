@@ -64,13 +64,15 @@ export const runeSize = (lay: PreviewLayout, n: number, w: number, h = 0, epiLin
 /**
  * The foe's chips: side by side at `chipH` when the block is wide enough for
  * two, else one above the other — each then only as tall as the block's room
- * below the epithet allows.
+ * below the epithet allows, shared by as many chips as she shows (`n`: her
+ * weakness, her strength and her magic can be three).
  */
-export const chipLayout = (lay: PreviewLayout, w: number, h = 0, epiLines = 1): { h: number; stacked: boolean } => {
+export const chipLayout = (lay: PreviewLayout, w: number, h = 0, epiLines = 1, n = 2): { h: number; stacked: boolean } => {
   const u = unitOf(lay)
   const stacked = w < 0.62 * u
   const hh = h > 0 ? h : powersHeight(u)
-  const room = (hh - (epiLines * D.epithetH + 2 * D.lineGap) * u) / 2
+  const k = Math.max(2, n)
+  const room = (hh - (epiLines * D.epithetH + k * D.lineGap) * u) / k
   return { h: stacked ? Math.max(0.05 * u, Math.min(D.chipH * u, room)) : D.chipH * u, stacked }
 }
 

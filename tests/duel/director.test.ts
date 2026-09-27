@@ -327,8 +327,10 @@ describe('the haste (§8.35)', () => {
    * seconds, under the trade's own press.
    */
   it('stays at or near nothing for the children, across the story', () => {
-    const CORE = { beat: 1.25, hand: 0.85, counter: 0.5, single: 0, idle: 0 }
-    const YOUNG = { beat: 2, hand: 0.62, counter: 0.12, single: 0.3, idle: 0.15 }
+    // …each keeping the foe's strength (§6.6a) from closing a hand as often
+    // as she finds the counter (`winRate.test.ts`'s `avoid`).
+    const CORE = { beat: 1.25, hand: 0.85, counter: 0.5, single: 0, idle: 0, avoid: 0.5 }
+    const YOUNG = { beat: 2, hand: 0.62, counter: 0.12, single: 0.3, idle: 0.15, avoid: 0.12 }
     const owned = (n: number): number[] => {
       const held = new Set<number>([FIRE, EARTH])
       for (let k = 0; k < n; k++) {
@@ -342,7 +344,7 @@ describe('the haste (§8.35)', () => {
     for (const p of [CORE, YOUNG]) {
       const acc = p === YOUNG ? seen.young : seen.core
       for (const node of [0, 4, 7, 12, 22, 34, 44, 49]) {
-        const { foe, usesMagic } = duelSetup(node)
+        const { foe, usesMagic, strong } = duelSetup(node)
         const kit = owned(node)
         const el = FOES[foe]!.element
         const counter = el >= 0 && kit.includes(CTR[el]!) ? CTR[el]! : -1
@@ -353,7 +355,7 @@ describe('the haste (§8.35)', () => {
           S.intro = 0
           S.campaign.signaturesUnlocked = 0
           S.campaign.runesUnlocked = kit.reduce((m, r) => m | (1 << r), 0)
-          resetDuel({ foe, usesMagic, lossStreak: 0, ease: earlyEase(node) })
+          resetDuel({ foe, usesMagic, lossStreak: 0, ease: earlyEase(node), strong })
           duels++
           let clock = 0
           let want = false
@@ -363,9 +365,14 @@ describe('the haste (§8.35)', () => {
             if (clock >= p.beat) {
               clock -= p.beat
               if (!(Math.random() < p.idle) && Math.random() < p.hand) {
-                const r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
+                let r = counter >= 0 && Math.random() < p.counter ? counter : kit[(Math.random() * kit.length) | 0]!
                 if (r === counter && solo && S.queue.length && !castBusy(false)) cast()
                 if (S.queue.length < 3) {
+                  // The rune that would close her hand is the foe's strength.
+                  if (r === strong && S.queue.length >= 1 && Math.random() < p.avoid) {
+                    const other = kit.filter((x) => x !== strong)
+                    r = counter >= 0 ? counter : other[(Math.random() * other.length) | 0] ?? r
+                  }
                   S.queue.push(r as Rune)
                   if (S.queue.length >= 2 || Math.random() < p.single || (r === counter && solo)) want = true
                 }

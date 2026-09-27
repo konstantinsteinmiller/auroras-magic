@@ -27,6 +27,9 @@ import {
   CHAPTER_SLUGS
 } from '@/game/artIds'
 import { dialogueFor, OPENING_NODE } from '@/game/story/story'
+import { weakTo } from '@/game/duel/foes'
+import { ICE, NATURE, WATER, WIND } from '@/game/duel/config'
+import { STRENGTH_FROM_NODE } from '@/game/campaign/tables'
 
 const LAND: ScheduleEnv = { portrait: false, clothInDuel: false }
 const PORT: ScheduleEnv = { portrait: true, clothInDuel: true }
@@ -123,8 +126,8 @@ describe('back mid-first-duel: the splash holds for the first DUEL', () => {
     const all = keys(firstArtWants(fresh, LAND))
     // Every duel opens with its VS preview, so the preview's paintings hold
     // first: this orientation's backdrop, the podiums, the DOM's ribbons and
-    // emblem (no crown: Umbra is not a boss here), her runes and the foe's
-    // weakness chip.
+    // emblem (no crown: Umbra is not a boss here) and her runes. No chip's
+    // rune: Umbra is Nature, weak to Moon, which a fresh save cannot draw.
     const preview = keys(previewWants(OPENING_NODE, fresh, LAND))
     for (const k of preview) expect(all).toContain(k)
     expect(preview).toContain('page/vs-backdrop-land')
@@ -146,12 +149,13 @@ describe('back mid-first-duel: the splash holds for the first DUEL', () => {
     else for (const r of Object.values(PUPPET_ART.aurora)) expect(hold).toContain(`${r.kind}/${r.id}`)
     if (FRAME_DATA.umbra) expect(hold).toContain(`rig/${frameArtId('umbra')}`)
     else for (const r of Object.values(PUPPET_ART.umbra)) expect(hold).toContain(`${r.kind}/${r.id}`)
-    // The runes: her two (the HUD's, and the preview's row), and the foe's
-    // weakness on the preview's chip — not the twelve.
+    // The runes: her two (the HUD's, and the preview's row) — not the twelve.
+    // No WEAK TO chip (its Moon is out of reach, `weakTo`), and never the
+    // foe's OWN element, Nature, which the chip once named by mistake.
     const runes = [...new Set(all.filter((k) => k.startsWith('rune/')))]
     const hers = RUNE_SLUGS.map((_, k) => k).filter((k) => (STARTING_RUNES >> k) & 1)
-    const weak = duelSetup(OPENING_NODE).def.element
-    expect(runes.sort()).toEqual([...new Set([...hers, weak])].map((k) => `rune/${runeArtId(k)}`).sort())
+    expect(weakTo(duelSetup(OPENING_NODE).def, STARTING_RUNES)).toBe(-1)
+    expect(runes.sort()).toEqual(hers.map((k) => `rune/${runeArtId(k)}`).sort())
     // The opener printed over the arena: exactly its speakers' faces.
     const faces = [...new Set(keys(facesOf(dialogueFor(OPENING_NODE), fresh)))]
     expect(faces.length).toBeGreaterThan(0)
@@ -413,14 +417,47 @@ describe('the VS preview in front of every duel (2026-09-25)', () => {
     expect(keys(previewWants(3, saveAt(2), PORT))).not.toContain('worldUi/vs-crown')
   })
 
-  it('shows her runes, and the foe\'s weakness and magic chips once her magic is in play', () => {
-    // Chapter 2 (Bubble Bay): weak to Water, casting Water from node pos 2.
+  it('shows her runes, the WEAK TO chip\'s counter rune, and the magic chip once her magic is in play', () => {
+    // Chapter 2 (Bubble Bay): a Water foe — weak to NATURE (its counter,
+    // ×1.7), not to Water (her own element) — casting Water from node pos 2.
     const save = saveAt(6)
-    const runes = (n: number): string[] => keys(previewWants(n, save, LAND)).filter((k) => k.startsWith('rune/'))
-    expect(runes(5)).toContain(`rune/${runeArtId(5)}`)
+    const withNature: ScheduleSave = { ...save, runesUnlocked: save.runesUnlocked | (1 << NATURE) }
+    const runes = (n: number, s: ScheduleSave = save): string[] =>
+      keys(previewWants(n, s, LAND)).filter((k) => k.startsWith('rune/'))
+    // Node pos 0, her magic not in play: her own element is never fetched as
+    // a "weakness"…
+    expect(runes(5)).not.toContain(`rune/${runeArtId(WATER)}`)
+    expect(runes(5, withNature)).not.toContain(`rune/${runeArtId(WATER)}`)
+    // …and the chip's Nature is, once she can draw it.
+    expect(runes(5, withNature)).toContain(`rune/${runeArtId(NATURE)}`)
+    // Node pos 2: the magic chip's Water, and every rune she can draw.
+    expect(runes(7)).toContain(`rune/${runeArtId(WATER)}`)
     for (const k of RUNE_SLUGS.map((_, i) => i).filter((i) => ((save.runesUnlocked | STARTING_RUNES) >> i) & 1)) {
       expect(runes(7)).toContain(`rune/${runeArtId(k)}`)
     }
+    // Every node, a fresh kit and a full one: exactly her runes plus the two
+    // chips' — the weakness by the HUD's own rule (`weakTo`), the magic when
+    // the node lets her cast it — and nothing else.
+    for (let n = 0; n <= LAST_BUILT_NODE; n++) {
+      for (const unlocked of [STARTING_RUNES, 0xfff]) {
+        const s: ScheduleSave = { ...save, runesUnlocked: unlocked }
+        const setup = duelSetup(n)
+        const mine = unlocked | STARTING_RUNES
+        const want = new Set(RUNE_SLUGS.map((_, k) => k).filter((k) => (mine >> k) & 1))
+        const weak = weakTo(setup.def, mine)
+        if (weak >= 0) want.add(weak)
+        if (setup.usesMagic && setup.def.magic >= 0) want.add(setup.def.magic)
+        expect(runes(n, s).sort(), `node ${n}`).toEqual([...want].map((k) => `rune/${runeArtId(k)}`).sort())
+      }
+    }
+  })
+
+  it('asks for the RESISTS chip rune too (her strength, §6.6a)', () => {
+    // Chapter 2's first duel resists Wind: a kit holding it preloads its icon.
+    const save: ScheduleSave = { ...saveAt(STRENGTH_FROM_NODE - 1), runesUnlocked: (1 << WIND) | (1 << ICE) | (1 << NATURE) }
+    expect(duelSetup(STRENGTH_FROM_NODE).strong).toBe(WIND)
+    expect(keys(previewWants(STRENGTH_FROM_NODE, save, LAND))).toContain(`rune/${runeArtId(WIND)}`)
+    expect(keys(previewWants(STRENGTH_FROM_NODE, save, PORT))).toContain(`rune/${runeArtId(WIND)}`)
   })
 
   it('travels with the duel wherever the duel is planned ahead', () => {

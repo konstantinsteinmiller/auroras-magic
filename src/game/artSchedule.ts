@@ -68,7 +68,7 @@ import {
 import { nextDuelNode, pendingSectorNode, type CampaignState } from '@/game/campaign/state'
 import { hasBit } from '@/game/campaign/bitset'
 import { dialogueFor, thanksLines, OPENING_NODE, type Bubble } from '@/game/story/story'
-import { FOES } from '@/game/duel/foes'
+import { FOES, strongTo, weakTo } from '@/game/duel/foes'
 import { PREVIEW_DOM_ART, VS_BACKDROP_KIND, VS_PODIUM_KIND, VS_PODIUM_IDS, vsBackdropArtId } from '@/game/preview/previewArt'
 import { BADGE_ART } from '@/game/map/badge'
 import { CHROME_ART, pictoSetArtId, pictoSlot } from '@/game/artIds'
@@ -321,7 +321,7 @@ export const duelFxWants = (n: number, save: ScheduleSave): ArtWant[] => {
  * travels with every duel's plan (local versus: `n` < 0). Its backdrop (this
  * orientation's; both without `env`), the two podiums, the DOM's ribbons and
  * emblem (and the crown, for a boss), and every rune icon it shows: her
- * drawable runes, and the foe's weakness and magic chips.
+ * drawable runes, and the foe's weakness, strength and magic chips.
  */
 export const previewWants = (n: number, save: ScheduleSave, env?: ScheduleEnv): ArtWant[] => {
   const runes = new Set<number>()
@@ -332,7 +332,16 @@ export const previewWants = (n: number, save: ScheduleSave, env?: ScheduleEnv): 
     const setup = duelSetup(n)
     const def = FOES[setup.foe]!
     boss = def.boss
-    if (def.element >= 0) runes.add(def.element)
+    // The WEAK TO chip's rune, by the chip's own rule (`foes.ts` `weakTo`) —
+    // never `def.element`, the foe's own. Shown only when she can draw it, so
+    // today it is always among her runes already; asked for through the rule
+    // all the same, so the preload can never name a rune the chip does not.
+    const weak = weakTo(def, mine)
+    if (weak >= 0) runes.add(weak)
+    // …and the strength chip's (§6.6a), by its own rule (`strongTo`), where
+    // the node makes one live. Always one of hers too, by construction.
+    const strong = setup.strong >= 0 ? strongTo(def, mine) : -1
+    if (strong >= 0) runes.add(strong)
     if (setup.usesMagic && def.magic >= 0) runes.add(def.magic)
   }
   const backdrops = env ? [env.portrait] : [false, true]

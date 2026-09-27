@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Espaço vazio',
     'forming': 'Formando: {rune}',
     'weakness': '{rune} causa {n} de dano a este oponente',
+    'strength': '{rune} causa apenas {n} de dano a este oponente',
     'sound': 'Ligar ou desligar o som',
     'spellbook': 'Livro de feitiços',
     'hp': '{name}: {n} de {max} de vida'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'SUAS RUNAS',
     'weakTo': 'FRACA CONTRA',
+    'strongTo': 'RESISTE A',
     'magic': 'MAGIA',
     'epithet': {
       'aurora': 'Guardiã das Runas',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Vem — eu desenho com você!',
     'perfectRune': 'Que desenho lindo!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Termine seu feitiço com outra runa, não com {rune}'
+    }
   }
 }

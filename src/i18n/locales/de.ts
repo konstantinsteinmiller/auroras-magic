@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Leerer Platz',
     'forming': 'Entsteht: {rune}',
     'weakness': '{rune} macht bei diesem Gegner {n} Schaden',
+    'strength': '{rune} macht bei diesem Gegner nur {n} Schaden',
     'sound': 'Ton an oder aus',
     'spellbook': 'Zauberbuch',
     'hp': '{name}: {n} von {max} Lebenspunkten'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'DEINE RUNEN',
     'weakTo': 'SCHWACH GEGEN',
+    'strongTo': 'WIDERSTEHT',
     'magic': 'MAGIE',
     'epithet': {
       'aurora': 'Hüterin der Runen',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Komm — ich male sie mit dir!',
     'perfectRune': 'Wunderschön gemalt!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Beende deinen Zauber mit einer anderen Rune, nicht mit {rune}'
+    }
   }
 }

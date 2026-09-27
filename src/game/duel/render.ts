@@ -7,7 +7,7 @@
  * onboarding trace. The HUD, the callouts and the result panel are Vue
  * components layered over this canvas — see `components/duel/`.
  */
-import { SW, SH, AX, UX, GY, RUNES, CTR, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING, EARTH } from '@/game/duel/config'
+import { SW, SH, AX, UX, GY, RUNES, PH_WIN, PH_LOSE, PH_DUEL, WATER, LIGHTNING, EARTH } from '@/game/duel/config'
 import { S, pulse } from '@/game/duel/state'
 import { drawCloth } from '@/game/map/map'
 import { drawWeather } from '@/game/duel/arena'
@@ -18,13 +18,14 @@ import { drawUnicorn, type PoseState } from '@/game/duel/chars'
 import { drawFxUnder, drawFxOver, drawPost, shakeOffset } from '@/game/duel/fx'
 import { drawGlyph, glyphPoints } from '@/game/duel/glyph'
 import { guideClock, guideFlare, guideRune, runeGuideRune } from '@/game/duel/lesson'
+import { strengthDemoUp } from '@/game/duel/strengthLesson'
 import { LAYOUT, zoneCentre, zoneSpan } from '@/game/duel/layout'
 import { ease, clamp, max, TAU } from '@/game/duel/util'
 import { arenaGiftShown, drawArenaGift } from '@/game/restore/gift'
 import { equippedHooks } from '@/game/cosmetics/rig-cosmetics'
 import { traceAssistNow, reducedMotion } from '@/use/useAccessibility'
 import { FROZEN_MASK } from '@/game/duel/runeDefs'
-import { FOES } from '@/game/duel/foes'
+import { FOES, weakTo } from '@/game/duel/foes'
 import { decoyX } from '@/game/duel/sim'
 import { drawForge } from '@/game/duel/forgeArt'
 import { STARTING_RUNES } from '@/game/campaign/tables'
@@ -36,6 +37,7 @@ import { TWINKLE_ART } from '@/game/map/kit'
 import { zAt } from '@/game/map/kitSky'
 import { SNOWFLAKE_ART } from '@/game/map/kitTundra'
 import { ICE_TINT, iceSlab, iceFacets, frostLockIceAt } from '@/game/duel/stageArt'
+import { RESIST_INK } from '@/game/duel/resist'
 
 type G2D = CanvasRenderingContext2D
 
@@ -254,7 +256,7 @@ const drawGlow = (g: G2D, r: number, reach: number, lit: string): void => {
 
 /** The body, in the element's own silhouette. Drawn around the origin, the
  *  shot's heading along +x. */
-const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: number): void => {
+const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: number, alpha = 1): void => {
   const ink = INK
   g.lineWidth = Math.max(3, r * 0.26)
   g.strokeStyle = ink
@@ -373,10 +375,10 @@ const drawBody = (g: G2D, body: Body, r: number, col: string, lit: string, t: nu
   // The rim the light catches, up and ahead.
   g.beginPath()
   g.arc(r * 0.22, -r * 0.34, r * 0.4, 0, TAU)
-  g.globalAlpha = 0.85
+  g.globalAlpha = 0.85 * alpha
   g.fillStyle = lit
   g.fill()
-  g.globalAlpha = 1
+  g.globalAlpha = alpha
 }
 
 const drawShots = (g: G2D): void => {
@@ -388,10 +390,16 @@ const drawShots = (g: G2D): void => {
     const mixed = look.mix >= 0
     const mixLit = mixed ? RUNES[look.mix]![1]! : col
     const hv = heft(s.k)
-    const r = bodyRadius(s.k) * (1 + look.pulse * 0.5 * Math.sin(S.t * 22))
+    // RESISTED (§6.6a): it closed on her strength and will land at ×0.55. It
+    // is still its own element — the body keeps its shape and colours — but
+    // a size smaller, dulled, and flying in the ×0.55 badge's amber: the
+    // trail, the glow and a rim (`RESIST_INK` = `--am-resist`). The mistake
+    // is readable from the moment the spell leaves the horn.
+    const rs = s.rs === 1
+    const r = bodyRadius(s.k) * (rs ? 0.82 : 1) * (1 + look.pulse * 0.5 * Math.sin(S.t * 22))
     // Where it has been, and therefore which way it is pointing.
     const tr = ribbonOf(s, look.tail)
-    drawRibbon(g, tr, r * hv, look, col, lit, mixLit)
+    drawRibbon(g, tr, r * hv, look, col, rs ? RESIST_INK : lit, rs ? RESIST_INK : mixLit)
     const n = tr.length
     const head = n >= 4
       ? Math.atan2(s.y - tr[n - 3]!, s.x - tr[n - 4]!)
@@ -400,11 +408,22 @@ const drawShots = (g: G2D): void => {
     g.translate(s.x, s.y)
     // Delayed spells hang overhead and pulse a warning before they fall.
     if (s.delay > 0) g.globalAlpha = 0.55 + 0.45 * Math.sin(S.t * 14)
-    drawGlow(g, r, look.glow * hv, lit)
+    drawGlow(g, r, look.glow * hv, rs ? RESIST_INK : lit)
+    const a0 = g.globalAlpha
+    if (rs) g.globalAlpha = a0 * 0.6
     g.rotate(look.spin ? S.t * look.spin : head)
     if (s.r === WATER) drawBubbleShot(g, r, col, lit)
     else if (s.r === LIGHTNING) drawBoltShot(g, r * 1.15, col, lit, s.dir)
-    else drawBody(g, look.body, r, col, lit, S.t)
+    else drawBody(g, look.body, r, col, lit, S.t, rs ? a0 * 0.6 : 1)
+    if (rs) {
+      // The amber rim round the dulled body, at full strength.
+      g.globalAlpha = a0
+      g.lineWidth = Math.max(2.5, r * 0.24)
+      g.strokeStyle = RESIST_INK
+      g.beginPath()
+      g.arc(0, 0, r * 1.18, 0, TAU)
+      g.stroke()
+    }
     // The rim the second element catches: the body stays the lead's, because
     // the lead is what the damage is scaled by, but the edge is both.
     if (mixed) {
@@ -617,9 +636,8 @@ const helpRune = (): number => {
   const newest = newestRune()
   if (newest >= 0) return newest
   const own = (S.campaign.runesUnlocked | STARTING_RUNES) >>> 0
-  const fe = FOES[S.foe]?.element ?? -1
-  const c = fe >= 0 ? CTR[fe] ?? -1 : -1
-  if (c >= 0 && (own >> c) & 1) return c
+  const c = weakTo(FOES[S.foe], own)
+  if (c >= 0) return c
   return own ? 31 - Math.clz32(own & -own) : -1
 }
 const drawAssistTrace = (g: G2D, t: number, help: boolean): void => {
@@ -1231,6 +1249,7 @@ export const render = (g: G2D): void => {
   if (S.draw && S.portrait) drawStroke(g)
   if (S.versus) return
   if (S.intro && !S.book && S.phase === PH_DUEL && guideRune() >= 0) drawIntroTrace(g, t)
-  // (Never two ghosts on one pad: the new-rune guide already shows its rune.)
-  else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0 && runeGuideRune() < 0) drawAssistTrace(g, t, helpOn())
+  // (Never two ghosts on one pad: the new-rune guide already shows its rune,
+  // and the strength lesson's finger draws its own, §8.36a.)
+  else if (traceAssistNow.value && !S.book && S.phase === PH_DUEL && S.landed === 0 && runeGuideRune() < 0 && !strengthDemoUp()) drawAssistTrace(g, t, helpOn())
 }

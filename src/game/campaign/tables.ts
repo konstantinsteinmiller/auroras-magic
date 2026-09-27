@@ -263,6 +263,29 @@ export const nodeFoe = (n: number): number => {
   return nodeIsBoss(n) ? guardianOf(ch) : shadowOf(ch)
 }
 
+/**
+ * THE FIRST DUEL WITH A STRENGTH (story-spec §6.6a): 2-1, the first duel after
+ * chapter 1 — whose five duels each already teach something (the first-duel
+ * lesson, Ice's guide, the depth glimpse, Wind's guide, the first boss). She
+ * holds five runes by then. Nature's guide is up there too, and it teaches
+ * the same thing: Nature is chapter 2's weakness and Wind its strength —
+ * close on Nature, not Wind. A chapter boundary, so every campaign foe's own
+ * `FoeDef.strong` is exactly what she shows (chapter 1's are −1), and
+ * `foes.strongTo` may read it straight off the foe. Node-keyed like the
+ * easing, so a replay of a chapter-1 node has none either.
+ */
+export const STRENGTH_FROM_NODE = 5
+
+/**
+ * The foe's STRENGTH live in node `n`'s duel — the rune she resists (×0.55
+ * when it closes a hand) — or −1. Handed to the duel with the foe
+ * (`DuelSetup.strong` → `S.eStrong`). Equal to `FOES[nodeFoe(n)].strong` at
+ * every node (`tests/duel/strength.test.ts`), so what is shown can read the
+ * foe (`strongTo`). Local versus has none (`resetDuel`, §6.19).
+ */
+export const strengthAt = (n: number): number =>
+  n >= STRENGTH_FROM_NODE && n < CHAPTER_COUNT * NODES_PER_CHAPTER ? FOES[nodeFoe(n)]?.strong ?? -1 : -1
+
 /** Everything `resetDuel` needs about a node, resolved (§4.8.2). */
 export interface DuelSetup {
   node: number
@@ -270,10 +293,12 @@ export interface DuelSetup {
   def: FoeDef
   /** C14's node-3 rule: this chapter's foe may cast its new magic from node 3. */
   usesMagic: boolean
+  /** Her strength, live in this duel (`strengthAt`), or −1. */
+  strong: number
 }
 export const duelSetup = (n: number): DuelSetup => {
   const foe = nodeFoe(n)
-  return { node: n, foe, def: FOES[foe]!, usesMagic: nodePosInChapter(n) >= 2 }
+  return { node: n, foe, def: FOES[foe]!, usesMagic: nodePosInChapter(n) >= 2, strong: strengthAt(n) }
 }
 
 /** The restoration tool a node's gift holds (§8.4 — by node type and

@@ -526,13 +526,43 @@ export const resolveSpell = (q: readonly number[], signatures = 0): ResolvedSpel
  * and Love are exempt (-1).
  */
 export const CTR: readonly number[] = [3, 2, 0, 1, 10, 4, 5, 6, -1, -1, 7, -1]
+/** What the rune that counters her element pays (§6.6). */
+export const WEAK_MUL = 1.7
+/** What her STRENGTH pays (§6.6a). */
+export const STRONG_MUL = 0.55
 /**
- * Damage scale for rune `r` against foe element `f`. The rune that counts is
- * the LAST one drawn — which is already the one that colours the projectile
- * and its impact, so the element the player sees flying is the element that
- * gets the bonus.
+ * Damage scale for rune `r` against a foe of element `f` whose STRENGTH is
+ * `strong` (§6.6, §6.6a): the rune that counters her element ×1.7, her
+ * strength ×0.55, anything else ×1 — her own element included, unless it IS
+ * her strength (owner, 2026-09-27: one visible weakness, one visible
+ * strength, nothing hidden). `strong` −1: none (a foe before the gate, local
+ * versus). A foe with no element (−1) has no weakness, but may still have a
+ * strength.
+ *
+ * The rune that counts is the LAST one drawn, post-Rainbow (`closingRune`) —
+ * which is already the one that colours the projectile and its impact, so
+ * the element the player sees flying is the element that gets the bonus.
  */
-export const elemMul = (r: number, f: number): number => (f < 0 ? 1 : r === f ? 0.55 : CTR[f] === r ? 1.7 : 1)
+export const elemMul = (r: number, f: number, strong = -1): number =>
+  f >= 0 && CTR[f] === r ? WEAK_MUL : r >= 0 && r === strong ? STRONG_MUL : 1
+
+/**
+ * The rune whose element a hand's cast carries into `elemMul` (§6.2 step 7):
+ * the one drawn LAST — or, when that is a Rainbow, the rune it completed the
+ * hand as (§6.20). A hand of nothing but Rainbow is Rainbow, which no foe
+ * counters or resists. −1 for an empty hand. `signatures` is the caster's
+ * unlocked Signature Spells, as the cast itself resolves them.
+ */
+export const closingRune = (q: readonly number[], signatures = 0): number =>
+  q.length ? resolveSpell(q, signatures).lead : -1
+
+/**
+ * Does this hand close on the foe's strength — would its cast take ×0.55?
+ * `strong` is the strength live in THIS duel (`S.eStrong`), −1 for none. The
+ * strong rune INSIDE a hand costs nothing; only the one that closes it counts.
+ */
+export const closesOnStrength = (q: readonly number[], strong: number, signatures = 0): boolean =>
+  strong >= 0 && closingRune(q, signatures) === strong
 
 /* ------------------------------ features ---------------------------- */
 /** The spellbook is part of the story build (§3.9, C16). */

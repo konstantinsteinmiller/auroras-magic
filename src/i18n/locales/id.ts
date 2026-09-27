@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Slot kosong',
     'forming': 'Sedang terbentuk: {rune}',
     'weakness': '{rune} memberi {n} kerusakan pada lawan ini',
+    'strength': '{rune} hanya memberi {n} kerusakan pada lawan ini',
     'sound': 'Nyalakan atau matikan suara',
     'spellbook': 'Buku mantra',
     'hp': '{name}: {n} dari {max} darah'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'RUNE KAMU',
     'weakTo': 'KELEMAHAN',
+    'strongTo': 'KETAHANAN',
     'magic': 'SIHIR',
     'epithet': {
       'aurora': 'Penjaga Rune',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Sini — kita gambar sama-sama!',
     'perfectRune': 'Gambarnya bagus sekali!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Akhiri mantramu dengan rune lain, bukan {rune}'
+    }
   }
 }

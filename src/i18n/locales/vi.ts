@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'Ô trống',
     'forming': 'Đang hình thành: {rune}',
     'weakness': '{rune} gây {n} sát thương cho đối thủ này',
+    'strength': '{rune} chỉ gây {n} sát thương cho đối thủ này',
     'sound': 'Bật hoặc tắt âm thanh',
     'spellbook': 'Sách phép',
     'hp': '{name}: {n}/{max} máu'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'PHÙ VĂN CỦA BẠN',
     'weakTo': 'ĐIỂM YẾU',
+    'strongTo': 'KHÁNG',
     'magic': 'PHÉP THUẬT',
     'epithet': {
       'aurora': 'Người Giữ Rune',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'Lại đây, mình vẽ cùng bạn nhé!',
     'perfectRune': 'Vẽ đẹp quá!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Hãy kết thúc phép bằng phù văn khác, đừng dùng {rune}'
+    }
   }
 }

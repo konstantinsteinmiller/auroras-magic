@@ -112,6 +112,7 @@ export default {
     'emptySlot': 'खाली खाना',
     'forming': 'बन रहा है: {rune}',
     'weakness': '{rune} इस विरोधी को {n} नुकसान पहुँचाता है',
+    'strength': '{rune} इस विरोधी को केवल {n} नुकसान पहुँचाता है',
     'sound': 'आवाज़ चालू या बंद करें',
     'spellbook': 'मंत्र पुस्तक',
     'hp': '{name}: {max} में से {n} सेहत'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'आपके रून',
     'weakTo': 'कमज़ोर बिंदु',
+    'strongTo': 'प्रतिरोध',
     'magic': 'जादू',
     'epithet': {
       'aurora': 'रून की रक्षिका',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'आओ — मैं तुम्हारे साथ बनाती हूँ!',
     'perfectRune': 'बहुत सुंदर बनाया!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'अपना मंत्र {rune} से नहीं, किसी दूसरे रून से ख़त्म करो'
+    }
   }
 }

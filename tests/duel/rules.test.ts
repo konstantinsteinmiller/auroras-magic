@@ -9,8 +9,9 @@ import {
   SPELLS, comboKey, resolveSpell, dominantRune, comboEnumerationIndex, comboFromIndex, COMBO_COUNT,
   elemMul, CTR, MAX_RUNES, FIRE, WIND, ICE, EARTH, NATURE, NO_EASE, PH_DUEL, PH_WIN, PH_LOSE, totalDamage
 } from '@/game/duel/config'
-import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE, FIRST_UMBRA } from '@/game/duel/foes'
+import { FOES, shadowOf, guardianOf, tierRate, VERSUS_FOE, FIRST_UMBRA, weakTo } from '@/game/duel/foes'
 import { earlyEase } from '@/game/campaign/easing'
+import { STARTING_RUNES } from '@/game/campaign/tables'
 import { S } from '@/game/duel/state'
 import { resetDuel, updateSim, cast, onDuelEvent, dreamDust, dustEase, onboarding, foeRate } from '@/game/duel/sim'
 import { AFK_S } from '@/game/duel/director'
@@ -120,12 +121,67 @@ describe('the elemental graph (§6.6)', () => {
     for (const e of [8, 9, 11]) expect(CTR[e]).toBe(-1)
   })
 
-  it('pays x1.7 for the counter, x0.55 for the same element, x1 otherwise or with no element', () => {
+  // Her own element is no longer a hidden ×0.55 (owner, 2026-09-27, §6.6a):
+  // the ×0.55 is her STRENGTH, a separate, visible rune.
+  it('pays x1.7 for the counter, x0.55 for her strength, x1 otherwise — her own element included', () => {
     expect(elemMul(EARTH, FIRE)).toBe(1.7)
-    expect(elemMul(FIRE, FIRE)).toBe(0.55)
+    expect(elemMul(FIRE, FIRE)).toBe(1)
+    expect(elemMul(FIRE, FIRE, FIRE)).toBe(0.55)
     expect(elemMul(WIND, FIRE)).toBe(1)
+    expect(elemMul(WIND, FIRE, WIND)).toBe(0.55)
     expect(elemMul(MOON, NATURE)).toBe(1.7)
     expect(elemMul(FIRE, -1)).toBe(1)
+    // A foe with no element has no weakness, and may still have a strength.
+    expect(elemMul(WIND, -1, WIND)).toBe(0.55)
+  })
+
+  // `weakTo`: the one rule the duel HUD's badge, the VS preview's WEAK TO
+  // chip (and its art preload) and the help ghost all read.
+  describe('the weakness the player is shown (weakTo)', () => {
+    const ALL = 0xfff
+    const STARTING = STARTING_RUNES
+    const WATER = 5
+
+    it('is the rune that COUNTERS her element, not her element (chapter 2: a Water foe → Nature)', () => {
+      const bay = FOES[shadowOf(1)]!
+      expect(bay.element).toBe(WATER)
+      expect(weakTo(bay, STARTING | (1 << NATURE))).toBe(NATURE)
+      expect(elemMul(NATURE, WATER)).toBe(1.7)
+      // Her own element is a plain ×1 (§6.6a: the ×0.55 is her strength).
+      expect(elemMul(WATER, WATER)).toBe(1)
+      // Across the whole roster, with every rune in hand: always the ×1.7
+      // rune, never her own.
+      for (const f of FOES) {
+        const w = weakTo(f, ALL)
+        if (f.element < 0) continue
+        expect(w, f.slug).toBe(CTR[f.element] ?? -1)
+        if (w >= 0) {
+          expect(w, f.slug).not.toBe(f.element)
+          expect(elemMul(w, f.element), f.slug).toBe(1.7)
+        }
+      }
+    })
+
+    it('shows nothing for a foe with no element (−1), or no foe at all', () => {
+      expect(FOES[VERSUS_FOE]!.element).toBe(-1)
+      expect(weakTo(FOES[VERSUS_FOE], ALL)).toBe(-1)
+      // Chapter 6, Rainbow Ridge: exempt.
+      expect(FOES[shadowOf(5)]!.element).toBe(-1)
+      expect(weakTo(FOES[shadowOf(5)], ALL)).toBe(-1)
+      expect(weakTo(undefined, ALL)).toBe(-1)
+    })
+
+    it('shows nothing while she cannot draw the counter', () => {
+      // Chapter 2 without Nature.
+      expect(weakTo(FOES[shadowOf(1)], STARTING)).toBe(-1)
+      // Chapter 1 (and node 0's Umbra): Nature, whose counter Moon arrives in chapter 9.
+      for (const f of [FOES[shadowOf(0)], FOES[guardianOf(0)], FOES[FIRST_UMBRA]]) {
+        expect(weakTo(f, STARTING)).toBe(-1)
+        expect(weakTo(f, STARTING | (1 << MOON))).toBe(MOON)
+      }
+      // Only the counter's own bit counts.
+      expect(weakTo(FOES[shadowOf(1)], ALL & ~(1 << NATURE))).toBe(-1)
+    })
   })
 })
 

@@ -112,6 +112,7 @@ export default {
     'emptySlot': '空きスロット',
     'forming': '形成中：{rune}',
     'weakness': '{rune}はこの相手に{n}ダメージ',
+    'strength': '{rune}はこの相手に{n}ダメージしか与えない',
     'sound': 'サウンドのオン／オフ',
     'spellbook': '魔法の書',
     'hp': '{name}：体力 {n}/{max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': '自分のルーン',
     'weakTo': '弱点',
+    'strongTo': '耐性',
     'magic': '魔法',
     'epithet': {
       'aurora': 'ルーンの守り手',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': 'いっしょにかこう！',
     'perfectRune': 'じょうずにかけたね！'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': '呪文のさいごは{rune}じゃなく、ほかのルーンにしよう'
+    }
   }
 }

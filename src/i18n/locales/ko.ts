@@ -112,6 +112,7 @@ export default {
     'emptySlot': '빈 칸',
     'forming': '생성 중: {rune}',
     'weakness': '{rune}: 이 상대에게 피해 {n}',
+    'strength': '{rune}: 이 상대에게는 피해 {n}뿐',
     'sound': '소리 켜기/끄기',
     'spellbook': '마법책',
     'hp': '{name}: 체력 {n}/{max}'
@@ -488,6 +489,7 @@ export default {
     'vs': 'VS',
     'yourRunes': '내 룬',
     'weakTo': '약점',
+    'strongTo': '내성',
     'magic': '마법',
     'epithet': {
       'aurora': '룬의 지킴이',
@@ -597,5 +599,11 @@ export default {
   'help': {
     'auroraLine': '자, 같이 그려 봐요!',
     'perfectRune': '정말 예쁘게 그렸어요!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': '주문은 {rune} 말고 다른 룬으로 끝내 봐'
+    }
   }
 }

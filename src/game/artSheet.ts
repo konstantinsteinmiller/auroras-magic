@@ -5261,6 +5261,10 @@ export const pagePrompt = (s: PageSheet): string =>
   'WHAT IT IS NOT — read this twice, it is the whole difficulty:',
   '· This is the BACKGROUND of a page, not a picture on a page. There is NO scene, no characters, no buildings, no foreground, nothing to look at.',
   '· No text, letters, numbers or writing anywhere.',
+  // Chapter 5's page came back with two of its motifs LETTERED in the margin
+  // ("Mirrored teardleps", "Still-water ripules") — the motif list read as
+  // captions to write, the same trap as the portrait strips' mood names.
+  '· NO LETTERING, NO WORDS: never label a doodle with its name, never write the chapter\'s name, never add a caption, a title or a signature. The list of doodles below tells YOU what to draw; it is not text to put on the paper, and any word painted there ends up in the game under the cards.',
   '· No cards, frames, boxes, panels, borders or rounded rectangles. The game draws five picture cards and a winding dotted trail ON TOP of your paper, and they must be the only things a child\'s eye goes to.',
   '· Nothing in the middle of the sheet. Whatever you draw is faint and scattered toward the edges.',
   '',
@@ -5283,6 +5287,7 @@ export const pagePrompt = (s: PageSheet): string =>
   '· The doodles are single thin lines, very faint, and scattered — not a border, not a pattern, not a scene.',
   `· One soft colour wash along the ${s.portrait ? 'left edge' : 'bottom'}, and nowhere else.`,
   '· No text, no frames, no cards, no rectangles.',
+  '· Count the words and letters on the sheet: zero. No doodle carries its name beside it.',
   ...STYLE_CHECKS,
   '',
   `OUTPUT: one image, ${s.portrait ? 'tall portrait (for example 768 x 1408 pixels), 9:16' : 'wide landscape (for example 1408 x 768 pixels), 16:9'}, PNG. If your tool has an aspect-ratio control, set it to ${s.portrait ? '9:16' : '16:9'}. No labels, captions, numbers or watermarks.`

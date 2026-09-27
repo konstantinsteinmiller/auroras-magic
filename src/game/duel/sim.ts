@@ -13,8 +13,8 @@
  */
 import {
   AX, UX, GY, HDX, HDY, BOX, MAX_RUNES, HP_MAX, FIRE, WIND, ICE, EARTH, NATURE, WATER, LIGHTNING, ILLUSION,
-  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, NO_EASE, elemMul, resolveSpell, comboEnumerationIndex, comboKey,
-  type DuelEase, type Rune, type ResolvedSpell
+  TIME, MOON, LOVE, PH_DUEL, PH_WIN, PH_LOSE, RUNES, NO_EASE, STRONG_MUL, elemMul, resolveSpell, comboEnumerationIndex,
+  comboKey, type DuelEase, type Rune, type ResolvedSpell
 } from '@/game/duel/config'
 import { FOES, tierRate, type FoeDef } from '@/game/duel/foes'
 import {
@@ -27,12 +27,15 @@ import {
   lessonCast, lessonCastOpen, lessonCastRefused, lessonMiss, lessonStored, lessonTakes, resetLesson, stepLesson,
   showLockedRune
 } from '@/game/duel/lesson'
+import {
+  endStrengthLesson, resetStrengthLesson, stepStrengthLesson, strengthLessonCast, strengthLessonHolds
+} from '@/game/duel/strengthLesson'
 import { RUNE_DEFS } from '@/game/duel/runeDefs'
 import { clamp, damp, rnd, pick, max, min, hypot, abs } from '@/game/duel/util'
 import {
   impact, wardHit, castBurst, fireRain, barrier, rainbowBurst, shakeAdd, flashAdd, trail, gatherGlints, heal,
   decoyRise, decoyPop, decoyFade, reflectFlash, finisherBloom, frostBurst, seepThrough, lingerMote, hasteSpark,
-  forgeSpark, liftBloom, liftMote, punchAdd, BAR_CRYSTAL, BAR_FROST
+  forgeSpark, liftBloom, liftMote, punchAdd, resistPuff, BAR_CRYSTAL, BAR_FROST
 } from '@/game/duel/fx'
 import { forgeDuration, forgeProgress, hornGlow } from '@/game/duel/forge'
 import { duelPageHit } from '@/game/duel/duelPage'
@@ -67,7 +70,7 @@ const HORN_Y = GY + HDY
  * carries the same record again when that stroke was STORED — versus' second
  * hand reports neither.
  */
-export type DuelEvent = 'rune' | 'cast' | 'hurt' | 'hit' | 'finish' | 'stroke' | 'phase'
+export type DuelEvent = 'rune' | 'cast' | 'hurt' | 'hit' | 'finish' | 'stroke' | 'phase' | 'resisted'
 /** A miss scoring at least this is named as a near-miss (§5.12). Junk sits
  *  well under it; the accept line (`THRESH`) is 0.78. */
 export const NEAR_MISS = 0.6
@@ -106,7 +109,9 @@ export const duelTally = {
   lingers: 0,
   /** HP the lingers' ticks took off the foe, and off the player. */
   lingerToFoe: 0,
-  lingerToPlayer: 0
+  lingerToPlayer: 0,
+  /** The player's hits that landed on the foe's strength (§6.6a, ×0.55). */
+  resisted: 0
 }
 
 /**
@@ -392,6 +397,8 @@ const reflect = (s: Shot, e: boolean): void => {
     lg: 0,
     // …and it holds nobody's cast lock (§8.37): it is the ward's now.
     lk: 0,
+    // It comes back at its BASE damage, which no strength touched.
+    rs: 0,
     delay: DELAY[s.k] ? 0.55 : 0, life: 0
   })
 }
@@ -430,14 +437,16 @@ const launch = (q: Rune[], e: boolean, sp: ResolvedSpell): void => {
   const boss2 = e && S.ePhase >= 2 ? foe.phase2 : null
   /**
    * Only the player's damage is scaled by elements: the element the cast
-   * LEANS ON (the last rune drawn) against the foe's. (No ranks — removed per
-   * D3.)
+   * LEANS ON (the last rune drawn, a Rainbow already resolved) against the
+   * foe's weakness and her strength live in this duel (§6.6a). (No ranks —
+   * removed per D3.)
    */
   const dr = sp.lead
+  const em = e ? 1 : elemMul(dr, foe.element, S.eStrong)
   // …and the foe's damage by the node's easing, which is 1 everywhere except
   // the teaching chapters: what a blow COSTS is what decides whether a small
   // child's mistake is survivable, and it changes no number she has to read.
-  const mul = e ? S.ease.dmg : elemMul(dr, foe.element)
+  const mul = e ? S.ease.dmg : em
   const dmg = sp.dmg * mul
   const hx = hornX(e)
   const dir = e ? -1 : 1
@@ -518,7 +527,8 @@ const launch = (q: Rune[], e: boolean, sp: ResolvedSpell): void => {
       dot,
       slow: sp.slow ?? 0,
       dir,
-      w: mul > 1.2 ? 1 : 0, // super-effective, for the callout on impact
+      w: em > 1.2 ? 1 : 0, // super-effective, for the callout on impact
+      rs: em < 1 ? 1 : 0, // resisted (her strength, §6.6a) — likewise
       p: pierce ? 1 : 0,
       n: q.length,
       delay: DELAY[kind] ?? 0,
@@ -644,6 +654,8 @@ const startForge = (q: Rune[], e: boolean): void => {
     // lesson's end and the first-cast beat all happen here, not 1.5 s on.
     lastCast = { key: sp.key, index: comboEnumerationIndex(f.q), count: f.q.length }
     if (S.intro) lessonCast()
+    // The strength lesson judges the hand she just cast (§8.36a).
+    strengthLessonCast(f.q)
     emit('cast')
   }
 }
@@ -740,7 +752,9 @@ export const castSide = (e: boolean): void => {
     return
   }
   // The haste's pace tally (§8.35): how many runes a second she is casting.
-  if (!e && !S.versus) notePlayerCast(q.length)
+  // Not while the strength lesson holds the foe (§8.36a): answering a foe who
+  // is standing still is not the pace the haste answers.
+  if (!e && !S.versus && !strengthLessonHolds()) notePlayerCast(q.length)
   startForge(q, e)
 }
 
@@ -888,13 +902,19 @@ const strike = (shot: Shot, e: boolean): void => {
 
   S.hitsLanded++
   const p = clamp(s.dmg / 40, 0.15, 1)
+  // A blow her STRENGTH blunted (§6.6a) lands as what it is: no element
+  // burst, a small puff in the ×0.55 badge's amber (`fx.resistPuff`) — the
+  // colour the shot flew in and the callout says, so the eye links all three.
+  // Over the FOE only (a Crystal Ward's return clears `rs`).
+  const blunted = e && s.w !== 1 && s.rs === 1
   // fireRain is FIRE-flavoured art, so it only fits a fire heavy. Non-fire
   // heavies get a full-power elemental impact.
-  if (s.k === 3 && s.r === FIRE && !seeped) fireRain(tx, GY, p)
+  if (s.k === 3 && s.r === FIRE && !seeped && !blunted) fireRain(tx, GY, p)
   // A heavy lands at full power — except the share of one a ward let
   // through, which lands as the smaller thing it is: stacked on the ward's
   // own flash, a full heavy impact whited the screen out.
-  impact(tx, GY - 90, s.r, s.k === 3 && !seeped ? 1 : p, s.m)
+  if (blunted) resistPuff(tx, GY - 90, s.r, p)
+  else impact(tx, GY - 90, s.r, s.k === 3 && !seeped ? 1 : p, s.m)
   // …and it lands on the PAGE behind them (§8.29): Aurora's spells blow the
   // dust off it, Umbra's puff it back over.
   duelPageHit(tx, GY - 90, e, p)
@@ -929,6 +949,12 @@ const strike = (shot: Shot, e: boolean): void => {
       duelTally.lingers++
     }
     emit('hit')
+    // It closed on her STRENGTH (§6.6a) and landed at ×0.55: said, like a
+    // weakness is, so a child can learn to close on something else.
+    if (s.rs) {
+      duelTally.resisted++
+      emit('resisted')
+    }
   } else {
     // The director (§6.14b): the foe's damage is scaled to keep the two bars
     // together, and CLAMPED so it can never take the last step — unless the
@@ -953,7 +979,18 @@ const strike = (shot: Shot, e: boolean): void => {
   // to aim for, so the counter-hit says so in its own colour.
   // WHOSE it is (§8.36): over the one who took it, in her side's colour,
   // drifting off her — the HUD reads `v` (`DuelPopups.vue`).
-  pop(s.w ? 'weakHit' : 'hit', s.w ? '#7dffa8' : e ? '#ffd76a' : '#ff6a8a', tx, GY - 250, { n: s.dmg | 0 }, e ? 1 : 0)
+  // A blow her STRENGTH blunted (§6.6a) says so too, wordlessly: a shield and
+  // the smaller number, in the resist colour (`DuelPopups.vue`). Both only
+  // over the FOE — a spell a Crystal Ward sent back clears both flags, and
+  // this keeps any other path from putting "WEAK!" over Aurora.
+  const weak = e && s.w === 1
+  const resisted = e && !weak && s.rs === 1
+  // A resisted one carries its multiplier too (`m`): the callout reads
+  // "🛡 −n ×0.55", the ×0.55 badge's own words — and, twice as wide as a
+  // plain number, it rises from lower down, clear of the spell's name and of
+  // the "x2 COMBO" that most resisted hands (a combo closed on her strength)
+  // put on the line above.
+  pop(weak ? 'weakHit' : resisted ? 'resistHit' : 'hit', weak ? '#7dffa8' : resisted ? '#dda46c' : e ? '#ffd76a' : '#ff6a8a', tx, resisted ? GY - 200 : GY - 250, resisted ? { n: s.dmg | 0, m: STRONG_MUL } : { n: s.dmg | 0 }, e ? 1 : 0)
   if (s.n > 1 && e && !seeped) pop('combo', '#fff', tx, GY - 300, { n: s.n })
 }
 
@@ -1084,12 +1121,16 @@ const willWall = (token: number): boolean => {
  * she answers what is actually on the field.
  */
 const think = (dt: number): void => {
+  // The strength lesson (§8.36a) keeps its own clock even through a freeze:
+  // while it holds her she neither forms nor casts, like the glimpse below.
+  const held = stepStrengthLesson(dt)
   // Frost Lock (§6.5): a frozen foe does nothing at all — no forming, no
   // casting, not even the panic dump.
   if (S.eFrozen > 0) return
   // The depth glimpse (§8.36): while her teaching ward stands and the hint
   // shows, she neither forms nor casts.
   if (stepGlimpse(dt)) return
+  if (held) return
   const lv = FOES[S.foe]!.aiTier
   // HASTE.minForm is a readability limit, not a balance cap (director.ts).
   const rate = min(1 / HASTE.minForm, foeRate() * foeRush())
@@ -1502,6 +1543,7 @@ const finish = (won: boolean): void => {
   dropForge(false)
   dropForge(true)
   if (S.glimpse) S.glimpse = 4
+  endStrengthLesson()
   S.over = S.panelT = 0
   S.resultUp = false
   S.shots.length = 0
@@ -1548,6 +1590,10 @@ export interface DuelStart {
   foe: number
   /** C14's node-3 rule. */
   usesMagic: boolean
+  /** The foe's strength live in this duel (§6.6a, `campaign/tables.ts`
+   *  `strengthAt`): the rune she resists, or −1. Omitted — a test, a debug
+   *  hook, versus — means none. */
+  strong?: number
   /** Dream Dust: this node's current loss streak (§6.15). */
   lossStreak: number
   /** What this node's duel is eased by for a beginner (`campaign/easing.ts`).
@@ -1602,6 +1648,9 @@ export const resetDuel = (start?: DuelStart): void => {
     S.foe = clamp(start.foe | 0, 0, FOES.length - 1)
     S.usesMagic = start.usesMagic
     S.versus = !!start.versus
+    // Her strength, as the campaign resolved it (§6.6a) — none in versus.
+    const strong = start.strong ?? -1
+    S.eStrong = !S.versus && strong >= 0 && strong < 12 ? strong | 0 : -1
     S.dust = S.versus ? 1 : dreamDust(start.lossStreak)
     // Versus is the plain fight both ways (§6.19): the second player is a
     // person, and a handicap nobody asked for is not a kindness.
@@ -1632,7 +1681,7 @@ export const resetDuel = (start?: DuelStart): void => {
   S.queue.length = S.equeue.length = S.shots.length = S.pts.length = 0
   S.eForm = S.guard = S.eGuard = S.burn = S.eBurn = S.slow = S.eSlow = 0
   S.linger = S.eLinger = S.lingerRate = S.eLingerRate = 0
-  duelTally.seep = duelTally.lingers = duelTally.lingerToFoe = duelTally.lingerToPlayer = 0
+  duelTally.seep = duelTally.lingers = duelTally.lingerToFoe = duelTally.lingerToPlayer = duelTally.resisted = 0
   S.guardHits = S.eGuardHits = 0
   S.decoy = S.eDecoy = S.decoyN = S.eDecoyN = S.decoyT = S.eDecoyT = 0
   S.frozen = S.eFrozen = S.freezeCd = S.eFreezeCd = 0
@@ -1665,10 +1714,14 @@ export const resetDuel = (start?: DuelStart): void => {
   S.edraw = 0
   S.epts.length = 0
   S.landed = 0
+  // The strength badge's lesson cue is the lesson's to raise, per duel.
+  S.strongCue = false
   S.sky = 0.5
   S.round++
-  // A lesson still owed starts over from its first beat (lesson.ts).
+  // A lesson still owed starts over from its first beat (lesson.ts); the
+  // strength lesson waits to be armed by the flow (strengthLesson.ts).
   resetLesson()
+  resetStrengthLesson()
 }
 
 /** One simulation step. Called at a fixed timestep by the scene. */

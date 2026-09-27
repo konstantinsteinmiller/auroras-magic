@@ -139,6 +139,10 @@ export type AnalyticsEvent =
   | 'rune_guide_shown'
   /** …and she drew it (`seen`: while the guide was on screen, not under the glimpse's hint). `{ rune, seen }` */
   | 'rune_guide_done'
+  /** The strength lesson began: the foe held, the ✕/✓ demo up (`duel/strengthLesson.ts`). `{ rune, other }` */
+  | 'strength_lesson_shown'
+  /** …and it was taught: `how` 'cast' (she closed on another rune), 'tries' or 'time' (it let her go). `{ how, fails, secs, rune }` */
+  | 'strength_lesson_done'
   // ── DECLARED, NOT YET FIRED. These are not dead names: each belongs to a
   //    retention-roadmap feature that is still to be built, and the name is
   //    settled here so the union is the ONE place event names are chosen and

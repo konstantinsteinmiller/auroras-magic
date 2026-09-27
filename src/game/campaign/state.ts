@@ -54,6 +54,11 @@ export interface CampaignState {
    *  new-rune guide shows a rune on the pad until it is (`newRune.ts`). A save
    *  from before the field reads it off `combosSeen`; always ORs the pair. */
   runesTaught: number
+  /** The strength lesson (§8.36a) has been taught — she closed a hand on
+   *  another rune, or it let her go on its own — so it never plays again
+   *  (`strengthLesson.ts`). A save from before it reads false: nobody had
+   *  met a strength then. */
+  strengthTaught: boolean
   /** Bit i = `SIGNATURE_SPELLS[i]` unlocked. */
   signaturesUnlocked: number
   /** Over the fixed 454-combo enumeration (§4.3.1). */
@@ -125,6 +130,7 @@ export const defaultCampaign = (): CampaignState => ({
   wipeHalf: null,
   runesUnlocked: STARTING_RUNES,
   runesTaught: STARTING_RUNES,
+  strengthTaught: false,
   signaturesUnlocked: 0,
   combosSeen: emptyBitset(COMBO_COUNT),
   combosViewed: emptyBitset(COMBO_COUNT),
@@ -211,6 +217,10 @@ export const readCampaign = (raw: unknown): CampaignState => {
     runesTaught: r.runesTaught === undefined || r.runesTaught === null
       ? taughtFromCombos(combosSeen)
       : (int(r.runesTaught, 0, 0xfff, d.runesTaught) | STARTING_RUNES) >>> 0,
+    // The strength lesson's memory (§8.36a). Absent — a save from before it
+    // — or anything but `true` is "not taught": the feature is new to every
+    // save, so a returning player meets it once at her next strength duel.
+    strengthTaught: r.strengthTaught === true,
     signaturesUnlocked: int(r.signaturesUnlocked, 0, 0b11, 0),
     combosSeen,
     combosViewed: b64(r.combosViewed, d.combosViewed),

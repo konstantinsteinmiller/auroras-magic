@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RUNES } from '@/game/duel/config'
 import RuneGlyph from '@/components/duel/RuneGlyph.vue'
+import GameIcon from '@/components/icons/GameIcon.vue'
 import { registerHot, releaseHot, setRingLength } from '@/use/useDuelHud'
 
 /**
@@ -54,6 +55,15 @@ const props = defineProps<{
    */
   lift?: number
   liftRune?: number
+  /**
+   * THE EARLIEST WARNING (§6.6a): this slot's rune CLOSES the player's hand on
+   * the foe's strength, and the hand will hit — it would land at ×0.55. An
+   * amber ring and wash in the strength badge's own colour (`--am-resist`),
+   * and a small shield at the corner; gone the moment another rune closes the
+   * hand (`useDuelHud.resistWarnSlot`). Still: no pulse, it is a note, not
+   * an alarm — the strength lesson's ✕ is the loud one, and never shows with it.
+   */
+  resist?: boolean
 }>()
 
 const { t } = useI18n()
@@ -109,8 +119,11 @@ onUnmounted(unbind)
   div.rune-slot
     span.slot-warn(v-if="warn && rune !== undefined" :class="warn >= 2 ? 'full' : 'soft'" aria-hidden="true")
     span.slot-lift(v-if="lift" :key="lift" :style="liftTint" aria-hidden="true")
+    span.slot-resist(v-if="resist && rune !== undefined" aria-hidden="true")
     div.slot-plate.duel-plate(:style="tint")
+    span.slot-resist-wash(v-if="resist && rune !== undefined" aria-hidden="true")
     RuneGlyph.slot-glyph(v-if="rune !== undefined" :rune="rune")
+    GameIcon.slot-resist-shield(v-if="resist && rune !== undefined" name="shield")
     template(v-else-if="forming")
       div.slot-ghost(ref="ghost")
         RuneGlyph.slot-glyph(v-if="formRune !== undefined && formRune >= 0" :rune="formRune")
@@ -255,6 +268,37 @@ html.am-reduced .slot-warn.full
   animation: none
   opacity: 1
 
+// The earliest warning (§6.6a): a hand closing on her strength. An amber ring
+// standing just outside the plate (behind it, like the telegraph's glow), a
+// faint amber wash under the glyph, and the ×0.55 badge's shield at the
+// lower-left corner — the top-right is where the strength lesson's ✕ goes.
+// Nothing about it moves, reduced motion or not — and nothing fades in
+// either: a fade frozen by a pause would leave it invisible.
+.slot-resist
+  position: absolute
+  inset: -7%
+  border-radius: 30%
+  pointer-events: none
+  box-shadow: 0 0 0 3px var(--am-resist), 0 0 10px 2px var(--am-resist)
+.slot-resist-wash
+  position: absolute
+  inset: 0
+  border-radius: 25%
+  pointer-events: none
+  background: var(--am-resist)
+  opacity: 0.26
+.slot-resist-shield
+  position: absolute
+  left: -14%
+  bottom: -14%
+  width: 44%
+  height: 44%
+  color: var(--am-resist)
+  :deep(path)
+    stroke: var(--am-ink)
+    stroke-width: 4.5px
+    stroke-linejoin: round
+    paint-order: stroke fill
 // The forge's pop (§8.37): the rune has just risen out of this slot. A ring
 // of its light puffs off the plate and the plate gives one soft bounce —
 // "the slot is empty now", said once. One shot, mounted only while the forge

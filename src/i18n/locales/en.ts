@@ -145,6 +145,8 @@ export default {
     'emptySlot': 'Empty slot',
     'forming': 'Forming: {rune}',
     'weakness': '{rune} deals {n} damage to this opponent',
+    // …and what her STRENGTH pays (§6.6a): the rune she resists. {n} is "x0.55".
+    'strength': '{rune} deals only {n} damage to this opponent',
     'sound': 'Sound on or off',
     'spellbook': 'Spellbook',
     'hp': '{name}: {n} of {max} health'
@@ -594,6 +596,8 @@ export default {
     'vs': 'VS',
     'yourRunes': 'YOUR RUNES',
     'weakTo': 'WEAK TO',
+    // The strength chip (§6.6a), led by a small shield: the rune she resists.
+    'strongTo': 'RESISTS',
     'magic': 'MAGIC',
     'epithet': {
       'aurora': 'Keeper of the Runes',
@@ -740,5 +744,16 @@ export default {
     // The little star on a rune slot, for a stroke drawn well past the
     // recogniser's line. Spoken, because it is the reward itself.
     'perfectRune': 'Beautifully drawn!'
+  },
+
+  // ─── The strength lesson (story-spec §8.36a) ──────────────────────────────
+  //
+  // WORDLESS on screen: glyphs, a ✕ and a ✓, a ghost finger. `hint` is what a
+  // screen reader hears for the whole lesson — {rune} is the foe's strength,
+  // the rune NOT to end a spell with (its `rune.*` name).
+  'lesson': {
+    'strength': {
+      'hint': 'End your spell with another rune, not {rune}'
+    }
   }
 }

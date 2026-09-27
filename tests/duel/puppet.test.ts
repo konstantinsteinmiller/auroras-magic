@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { TQ_REF, faceOf, FACE } from '@/game/duel/puppet'
-import { lookFor, __recolour } from '@/game/duel/puppetBake'
+import { lookFor, __recolour, recolourRegions, blushOf, type RegionStats } from '@/game/duel/puppetBake'
 import { CHIBI_TQ, drawUnicorn, __chibiRig, type PoseState, type RigAnchors } from '@/game/duel/chars'
 import { AX, UX, GY } from '@/game/duel/config'
 import { FOES, FIRST_UMBRA, shadowOf, guardianOf } from '@/game/duel/foes'
@@ -149,5 +149,39 @@ describe('the recolour keeps the painting', () => {
     expect(d[16]).not.toBe(before[0])
     expect(d[16]! - d[18]!).toBeGreaterThan(0)
     expect([d[32], d[33], d[34]]).toEqual(INK)
+  })
+})
+
+// THE CHEEK OF A RECOLOURED UMBRA (art QA, 2026-09-27). Her blush was kept as
+// painted, so Briar and the dark Guardians wore Umbra's lilac cheek as a hard
+// purple patch. Her masks now carry a soft blush WEIGHT (red channel) over the
+// coat, and the cheek takes a rose made from the look's NEW coat.
+describe('a recoloured cheek is a rose of the new coat', () => {
+  const plum = { ls: 0.357, lmax: 0.44, cr: 0.35, cg: 0.254, mean: [0.444, 0.321, 0.497] as [number, number, number] }
+  const ST: RegionStats = { coat: plum, hair: null, horn: null, hoof: null }
+  const BROWN = [0x8a / 255, 0x5a / 255, 0x3c / 255] as const
+  // two pixels of Umbra's painted cheek: coat, then blush (label 1, weight 0 / 1)
+  const run = (weight: number): number[] => {
+    const d = new Uint8ClampedArray([126, 99, 136, 255, 158, 116, 147, 255])
+    const m = new Uint8ClampedArray([0, 50, 0, 255, weight, 50, 0, 255])
+    recolourRegions(d, 2, 1, m, ST, { key: 'b', coat: BROWN })
+    return [...d]
+  }
+  it('is rosier and lighter than the coat, and never lilac on brown', () => {
+    const d = run(255)
+    const coat = d.slice(0, 3), cheek = d.slice(4, 7)
+    expect(cheek[0]! - cheek[1]!).toBeGreaterThan(coat[0]! - coat[1]!) // rosier
+    expect(cheek[0]!).toBeGreaterThan(coat[0]!) // lighter in red
+    expect(cheek[0]!).toBeGreaterThan(cheek[2]!) // red over blue: not lilac
+  })
+  it('is only the coat where the mask carries no weight', () => {
+    const d = run(0)
+    // no rose laid on: the cheek is the new coat, lit as it was painted
+    expect(d[4]! - d[5]!).toBeLessThan(run(255)[4]! - run(255)[5]!)
+  })
+  it('takes its colour from the coat it sits on', () => {
+    const b = blushOf(BROWN), n = blushOf([0.24, 0.29, 0.51])
+    expect(b[0]).toBeGreaterThan(b[2]) // warm on brown
+    expect(n[2]).toBeGreaterThan(b[2]) // cooler on navy
   })
 })

@@ -113,6 +113,7 @@ export default {
     'emptySlot': 'Boş yuva',
     'forming': 'Oluşuyor: {rune}',
     'weakness': '{rune} bu rakibe {n} hasar verir',
+    'strength': '{rune} bu rakibe yalnızca {n} hasar verir',
     'sound': 'Sesi aç veya kapat',
     'spellbook': 'Büyü kitabı',
     'hp': '{name}: can {n}/{max}'
@@ -491,6 +492,7 @@ export default {
     'vs': 'VS',
     'yourRunes': 'RÜNLERİN',
     'weakTo': 'ZAAFI',
+    'strongTo': 'DİRENCİ',
     'magic': 'BÜYÜ',
     'epithet': {
       'aurora': 'Rünlerin Koruyucusu',
@@ -600,5 +602,11 @@ export default {
   'help': {
     'auroraLine': 'Gel — birlikte çizelim!',
     'perfectRune': 'Çok güzel çizdin!'
+  },
+
+  'lesson': {
+    'strength': {
+      'hint': 'Büyünü {rune} ile değil, başka bir rünle bitir'
+    }
   }
 }

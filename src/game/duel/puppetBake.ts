@@ -607,11 +607,33 @@ export type RegionStat = Stat
 /** A painted pose's regions, as its mask labels them (`frameRig.ts`). */
 export interface RegionStats { coat: Stat | null; hair: Stat | null; horn: Stat | null; hoof: Stat | null }
 
+/** A warm rose, the cheek colour every blush leans toward. */
+const ROSE: RGB = [1, 0.5, 0.56]
+/** How far a full-weight cheek goes from the coat toward its blush. */
+const BLUSH_AMT = 0.8
+/**
+ * A cheek's blush for coat `c`: halfway from the coat to a warm rose, so it
+ * stays the coat's own (a rosy brown on brown, a rose-mauve on navy) while
+ * always lighter and rosier than it — never the painted strip's lilac.
+ */
+export const blushOf = (c: RGB): RGB => [c[0] + (ROSE[0] - c[0]) * 0.5, c[1] + (ROSE[1] - c[1]) * 0.5, c[2] + (ROSE[2] - c[2]) * 0.5]
+/** Lay blush `b` over an already recoloured pixel by weight `w`, keeping a
+ *  little of the painting's own light (its brush, its shade). */
+const blushPx = (d: Uint8ClampedArray, i: number, b: RGB, w: number): void => {
+  const r = d[i]!, g = d[i + 1]!, bl = d[i + 2]!
+  const shade = Math.min(1.12, Math.max(0.82, Math.sqrt(luma(r, g, bl) / Math.max(0.05, luma(b[0] * 255, b[1] * 255, b[2] * 255)))))
+  d[i] = r + (Math.min(255, b[0] * 255 * shade) - r) * w
+  d[i + 1] = g + (Math.min(255, b[1] * 255 * shade) - g) * w
+  d[i + 2] = bl + (Math.min(255, b[2] * 255 * shade) - bl) * w
+}
+
 /**
  * Recolour one painted POSE (`frameRig.ts`) by its region labels — the green
  * channel of its mask, 50 per step: 1 coat, 2 hair, 3 horn, 4 hoof, 5 blush, 0 as
- * painted (eyes, blush, mouth, inner ear) — each region the way this module
+ * painted (eyes, mouth, inner ear) — each region the way this module
  * recolours that piece of a set, measured against the whole strip's light.
+ * The RED channel, where a mask has one (Umbra's), is a soft blush weight
+ * over the coat: the cheek takes `blushOf` the new coat by that much.
  */
 export const recolourRegions = (d: Uint8ClampedArray, W: number, H: number, mask: Uint8ClampedArray, st: RegionStats, look: Look): void => {
   LUM = null
@@ -620,11 +642,18 @@ export const recolourRegions = (d: Uint8ClampedArray, W: number, H: number, mask
     const coat = look.coat && st.coat ? { to: look.coat, lite: liteOf(look.coat), gain: gainable(st.coat, look.coat) } : null
     const hoof = look.hoof && st.hoof ? { to: look.hoof, lite: liteOf(look.hoof), gain: gainable(st.hoof, look.hoof) } : null
     const hornLite: RGB | null = look.horn ? [look.horn[0] + (1 - look.horn[0]) * 0.5, look.horn[1] + (1 - look.horn[1]) * 0.5, look.horn[2] + (1 - look.horn[2]) * 0.5] : null
+    const rose = coat ? blushOf(coat.to) : null
     for (let i = 0; i < d.length; i += 4) {
       if (!d[i + 3]) continue
       const lab = Math.round(mask[i + 1]! / 50)
-      if (lab === 1 && coat) coat.gain ? gainPx(d, i, st.coat!, coat.to, 1) : transfer(d, i, st.coat!, coat.to, coat.lite, 1)
-      else if (lab === 5 && coat) {
+      if (lab === 1 && coat) {
+        coat.gain ? gainPx(d, i, st.coat!, coat.to, 1) : transfer(d, i, st.coat!, coat.to, coat.lite, 1)
+        // A soft blush weight (the mask's red; Umbra's masks): the cheek
+        // takes a rose made from the NEW coat — her own lilac laid on a
+        // brown or navy coat read as a bruise.
+        const bw = mask[i]!
+        if (bw) blushPx(d, i, rose!, (bw / 255) * BLUSH_AMT)
+      } else if (lab === 5 && coat) {
         // The blush: coat, with its own pink laid back over the new coat —
         // kept as painted, a cream-pink cheek glowed on a dark skin, with hard
         // edges where its region ended.
