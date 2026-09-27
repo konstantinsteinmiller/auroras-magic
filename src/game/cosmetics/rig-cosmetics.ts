@@ -1100,7 +1100,7 @@ export const ownManeColours = (): readonly [string, string] => {
   return pal ? [pal[3], pal[4]] : ['#ffcc33', '#ffee99']
 }
 
-type Hooks = Pick<PoseState, 'afterHead' | 'afterMane' | 'beforeTorso' | 'afterTorso' | 'afterRig' | 'skin' | 'mane'>
+type Hooks = Pick<PoseState, 'afterHead' | 'headItem' | 'afterMane' | 'beforeTorso' | 'afterTorso' | 'afterRig' | 'skin' | 'mane'>
 
 /** The last composed hooks, and what they were composed from. */
 let hooks: Hooks | null = null
@@ -1122,6 +1122,7 @@ const composeHooks = (eq: readonly number[], swatch: number, still: boolean): Ho
   const mane = maneWorn(eq, swatch)
   return {
     afterHead: head ? HEAD_DRAW[head] : undefined,
+    headItem: head ?? undefined,
     // The near wing lies over the mane; the neck item goes on last, on top.
     afterMane: near || necklace
       ? (g: G2D, a: RigAnchors): void => {

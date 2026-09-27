@@ -2313,7 +2313,11 @@ neck is the chest: on a painted pose the collar is now the mascot's own THROAT
 the head and half by the body, with the collar set 13.5 up the neck so every
 neck item lands on it. Checked with a close-up harness drawing the vector
 landmarks over the painted head (`cos-close-entry.ts`), then in the app (VS
-screen and duel).
+screen and duel). Then (owner: "fix it then"): the Acorn Cap takes its own seat
+(`HEAD_ITEM_FITS`, keyed by the hooks' new `headItem`) further back, so the
+mascot's near ear stands in front of its brim as the cap was designed; and a
+knocked-out pose lets the head carry more of the collar (`NECK_HEAD` 0.45
+standing → 0.75 lying), so the bow sits under her resting cheek instead of on it.
 
 ## 2026-09-25 — the traced pictograms and props, re-rolled
 

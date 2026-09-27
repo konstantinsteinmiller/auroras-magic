@@ -140,6 +140,9 @@ export interface PoseState {
   onKey?: boolean
   /** Called inside the head group (after the forelock): head-slot cosmetics. */
   afterHead?: (g: G2D) => void
+  /** Which head item `afterHead` draws (its slug), for its own seat on a
+   *  painted head (`HEAD_ITEM_FITS`). */
+  headItem?: string
   /** Back-slot items BEHIND the body (a wing's far layer), in the rig's own
    *  space inside the rearing frame, before the torso (§9.7). */
   beforeTorso?: (g: G2D, a: RigAnchors) => void
@@ -273,8 +276,29 @@ const MASCOT_NECK = {
   chest: [(318 - 230) / 2.36, (330 - 436.2) / 2.36],
   poll: [(304 - 230) / 2.36, (195 - 436.2) / 2.36]
 } as const
-/** Tuning seam: the head items' fit on the painted head. */
-export const __headItemsFit = (m: readonly number[]): void => { HEAD_ITEMS_FIT = m }
+/**
+ * An item's own seat on the painted head, where the common fit is not enough:
+ * the Acorn Cap is worn BEHIND the near ear, and the mascot's ear stands
+ * further back than the vector head's, so the cap goes back with it and the
+ * ear shows in front of the brim.
+ */
+const HEAD_ITEM_FITS: Record<string, readonly number[]> = {
+  acornCap: [1.06, 0, 0, 1.06, -8.5, -2.8]
+}
+/** Tuning seam: the head items' fit on the painted head (one item's, with `slug`). */
+export const __headItemsFit = (m: readonly number[], slug?: string): void => {
+  if (slug) HEAD_ITEM_FITS[slug] = m
+  else HEAD_ITEMS_FIT = m
+}
+/**
+ * How much of a neck item's seat the HEAD carries (the rest the body), standing
+ * and knocked out: standing, the throat is under the jaw between the two; lying,
+ * the head rests on the forelegs and hides the neck, and the collar shows at
+ * the jaw's back, beside the chest.
+ */
+let NECK_HEAD = [0.45, 0.75] as [number, number]
+/** Tuning seam: the neck items' head weight, standing and knocked out. */
+export const __neckFit = (stand: number, down: number): void => { NECK_HEAD = [stand, down] }
 /** Prism's cycling mane and horn, in hue steps (as the puppet bakes them). */
 const PRISM_STEPS = 8
 interface DressMemo { d: FrameDress | null; foe: FoeDef | undefined; skin: FoePalette | undefined; mane: PoseState['mane'] | null; prism: string; rb: number }
@@ -1336,7 +1360,8 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
       const top = HEAD_FM.transformPoint(new DOMPoint(px, py))
       const bot = BODY_FM.transformPoint(new DOMPoint(qx, qy))
       const inv = BODY_FM.inverse()
-      const w = inv.transformPoint(new DOMPoint(pb.x + (ph.x - pb.x) * 0.45, pb.y + (ph.y - pb.y) * 0.45))
+      const hw = NECK_HEAD[0] + (NECK_HEAD[1] - NECK_HEAD[0]) * clamp(loseR / 0.6, 0, 1)
+      const w = inv.transformPoint(new DOMPoint(pb.x + (ph.x - pb.x) * hw, pb.y + (ph.y - pb.y) * hw))
       const a = inv.transformPoint(top), b = inv.transformPoint(bot)
       const dl = hypot(a.x - b.x, a.y - b.y) || 1
       anc.neckDir[0] = (a.x - b.x) / dl
@@ -1646,7 +1671,10 @@ export const drawUnicorn = (ctx: G2D, x: number, y: number, side: number, st: Po
   // ride every pose and inherit the head's scale for free.
   if (st.afterHead) {
     g.save()
-    if (FRAMES) g.transform(HEAD_ITEMS_FIT[0]!, HEAD_ITEMS_FIT[1]!, HEAD_ITEMS_FIT[2]!, HEAD_ITEMS_FIT[3]!, HEAD_ITEMS_FIT[4]!, HEAD_ITEMS_FIT[5]!)
+    if (FRAMES) {
+      const fit = HEAD_ITEM_FITS[st.headItem ?? ''] ?? HEAD_ITEMS_FIT
+      g.transform(fit[0]!, fit[1]!, fit[2]!, fit[3]!, fit[4]!, fit[5]!)
+    }
     st.afterHead(g)
     g.restore()
   }
